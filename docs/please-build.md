@@ -32,7 +32,7 @@ This will generate a `plzconfig` file in the root directory, which will be used 
 
 Edit the `plzconfig` file to configure Please Build according to your project's requirements. Below is a sample `plzconfig` configuration:
 
-```
+```c
 [please]
 version = 17.0.0
 selfupdate = true
@@ -48,7 +48,7 @@ For more details on the available configuration options, refer to the [official 
 
 Please Build uses build rules to specify how to build, test, and deploy your project. Create a `BUILD.plz` file in the appropriate directory and define your build rules. For example:
 
-```
+```c
 python_binary(
     name = "main",
     main = "main.py",
@@ -67,7 +67,7 @@ For more information on build rules and how to customize them, check out the [bu
 
 Please Build supports many popular testing frameworks. To add a test rule to your project, include it in the `BUILD.plz` file. Here's an example of a Python test rule:
 
-```
+```c
 python_test(
     name = "tests",
     srcs = glob(["*_test.py"]),
@@ -85,7 +85,7 @@ plz test
 
 Integrating Please Build with continuous integration (CI) services is simple. Add the following configuration to your CI service's configuration file (e.g., `.travis.yml` for Travis CI):
 
-```
+```yaml
 language: minimal
 
 install:
