@@ -1,6 +1,6 @@
-# Tech Docs
+# Technology Docs
 
-Welcome to my GitHub page! This is a place where I share resources and documentation about various technologies, including Terraform, Docker, AWS, Unreal Engine, Quantum Computing, and Artificial Intelligence. Feel free to explore the links below to learn more about each topic.
+Welcome to my GitHub page! This is a place where I share resources and documentation about various technologies. Feel free to explore the links below to learn more about each topic.
 
 ## Table of Contents
 
