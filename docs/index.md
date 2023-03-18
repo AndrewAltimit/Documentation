@@ -6,3 +6,4 @@
 - [Unreal Engine](unreal.html)
 - [Quantum Computing](quantumcomputing.html)
 - [Artificial Intelligence](ai.html)
+- [Branching Strategies](branching.html)
