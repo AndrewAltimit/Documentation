@@ -2,6 +2,15 @@
 
 Amazon Web Services (AWS) is a comprehensive cloud services platform that offers a wide range of services to help developers build, deploy, and manage applications. AWS provides everything from compute and storage resources to machine learning and analytics services.
 
+## Best Practices
+
+- **Security**: Implement the principle of least privilege with IAM, use encryption, and follow AWS security best practices.
+- **Cost Optimization**: Leverage auto-scaling, spot instances, and other cost-saving techniques.
+- **Backup and Recovery**: Regularly create and test backups to ensure data durability and recoverability.
+- **Monitoring and Logging**: Use Amazon CloudWatch, AWS X-Ray, and other monitoring tools to track application performance and diagnose issues.
+- **Performance**: Optimize performance by using caching, Content Delivery Networks (CDNs), and other performance-enhancing techniques.
+- **Infrastructure as Code**: Use AWS CloudFormation or Terraform to manage your infrastructure as code and maintain version control.
+
 ## Services
 
 ### Compute
@@ -88,15 +97,6 @@ Amazon Web Services (AWS) is a comprehensive cloud services platform that offers
 - **AWS DataSync**: Transfer data to and from AWS quickly and securely.
 - **AWS Snow Family**: Use physical devices to transport large amounts of data to and from AWS.
 
-## Best Practices
-
-- **Security**: Implement the principle of least privilege with IAM, use encryption, and follow AWS security best practices.
-- **Cost Optimization**: Leverage auto-scaling, spot instances, and other cost-saving techniques.
-- **Backup and Recovery**: Regularly create and test backups to ensure data durability and recoverability.
-- **Monitoring and Logging**: Use Amazon CloudWatch, AWS X-Ray, and other monitoring tools to track application performance and diagnose issues.
-- **Performance**: Optimize performance by using caching, Content Delivery Networks (CDNs), and other performance-enhancing techniques.
-- **Infrastructure as Code**: Use AWS CloudFormation or Terraform to manage your infrastructure as code and maintain version control.
-
 ## Common Architectural Solutions
 
 ### Serverless Architecture
@@ -146,7 +146,6 @@ Amazon Web Services (AWS) is a comprehensive cloud services platform that offers
 - Extend your on-premises data center to AWS using AWS Direct Connect or VPN connections.
 - Use AWS Storage Gateway and AWS Outposts for hybrid cloud storage and compute solutions.
 - Leverage AWS services like Amazon RDS, Amazon WorkSpaces, and Amazon Connect to extend your on-premises solutions to the cloud.
-
 
 ## Additional Resources and Tools
 
