@@ -52,7 +52,61 @@ Cons:
 - Less efficient: VMs require more storage and resources than containers, as each VM includes its own OS and duplicated libraries.
 - Inconsistent deployment: VMs do not inherently encapsulate application dependencies and configurations, which can lead to inconsistencies across environments.
 
-## Dockerfiles
+# Docker
+Docker is a platform for developing, shipping, and running applications via containerization technology which packages applications and their dependencies into lightweight and portable containers that can run consistently across different environments. Docker provides tools for building and managing containers, including a Dockerfile syntax for defining container images, a command-line interface for managing containers, and a registry for storing and sharing container images.
+
+## Installing Docker
+
+Follow the official Docker documentation to install Docker on your platform:
+
+- [Install Docker on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
+- [Install Docker on Debian](https://docs.docker.com/engine/install/debian/)
+- [Install Docker on Fedora](https://docs.docker.com/engine/install/fedora/)
+- [Install Docker on CentOS](https://docs.docker.com/engine/install/centos/)
+- [Install Docker on Windows](https://docs.docker.com/docker-for-windows/install/)
+- [Install Docker on macOS](https://docs.docker.com/docker-for-mac/install/)
+
+## Common Docker CLI Commands
+
+### Images
+
+- List images: `docker images`
+- Pull an image: `docker pull <image>:<tag>`
+- Remove an image: `docker rmi <image>:<tag>`
+
+### Containers
+
+- List running containers: `docker ps`
+- List all containers: `docker ps -a`
+- Run a container: `docker run -it --rm --name <container_name> <image>:<tag>`
+- Stop a container: `docker stop <container_name>`
+- Remove a container: `docker rm <container_name>`
+
+### Container Logs
+
+- View container logs: `docker logs <container_name>`
+
+### Executing Commands Inside Containers
+
+- Execute a command inside a running container: `docker exec -it <container_name> <command>`
+
+### Building Dockerfiles
+
+- Build an image from a Dockerfile: `docker build -t <image>:<tag> .`
+- Push an image to a registry: `docker push <image>:<tag>`
+
+### Docker Compose
+
+- Start a multi-container application: `docker-compose up -d`
+- Stop a multi-container application: `docker-compose down`
+
+### Docker Volumes
+
+- Create a volume: `docker volume create <volume_name>`
+- List volumes: `docker volume ls`
+- Remove a volume: `docker volume rm <volume_name>`
+
+## Writing Dockerfiles
 A Dockerfile is a script containing instructions to build a Docker image. It automates the process of creating a container by specifying the base image, configuration, application code, and dependencies. This documentation will cover the basics of writing a Dockerfile, its syntax, and using multistage builds.
 
 ### Dockerfile Example
