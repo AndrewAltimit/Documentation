@@ -1,19 +1,19 @@
 # Containers
 Containers provide a consistent environment for applications by packaging software, dependencies, and configurations into a single, portable unit. However, there are some cases where this consistency might be compromised, particularly when dealing with kernel differences. Here, we will discuss when containers provide consistency and when they do not.
 
-**When Containers Provide Consistency:**
+### Container Consistency
 
-- Application dependencies: Containers bundle all required libraries and dependencies, ensuring that the application runs consistently across different environments.
-- Configuration: Containers encapsulate the application's configuration, making it easy to reproduce and share across teams and environments.
-- Isolation: Containers provide process isolation, so applications running in separate containers won't interfere with one another.
-- Portability: Containers can run on any system with container runtime support, regardless of the host's underlying hardware or operating system.
+- **Application dependencies:** Containers bundle all required libraries and dependencies, ensuring that the application runs consistently across different environments.
+- **Configuration:** Containers encapsulate the application's configuration, making it easy to reproduce and share across teams and environments.
+- **Isolation:** Containers provide process isolation, so applications running in separate containers won't interfere with one another.
+- **Portability:** Containers can run on any system with container runtime support, regardless of the host's underlying hardware or operating system.
 
-**When Containers are Inconsistent:**
+### Container Inconsistency:
 
-- Kernel differences: Containers share the host's kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.
-- Host-specific resources: Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.
-- Resource limits and constraints: Containers can be limited in terms of resources, such as CPU, memory, or I/O. These limits may vary between host systems and can impact the consistency of container performance.
-- Platform-specific features: Some features, such as hardware acceleration, are platform-specific and may not be consistently available across different host systems. As a result, containers relying on these features may experience inconsistent behavior.
+- **Kernel differences:** Containers share the host's kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.
+- **Host-specific resources:** Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.
+- **Resource limits and constraints:** Containers can be limited in terms of resources, such as CPU, memory, or I/O. These limits may vary between host systems and can impact the consistency of container performance.
+- **Platform-specific features:** Some features, such as hardware acceleration, are platform-specific and may not be consistently available across different host systems. As a result, containers relying on these features may experience inconsistent behavior.
 
 While containers provide a high level of consistency for application dependencies, configuration, isolation, and portability, they can be susceptible to inconsistencies due to kernel differences, host-specific resources, resource limits, and platform-specific features. To minimize these inconsistencies, it is essential to understand the requirements of your application and ensure that the host systems are compatible with the desired container environment.
 
@@ -24,33 +24,33 @@ Containers are lightweight, resource-efficient, and portable, making them suitab
 
 Pros:
 
-- Lightweight: Containers share the host OS kernel, making them lightweight compared to VMs.
-- Fast startup: Containers can start up in seconds, providing faster application deployment and scaling.
-- Resource efficiency: Containers consume fewer resources, allowing more applications to run on a single host.
-- Portability: Containers package application code, dependencies, and configurations, enabling consistent deployment across environments.
-- Isolation: Containers provide process isolation, which can help in running multiple applications without interference.
+- **Lightweight:** Containers share the host OS kernel, making them lightweight compared to VMs.
+- **Fast startup:** Containers can start up in seconds, providing faster application deployment and scaling.
+- **Resource efficiency:** Containers consume fewer resources, allowing more applications to run on a single host.
+- **Portability:** Containers package application code, dependencies, and configurations, enabling consistent deployment across environments.
+- **Isolation:** Containers provide process isolation, which can help in running multiple applications without interference.
 
 Cons:
 
-- Kernel dependency: Containers share the host's kernel, which can lead to inconsistencies due to kernel differences and may limit cross-platform compatibility.
-- Security: Containers have a smaller isolation boundary compared to VMs, which could lead to potential security risks if not properly configured.
-- Limited support for certain applications: Containers are less suited for running applications that require extensive customization of the underlying OS or kernel modifications.
+- **Kernel dependency:** Containers share the host's kernel, which can lead to inconsistencies due to kernel differences and may limit cross-platform compatibility.
+- **Security:** Containers have a smaller isolation boundary compared to VMs, which could lead to potential security risks if not properly configured.
+- **Limited support for certain applications:** Containers are less suited for running applications that require extensive customization of the underlying OS or kernel modifications.
 
 ### Virtual Machines
 
 Pros:
 
-- Strong isolation: VMs provide strong isolation between applications, as each VM runs its own OS, which enhances security.
-- Full OS support: VMs can run multiple instances of various operating systems, including different versions and distributions, providing greater flexibility.
-- Hardware emulation: VMs can emulate specific hardware configurations, making it possible to run legacy or platform-specific applications.
-- Mature ecosystem: VMs have been around for a longer time and have a mature ecosystem, with a wide range of management and monitoring tools available.
+- **Strong isolation:** VMs provide strong isolation between applications, as each VM runs its own OS, which enhances security.
+- **Full OS support:** VMs can run multiple instances of various operating systems, including different versions and distributions, providing greater flexibility.
+- **Hardware emulation:** VMs can emulate specific hardware configurations, making it possible to run legacy or platform-specific applications.
+- **Mature ecosystem:** VMs have been around for a longer time and have a mature ecosystem, with a wide range of management and monitoring tools available.
 
 Cons:
 
-- Resource-intensive: VMs run a full OS stack, which consumes more resources than containers, leading to lower host density.
-- Slow startup: VMs can take minutes to start, which can impact the speed of application deployment and scaling.
-- Less efficient: VMs require more storage and resources than containers, as each VM includes its own OS and duplicated libraries.
-- Inconsistent deployment: VMs do not inherently encapsulate application dependencies and configurations, which can lead to inconsistencies across environments.
+- **Resource-intensive:** VMs run a full OS stack, which consumes more resources than containers, leading to lower host density.
+- **Slow startup:** VMs can take minutes to start, which can impact the speed of application deployment and scaling.
+- **Less efficient:** VMs require more storage and resources than containers, as each VM includes its own OS and duplicated libraries.
+- **Inconsistent deployment:** VMs do not inherently encapsulate application dependencies and configurations, which can lead to inconsistencies across environments.
 
 # Docker
 Docker is a platform for developing, shipping, and running applications via containerization technology which packages applications and their dependencies into lightweight and portable containers that can run consistently across different environments. Docker provides tools for building and managing containers, including a Dockerfile syntax for defining container images, a command-line interface for managing containers, and a registry for storing and sharing container images.
