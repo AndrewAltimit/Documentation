@@ -1,21 +1,6 @@
 # Containers
-Containers provide a consistent environment for applications by packaging software, dependencies, and configurations into a single, portable unit. However, there are some cases where this consistency might be compromised, particularly when dealing with kernel differences. Here, we will discuss when containers provide consistency and when they do not.
 
-### Container Consistency
-
-- **Application dependencies:** Containers bundle all required libraries and dependencies, ensuring that the application runs consistently across different environments.
-- **Configuration:** Containers encapsulate the application's configuration, making it easy to reproduce and share across teams and environments.
-- **Isolation:** Containers provide process isolation, so applications running in separate containers won't interfere with one another.
-- **Portability:** Containers can run on any system with container runtime support, regardless of the host's underlying hardware or operating system.
-
-### Container Inconsistency
-
-- **Kernel differences:** Containers share the host's kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.
-- **Host-specific resources:** Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.
-- **Resource limits and constraints:** Containers can be limited in terms of resources, such as CPU, memory, or I/O. These limits may vary between host systems and can impact the consistency of container performance.
-- **Platform-specific features:** Some features, such as hardware acceleration, are platform-specific and may not be consistently available across different host systems. As a result, containers relying on these features may experience inconsistent behavior.
-
-While containers provide a high level of consistency for application dependencies, configuration, isolation, and portability, they can be susceptible to inconsistencies due to kernel differences, host-specific resources, resource limits, and platform-specific features. To minimize these inconsistencies, it is essential to understand the requirements of your application and ensure that the host systems are compatible with the desired container environment.
+Containers provide a consistent environment for applications by packaging software, dependencies, and configurations into a single, portable unit. However, there are some cases where this consistency might be compromised, particularly when dealing with kernel differences.
 
 ## Containers vs Virtual Machines
 
@@ -52,6 +37,22 @@ Cons:
 - **Slow startup:** VMs can take minutes to start, which can impact the speed of application deployment and scaling.
 - **Less efficient:** VMs require more storage and resources than containers, as each VM includes its own OS and duplicated libraries.
 - **Inconsistent deployment:** VMs do not inherently encapsulate application dependencies and configurations, which can lead to inconsistencies across environments.
+
+### Container Consistency
+
+- **Application dependencies:** Containers bundle all required libraries and dependencies, ensuring that the application runs consistently across different environments.
+- **Configuration:** Containers encapsulate the application's configuration, making it easy to reproduce and share across teams and environments.
+- **Isolation:** Containers provide process isolation, so applications running in separate containers won't interfere with one another.
+- **Portability:** Containers can run on any system with container runtime support, regardless of the host's underlying hardware or operating system.
+
+### Container Inconsistency
+
+- **Kernel differences:** Containers share the host's kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.
+- **Host-specific resources:** Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.
+- **Resource limits and constraints:** Containers can be limited in terms of resources, such as CPU, memory, or I/O. These limits may vary between host systems and can impact the consistency of container performance.
+- **Platform-specific features:** Some features, such as hardware acceleration, are platform-specific and may not be consistently available across different host systems. As a result, containers relying on these features may experience inconsistent behavior.
+
+While containers provide a high level of consistency for application dependencies, configuration, isolation, and portability, they can be susceptible to inconsistencies due to kernel differences, host-specific resources, resource limits, and platform-specific features. To minimize these inconsistencies, it is essential to understand the requirements of your application and ensure that the host systems are compatible with the desired container environment.
 
 # Docker
 
