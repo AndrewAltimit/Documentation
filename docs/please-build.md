@@ -1,4 +1,4 @@
-# Please Build Documentation
+# Please Build
 
 Please Build is a versatile build automation tool that simplifies the process of building, testing, and deploying your projects. This documentation provides you with a step-by-step guide to getting started with Please Build and integrating it into your workflow.
 
