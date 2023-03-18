@@ -1,8 +1,4 @@
-Terraform
-========================================
-
-Overview
---------
+# Terraform
 
 Terraform is an open-source infrastructure-as-code (IaC) tool developed by HashiCorp. It enables you to define and manage your infrastructure using a declarative language (HCL). Terraform's goal is to manage resources across different cloud providers and on-premises environments in a consistent and efficient manner.
 
@@ -15,14 +11,13 @@ In this documentation, we will go through the fundamentals of Terraform while wo
 * Modules
 
 
-1\. Getting Started
-------------------------------------------
+## Getting Started
 
-### 1.1. Configuring AWS Credentials
+### Configuring AWS Credentials
 
 To use Terraform with AWS, you will need to configure your AWS credentials. There are several methods to provide AWS credentials to Terraform, but the recommended approach is to use the AWS CLI configuration file (`~/.aws/credentials`). Install the [AWS CLI](https://aws.amazon.com/cli/) and run `aws configure` to set up your credentials.
 
-### 1.2. Initializing a Terraform Project
+### Initializing a Terraform Project
 
 Create a new directory for your Terraform project and navigate to it:
 
@@ -55,10 +50,9 @@ terraform init
 
 This command downloads the required provider plugins and sets up the backend for storing the Terraform state.
 
-2\. Creating and Managing Resources
------------------------------------
+## Creating and Managing Resources
 
-### 2.1. Creating an Amazon S3 Bucket
+### Creating an Amazon S3 Bucket
 
 Let's create an Amazon S3 bucket as an example resource. Add the following code to your `main.tf` file:
 
@@ -79,7 +73,7 @@ terraform apply
 
 Terraform will show you a plan of the changes to be made and prompt you to confirm. Type `yes` and press Enter to proceed. Once the S3 bucket is created, you should see it in the [AWS S3 Management Console](https://s3.console.aws.amazon.com/).
 
-### 2.2. Updating and Destroying Resources
+### Updating and Destroying Resources
 
 To update a resource, modify its configuration in your `main.tf` file and run `terraform apply` again. For example, change the `acl` of the S3 bucket to "public-read":
 
@@ -100,12 +94,11 @@ terraform destroy
 
 Terraform will show you a plan of the resources to be destroyed and prompt you to confirm. Type `yes` and press Enter to proceed. The S3 bucket will be deleted.
 
-3\. Using Variables
---------------------------------
+## Using Variables
 
 Variables in Terraform allow you to define reusable and customizable values for your configurations. This section demonstrates how to use variables in your Terraform project.
 
-### 3.1. Defining Variables
+### Defining Variables
 
 Create a new file named `variables.tf`:
 
@@ -135,7 +128,7 @@ variable "bucket_acl" {
 
 These variable definitions include a description, type, and optional default value.
 
-### 3.2. Using Variables in Configurations
+### Using Variables in Configurations
 
 Update your `main.tf` file to use the defined variables:
 
@@ -150,7 +143,7 @@ resource "aws_s3_bucket" "example_bucket" {
 }
 ```
 
-### 3.3. Providing Variable Values
+### Providing Variable Values
 
 Create a new file named `terraform.tfvars`:
 
@@ -166,12 +159,11 @@ bucket_name = "my-example-bucket-terraform"
 
 Now, when you run `terraform apply`, Terraform will use the provided variable values from `terraform.tfvars`.
 
-4\. Outputs and Remote State Management
----------------------------------------
+## Outputs and Remote State Management
 
 Outputs in Terraform are used to display specific values from your configuration after it is applied.
 
-### 4.1. Defining Outputs
+### Defining Outputs
 
 Create a new file named `outputs.tf`:
 
@@ -190,7 +182,7 @@ output "bucket_arn" {
 
 After applying your configuration with `terraform apply`, the output value will be displayed.
 
-### 4.2. Remote State Management
+### Remote State Management
 
 By default, Terraform stores the state of your infrastructure in a local file named `terraform.tfstate`. To store the state remotely and enable collaboration, you can use remote state backends like Amazon S3.
 
@@ -216,12 +208,11 @@ terraform init
 
 Terraform will prompt you to confirm the migration of the local state to the remote backend. Type `yes` and press Enter to proceed. From now on, Terraform will store the state in the specified S3 bucket.
 
-5\. Modules
-------------------------
+## Modules
 
 Modules in Terraform are self-contained, reusable packages of Terraform configurations. They allow you to organize your infrastructure into smaller, maintainable units and promote the reuse of common configurations.
 
-### 5.1. Creating a Module
+### Creating a Module
 
 Create a new directory named `modules` in your Terraform project and create a subdirectory named `s3_bucket`:
 
@@ -255,7 +246,7 @@ variable "bucket_acl" {
 }
 ```
 
-### 5.2. Using a Module in Your Configuration
+### Using a Module in Your Configuration
 
 Update your `main.tf` file in the root directory of your Terraform project to use the `s3_bucket` module:
 
@@ -273,7 +264,7 @@ module "example_bucket" {
 
 Now, when you run `terraform apply`, Terraform will use the `s3_bucket` module to create the S3 bucket.
 
-### 5.3. Module Outputs
+### Module Outputs
 
 To use the output values from a module, you need to define them in the module configuration. Add the following output definition to `modules/s3_bucket/outputs.tf`:
 
