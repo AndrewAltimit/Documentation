@@ -25,7 +25,7 @@ Terraform is an infrastructure-as-code (IAC) tool that allows you to manage your
 - [Terraform Best Practices](https://www.terraform-best-practices.com/)
 
 ### Docker
-**[Andrew's Notes](docker.html)**
+**[Andrew's Notes](docs/docker.html)**
 
 Docker is an open-source platform that automates the deployment, scaling, and management of applications using containers. Check out the following resources for more information on Docker:
 
@@ -34,7 +34,7 @@ Docker is an open-source platform that automates the deployment, scaling, and ma
 - [Docker Compose Tutorial](#placeholder-link)
 
 ### AWS
-**[Andrew's Notes](aws.html)**
+**[Andrew's Notes](docs/aws.html)**
 
 Amazon Web Services (AWS) is a comprehensive cloud computing platform offering a variety of services for computing, storage, databases, analytics, and more. Explore the following links to learn about AWS:
 
@@ -43,7 +43,7 @@ Amazon Web Services (AWS) is a comprehensive cloud computing platform offering a
 - [AWS Certification Guide](#placeholder-link)
 
 ### Unreal Engine
-**[Andrew's Notes](unreal.html)**
+**[Andrew's Notes](docs/unreal.html)**
 
 Unreal Engine is a powerful game engine and development platform used for creating cutting-edge games and interactive experiences. Find resources on Unreal Engine below:
 
@@ -52,7 +52,7 @@ Unreal Engine is a powerful game engine and development platform used for creati
 - [Unreal Engine Marketplace](#placeholder-link)
 
 ### Quantum Computing
-**[Andrew's Notes](quantumcomputing.html)**
+**[Andrew's Notes](docs/quantumcomputing.html)**
 
 Quantum computing is an emerging field that leverages the principles of quantum mechanics to process information. Dive into the world of quantum computing with these resources:
 
