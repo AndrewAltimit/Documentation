@@ -11,7 +11,41 @@ Amazon Web Services (AWS) is a comprehensive cloud services platform that offers
 - **Performance**: Optimize performance by using caching, Content Delivery Networks (CDNs), and other performance-enhancing techniques.
 - **Infrastructure as Code**: Use AWS CloudFormation or Terraform to manage your infrastructure as code and maintain version control.
 
-## Services
+## Resources and Tools
+
+### Documentation
+
+- [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
+- [AWS Architecture Center](https://aws.amazon.com/architecture/)
+- [AWS Whitepapers](https://aws.amazon.com/whitepapers/)
+- [AWS Documentation](https://aws.amazon.com/documentation/)
+
+### Getting Started
+
+- [AWS Free Tier](https://aws.amazon.com/free/): Get started with AWS using the free tier, which includes limited access to many AWS services.
+- [AWS Training and Certification](https://aws.amazon.com/training/): Access AWS training resources and certification programs to build and validate your AWS knowledge.
+- [AWS Blog](https://aws.amazon.com/blogs/aws/): Stay up to date with AWS news, announcements, and best practices.
+- [AWS Marketplace](https://aws.amazon.com/marketplace/): Find and deploy pre-built software solutions on AWS.
+
+### SDKs and Libraries
+
+- [AWS SDKs](https://aws.amazon.com/tools/): Use AWS SDKs to interact with AWS services in your preferred programming language.
+- [AWS Amplify](https://aws.amazon.com/amplify/): Utilize the Amplify library to simplify building cloud-powered mobile and web applications.
+- [AWS CDK](https://aws.amazon.com/cdk/): Use the Cloud Development Kit (CDK) to define cloud infrastructure using familiar programming languages.
+
+### AWS Partner Network
+
+Leverage the [AWS Partner Network (APN)](https://aws.amazon.com/partners/) to find and collaborate with AWS Consulting and Technology Partners who offer a wide range of solutions and expertise to help you get the most out of AWS.
+
+### Community
+
+- [AWS Developer Forums](https://forums.aws.amazon.com/index.jspa): Engage with the AWS developer community to ask questions and share knowledge.
+- [AWS User Groups](https://aws.amazon.com/usergroups/): Connect with other AWS users at local events and meetups.
+- [AWS re:Invent](https://reinvent.awsevents.com/): Attend AWS's annual global conference for learning, networking, and discovering new services and features.
+
+Remember to keep exploring AWS resources and documentation, as new services and features are continuously being added to the platform. The AWS ecosystem is constantly evolving, and staying up-to-date with the latest advancements will help you get the most out of your AWS experience.
+
+## List of Services
 
 ### Compute
 
@@ -146,38 +180,4 @@ Amazon Web Services (AWS) is a comprehensive cloud services platform that offers
 - Extend your on-premises data center to AWS using AWS Direct Connect or VPN connections.
 - Use AWS Storage Gateway and AWS Outposts for hybrid cloud storage and compute solutions.
 - Leverage AWS services like Amazon RDS, Amazon WorkSpaces, and Amazon Connect to extend your on-premises solutions to the cloud.
-
-## Additional Resources and Tools
-
-### Documentation
-
-- [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
-- [AWS Architecture Center](https://aws.amazon.com/architecture/)
-- [AWS Whitepapers](https://aws.amazon.com/whitepapers/)
-- [AWS Documentation](https://aws.amazon.com/documentation/)
-
-### Getting Started
-
-- [AWS Free Tier](https://aws.amazon.com/free/): Get started with AWS using the free tier, which includes limited access to many AWS services.
-- [AWS Training and Certification](https://aws.amazon.com/training/): Access AWS training resources and certification programs to build and validate your AWS knowledge.
-- [AWS Blog](https://aws.amazon.com/blogs/aws/): Stay up to date with AWS news, announcements, and best practices.
-- [AWS Marketplace](https://aws.amazon.com/marketplace/): Find and deploy pre-built software solutions on AWS.
-
-### SDKs and Libraries
-
-- [AWS SDKs](https://aws.amazon.com/tools/): Use AWS SDKs to interact with AWS services in your preferred programming language.
-- [AWS Amplify](https://aws.amazon.com/amplify/): Utilize the Amplify library to simplify building cloud-powered mobile and web applications.
-- [AWS CDK](https://aws.amazon.com/cdk/): Use the Cloud Development Kit (CDK) to define cloud infrastructure using familiar programming languages.
-
-### AWS Partner Network
-
-Leverage the [AWS Partner Network (APN)](https://aws.amazon.com/partners/) to find and collaborate with AWS Consulting and Technology Partners who offer a wide range of solutions and expertise to help you get the most out of AWS.
-
-### Community
-
-- [AWS Developer Forums](https://forums.aws.amazon.com/index.jspa): Engage with the AWS developer community to ask questions and share knowledge.
-- [AWS User Groups](https://aws.amazon.com/usergroups/): Connect with other AWS users at local events and meetups.
-- [AWS re:Invent](https://reinvent.awsevents.com/): Attend AWS's annual global conference for learning, networking, and discovering new services and features.
-
-Remember to keep exploring AWS resources and documentation, as new services and features are continuously being added to the platform. The AWS ecosystem is constantly evolving, and staying up-to-date with the latest advancements will help you get the most out of your AWS experience.
 
