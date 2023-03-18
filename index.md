@@ -11,7 +11,7 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 - [Quantum Computing](#quantum-computing)
 - [Artificial Intelligence](#artificial-intelligence)
 - [Branching Strategies](#branching-strategies)
-- [Please Build](#please-build])
+- [Please Build](#please-build)
 
 ---
 
