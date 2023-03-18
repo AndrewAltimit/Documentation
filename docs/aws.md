@@ -45,6 +45,56 @@ Leverage the [AWS Partner Network (APN)](https://aws.amazon.com/partners/) to fi
 
 Remember to keep exploring AWS resources and documentation, as new services and features are continuously being added to the platform. The AWS ecosystem is constantly evolving, and staying up-to-date with the latest advancements will help you get the most out of your AWS experience.
 
+## Common Solutions
+
+### Serverless Architecture
+
+- Utilize AWS Lambda for compute and Amazon API Gateway for handling HTTP requests.
+- Leverage Amazon S3 for static website hosting and object storage.
+- Use Amazon DynamoDB for serverless databases.
+
+### Microservices Architecture
+
+- Implement containerized microservices using Amazon ECS or EKS.
+- Use Amazon API Gateway for service-to-service communication and API management.
+- Leverage Amazon RDS or DynamoDB for database services.
+
+### Big Data and Analytics
+
+- Ingest and process real-time data using Amazon Kinesis Data Streams and Kinesis Data Analytics.
+- Use Amazon EMR for batch processing and Amazon Redshift for data warehousing.
+- Visualize and analyze data using Amazon QuickSight.
+
+### Machine Learning Pipeline
+
+- Train, deploy, and manage ML models using Amazon SageMaker.
+- Use Amazon S3 for storing training datasets and model artifacts.
+- Integrate with other AWS services like Lambda, API Gateway, and Kinesis for real-time processing and predictions.
+
+### High Availability and Disaster Recovery
+
+- Design your architecture for high availability by deploying resources across multiple Availability Zones (AZs).
+- Use Amazon RDS Multi-AZ deployments, Amazon EFS, and Amazon S3 for durable and highly available storage.
+- Leverage AWS services like Amazon Route 53, Elastic Load Balancing (ELB), and Auto Scaling Groups to ensure fault tolerance and load distribution.
+
+### Web Application Hosting
+
+- Host web applications using Amazon EC2 instances behind an Application Load Balancer (ALB).
+- Store static assets in Amazon S3 and use Amazon CloudFront for content delivery.
+- Utilize Amazon RDS or DynamoDB for database storage.
+
+### Data Processing and ETL
+
+- Ingest data using Amazon Kinesis Data Streams or Firehose.
+- Process and transform data using AWS Glue, AWS Data Pipeline, or AWS Step Functions.
+- Store processed data in Amazon S3, Amazon RDS, Amazon Redshift, or Amazon Elasticsearch Service.
+
+### Hybrid Cloud Solutions
+
+- Extend your on-premises data center to AWS using AWS Direct Connect or VPN connections.
+- Use AWS Storage Gateway and AWS Outposts for hybrid cloud storage and compute solutions.
+- Leverage AWS services like Amazon RDS, Amazon WorkSpaces, and Amazon Connect to extend your on-premises solutions to the cloud.
+
 ## List of Services
 
 ### Compute
@@ -130,54 +180,4 @@ Remember to keep exploring AWS resources and documentation, as new services and 
 - **AWS Database Migration Service**: Migrate databases to AWS with minimal downtime.
 - **AWS DataSync**: Transfer data to and from AWS quickly and securely.
 - **AWS Snow Family**: Use physical devices to transport large amounts of data to and from AWS.
-
-## Common Architectural Solutions
-
-### Serverless Architecture
-
-- Utilize AWS Lambda for compute and Amazon API Gateway for handling HTTP requests.
-- Leverage Amazon S3 for static website hosting and object storage.
-- Use Amazon DynamoDB for serverless databases.
-
-### Microservices Architecture
-
-- Implement containerized microservices using Amazon ECS or EKS.
-- Use Amazon API Gateway for service-to-service communication and API management.
-- Leverage Amazon RDS or DynamoDB for database services.
-
-### Big Data and Analytics
-
-- Ingest and process real-time data using Amazon Kinesis Data Streams and Kinesis Data Analytics.
-- Use Amazon EMR for batch processing and Amazon Redshift for data warehousing.
-- Visualize and analyze data using Amazon QuickSight.
-
-### Machine Learning Pipeline
-
-- Train, deploy, and manage ML models using Amazon SageMaker.
-- Use Amazon S3 for storing training datasets and model artifacts.
-- Integrate with other AWS services like Lambda, API Gateway, and Kinesis for real-time processing and predictions.
-
-### High Availability and Disaster Recovery
-
-- Design your architecture for high availability by deploying resources across multiple Availability Zones (AZs).
-- Use Amazon RDS Multi-AZ deployments, Amazon EFS, and Amazon S3 for durable and highly available storage.
-- Leverage AWS services like Amazon Route 53, Elastic Load Balancing (ELB), and Auto Scaling Groups to ensure fault tolerance and load distribution.
-
-### Web Application Hosting
-
-- Host web applications using Amazon EC2 instances behind an Application Load Balancer (ALB).
-- Store static assets in Amazon S3 and use Amazon CloudFront for content delivery.
-- Utilize Amazon RDS or DynamoDB for database storage.
-
-### Data Processing and ETL
-
-- Ingest data using Amazon Kinesis Data Streams or Firehose.
-- Process and transform data using AWS Glue, AWS Data Pipeline, or AWS Step Functions.
-- Store processed data in Amazon S3, Amazon RDS, Amazon Redshift, or Amazon Elasticsearch Service.
-
-### Hybrid Cloud Solutions
-
-- Extend your on-premises data center to AWS using AWS Direct Connect or VPN connections.
-- Use AWS Storage Gateway and AWS Outposts for hybrid cloud storage and compute solutions.
-- Leverage AWS services like Amazon RDS, Amazon WorkSpaces, and Amazon Connect to extend your on-premises solutions to the cloud.
 
