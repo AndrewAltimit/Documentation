@@ -8,7 +8,7 @@ Containers provide a consistent environment for applications by packaging softwa
 - **Isolation:** Containers provide process isolation, so applications running in separate containers won't interfere with one another.
 - **Portability:** Containers can run on any system with container runtime support, regardless of the host's underlying hardware or operating system.
 
-### Container Inconsistency:
+### Container Inconsistency
 
 - **Kernel differences:** Containers share the host's kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.
 - **Host-specific resources:** Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.
@@ -18,9 +18,10 @@ Containers provide a consistent environment for applications by packaging softwa
 While containers provide a high level of consistency for application dependencies, configuration, isolation, and portability, they can be susceptible to inconsistencies due to kernel differences, host-specific resources, resource limits, and platform-specific features. To minimize these inconsistencies, it is essential to understand the requirements of your application and ensure that the host systems are compatible with the desired container environment.
 
 ## Containers vs Virtual Machines
+
 Containers are lightweight, resource-efficient, and portable, making them suitable for modern, scalable applications. Virtual machines provide strong isolation, full OS support, and hardware emulation but can be resource-intensive and slower to start up. The choice between containers and VMs depends on the specific requirements, infrastructure, and goals of your applications.
 
-### Containers
+### Container Pros/Cons
 
 Pros:
 
@@ -36,7 +37,7 @@ Cons:
 - **Security:** Containers have a smaller isolation boundary compared to VMs, which could lead to potential security risks if not properly configured.
 - **Limited support for certain applications:** Containers are less suited for running applications that require extensive customization of the underlying OS or kernel modifications.
 
-### Virtual Machines
+### Virtual Machine Pros/Cons
 
 Pros:
 
@@ -53,6 +54,7 @@ Cons:
 - **Inconsistent deployment:** VMs do not inherently encapsulate application dependencies and configurations, which can lead to inconsistencies across environments.
 
 # Docker
+
 Docker is a platform for developing, shipping, and running applications via containerization technology which packages applications and their dependencies into lightweight and portable containers that can run consistently across different environments. Docker provides tools for building and managing containers, including a Dockerfile syntax for defining container images, a command-line interface for managing containers, and a registry for storing and sharing container images.
 
 ## Installing Docker
