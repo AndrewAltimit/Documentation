@@ -24,11 +24,11 @@ Prerequisites
 Table of Contents
 -----------------
 
-1.  [Getting Started with Terraform](#getting-started)
-2.  [Creating and Managing Resources](#creating-and-managing-resources)
-3.  [Using Variables in Terraform](#using-variables)
-4.  [Outputs and Remote State Management](#outputs-and-remote-state-management)
-5.  [Modules in Terraform](#modules)
+1.  [Getting Started with Terraform](#1-getting-started)
+2.  [Creating and Managing Resources](#2-creating-and-managing-resources)
+3.  [Using Variables in Terraform](#3-using-variables)
+4.  [Outputs and Remote State Management](#4-outputs-and-remote-state-management)
+5.  [Modules in Terraform](#5-modules)
 
 
 1\. Getting Started
