@@ -11,7 +11,7 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 - [Quantum Computing](#quantum-computing)
 - [Artificial Intelligence](#artificial-intelligence)
 - [Branching Strategies](#branching-strategies)
-- [Please Build](#branching-strategies)
+- [Please Build](#please-build])
 
 ---
 
@@ -92,7 +92,7 @@ Please is an open-source build automation tool that simplifies the process of bu
 
 - [Official Please Build Documentation](https://please.build/)
 - [Getting Started with Please Build](https://please.build/quickstart.html)
-- [Please Build Examples](#placeholder-link)
-- [Please Build vs. Other Build Tools](#placeholder-link)
+- [Please Build Examples](https://github.com/thought-machine/please-examples)
+- [Please Build vs. Other Build Tools](https://please.build/faq.html)
 
 ---
