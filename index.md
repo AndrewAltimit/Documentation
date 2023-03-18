@@ -4,12 +4,13 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 
 ## Table of Contents
 
-1. [Terraform](#terraform)
-2. [Docker](#docker)
-3. [AWS](#aws)
-4. [Unreal Engine](#unreal-engine)
-5. [Quantum Computing](#quantum-computing)
-6. [Artificial Intelligence](#artificial-intelligence)
+- [Terraform](#terraform)
+- [Docker](#docker)
+- [AWS](#aws)
+- [Unreal Engine](#unreal-engine)
+- [Quantum Computing](#quantum-computing)
+- [Artificial Intelligence](#artificial-intelligence)
+- [Branching Strategies](#branching-strategies)
 
 ---
 
@@ -66,5 +67,16 @@ Artificial Intelligence (AI) is the development of computer systems that can per
 - [Machine Learning Techniques](#placeholder-link)
 - [Deep Learning Frameworks](#placeholder-link)
 - [Andrew's AI Notes](docs/ai.html)
+
+### Branching Strategies
+
+Branching strategies are essential for managing the development process in a collaborative environment, ensuring that code changes are isolated, reviewed, and integrated systematically. Here are some popular branching strategies with placeholder links for further reading:
+
+- [Git Branching Model](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches)
+- [GitHub Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
+- [Git Feature Branch Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow)
+- [Trunk-Based Development](docs/branching.html)
+
+For each of these strategies, you'll find an overview, advantages, and a step-by-step guide on how to implement them in your development process.
 
 ---
