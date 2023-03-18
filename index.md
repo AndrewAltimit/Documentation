@@ -75,7 +75,7 @@ Branching strategies are essential for managing the development process in a col
 - [Git Branching Model](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches)
 - [GitHub Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Git Feature Branch Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow)
-- [Trunk-Based Development](docs/branching.html)
+- [Andrew's Branching Strategy Notes](docs/branching.html)
 
 For each of these strategies, you'll find an overview, advantages, and a step-by-step guide on how to implement them in your development process.
 
