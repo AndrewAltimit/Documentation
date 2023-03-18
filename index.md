@@ -17,9 +17,10 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 
 Terraform is an infrastructure-as-code (IAC) tool that allows you to manage your infrastructure using a declarative language. Here are some useful resources and documentation for learning Terraform:
 
-- [Official Terraform Documentation](#placeholder-link)
-- [Getting Started with Terraform](#placeholder-link)
-- [Terraform Best Practices](#placeholder-link)
+- [Official Terraform Documentation](https://www.terraform.io/docs/index.html)
+- [Getting Started with Terraform](https://upcloud.com/resources/tutorials/get-started-terraform)
+- [Terraform Best Practices](https://www.terraform-best-practices.com/)
+- [Andrew's Terraform Notes](docs/terraform.html)
 
 ### Docker
 
@@ -28,6 +29,7 @@ Docker is an open-source platform that automates the deployment, scaling, and ma
 - [Official Docker Documentation](#placeholder-link)
 - [Docker Getting Started Guide](#placeholder-link)
 - [Docker Compose Tutorial](#placeholder-link)
+- [Andrew's Docker Notes](docs/docker.html)
 
 ### AWS
 
@@ -36,6 +38,7 @@ Amazon Web Services (AWS) is a comprehensive cloud computing platform offering a
 - [Official AWS Documentation](#placeholder-link)
 - [AWS Well-Architected Framework](#placeholder-link)
 - [AWS Certification Guide](#placeholder-link)
+- [Andrew's AWS Notes](docs/aws.html)
 
 ### Unreal Engine
 
@@ -44,6 +47,7 @@ Unreal Engine is a powerful game engine and development platform used for creati
 - [Official Unreal Engine Documentation](#placeholder-link)
 - [Unreal Engine Beginner's Guide](#placeholder-link)
 - [Unreal Engine Marketplace](#placeholder-link)
+- [Andrew's Unreal Engine Notes](docs/unreal.html)
 
 ### Quantum Computing
 
@@ -52,6 +56,7 @@ Quantum computing is an emerging field that leverages the principles of quantum 
 - [Introduction to Quantum Computing](#placeholder-link)
 - [Quantum Computing Algorithms](#placeholder-link)
 - [Quantum Computing Hardware](#placeholder-link)
+- [Andrew's Quantum Computing Notes](docs/quantumcomputing.html)
 
 ### Artificial Intelligence
 
@@ -60,5 +65,6 @@ Artificial Intelligence (AI) is the development of computer systems that can per
 - [AI Foundations](#placeholder-link)
 - [Machine Learning Techniques](#placeholder-link)
 - [Deep Learning Frameworks](#placeholder-link)
+- [Andrew's AI Notes](docs/ai.html)
 
 ---
