@@ -1,4 +1,4 @@
-Terraform Fundamentals
+Terraform
 ========================================
 
 Overview
@@ -24,14 +24,14 @@ Prerequisites
 Table of Contents
 -----------------
 
-1.  [Getting Started with Terraform and AWS](#getting-started)
-2.  [Creating and Managing Resources](#resource-creation)
-3.  [Using Variables in Terraform](#variables)
-4.  [Outputs and Remote State Management](#outputs)
+1.  [Getting Started with Terraform](#getting-started)
+2.  [Creating and Managing Resources](#creating-and-managing-resources)
+3.  [Using Variables in Terraform](#using-variables)
+4.  [Outputs and Remote State Management](#outputs-and-remote-state-management)
 5.  [Modules in Terraform](#modules)
 
 
-1\. Getting Started with Terraform and AWS
+1\. Getting Started
 ------------------------------------------
 
 ### 1.1. Configuring AWS Credentials
@@ -116,7 +116,7 @@ terraform destroy
 
 Terraform will show you a plan of the resources to be destroyed and prompt you to confirm. Type `yes` and press Enter to proceed. The S3 bucket will be deleted.
 
-3\. Using Variables in Terraform
+3\. Using Variables
 --------------------------------
 
 Variables in Terraform allow you to define reusable and customizable values for your configurations. This section demonstrates how to use variables in your Terraform project.
@@ -232,7 +232,7 @@ terraform init
 
 Terraform will prompt you to confirm the migration of the local state to the remote backend. Type `yes` and press Enter to proceed. From now on, Terraform will store the state in the specified S3 bucket.
 
-5\. Modules in Terraform
+5\. Modules
 ------------------------
 
 Modules in Terraform are self-contained, reusable packages of Terraform configurations. They allow you to organize your infrastructure into smaller, maintainable units and promote the reuse of common configurations.
