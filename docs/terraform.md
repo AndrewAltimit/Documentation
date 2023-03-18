@@ -14,22 +14,6 @@ In this documentation, we will go through the fundamentals of Terraform while wo
 * Outputs and remote state management
 * Modules
 
-Prerequisites
--------------
-
-* An AWS account with appropriate permissions to create and manage resources
-* Terraform installed on your local machine (follow the [official installation guide](https://learn.hashicorp.com/tutorials/terraform/install-cli))
-* Basic understanding of AWS services and concepts
-
-Table of Contents
------------------
-
-1.  [Getting Started with Terraform](#1-getting-started)
-2.  [Creating and Managing Resources](#2-creating-and-managing-resources)
-3.  [Using Variables in Terraform](#3-using-variables)
-4.  [Outputs and Remote State Management](#4-outputs-and-remote-state-management)
-5.  [Modules in Terraform](#5-modules)
-
 
 1\. Getting Started
 ------------------------------------------
