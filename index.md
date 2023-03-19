@@ -1,6 +1,4 @@
-# Technology Docs
-
-Welcome to my GitHub page! This is a place where I share resources and documentation about various technologies. Feel free to explore the links below to learn more about each topic.
+# Notebook
 
 ## Table of Contents
 

@@ -1,4 +1,6 @@
-# Technology
+# Topics
+
+## Technology
 - [Terraform](technology/terraform.html)
 - [Docker](technology/docker.html)
 - [AWS](technology/aw.html)
@@ -8,7 +10,7 @@
 - [Branching Strategies](technology/branching.html)
 - [Please Build](technology/please-build.html)
 
-# Physics
+## Physics
 - [Classical Mechanics](physics/classical-mechanics.html)
 - [Relativity](physics/relativity.html)
 - [Quantum Mechanics](physics/quantum-mechanics.html)
