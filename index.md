@@ -4,6 +4,7 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 
 ## Table of Contents
 
+**Technology**
 - [Terraform](#terraform)
 - [Docker](#docker)
 - [AWS](#aws)
@@ -12,11 +13,21 @@ Welcome to my GitHub page! This is a place where I share resources and documenta
 - [Artificial Intelligence](#artificial-intelligence)
 - [Branching Strategies](#branching-strategies)
 - [Please Build](#please-build)
+- [Kubernetes](#kubernetes)
 
+**Physics**
+- [Classical Mechanics](#classical-mechanics)
+- [Relativity](#relativity)
+- [Quantum Mechanics](#quantum-mechanics)
+- [Quantum Field Theory](#quantum-field-theory)
+- [String Theory](#string-theory)
+
+---
+## Technology
 ---
 
 ### Terraform
-**[Andrew's Notes](docs/terraform.html)**
+**[Andrew's Notes](docs/technology/terraform.html)**
 
 Terraform is an infrastructure-as-code (IAC) tool that allows you to manage your infrastructure using a declarative language. Here are some useful resources and documentation for learning Terraform:
 
@@ -25,7 +36,7 @@ Terraform is an infrastructure-as-code (IAC) tool that allows you to manage your
 - [Terraform Best Practices](https://www.terraform-best-practices.com/)
 
 ### Docker
-**[Andrew's Notes](docs/docker.html)**
+**[Andrew's Notes](docs/technology/docker.html)**
 
 Docker is an open-source platform that automates the deployment, scaling, and management of applications using containers. Check out the following resources for more information on Docker:
 
@@ -34,7 +45,7 @@ Docker is an open-source platform that automates the deployment, scaling, and ma
 - [Docker Compose Tutorial](#placeholder-link)
 
 ### AWS
-**[Andrew's Notes](docs/aws.html)**
+**[Andrew's Notes](docs/technology/aws.html)**
 
 Amazon Web Services (AWS) is a comprehensive cloud computing platform offering a variety of services for computing, storage, databases, analytics, and more. Explore the following links to learn about AWS:
 
@@ -43,7 +54,7 @@ Amazon Web Services (AWS) is a comprehensive cloud computing platform offering a
 - [AWS Certification Guide](#placeholder-link)
 
 ### Unreal Engine
-**[Andrew's Notes](docs/unreal.html)**
+**[Andrew's Notes](docs/technology/unreal.html)**
 
 Unreal Engine is a powerful game engine and development platform used for creating cutting-edge games and interactive experiences. Find resources on Unreal Engine below:
 
@@ -52,7 +63,7 @@ Unreal Engine is a powerful game engine and development platform used for creati
 - [Unreal Engine Marketplace](#placeholder-link)
 
 ### Quantum Computing
-**[Andrew's Notes](docs/quantumcomputing.html)**
+**[Andrew's Notes](docs/technology/quantumcomputing.html)**
 
 Quantum computing is an emerging field that leverages the principles of quantum mechanics to process information. Dive into the world of quantum computing with these resources:
 
@@ -96,3 +107,55 @@ Please is an open-source build automation tool that simplifies the process of bu
 - [Please Build vs. Other Build Tools](https://please.build/faq.html)
 
 ---
+## Physics
+---
+
+### Classical Mechanics
+**[Andrew's Notes](docs/physics/classical.html)**
+
+Classical Mechanics is the study of the motion of objects and the forces that cause this motion. It is based on Newton's laws of motion and covers a wide range of phenomena, from the motion of everyday objects to celestial bodies.
+
+- [Introduction to Classical Mechanics](#placeholder-link)
+- [Newton's Laws of Motion](#placeholder-link)
+- [Conservation Laws](#placeholder-link)
+- [Dynamics and Kinematics](#placeholder-link)
+
+### Relativity
+**[Andrew's Notes](docs/physics/relativity.html)**
+
+Relativity is a branch of physics that deals with the relationship between space and time. It includes two major theories: Special Relativity and General Relativity, both formulated by Albert Einstein.
+
+- [Special Relativity](#placeholder-link)
+- [General Relativity](#placeholder-link)
+- [Spacetime](#placeholder-link)
+- [Gravitational Waves](#placeholder-link)
+
+### Quantum Mechanics
+**[Andrew's Notes](docs/physics/quantum.html)**
+
+Quantum Mechanics is a fundamental theory in physics that describes the behavior of matter and energy at the atomic and subatomic scales. It departs from classical mechanics and introduces the concept of wave-particle duality, among other phenomena.
+
+- [Introduction to Quantum Mechanics](#placeholder-link)
+- [Wave-Particle Duality](#placeholder-link)
+- [Heisenberg Uncertainty Principle](#placeholder-link)
+- [Quantum Tunneling](#placeholder-link)
+
+### Quantum Field Theory
+**[Andrew's Notes](docs/physics/quantum-field-theory.html)**
+
+Quantum computing is an emerging field that leverages the principles of quantum mechanics to process information. Dive into the world of quantum computing with these resources:
+
+- [Introduction to Quantum Computing](#placeholder-link)
+- [Quantum Computing Algorithms](#placeholder-link)
+- [Quantum Computing Hardware](#placeholder-link)
+
+#### String Theory
+**[Andrew's Notes](docs/physics/string-theory.html)**
+
+String Theory is a theoretical framework that posits that the fundamental building blocks of the universe are one-dimensional "strings" rather than point particles. It aims to provide a unified description of gravity and particle physics, potentially reconciling general relativity and quantum mechanics.
+
+- [Introduction to String Theory](#placeholder-link)
+- [The Basics of Strings](#placeholder-link)
+- [M-Theory](#placeholder-link)
+- [Multiverse](#placeholder-link)
+

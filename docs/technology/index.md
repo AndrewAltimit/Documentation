@@ -1,4 +1,4 @@
-# Documentation
+# Technology
 
 - [Terraform](terraform.html)
 - [Docker](docker.html)
