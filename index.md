@@ -72,7 +72,7 @@ Quantum computing is an emerging field that leverages the principles of quantum 
 - [Quantum Computing Hardware](#placeholder-link)
 
 ### Artificial Intelligence
-**[Andrew's Notes](docs/ai.html)**
+**[Andrew's Notes](docs/technology/ai.html)**
 
 Artificial Intelligence (AI) is the development of computer systems that can perform tasks that would typically require human intelligence. Learn more about AI through the following links:
 
@@ -81,20 +81,13 @@ Artificial Intelligence (AI) is the development of computer systems that can per
 - [Deep Learning Frameworks](#placeholder-link)
 
 ### Branching Strategies
-**[Andrew's Notes](docs/branching.html)**
+**[Andrew's Notes](docs/technology/branching.html)**
 
 Branching strategies are essential for managing the development process in a collaborative environment, ensuring that code changes are isolated, reviewed, and integrated systematically. Here are some popular branching strategies with placeholder links for further reading:
 
 - [Git Branching Model](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches)
 - [GitHub Flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Git Feature Branch Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow)
-
-For each of these strategies, you'll find an overview, advantages, and a step-by-step guide on how to implement them in your development process.
-
-### Build Automation Tools
-**[Andrew's Notes](docs/branching.html)**
-
-Build automation tools are essential for streamlining the process of compiling source code, running tests, and packaging the final product for deployment. These tools help developers save time, minimize errors, and maintain a consistent build process. In this section, we'll introduce the Please Build automation tool.
 
 #### Please Build
 **[Andrew's Notes](docs/please-build.html)**
