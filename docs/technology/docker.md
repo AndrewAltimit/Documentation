@@ -60,8 +60,6 @@ Docker is a platform for developing, shipping, and running applications via cont
 
 ## Installing Docker
 
-Follow the official Docker documentation to install Docker on your platform:
-
 - [Install Docker on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
 - [Install Docker on Debian](https://docs.docker.com/engine/install/debian/)
 - [Install Docker on Fedora](https://docs.docker.com/engine/install/fedora/)
@@ -110,6 +108,7 @@ Follow the official Docker documentation to install Docker on your platform:
 - Remove a volume: `docker volume rm <volume_name>`
 
 ## Writing Dockerfiles
+
 A Dockerfile is a script containing instructions to build a Docker image. It automates the process of creating a container by specifying the base image, configuration, application code, and dependencies. This documentation will cover the basics of writing a Dockerfile, its syntax, and using multistage builds.
 
 ### Dockerfile Example

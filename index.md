@@ -1,4 +1,4 @@
-# Notebook
+# Andrew's Notebook
 
 ## Table of Contents
 
@@ -20,9 +20,7 @@
 - [Quantum Field Theory](#quantum-field-theory)
 - [String Theory](#string-theory)
 
----
 ## Technology
----
 
 ### Terraform
 **[Andrew's Notes](docs/technology/terraform.html)**
@@ -97,9 +95,7 @@ Please is an open-source build automation tool that simplifies the process of bu
 - [Please Build Examples](https://github.com/thought-machine/please-examples)
 - [Please Build vs. Other Build Tools](https://please.build/faq.html)
 
----
 ## Physics
----
 
 ### Classical Mechanics
 **[Andrew's Notes](docs/physics/classical.html)**

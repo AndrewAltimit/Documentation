@@ -168,7 +168,8 @@ AWS Braket provides access to a variety of simulators and quantum devices, inclu
 - **Gate-based Quantum Devices:** Access to gate-based quantum devices from Rigetti and IonQ.
 
 You can choose the appropriate device for your task based on the requirements and the nature of the problem.
-Hybrid Quantum-Classical Algorithms
+
+## Hybrid Quantum-Classical Algorithms
 
 AWS Braket supports the implementation of hybrid quantum-classical algorithms, such as the Variational Quantum Eigensolver (VQE) and the Quantum Approximate Optimization Algorithm (QAOA). These algorithms leverage both quantum and classical resources to solve problems more efficiently.
 

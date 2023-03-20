@@ -10,7 +10,6 @@ In this documentation, we will go through the fundamentals of Terraform while wo
 * Outputs and remote state management
 * Modules
 
-
 ## Getting Started
 
 ### Configuring AWS Credentials
