@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Physics
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 - [Classical Mechanics](classical-mechanics.html)
 - [Relativity](relativity.html)

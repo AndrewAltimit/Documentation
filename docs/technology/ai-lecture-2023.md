@@ -65,8 +65,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ---
 
-<html>
-<body>
+<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width=50% height=50% align="middle">
 
 <p align="center">
 <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
@@ -97,7 +96,4 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Image Source</a>
 </p>
-
-</body>
-</html>
 
