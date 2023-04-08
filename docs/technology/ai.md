@@ -57,7 +57,7 @@ Deep learning is a machine learning technique that focuses on the use of artific
 
 The term "deep" refers to the number of layers in the neural network. Traditional neural networks usually have one or two hidden layers, while deep neural networks can have dozens or even hundreds of hidden layers. This depth allows the network to learn more complex and abstract representations of the input data.
 
-<p align="center">
+<p align="middle">
 <a href="https://andrewaltimit.github.io/Documentation/images/AI-ML-DL.svg">
 <img src="https://andrewaltimit.github.io/Documentation/images/AI-ML-DL.svg" alt="Deep Learning" width="50%" height="50%" align="middle">
 </a>
