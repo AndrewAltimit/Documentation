@@ -65,17 +65,19 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ---
 
-<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width=50% height=50% align="middle">
+![Neural Networks](../../images/neural-networks.png))
+
+<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="50%" height="50%" align="middle">
 
 <p align="center">
 <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width=50% height=50% align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="50%" height="50%" align="middle">
 </a>
 </p>
 
 <p align="center">
 <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention" width=50% height=50% align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention" width="50%" height="50%" align="middle">
 </a>
 <br>
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Image Source</a>
@@ -83,7 +85,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 <p align="middle">
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width=50% height=50% align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="50%" height="50%" align="middle">
 </a>
 <br>
 <a href="https://youtu.be/sznZ78HquPc">Image Source</a>
@@ -91,7 +93,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 <p align="middle">
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width=50% height=50% align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%" align="middle">
 </a>
 <br>
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Image Source</a>
