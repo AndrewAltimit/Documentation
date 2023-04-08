@@ -104,9 +104,9 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### GPT: Generative Pre-trained Transformers
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2005.14165.pdf"> GPT-3: Language Models are Few-Shot Learners</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Scaling Laws for Large Language Models</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.17580.pdf"> GPT-4: The Natural Language Model</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2005.14165.pdf"> GPT-3: Language Models are Few-Shot Learners</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Scaling Laws for Large Language Models</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.17580.pdf"> GPT-4: The Natural Language Model</a></p>
 
 
 ### Llama
