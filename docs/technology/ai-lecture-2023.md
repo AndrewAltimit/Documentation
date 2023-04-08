@@ -86,12 +86,14 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Image Source</a>
 </p>
 
-<a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="15%" height="15%">
+<p align="center">
+<a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="50%" height="50%">
 </a>
-<p class="referenceBoxes type1">
+</p>
+<p class="referenceBoxes type1"  align="center">
 <a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg"> Understanding Self-Attention</a>
+<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg"> Video Source: Self-Attention Explained</a>
 </p>
 
 
