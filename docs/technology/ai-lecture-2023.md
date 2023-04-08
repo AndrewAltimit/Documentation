@@ -57,13 +57,10 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ## Transformers
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="http://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf">Attention Is All You Need</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Self-Attention Illustrated</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Positional Encoding</a></p>
-
-
-## Transformers
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="http://jalammar.github.io/illustrated-transformer/"> The Illustrated Transformer</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Attention Is All You Need</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Self-Attention Illustrated</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Positional Encoding</a></p>
 
 
 ## BERT: Bidirectional Encoder Representations from Transformers
