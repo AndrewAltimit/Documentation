@@ -180,6 +180,6 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 - Developing robust detection methods to identify and flag malicious content.
 - Implementing strict access controls and usage policies for LLM services.
 
-### Prompt Atacks
+### Prompt Attacks
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Jailbreak Prompts</a></p>
 
