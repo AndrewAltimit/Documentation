@@ -22,12 +22,12 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 **The Transformer Era: A Turning Point in NLP**
 - [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformers)
-- [BERT: Bidirectional Encoder Representations from Transformers](#placeholder)
-- [GPT: Generative Pre-trained Transformers](#placeholder)
-- [Llama](#placeholder)
-- [Alpaca](#placeholder)
-- [Reflexion](#placeholder)
-- [HuggingGPT](#placeholder)
+- [BERT: Bidirectional Encoder Representations from Transformers](#bert-bidirectional-encoder-representations-from-transformers)
+- [GPT: Generative Pre-trained Transformers](#gpt-generative-pre-trained-transformers)
+- [Llama](#llama)
+- [Alpaca](#alpaca)
+- [Reflexion](#reflexion)
+- [HuggingGPT](#hugginggpt)
 
 **Usage**
 - [Code Generation](#code-generation)
