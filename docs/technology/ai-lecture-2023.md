@@ -28,7 +28,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
     - Reference: [Self-Attention Illustrated](https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a)
     - Reference: [Positional Encoding](https://kazemnejad.com/blog/transformer_architecture_positional_encoding/)
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="picture"><a href="http://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="http://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a></p>
 
 - BERT: Bidirectional Encoder Representations from Transformers
 - GPT: Generative Pre-trained Transformers
