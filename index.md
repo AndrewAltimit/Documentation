@@ -71,6 +71,7 @@ Quantum computing is an emerging field that leverages the principles of quantum 
 
 ### Artificial Intelligence
 **[Andrew's Notes - Summary](docs/technology/ai.html)**
+
 **[Andrew's Notes - Deep Dive](docs/technology/ai-lecture-2023.html)**
 
 Artificial Intelligence (AI) is the development of computer systems that can perform tasks that would typically require human intelligence. Learn more about AI through the following links:
