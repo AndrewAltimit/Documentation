@@ -25,18 +25,13 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
     - The role of RNNs in sequential data and natural language processing
 
 **The Transformer Era: A Turning Point in NLP**
-- [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformer-architecture-self-attention-mechanisms-and-positional-encoding)
-- BERT: Bidirectional Encoder Representations from Transformers
-- GPT: Generative Pre-trained Transformers
-    - Reference: [GPT-3: Language Models are Few-Shot Learners](https://arxiv.org/pdf/2005.14165.pdf)
-    - Reference: [Scaling Laws for Large Language Models](https://arxiv.org/pdf/2303.12712.pdf)
-    - Reference: [GPT-4: The Natural Language Model](https://arxiv.org/pdf/2303.17580.pdf)
-- Llama: lightweight model adaptation approach
-- Alpaca: adaptively linked pre-trained AI components
-- Reflexion: a new evaluation metric for LLMs
-    - Reference: [Reflexion Human Evaluation](https://github.com/GammaTauAI/reflexion-human-eval)
-- HuggingGPT
-    - Reference: [HuggingGPT: A Method for Fine-tuning GPT](https://arxiv.org/pdf/2303.17580.pdf)
+- [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformers)
+- [BERT: Bidirectional Encoder Representations from Transformers](#placeholder)
+- [GPT: Generative Pre-trained Transformers](#placeholder)
+- [Llama](#placeholder)
+- [Alpaca](#placeholder)
+- [Reflexion](#placeholder)
+- [HuggingGPT](#placeholder)
 
 **Security Concerns**
 - LLM-based security: rule building using LLMs
@@ -60,12 +55,42 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ---
 
-## Transformer Architecture: Self-attention mechanisms and positional encoding
+## Transformers
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="http://jalammar.github.io/illustrated-transformer/">   The Illustrated Transformer</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf">   Attention Is All You Need</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">   Self-Attention Illustrated</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">   Positional Encoding</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="http://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf">Attention Is All You Need</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Self-Attention Illustrated</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Positional Encoding</a></p>
+
+
+## Transformers
+
+
+## BERT: Bidirectional Encoder Representations from Transformers
+
+
+## GPT: Generative Pre-trained Transformers
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2005.14165.pdf">GPT-3: Language Models are Few-Shot Learners</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.12712.pdf">Scaling Laws for Large Language Models</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.17580.pdf">GPT-4: The Natural Language Model</a></p>
+
+
+
+
+## Llama
+
+
+## Alpaca
+
+
+## Reflexion
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg"><a href="https://github.com/GammaTauAI/reflexion-human-eval">Reflexion Human Evaluation</a></p>
+
+
+## HuggingGPT
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://arxiv.org/pdf/2303.17580.pdf">HuggingGPT: A Method for Fine-tuning GPT</a></p>
+
+
 
 <br><br><br>
 
