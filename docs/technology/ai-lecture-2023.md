@@ -86,15 +86,16 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Image Source</a>
 </p>
 
-<p align="center">
+<center>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="50%" height="50%">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="40%" height="40%">
 </a>
-</p>
-<p class="referenceBoxes type1"  align="center">
+<br>
+<p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
 <img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg"> Video Source: Self-Attention Explained</a>
 </p>
+</center>
 
 
 ### BERT: Bidirectional Encoder Representations from Transformers
