@@ -141,7 +141,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ## Security and Ethics
 
-## Misinformation and Disinformation
+### Misinformation and Disinformation
 
 LLMs can generate highly coherent and contextually relevant text, which can be exploited to create misinformation or disinformation.
 
