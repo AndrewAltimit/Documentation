@@ -115,7 +115,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 ### Alpaca
 
 
-#### Reflexion
+### Reflexion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Reflexion Human Evaluation</a></p>
 
 ### HuggingGPT
