@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
 
 # Artificial Intelligence
 
@@ -55,6 +56,12 @@ Machine learning is a branch of artificial intelligence that focuses on the deve
 Deep learning is a machine learning technique that focuses on the use of artificial neural networks, particularly deep neural networks, to model complex patterns in data. These networks are composed of multiple layers of interconnected nodes or neurons, which can learn hierarchical representations of the input data.
 
 The term "deep" refers to the number of layers in the neural network. Traditional neural networks usually have one or two hidden layers, while deep neural networks can have dozens or even hundreds of hidden layers. This depth allows the network to learn more complex and abstract representations of the input data.
+
+<div align="center">
+  <a href="https://andrewaltimit.github.io/Documentation/images/AI-ML-DL.svg">
+    <img src="https://andrewaltimit.github.io/Documentation/images/AI-ML-DL.svg" alt="Deep Learning" width=50% height=50% align="center">
+  </a>
+</div>
 
 ### Common Deep Learning Architectures
 

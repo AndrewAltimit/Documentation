@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
+
 # Physics
 
 - [Classical Mechanics](classical-mechanics.html)

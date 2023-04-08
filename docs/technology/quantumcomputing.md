@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
+
 # Quantum Computing
 
 Quantum computing is a novel approach to computing that leverages the principles of quantum mechanics to perform calculations. It has the potential to solve complex problems much faster than classical computing. This document provides a brief introduction to quantum computing and compares it to classical computing.
