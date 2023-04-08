@@ -65,11 +65,11 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 ---
 
-<div align="center">
+<p align="center">
   <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
     <img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width=50% height=50% align="center">
   </a>
-</div>
+</p>
 
 <div align="center">
   <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
