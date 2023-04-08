@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Artificial Intelligence
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 Artificial Intelligence refers to the development of computer systems that can perform tasks typically requiring human intelligence, such as visual perception, speech recognition, decision-making, and natural language understanding.
 

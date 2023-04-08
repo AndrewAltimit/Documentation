@@ -1,6 +1,7 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Branching Stategy
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+
 A branching strategy is designed to minimize the complexity of managing multiple long-lived branches. It promotes a culture of collaboration and continuous integration by encouraging developers to commit their changes frequently to the mainline. This results in fewer merge conflicts and enables rapid feedback on new features or bug fixes.
 
 ## Trunk-Based Branching Strategies

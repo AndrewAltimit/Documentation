@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Terraform
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 Terraform is an open-source infrastructure-as-code (IaC) tool developed by HashiCorp. It enables you to define and manage your infrastructure using a declarative language (HCL). Terraform's goal is to manage resources across different cloud providers and on-premises environments in a consistent and efficient manner.
 

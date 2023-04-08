@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Containers
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 Containers provide a consistent environment for applications by packaging software, dependencies, and configurations into a single, portable unit. However, there are some cases where this consistency might be compromised, particularly when dealing with kernel differences.
 

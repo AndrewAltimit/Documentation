@@ -1,7 +1,7 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # **Unraveling the AI Revolution: The Rise of Advanced Language Models**
 *Journey through the latest AI breakthroughs fueling unprecedented growth and innovation*
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 ---
 
@@ -98,6 +98,6 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Image Source</a>
 </p>
 
-</html>
 </body>
+</html>
 

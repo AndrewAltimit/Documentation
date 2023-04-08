@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css">
-
 # Technology
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 - [Terraform](terraform.html)
 - [Docker](docker.html)
