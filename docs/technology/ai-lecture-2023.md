@@ -53,6 +53,8 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%" align="middle">
 </a>
+<br>
+<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">Image Source</a>
 </p>
 
 ### Supervised and Unsupervised Learning
