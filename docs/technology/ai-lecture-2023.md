@@ -27,6 +27,9 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
     - Reference: [Attention Is All You Need](https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf)
     - Reference: [Self-Attention Illustrated](https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a)
     - Reference: [Positional Encoding](https://kazemnejad.com/blog/transformer_architecture_positional_encoding/)
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="picture"><a href="http://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a></p>
+
 - BERT: Bidirectional Encoder Representations from Transformers
 - GPT: Generative Pre-trained Transformers
     - Reference: [GPT-3: Language Models are Few-Shot Learners](https://arxiv.org/pdf/2005.14165.pdf)
