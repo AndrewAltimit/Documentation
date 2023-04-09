@@ -85,7 +85,14 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
-<br>
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+<tr>
+<td style="border: none;" width="100px">
+
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="300px">
 </a>
@@ -94,6 +101,27 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
 <img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Transformer Architecture: The Positional Encoding</i></b></a>
 </p>
+
+</td>
+<td style="border: none;">
+
+<b>Positional Encoding:</b> Since Transformers do not have any inherent notion of the input data's position or order, positional encoding is used to inject information about the position of words or tokens in the sequence. This is typically done using sine and cosine functions with different frequencies.
+<br>
+<b>Multi-Head Attention:</b> This mechanism allows the model to weigh the importance of different words in a sequence when processing a particular word. Multi-head attention splits the input data into multiple "heads" and computes the attention scores independently for each head. These scores are then combined to produce the final output. This allows the model to capture different aspects of the input data and relationships between words.
+<br>
+<b>Encoders:</b> Multiple encoder layers are stacked on top of each other. Each encoder layer consists of two sub-layers: a multi-head self-attention mechanism and a position-wise fully connected feed-forward network. The output of each sub-layer is processed by a residual connection followed by layer normalization.
+<br>
+<b>Decoders:</b> Similar to the encoders, multiple decoder layers are stacked. Each decoder layer consists of three sub-layers: a multi-head self-attention mechanism, a multi-head cross-attention mechanism that attends to the output of the encoder stack, and a position-wise fully connected feed-forward network. As with the encoders, residual connections and layer normalization are used.
+<br>
+<b>Feed-forward:</b> Position-wise feed-forward networks are employed in both encoder and decoder layers. These networks consist of two linear layers separated by an activation function, typically the Rectified Linear Unit (ReLU) or GELU (Gaussian Error Linear Unit). The purpose of the feed-forward network is to learn non-linear relationships between input features and apply those learnings to the attention mechanism's output. It operates independently on each position in the sequence, allowing for efficient parallelization.
+<br>
+<b>Softmax:</b> The softmax function is employed as the final activation function in the Transformer architecture to generate a probability distribution over the target vocabulary. It converts the logits (raw output values) from the final linear layer into probabilities, ensuring that they sum to 1. In various NLP tasks, such as machine translation or text summarization, the Transformer uses the softmax output probabilities to select the most likely word or token at each position in the generated sequence.
+<br>
+<b>Output:</b> The output of the final decoder layer is fed into a linear layer, followed by a softmax activation function to produce probability distributions over the target vocabulary. In many cases, these probabilities are used to generate translations, summaries, or other natural language processing tasks.
+
+</td>
+</tr>
+</table>
 </center>
 
 
