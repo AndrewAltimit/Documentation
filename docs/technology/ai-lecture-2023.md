@@ -54,7 +54,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%">
 </a>
-<br><br>
+<br>
 <p class="referenceBoxes type2">
 <a href="https://www.asimovinstitute.org/author/fjodorvanveen/">
 <img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Neural Network Zoo Prequel: Cells and Layers</i></a>
@@ -75,15 +75,15 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Attention Is All You Need</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Self-Attention Illustrated</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Positional Encoding</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
-<br><br>
+<br>
 
 
 <center>
-<br><br>
+<br>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%">
 </a>
-<br><br>
+<br>
 <p class="referenceBoxes type2">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
 <img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Transformer Architecture: The Positional Encoding</i></a>
@@ -92,11 +92,11 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
-<br><br>
+<br>
 <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
 <img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention">
 </a>
-<br><br>
+<br>
 <p class="referenceBoxes type2">
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">
 <img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Illustrated: Self-Attention</i></a>
@@ -105,11 +105,11 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
-<br><br>
+<br>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="40%" height="40%">
 </a>
-<br><br>
+<br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
 <img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <i>Self-Attention Explained</i></a>
