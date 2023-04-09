@@ -49,13 +49,17 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 ### Key Components and Architecture
 - Neurons, weights, biases, and activation functions
 
-<p align="center">
+
+<center>
 <a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%" align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%">
 </a>
-<br>
-<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">Source: <i>Neural Network Zoo Prequel: Cells and Layers</i></a>
+<br><br>
+<p class="referenceBoxes type2">
+<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Neural Network Zoo Prequel: Cells and Layers</i></a>
 </p>
+</center>
 
 ### Supervised and Unsupervised Learning
 - Classification, regression, clustering, and dimensionality reduction
@@ -78,10 +82,10 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%">
 </a>
-<br>
+<br><br>
 <p class="referenceBoxes type2">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Source: <i>Transformer Architecture: The Positional Encoding</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Transformer Architecture: The Positional Encoding</i></a>
 </p>
 </center>
 
@@ -90,10 +94,10 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
 <img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention">
 </a>
-<br>
+<br><br>
 <p class="referenceBoxes type2">
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Source: <i>Illustrated: Self-Attention</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Illustrated: Self-Attention</i></a>
 </p>
 </center>
 
@@ -105,7 +109,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Source: <i>Self-Attention Explained</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <i>Self-Attention Explained</i></a>
 </p>
 </center>
 
