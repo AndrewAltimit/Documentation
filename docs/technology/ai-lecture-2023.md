@@ -152,7 +152,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <center>
 <br>
 <a href="https://andrewaltimit.github.io/Documentation/images/hugging-gpt.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/hugging-gpt.pn" alt="HuggingGPT">
+<img src="https://andrewaltimit.github.io/Documentation/images/hugging-gpt.png" alt="HuggingGPT">
 </a>
 <br>
 <p class="referenceBoxes type2">
