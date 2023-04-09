@@ -134,10 +134,11 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### Reflexion
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Git: <b><i>Reflexion Human Evaluation</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.11366.pdf"> Paper: <b><i>Reflexion: an autonomous agent with dynamic memory and self-reflection</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Git: <b><i>Mastering HumanEval with Reflexion</i></b></a></p>
 
 ### HuggingGPT
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>HuggingGPT: A Method for Fine-tuning GPT</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>HuggingGPT: Solving AI Tasks with ChatGPT and its Friends in Hugging Face</i></b></a></p>
 
 ## Usage
 
