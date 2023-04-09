@@ -87,7 +87,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="300px"  style="float:left; margin: 20px;">
 </a>
 <br>
-<p class="referenceBoxes" style="float:bottom;">
+<p class="referenceBoxes" style="float:left;">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
 <img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Transformer Architecture: The Positional Encoding</i></b></a>
 </p>
