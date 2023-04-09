@@ -148,6 +148,19 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 ### HuggingGPT
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>HuggingGPT: Solving AI Tasks with ChatGPT and its Friends in Hugging Face</i></b></a></p>
 
+
+<center>
+<br>
+<a href="https://andrewaltimit.github.io/Documentation/images/hugging-gpt.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/hugging-gpt.pn" alt="HuggingGPT">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://arxiv.org/pdf/2303.17580.pdf">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"> Paper: <b><i>HuggingGPT: Solving AI Tasks with ChatGPT and its Friends in Hugging Face</i></b></a>
+</p>
+</center>
+
 ## Usage
 
 ### Code Generation
