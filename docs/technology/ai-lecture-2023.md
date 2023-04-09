@@ -71,10 +71,10 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 - Sequential data and natural language processing
 
 ## Transformers
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> The Illustrated Transformer</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Attention Is All You Need</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Self-Attention Illustrated</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Positional Encoding</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> Article: <i>The Illustrated Transformer</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Paper: <i>Attention Is All You Need</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Article: <i>Self-Attention Illustrated</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Article: <i>Positional Encoding</i></a></p>
 <br>
 
 
@@ -121,23 +121,23 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### GPT: Generative Pre-trained Transformers
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> GPT-3: Language Models are Few-Shot Learners</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Scaling Laws for Large Language Models</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> GPT-4: The Natural Language Model</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <i>GPT-3: Language Models are Few-Shot Learners</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Paper: <i>Scaling Laws for Large Language Models</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <i>GPT-4: The Natural Language Model</i></a></p>
 
 
 ### Llama
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> LLaMA: Open and Efficient Foundation Language Models</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> Paper: <i>LLaMA: Open and Efficient Foundation Language Models</i></a></p>
 
 
 ### Alpaca
 
 
 ### Reflexion
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Reflexion Human Evaluation</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Git: <i>Reflexion Human Evaluation</i></a></p>
 
 ### HuggingGPT
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> HuggingGPT: A Method for Fine-tuning GPT</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <i>HuggingGPT: A Method for Fine-tuning GPT</i></a></p>
 
 ## Usage
 
@@ -205,5 +205,5 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 - Implementing strict access controls and usage policies for LLM services.
 
 ### Prompt Attacks
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Jailbreak Prompts</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Git: <i>Jailbreak Prompts</i></a></p>
 
