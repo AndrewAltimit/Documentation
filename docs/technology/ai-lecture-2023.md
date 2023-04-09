@@ -113,7 +113,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <center>
 <br>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="450px">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="400px">
 </a>
 <br>
 <p class="referenceBoxes type2">
