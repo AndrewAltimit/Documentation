@@ -100,7 +100,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <center>
 <br>
 <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention" width="400px">
+<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention" width="700px">
 </a>
 <br>
 <p class="referenceBoxes type2">
