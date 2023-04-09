@@ -131,6 +131,8 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### Alpaca
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://crfm.stanford.edu/2023/03/13/alpaca.html"> Article: <b><i>Alpaca: A Strong, Replicable Instruction-Following Model</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/tatsu-lab/stanford_alpaca"> Git: <b><i>Stanford Alpaca: An Instruction-following LLaMA Model</i></b></a></p>
 
 
 ### Reflexion
