@@ -61,6 +61,23 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 </p>
 </center>
 
+<center>
+<a href="https://andrewaltimit.github.io/Documentation/images/neural-networks.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Neural Network Zoo Prequel: Cells and Layers</i></b></a>
+</p>
+</center>
+
+<p align="middle">
+<a href="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg">
+<img src="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg" alt="Machine Learning" width="50%" height="50%" align="middle">
+</a>
+</p>
+
 ### Supervised and Unsupervised Learning
 - Classification, regression, clustering, and dimensionality reduction
 
