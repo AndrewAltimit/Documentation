@@ -76,7 +76,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 <center>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture"  width="50%" height="50%">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%">
 </a>
 <br>
 <p class="referenceBoxes type2">
