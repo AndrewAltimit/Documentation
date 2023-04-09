@@ -57,7 +57,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://www.asimovinstitute.org/author/fjodorvanveen/">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Neural Network Zoo Prequel: Cells and Layers</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Neural Network Zoo Prequel: Cells and Layers</i></b></a>
 </p>
 </center>
 
@@ -71,10 +71,10 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 - Sequential data and natural language processing
 
 ## Transformers
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> Article: <i>The Illustrated Transformer</i></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Paper: <i>Attention Is All You Need</i></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Article: <i>Self-Attention Illustrated</i></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Article: <i>Positional Encoding</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> Article: <b><i>The Illustrated Transformer</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"> Paper: <b><i>Attention Is All You Need</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Article: <b><i>Self-Attention Illustrated</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Article: <b><i>Positional Encoding</i></b></a></p>
 <br>
 
 
@@ -86,7 +86,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Transformer Architecture: The Positional Encoding</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Transformer Architecture: The Positional Encoding</i></b></a>
 </p>
 </center>
 
@@ -99,7 +99,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <i>Illustrated: Self-Attention</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Illustrated: Self-Attention</i></b></a>
 </p>
 </center>
 
@@ -112,7 +112,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <i>Self-Attention Explained</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <b><i>Self-Attention Explained</i></b></a>
 </p>
 </center>
 
@@ -121,23 +121,23 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### GPT: Generative Pre-trained Transformers
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <i>GPT-3: Language Models are Few-Shot Learners</i></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Paper: <i>Scaling Laws for Large Language Models</i></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <i>GPT-4: The Natural Language Model</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <b><i>GPT-3: Language Models are Few-Shot Learners</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Paper: <b><i>Scaling Laws for Large Language Models</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>GPT-4: The Natural Language Model</i></b></a></p>
 
 
 ### Llama
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> Paper: <i>LLaMA: Open and Efficient Foundation Language Models</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> Paper: <b><i>LLaMA: Open and Efficient Foundation Language Models</i></b></a></p>
 
 
 ### Alpaca
 
 
 ### Reflexion
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Git: <i>Reflexion Human Evaluation</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/GammaTauAI/reflexion-human-eval"> Git: <b><i>Reflexion Human Evaluation</i></b></a></p>
 
 ### HuggingGPT
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <i>HuggingGPT: A Method for Fine-tuning GPT</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>HuggingGPT: A Method for Fine-tuning GPT</i></b></a></p>
 
 ## Usage
 
@@ -205,5 +205,5 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 - Implementing strict access controls and usage policies for LLM services.
 
 ### Prompt Attacks
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Git: <i>Jailbreak Prompts</i></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Git: <b><i>Jailbreak Prompts</i></b></a></p>
 
