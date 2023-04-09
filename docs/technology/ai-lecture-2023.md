@@ -79,6 +79,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
+<br><br>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%">
 </a>
@@ -91,6 +92,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
+<br><br>
 <a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
 <img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention">
 </a>
@@ -103,10 +105,11 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 <center>
+<br><br>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png" alt="Self-Attention Analogy" width="40%" height="40%">
 </a>
-<br>
+<br><br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
 <img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <i>Self-Attention Explained</i></a>
