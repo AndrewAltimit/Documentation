@@ -73,21 +73,30 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Positional Encoding</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
 <br><br>
 
-<p align="middle">
-<a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="50%" height="50%" align="middle">
-</a>
-<br>
-<a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">Image Source</a>
-</p>
 
-<p align="center">
-<a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention" align="middle">
+<center>
+<a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture"  width="50%" height="50%">
 </a>
 <br>
-<a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">Image Source</a>
+<p class="referenceBoxes type2">
+<a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"> Image Source: <i>Illustrated: Self-Attention</i></a>
 </p>
+</center>
+
+
+<center>
+<a href="https://andrewaltimit.github.io/Documentation/images/self-attention.gif">
+<img src="https://andrewaltimit.github.io/Documentation/images/self-attention.gif" alt="Self-Attention">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"> Image Source: <i>Illustrated: Self-Attention</i></a>
+</p>
+</center>
+
 
 <center>
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-self-attention-analogy.png">
@@ -96,7 +105,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg"> Video Source: Self-Attention Explained</a>
+<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg"> Video Source: <i>Self-Attention Explained</i></a>
 </p>
 </center>
 
