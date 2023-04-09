@@ -54,7 +54,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <img src="https://andrewaltimit.github.io/Documentation/images/neural-networks.png" alt="Neural Networks" width="80%" height="80%" align="middle">
 </a>
 <br>
-<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">Image Source</a>
+<a href="https://www.asimovinstitute.org/author/fjodorvanveen/">Source: <i>Neural Network Zoo Prequel: Cells and Layers</i></a>
 </p>
 
 ### Supervised and Unsupervised Learning
@@ -81,7 +81,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Image Source: <i>Transformer Architecture: The Positional Encoding</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Source: <i>Transformer Architecture: The Positional Encoding</i></a>
 </p>
 </center>
 
@@ -93,7 +93,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Image Source: <i>Illustrated: Self-Attention</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Source: <i>Illustrated: Self-Attention</i></a>
 </p>
 </center>
 
@@ -105,7 +105,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://youtu.be/sznZ78HquPc">
-<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video Source: <i>Self-Attention Explained</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Source: <i>Self-Attention Explained</i></a>
 </p>
 </center>
 
