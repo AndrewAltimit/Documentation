@@ -74,7 +74,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 <p align="middle">
 <a href="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg">
-<img src="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg" alt="Machine Learning" width="50%" height="50%" align="middle">
+<img src="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg" alt="Machine Learning">
 </a>
 </p>
 
