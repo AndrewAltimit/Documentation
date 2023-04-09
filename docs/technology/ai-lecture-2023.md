@@ -81,7 +81,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 <br>
 <p class="referenceBoxes type2">
 <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"> Image Source: <i>Illustrated: Self-Attention</i></a>
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg"> Image Source: <i>Transformer Architecture: The Positional Encoding</i></a>
 </p>
 </center>
 
@@ -120,6 +120,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 
 
 ### Llama
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> LLaMA: Open and Efficient Foundation Language Models</a></p><div class="show-on-mobile hide-on-desktop"><br></div>
 
 
 ### Alpaca
