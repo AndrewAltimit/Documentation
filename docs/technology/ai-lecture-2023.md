@@ -221,9 +221,9 @@ GPT-4 contains 170 trillion parameters and is 82% less likely to respond to requ
 
 #### Key Features
 
-**Few-Shot Learning**
+**Transfer Learning**
 
-By leveraging transfer learning, GPT models can achieve high performance on a wide range of tasks, even when labeled data is scarce.
+Transfer learning is a process in which a model is trained on a large dataset and then used to generate predictions on a new dataset. This means that GPT-4 can be used to quickly create models for a variety of tasks without having to start from scratch. By leveraging transfer learning, GPT models can achieve high performance on a wide range of tasks, even when labeled data is scarce.
 
 **Few-Shot Learning**
 
