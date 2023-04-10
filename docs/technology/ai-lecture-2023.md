@@ -197,6 +197,18 @@ BERT's training consists of two main steps: pre-training and fine-tuning.
 
 The Generative Pre-trained Transformer (GPT) is a family of language models based on the Transformer architecture, which has demonstrated impressive natural language understanding and generation capabilities. 
 
+<center>
+<br>
+<a href="https://andrewaltimit.github.io/Documentation/images/gpt-architecture.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/gpt-architecture.png" alt="GPT Architecture" width="500px">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://en.wikipedia.org/wiki/Generative_pre-trained_transformer">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Wikipedia: <b><i>Generative pre-trained transformer</i></b></a>
+</p>
+</center>
+
 **GPT (2018)**
 
 The first GPT model set a new standard in natural language understanding and generation. It was pre-trained via unsupervised learning on a large volume of text using a unidirectional (left-to-right) Transformer architecture and contains 117 million parameters
