@@ -306,12 +306,12 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 ### Prompt Attacks
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://gist.github.com/coolaj86/6f4f7b30129b0251f61fa7baaa881516#jailbreak-prompts"> Git: <b><i>Jailbreak Prompts</i></b></a></p>
 
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/greshake/llm-security"> Git: <b><i>Attack Vectors with LLM Apps</i></b></a></p>
+
 #### Bing Chat
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://archive.today/2AQCo"> Article: <b><i> Bing’s A.I. Chat: ‘I Want to Be Alive.’ </i></b> 😈</a></p>
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2302.12173.pdf"> Paper: <b><i>A Comprehensive Analysis of Novel Prompt Injection Threats to Application-Integrated Large Language Models</i></b></a></p>
-
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/greshake/llm-security"> Git: <b><i>Attack Vectors with LLM Apps</i></b></a></p>
 
 <br>
 
