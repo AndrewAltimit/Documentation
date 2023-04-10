@@ -161,7 +161,19 @@ The self-attention mechanism allows the Transformer to effectively model long-ra
 </center>
 
 ### BERT: Bidirectional Encoder Representations from Transformers
+BERT is built upon the Transformer architecture with a unique aspect regarding its bidirectional context. Unlike traditional language models that process text in a unidirectional manner (left-to-right or right-to-left), BERT processes text in both directions simultaneously. This bidirectional approach enables BERT to better understand the context of words, as it considers both the preceding and following words in a sentence.
 
+BERT's training consists of two main steps: pre-training and fine-tuning.
+
+1. **Pre-training:** BERT is pre-trained on a large corpus of text using two unsupervised learning tasks: Masked Language Modeling (MLM) and Next Sentence Prediction (NSP).
+
+  - **Masked Language Modeling:** In MLM, BERT learns to predict masked words in a sentence. A certain percentage of words in the input sequence are randomly masked, and BERT is trained to predict the original words based on their surrounding context.
+
+  - **Next Sentence Prediction:** In NSP, BERT learns to predict whether two sentences are related or not. It is trained on sentence pairs, where half of the pairs are consecutive sentences and the other half are unrelated sentences.
+
+2. **Fine-tuning:** After pre-training, BERT is fine-tuned on specific tasks using labeled data. The pre-trained model is adapted to the target task by adding task-specific layers and training the entire model with a smaller learning rate. This process allows BERT to transfer the knowledge gained from the pre-training phase to the target task effectively.
+
+  - **BERT Tokenization:** Handling Subwords with WordPiece to handle out-of-vocabulary words and improve generalization. WordPiece breaks down words into smaller subword units, allowing BERT to represent rare and unseen words more effectively.
 
 ### GPT: Generative Pre-trained Transformers
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <b><i>GPT-3: Language Models are Few-Shot Learners</i></b></a></p>
