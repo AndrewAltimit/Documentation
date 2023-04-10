@@ -34,6 +34,7 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 - [Administrative Automation](#administrative-automation)
 - [Productivity](#productivity)
 - [Extending ChatGPT Capabilities](#extending-chatgpt-capabilities)
+- [Running your own LLM Chatbot](#running-your-own-llm-chatbot)
 
 **Security and Ethics**
 - [Misinformation and Disinformation](#misinformation-and-disinformation)
@@ -213,7 +214,10 @@ BERT's training consists of two main steps: pre-training and fine-tuning.
 
 ### Code Generation
 
-- Markdown, Terraform, Docker
+- Markdown
+- Terraform
+- Docker
+- Python
 
 ### Administrative Automation
 
@@ -244,6 +248,13 @@ With ChatGPT plugins, users can:
 - **Monitor and analyze performance:** Utilize plugins that provide analytics, reporting, or logging functionalities to track the chatbot's performance, identify areas for improvement, and ensure the chatbot is meeting desired objectives.
 
 - **Implement domain-specific knowledge:** Incorporate plugins that focus on specific industries, niches, or use cases, making the chatbot more effective and relevant in those areas.
+
+### Running your own LLM Chatbot
+[WIP] Repository: https://github.com/AndrewAltimit/terraform-ecs-llm
+
+1. Build dockerfile at root of the repo and publish to ECR or reuse my image: **public.ecr.aws/e7b2l8r1/gpt4-x-alpaca:latest**
+2. Deploy the infrastructure using Terraform
+3. Visit the ALB URL and start chatting!
 
 ## Security and Ethics
 
