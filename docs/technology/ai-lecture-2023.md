@@ -135,18 +135,7 @@ The self-attention mechanism works as follows:
 
 1. Input embeddings: The input sequence (e.g., a sentence) is first converted into a set of continuous vectors using an embedding layer. These vectors represent each token (word or subword) in the input sequence.
 
-2. Linear transformation: For each input token, three vectors are derived by applying three separate linear transformations (i.e., multiplication by three weight matrices). These three vectors are called the Query (Q), Key (K), and Value (V) vectors.
-
-3. Scaled Dot-Product Attention: For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows.
-
-4. Softmax normalization: The scaled similarity scores are passed through a softmax function, which normalizes them into a probability distribution. This results in a set of attention weights that sum to one, representing the relative importance of each token in the input sequence concerning the current token.
-
-5. Weighted sum: The attention weights are then used to compute a weighted sum of the Value vectors corresponding to each token in the sequence. This weighted sum is the output of the self-attention mechanism for the current token, and it represents the attended context for that token.
-
-6. Multi-head attention: To capture different aspects of the relationships between tokens, the Transformer uses multiple parallel self-attention mechanisms called "heads." Each head computes its self-attention independently, and their outputs are concatenated and linearly transformed to form the final output of the multi-head attention layer.
-
-The self-attention mechanism allows the Transformer to effectively model long-range dependencies and complex relationships between tokens in a sequence. This has led to significant improvements in various natural language processing tasks, including machine translation, text summarization, and question-answering.
-
+2. Linear transformation: For each input token, three vectors are derived by applying three separate linear transformations (i.e., multiplication by three weight matrices). These three vectors are called the Query (Q), Key (K), and Value (V) vectors. See the video below for an analogy to help understand the concept of self-attention.
 
 <center>
 <br>
@@ -159,6 +148,16 @@ The self-attention mechanism allows the Transformer to effectively model long-ra
 <img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"> Video: <b><i>Transformers Explained: Attention is all you need</i></b></a>
 </p>
 </center>
+
+3. Scaled Dot-Product Attention: For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows.
+
+4. Softmax normalization: The scaled similarity scores are passed through a softmax function, which normalizes them into a probability distribution. This results in a set of attention weights that sum to one, representing the relative importance of each token in the input sequence concerning the current token.
+
+5. Weighted sum: The attention weights are then used to compute a weighted sum of the Value vectors corresponding to each token in the sequence. This weighted sum is the output of the self-attention mechanism for the current token, and it represents the attended context for that token.
+
+6. Multi-head attention: To capture different aspects of the relationships between tokens, the Transformer uses multiple parallel self-attention mechanisms called "heads." Each head computes its self-attention independently, and their outputs are concatenated and linearly transformed to form the final output of the multi-head attention layer.
+
+The self-attention mechanism allows the Transformer to effectively model long-range dependencies and complex relationships between tokens in a sequence. This has led to significant improvements in various natural language processing tasks, including machine translation, text summarization, and question-answering.
 
 
 ### BERT: Bidirectional Encoder Representations from Transformers
