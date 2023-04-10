@@ -250,7 +250,7 @@ With ChatGPT plugins, users can:
 - **Implement domain-specific knowledge:** Incorporate plugins that focus on specific industries, niches, or use cases, making the chatbot more effective and relevant in those areas.
 
 ### Running your own LLM Chatbot
-[WIP] Repository: https://github.com/AndrewAltimit/terraform-ecs-llm
+[WIP] Repository: [https://github.com/AndrewAltimit/terraform-ecs-llm](https://github.com/AndrewAltimit/terraform-ecs-llm)
 
 1. Build dockerfile at root of the repo and publish to ECR or reuse my image: **public.ecr.aws/e7b2l8r1/gpt4-x-alpaca:latest**
 2. Deploy the infrastructure using Terraform
