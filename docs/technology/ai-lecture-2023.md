@@ -75,12 +75,6 @@ Neural networks are computational models that are designed to mimic the way the 
 </p>
 </center>
 
-<p align="middle">
-<a href="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg">
-<img src="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg" alt="Machine Learning">
-</a>
-</p>
-
 ### Supervised and Unsupervised Learning
 - Classification, regression, clustering, and dimensionality reduction
 
@@ -96,6 +90,12 @@ Neural networks are computational models that are designed to mimic the way the 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a"> Article: <b><i>Self-Attention Illustrated</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/"> Article: <b><i>Positional Encoding</i></b></a></p>
 <br>
+
+<p align="middle">
+<a href="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg">
+<img src="https://andrewaltimit.github.io/Documentation/images/State_of_AI_Art_Machine_Learning_Models.svg" alt="Machine Learning">
+</a>
+</p>
 
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="300px"  style="float:left; margin: 20px;">
