@@ -200,7 +200,7 @@ The Generative Pre-trained Transformer (GPT) is a family of language models base
 <center>
 <br>
 <a href="https://andrewaltimit.github.io/Documentation/images/gpt-architecture.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/gpt-architecture.png" alt="GPT Architecture" width="500px">
+<img src="https://andrewaltimit.github.io/Documentation/images/gpt-architecture.png" alt="GPT Architecture" width="350px">
 </a>
 <br>
 <p class="referenceBoxes type2">
