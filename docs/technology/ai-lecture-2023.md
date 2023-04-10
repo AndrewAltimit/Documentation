@@ -97,6 +97,21 @@ Neural networks are computational models that are designed to mimic the way the 
 </a>
 </p>
 
+
+### Transformer Capabilities
+
+**Understand Language**
+
+- **Syntax and semantics:** Transformers can capture complex syntactic and semantic structures in language, enabling them to understand context and relationships between words, phrases, and sentences.
+- **Contextual embeddings:** Transformer models generate embeddings that capture the context of words within a sequence, leading to more accurate representations of word meanings.
+
+**Generate Language**
+
+- **Coherent and contextually relevant text:** Transformers can generate highly coherent text that is contextually relevant to the input, making them suitable for tasks such as text summarization, machine translation, and dialogue generation.
+- **Fine-grained control:** Advanced techniques, such as prefix-tuning and controlled text generation, allow for greater control over the generated output, enabling customization and adherence to specific guidelines or requirements.
+
+### Transformer Architecture
+
 <a href="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png">
 <img src="https://andrewaltimit.github.io/Documentation/images/transformer-architecture.png" alt="Transformer Architecture" width="300px"  style="float:left; margin: 20px;">
 </a>
@@ -269,7 +284,7 @@ LLMs can generate highly coherent and contextually relevant text, which can be e
 
 ### Bias and Discrimination
 
-LLMs learn from large text corpora, which can contain biases present in the data. These biases may be inadvertently reproduced in the model's outputs, leading to discrimination or offensive content.
+LLMs learn from large volumes of text, which can contain biases present in the data. These biases may be inadvertently reproduced in the model's outputs, leading to discrimination or offensive content.
 
 **Possible Solutions**
 
