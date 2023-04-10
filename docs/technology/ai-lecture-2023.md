@@ -213,29 +213,27 @@ GPT-3 contains 175 billion parameters and demonstrates strong performance on a w
 
 GPT-4 contains 170 trillion parameters and is 82% less likely to respond to requests for disallowed content and 40% more likely to produce factual responses than GPT-3.5 according to OpenAI internal evaluations.
 
-### Application in GPT
+#### Training
 
-1. **Pre-training**: GPT models are pre-trained on large text corpora using unsupervised learning. During pre-training, the models learn to generate text by predicting the next token in a sequence, given the previous tokens. This process allows them to capture general language patterns and structures.
+1. **Pre-training**: GPT models are pre-trained on a large volume of text using unsupervised learning. During pre-training, the models learn to generate text by predicting the next token in a sequence, given the previous tokens. This process allows them to capture general language patterns and structures.
 
 2. **Fine-tuning**: After pre-training, GPT models are fine-tuned on specific tasks using smaller labeled datasets. Fine-tuning adapts the pre-trained model to perform the desired task, such as text classification, sentiment analysis, or machine translation.
 
+#### Key Features
+
+**Few-Shot Learning**
+
 By leveraging transfer learning, GPT models can achieve high performance on a wide range of tasks, even when labeled data is scarce.
 
-## Few-Shot Learning
+**Few-Shot Learning**
 
 Few-shot learning is a machine learning approach where models are trained to perform tasks with a limited number of examples, typically in the range of 1-20 examples per class.
-
-### Application in GPT
 
 1. **In-context learning**: GPT-3 and other large-scale Transformer models can perform few-shot learning through in-context learning. By providing a few examples of the desired task within the input, the model can infer the desired output format and generate appropriate responses.
 
 2. **Prompt engineering**: The effectiveness of few-shot learning in GPT models can be enhanced by designing effective prompts that guide the model towards the desired behavior. This process, known as prompt engineering, involves carefully crafting input examples and queries to elicit the correct response from the model.
 
-Few-shot learning allows GPT models, particularly GPT-3, to perform well on new tasks with minimal or no task-specific fine-tuning, reducing the need for labeled data and making them more versatile and adaptable.
-
-In summary, few-shot learning and transfer learning are key techniques used in the GPT family of models to achieve high performance across a wide range of NLP tasks. By combining pre-training, fine-tuning, and in-context learning, GPT models can excel at tasks with limited labeled data and quickly adapt to new tasks.
-
-
+Few-shot learning allows GPT models to perform well on new tasks with minimal or no task-specific fine-tuning, reducing the need for labeled data and making them more versatile and adaptable.
 
 ### Llama
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> Paper: <b><i>LLaMA: Open and Efficient Foundation Language Models</i></b></a></p>
