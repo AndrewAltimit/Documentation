@@ -211,7 +211,7 @@ The Generative Pre-trained Transformer (GPT) is a family of language models base
 
 **GPT (2018)**
 
-The first GPT model set a new standard in natural language understanding and generation. It was pre-trained via unsupervised learning on a large volume of text using a unidirectional (left-to-right) Transformer architecture and contains 117 million parameters
+The first GPT model set a new standard in natural language understanding and generation. It was pre-trained via unsupervised learning on a large volume of text using a unidirectional (left-to-right) Transformer architecture and contains 117 million parameters.
 
 **GPT-2 (2019)**
 
