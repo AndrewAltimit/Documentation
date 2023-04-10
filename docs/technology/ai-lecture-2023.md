@@ -134,17 +134,17 @@ Self-attention refers to the ability of the model to weigh the importance of dif
 
 The self-attention mechanism works as follows:
 
-1. Input embeddings: The input sequence (e.g., a sentence) is first converted into a set of continuous vectors using an embedding layer. These vectors represent each token (word or subword) in the input sequence.
+1. **Input embeddings:** The input sequence (e.g., a sentence) is first converted into a set of continuous vectors using an embedding layer. These vectors represent each token (word or subword) in the input sequence.
 
-2. Linear transformation: For each input token, three vectors are derived by applying three separate linear transformations (i.e., multiplication by three weight matrices). These three vectors are called the Query (Q), Key (K), and Value (V) vectors. See the video below this list for an analogy to help understand the concept of self-attention.
+2. **Linear transformation:** For each input token, three vectors are derived by applying three separate linear transformations (i.e., multiplication by three weight matrices). These three vectors are called the Query (Q), Key (K), and Value (V) vectors. See the video below this list for an analogy to help understand the concept of self-attention.
 
-3. Scaled Dot-Product Attention: For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows.
+3. **Scaled Dot-Product Attention:** For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows.
 
-4. Softmax normalization: The scaled similarity scores are passed through a softmax function, which normalizes them into a probability distribution. This results in a set of attention weights that sum to one, representing the relative importance of each token in the input sequence concerning the current token.
+4. **Softmax normalization:** The scaled similarity scores are passed through a softmax function, which normalizes them into a probability distribution. This results in a set of attention weights that sum to one, representing the relative importance of each token in the input sequence concerning the current token.
 
-5. Weighted sum: The attention weights are then used to compute a weighted sum of the Value vectors corresponding to each token in the sequence. This weighted sum is the output of the self-attention mechanism for the current token, and it represents the attended context for that token.
+5. **Weighted sum:** The attention weights are then used to compute a weighted sum of the Value vectors corresponding to each token in the sequence. This weighted sum is the output of the self-attention mechanism for the current token, and it represents the attended context for that token.
 
-6. Multi-head attention: To capture different aspects of the relationships between tokens, the Transformer uses multiple parallel self-attention mechanisms called "heads." Each head computes its self-attention independently, and their outputs are concatenated and linearly transformed to form the final output of the multi-head attention layer.
+6. **Multi-head attention:** To capture different aspects of the relationships between tokens, the Transformer uses multiple parallel self-attention mechanisms called "heads." Each head computes its self-attention independently, and their outputs are concatenated and linearly transformed to form the final output of the multi-head attention layer.
 
 The self-attention mechanism allows the Transformer to effectively model long-range dependencies and complex relationships between tokens in a sequence. This has led to significant improvements in various natural language processing tasks, including machine translation, text summarization, and question-answering.
 
@@ -161,7 +161,7 @@ The self-attention mechanism allows the Transformer to effectively model long-ra
 </center>
 
 ### BERT: Bidirectional Encoder Representations from Transformers
-BERT is built upon the Transformer architecture with a unique aspect regarding its bidirectional context. Unlike traditional language models that process text in a unidirectional manner (left-to-right or right-to-left), BERT processes text in both directions simultaneously. This bidirectional approach enables BERT to better understand the context of words, as it considers both the preceding and following words in a sentence.
+BERT is built upon the Transformer architecture with a unique aspect regarding its bidirectional context. Unlike traditional language models that process text in a unidirectional manner (left-to-right or right-to-left), BERT processes text in both directions simultaneously. This bidirectional approach enables BERT to better understand the context of words, as it considers both the preceding and following words in a sentence. BERT also uses a tokenization technique called WordPiece to handle out-of-vocabulary words and improve generalization. WordPiece breaks down words into smaller subword units, allowing BERT to represent rare and unseen words more effectively.
 
 BERT's training consists of two main steps: pre-training and fine-tuning.
 
@@ -173,7 +173,6 @@ BERT's training consists of two main steps: pre-training and fine-tuning.
 
 2. **Fine-tuning:** After pre-training, BERT is fine-tuned on specific tasks using labeled data. The pre-trained model is adapted to the target task by adding task-specific layers and training the entire model with a smaller learning rate. This process allows BERT to transfer the knowledge gained from the pre-training phase to the target task effectively.
 
-    - **BERT Tokenization:** Handling Subwords with WordPiece to handle out-of-vocabulary words and improve generalization. WordPiece breaks down words into smaller subword units, allowing BERT to represent rare and unseen words more effectively.
 
 ### GPT: Generative Pre-trained Transformers
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <b><i>GPT-3: Language Models are Few-Shot Learners</i></b></a></p>
