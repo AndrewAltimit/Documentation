@@ -192,8 +192,11 @@ BERT's training consists of two main steps: pre-training and fine-tuning.
 
 ### GPT: Generative Pre-trained Transformers
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2005.14165.pdf"> Paper: <b><i>GPT-3: Language Models are Few-Shot Learners</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Paper: <b><i>Scaling Laws for Large Language Models</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.17580.pdf"> Paper: <b><i>GPT-4: The Natural Language Model</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2303.12712.pdf"> Paper: <b><i>Scaling Laws for Large Language Models</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/2304.00612.pdf"> Paper: <b><i>Eight Things to Know about Large Language Models</i></b></a></p>
+
+https://arxiv.org/pdf/2304.00612.pdf
 
 The Generative Pre-trained Transformer (GPT) is a family of language models based on the Transformer architecture, which has demonstrated impressive natural language understanding and generation capabilities. 
 
