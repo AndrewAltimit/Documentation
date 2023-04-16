@@ -224,7 +224,7 @@ GPT-3 contains 175 billion parameters and demonstrates strong performance on a w
 
 **GPT-4 (2023)**
 
-GPT-4 contains 170 trillion parameters and is 82% less likely to respond to requests for disallowed content and 40% more likely to produce factual responses than GPT-3.5 according to OpenAI internal evaluations.
+GPT-4 is claimed to have over 1 trillion parameters though no official numbers have been published. The model is 82% less likely to respond to requests for disallowed content and 40% more likely to produce factual responses than GPT-3.5 according to OpenAI internal evaluations.
 
 #### Training
 
