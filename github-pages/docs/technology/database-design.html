@@ -1,0 +1,1470 @@
+<h1 id="database-design">Database Design</h1>
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css" /></header></html>
+
+<p>Database design is the process of creating a detailed data model for a database. Good database design ensures data integrity, reduces redundancy, and optimizes performance while meeting application requirements.</p>
+
+<h2 id="mathematical-foundations">Mathematical Foundations</h2>
+
+<h3 id="relational-algebra">Relational Algebra</h3>
+
+<p>The theoretical foundation of relational databases based on set theory.</p>
+
+<h4 id="fundamental-operations">Fundamental Operations</h4>
+
+<p>Relational algebra provides the formal foundation for SQL and query optimization:</p>
+
+<ul>
+  <li><strong>Selection (σ)</strong>: Filter tuples based on predicates</li>
+  <li><strong>Projection (π)</strong>: Select specific attributes</li>
+  <li><strong>Union (∪)</strong>: Combine relations with same schema</li>
+  <li><strong>Difference (-)</strong>: Tuples in one relation but not another</li>
+  <li><strong>Cartesian Product (×)</strong>: All combinations of tuples</li>
+  <li><strong>Natural Join (⋈)</strong>: Join on common attributes</li>
+  <li><strong>Theta Join (⋈θ)</strong>: Join with arbitrary conditions</li>
+</ul>
+
+<h4 id="query-optimization-rules">Query Optimization Rules</h4>
+
+<p>Key algebraic transformations for optimization:</p>
+<ul>
+  <li><strong>Selection Pushdown</strong>: σp(R ⋈ S) ≡ σp(R) ⋈ S (if p only references R)</li>
+  <li><strong>Selection Combination</strong>: σp(σq(R)) ≡ σp∧q(R)</li>
+  <li><strong>Projection Pushdown</strong>: Eliminate unnecessary attributes early</li>
+  <li><strong>Join Reordering</strong>: Find optimal join order using dynamic programming</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of relational algebra operations and query optimization rules, see <a href="../../code-examples/technology/database-design/relational_algebra.py"><code class="language-plaintext highlighter-rouge">relational_algebra.py</code></a></p>
+</blockquote>
+
+<h3 id="functional-dependencies-and-normal-forms">Functional Dependencies and Normal Forms</h3>
+
+<h4 id="armstrongs-axioms">Armstrong’s Axioms</h4>
+
+<p>The sound and complete inference rules for functional dependencies:</p>
+
+<ol>
+  <li><strong>Reflexivity</strong>: If Y ⊆ X, then X → Y</li>
+  <li><strong>Augmentation</strong>: If X → Y, then XW → YW</li>
+  <li><strong>Transitivity</strong>: If X → Y and Y → Z, then X → Z</li>
+</ol>
+
+<p>Additional derived rules:</p>
+<ul>
+  <li><strong>Union</strong>: If X → Y and X → Z, then X → YZ</li>
+  <li><strong>Decomposition</strong>: If X → YZ, then X → Y and X → Z</li>
+  <li><strong>Pseudotransitivity</strong>: If X → Y and WY → Z, then WX → Z</li>
+</ul>
+
+<h4 id="normalization-theory">Normalization Theory</h4>
+
+<p><strong>Key Concepts</strong>:</p>
+<ul>
+  <li><strong>Attribute Closure (X+)</strong>: All attributes functionally determined by X</li>
+  <li><strong>Candidate Key</strong>: Minimal set of attributes that determines all others</li>
+  <li><strong>Superkey</strong>: Any superset of a candidate key</li>
+  <li><strong>Prime Attribute</strong>: Attribute that appears in some candidate key</li>
+</ul>
+
+<p><strong>Normal Forms</strong>:</p>
+<ul>
+  <li><strong>1NF</strong>: Atomic values only</li>
+  <li><strong>2NF</strong>: 1NF + no partial dependencies</li>
+  <li><strong>3NF</strong>: 2NF + no transitive dependencies</li>
+  <li><strong>BCNF</strong>: Every determinant is a superkey</li>
+  <li><strong>4NF</strong>: BCNF + no multi-valued dependencies</li>
+  <li><strong>5NF</strong>: 4NF + no join dependencies</li>
+</ul>
+
+<h4 id="bcnf-decomposition">BCNF Decomposition</h4>
+
+<p>The algorithm ensures lossless decomposition into BCNF:</p>
+<ol>
+  <li>Find violating FD where determinant is not a superkey</li>
+  <li>Decompose relation using the violating FD</li>
+  <li>Repeat until all relations are in BCNF</li>
+</ol>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of Armstrong’s axioms, closure computation, and BCNF decomposition algorithm, see <a href="../../code-examples/technology/database-design/normalization.py"><code class="language-plaintext highlighter-rouge">normalization.py</code></a></p>
+</blockquote>
+
+<h2 id="relational-database-concepts">Relational Database Concepts</h2>
+
+<h3 id="tables-and-relations">Tables and Relations</h3>
+<ul>
+  <li><strong>Table</strong>: Collection of related data entries</li>
+  <li><strong>Row/Record</strong>: Single data entry</li>
+  <li><strong>Column/Field</strong>: Attribute of data</li>
+  <li><strong>Primary Key</strong>: Unique identifier for each row</li>
+  <li><strong>Foreign Key</strong>: Reference to primary key in another table</li>
+</ul>
+
+<h3 id="acid-properties">ACID Properties</h3>
+<p>Ensures reliable transactions:</p>
+<ul>
+  <li><strong>Atomicity</strong>: All or nothing execution</li>
+  <li><strong>Consistency</strong>: Valid state transitions</li>
+  <li><strong>Isolation</strong>: Concurrent transaction separation</li>
+  <li><strong>Durability</strong>: Committed data persists</li>
+</ul>
+
+<h3 id="sql-fundamentals">SQL Fundamentals</h3>
+
+<p><strong>DDL (Data Definition Language)</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Create table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span> <span class="k">UNIQUE</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span>
+<span class="p">);</span>
+
+<span class="c1">-- Alter table</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">last_login</span> <span class="nb">TIMESTAMP</span><span class="p">;</span>
+
+<span class="c1">-- Create index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_users_email</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">email</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>DML (Data Manipulation Language)</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Insert</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">users</span> <span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">email</span><span class="p">)</span> 
+<span class="k">VALUES</span> <span class="p">(</span><span class="s1">'john_doe'</span><span class="p">,</span> <span class="s1">'john@example.com'</span><span class="p">);</span>
+
+<span class="c1">-- Select</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">users</span> <span class="k">WHERE</span> <span class="n">created_at</span> <span class="o">&gt;</span> <span class="s1">'2024-01-01'</span><span class="p">;</span>
+
+<span class="c1">-- Update</span>
+<span class="k">UPDATE</span> <span class="n">users</span> <span class="k">SET</span> <span class="n">last_login</span> <span class="o">=</span> <span class="n">NOW</span><span class="p">()</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+<span class="c1">-- Delete</span>
+<span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">users</span> <span class="k">WHERE</span> <span class="n">username</span> <span class="o">=</span> <span class="s1">'john_doe'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="database-normalization">Database Normalization</h2>
+
+<h3 id="normal-forms">Normal Forms</h3>
+
+<p><strong>First Normal Form (1NF)</strong>:</p>
+<ul>
+  <li>Each column contains atomic values</li>
+  <li>Each column contains values of single type</li>
+  <li>Each column has unique name</li>
+  <li>Order doesn’t matter</li>
+</ul>
+
+<p><strong>Second Normal Form (2NF)</strong>:</p>
+<ul>
+  <li>Satisfies 1NF</li>
+  <li>No partial dependencies on composite key</li>
+</ul>
+
+<p><strong>Third Normal Form (3NF)</strong>:</p>
+<ul>
+  <li>Satisfies 2NF</li>
+  <li>No transitive dependencies</li>
+</ul>
+
+<p><strong>Example Normalization</strong>:</p>
+
+<p>Unnormalized:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Orders: OrderID, CustomerName, CustomerAddress, Product1, Product2, Product3
+</code></pre></div></div>
+
+<p>Normalized:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Customers table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="p">(</span>
+    <span class="n">customer_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">address</span> <span class="nb">TEXT</span>
+<span class="p">);</span>
+
+<span class="c1">-- Orders table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">customers</span><span class="p">(</span><span class="n">customer_id</span><span class="p">),</span>
+    <span class="n">order_date</span> <span class="nb">TIMESTAMP</span>
+<span class="p">);</span>
+
+<span class="c1">-- Order_Items table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">orders</span><span class="p">(</span><span class="n">order_id</span><span class="p">),</span>
+    <span class="n">product_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">products</span><span class="p">(</span><span class="n">product_id</span><span class="p">),</span>
+    <span class="n">quantity</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">order_id</span><span class="p">,</span> <span class="n">product_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="denormalization">Denormalization</h3>
+<p>Strategic violation of normal forms for performance.</p>
+
+<p><strong>When to Denormalize</strong>:</p>
+<ul>
+  <li>Read-heavy workloads</li>
+  <li>Complex joins affecting performance</li>
+  <li>Reporting requirements</li>
+  <li>Data warehousing</li>
+</ul>
+
+<h2 id="relationships">Relationships</h2>
+
+<h3 id="one-to-one">One-to-One</h3>
+<p>Each record in Table A relates to one record in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_profiles</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">user_id</span><span class="p">),</span>
+    <span class="n">bio</span> <span class="nb">TEXT</span><span class="p">,</span>
+    <span class="n">avatar_url</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="one-to-many">One-to-Many</h3>
+<p>One record in Table A relates to many in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">authors</span> <span class="p">(</span>
+    <span class="n">author_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">books</span> <span class="p">(</span>
+    <span class="n">book_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
+    <span class="n">author_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">authors</span><span class="p">(</span><span class="n">author_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="many-to-many">Many-to-Many</h3>
+<p>Multiple records in Table A relate to multiple in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">students</span> <span class="p">(</span>
+    <span class="n">student_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">courses</span> <span class="p">(</span>
+    <span class="n">course_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">enrollments</span> <span class="p">(</span>
+    <span class="n">student_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">students</span><span class="p">(</span><span class="n">student_id</span><span class="p">),</span>
+    <span class="n">course_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">courses</span><span class="p">(</span><span class="n">course_id</span><span class="p">),</span>
+    <span class="n">enrollment_date</span> <span class="nb">DATE</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">student_id</span><span class="p">,</span> <span class="n">course_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="indexing">Indexing</h2>
+
+<h3 id="types-of-indexes">Types of Indexes</h3>
+
+<p><strong>B-Tree Index</strong>:</p>
+<ul>
+  <li>Default in most databases</li>
+  <li>Good for equality and range queries</li>
+  <li>Maintains sorted order</li>
+</ul>
+
+<p><strong>Hash Index</strong>:</p>
+<ul>
+  <li>Fast for equality comparisons</li>
+  <li>Not suitable for range queries</li>
+</ul>
+
+<p><strong>Bitmap Index</strong>:</p>
+<ul>
+  <li>Efficient for low-cardinality columns</li>
+  <li>Common in data warehouses</li>
+</ul>
+
+<p><strong>Full-Text Index</strong>:</p>
+<ul>
+  <li>For text search operations</li>
+  <li>Supports linguistic features</li>
+</ul>
+
+<h3 id="index-strategies">Index Strategies</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Single column index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_users_email</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">email</span><span class="p">);</span>
+
+<span class="c1">-- Composite index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_date</span> <span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">);</span>
+
+<span class="c1">-- Partial index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_active_users</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">username</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">active</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+
+<span class="c1">-- Expression index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_users_lower_email</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="k">LOWER</span><span class="p">(</span><span class="n">email</span><span class="p">));</span>
+</code></pre></div></div>
+
+<h3 id="index-best-practices">Index Best Practices</h3>
+<ul>
+  <li>Index columns used in WHERE, JOIN, ORDER BY</li>
+  <li>Consider selectivity (unique values / total rows)</li>
+  <li>Monitor index usage</li>
+  <li>Avoid over-indexing</li>
+  <li>Maintain indexes (rebuild/reorganize)</li>
+</ul>
+
+<h2 id="query-processing-and-optimization">Query Processing and Optimization</h2>
+
+<h3 id="query-processing-pipeline">Query Processing Pipeline</h3>
+
+<p>The complete query processing pipeline transforms SQL into executable operations:</p>
+
+<ol>
+  <li><strong>Parsing</strong>: Convert SQL text to abstract syntax tree (AST)</li>
+  <li><strong>Semantic Analysis</strong>: Validate table/column references, type checking</li>
+  <li><strong>Query Rewriting</strong>: Apply view expansion, subquery flattening</li>
+  <li><strong>Logical Optimization</strong>: Apply transformation rules, generate logical plan</li>
+  <li><strong>Physical Planning</strong>: Choose specific algorithms (hash join vs merge join)</li>
+  <li><strong>Execution</strong>: Execute the physical plan and return results</li>
+</ol>
+
+<h4 id="key-components">Key Components</h4>
+
+<p><strong>Query Plan Representation</strong>:</p>
+<ul>
+  <li>Tree structure with operation nodes</li>
+  <li>Cost estimates and cardinality at each node</li>
+  <li>Physical operator choices</li>
+</ul>
+
+<p><strong>Optimization Strategies</strong>:</p>
+<ul>
+  <li>Rule-based transformations (heuristic optimization)</li>
+  <li>Cost-based optimization using statistics</li>
+  <li>Adaptive query execution</li>
+</ul>
+
+<h3 id="cost-based-optimization">Cost-Based Optimization</h3>
+
+<p>The optimizer uses a cost model to estimate execution costs:</p>
+
+<p><strong>Cost Components</strong>:</p>
+<ul>
+  <li><strong>I/O Cost</strong>: Sequential vs random page access</li>
+  <li><strong>CPU Cost</strong>: Tuple processing and operator execution</li>
+  <li><strong>Network Cost</strong>: Data transfer in distributed systems</li>
+  <li><strong>Memory Cost</strong>: Buffer pool and working memory</li>
+</ul>
+
+<p><strong>Cost Estimation Factors</strong>:</p>
+<ul>
+  <li>Table and index statistics (cardinality, pages, distinct values)</li>
+  <li>Selectivity estimation using histograms</li>
+  <li>Join cardinality estimation</li>
+  <li>Sort and aggregation costs</li>
+</ul>
+
+<h3 id="join-order-optimization">Join Order Optimization</h3>
+
+<p>Finding the optimal join order is crucial for multi-table queries:</p>
+
+<p><strong>Dynamic Programming Algorithm</strong>:</p>
+<ol>
+  <li>Start with single relations (cost = 0)</li>
+  <li>Build larger join sets bottom-up</li>
+  <li>For each subset, try all possible splits</li>
+  <li>Choose join method (nested loop, hash, merge) based on cost</li>
+  <li>Memoize results to avoid recomputation</li>
+</ol>
+
+<p><strong>Join Methods</strong>:</p>
+<ul>
+  <li><strong>Nested Loop</strong>: O(n×m) - good for small tables or selective joins</li>
+  <li><strong>Hash Join</strong>: O(n+m) - efficient for equi-joins</li>
+  <li><strong>Merge Join</strong>: O(n log n + m log m) - optimal for sorted data</li>
+</ul>
+
+<p><strong>Interesting Orders</strong>: Consider sort orders that benefit parent operations</p>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of cost-based optimization, join order optimization using dynamic programming, and query plan visualization, see <a href="../../code-examples/technology/database-design/query_processing.py"><code class="language-plaintext highlighter-rouge">query_processing.py</code></a></p>
+</blockquote>
+
+<h3 id="execution-plans">Execution Plans</h3>
+<p>Understanding how database executes queries.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- PostgreSQL with detailed analysis</span>
+<span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">,</span> <span class="n">TIMING</span><span class="p">)</span> 
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">as</span> <span class="n">order_count</span>
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span> <span class="n">o</span><span class="p">.</span><span class="n">order_date</span> <span class="o">&gt;=</span> <span class="s1">'2024-01-01'</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span>
+<span class="k">HAVING</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">;</span>
+
+<span class="c1">-- MySQL with format options</span>
+<span class="k">EXPLAIN</span> <span class="n">FORMAT</span><span class="o">=</span><span class="n">TREE</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">customer_id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="query-plan-visualization">Query Plan Visualization</h3>
+
+<p>Understanding and analyzing query execution plans is crucial for optimization:</p>
+
+<p><strong>Plan Representation</strong>:</p>
+<ul>
+  <li>Tree structure showing operation hierarchy</li>
+  <li>Cost estimates and row counts at each node</li>
+  <li>Physical operator choices (hash join, index scan, etc.)</li>
+  <li>Data flow from leaves to root</li>
+</ul>
+
+<p><strong>Key Metrics to Analyze</strong>:</p>
+<ul>
+  <li>Total cost and cost distribution</li>
+  <li>Cardinality estimation accuracy</li>
+  <li>Index usage and access methods</li>
+  <li>Join order and algorithms</li>
+  <li>Memory usage and spill to disk</li>
+</ul>
+
+<h3 id="common-optimizations">Common Optimizations</h3>
+
+<p><strong>Use appropriate data types</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: VARCHAR for numeric data</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
+    <span class="n">price</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="c1">-- Good: Appropriate numeric type</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
+    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p><em>*Avoid SELECT **</em>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">users</span><span class="p">;</span>
+
+<span class="c1">-- Good</span>
+<span class="k">SELECT</span> <span class="n">id</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">email</span> <span class="k">FROM</span> <span class="n">users</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p><strong>Use JOINs efficiently</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Use INNER JOIN when possible</span>
+<span class="k">SELECT</span> <span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span>
+<span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span>
+<span class="k">INNER</span> <span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+
+<span class="c1">-- Consider join order for performance</span>
+</code></pre></div></div>
+
+<h2 id="distributed-databases">Distributed Databases</h2>
+
+<h3 id="cap-theorem-and-consistency-models">CAP Theorem and Consistency Models</h3>
+
+<p>The CAP theorem states that distributed systems can guarantee at most two of:</p>
+<ul>
+  <li><strong>Consistency</strong>: All nodes see the same data simultaneously</li>
+  <li><strong>Availability</strong>: System remains operational</li>
+  <li><strong>Partition Tolerance</strong>: System continues despite network failures</li>
+</ul>
+
+<p><strong>Consistency Models</strong>:</p>
+<ul>
+  <li><strong>Strong Consistency</strong>: All replicas agree on order of operations</li>
+  <li><strong>Eventual Consistency</strong>: Replicas converge eventually</li>
+  <li><strong>Bounded Staleness</strong>: Maximum lag between replicas</li>
+  <li><strong>Session Consistency</strong>: Consistency within a session</li>
+  <li><strong>Consistent Prefix</strong>: Ordered updates preserved</li>
+</ul>
+
+<h3 id="distributed-time-and-causality">Distributed Time and Causality</h3>
+
+<p><strong>Vector Clocks</strong>:</p>
+<ul>
+  <li>Track causality in distributed systems</li>
+  <li>Each node maintains counter for all nodes</li>
+  <li>Increment local counter on events</li>
+  <li>Update on message receipt</li>
+  <li>Detect concurrent vs causally related events</li>
+</ul>
+
+<p><strong>Hybrid Logical Clocks (HLC)</strong>:</p>
+<ul>
+  <li>Combine physical and logical time</li>
+  <li>Bounded clock drift</li>
+  <li>Preserves causality</li>
+  <li>Compatible with NTP</li>
+</ul>
+
+<h3 id="consensus-algorithms">Consensus Algorithms</h3>
+
+<h4 id="raft">Raft</h4>
+
+<p>A consensus algorithm designed for understandability:</p>
+
+<p><strong>Key Components</strong>:</p>
+<ul>
+  <li><strong>Leader Election</strong>: Randomized timeouts prevent split votes</li>
+  <li><strong>Log Replication</strong>: Leader replicates log entries to followers</li>
+  <li><strong>Safety</strong>: Election restriction ensures completeness</li>
+</ul>
+
+<p><strong>Node States</strong>:</p>
+<ul>
+  <li><strong>Follower</strong>: Passive state, responds to leader</li>
+  <li><strong>Candidate</strong>: Actively seeking leadership</li>
+  <li><strong>Leader</strong>: Handles client requests and log replication</li>
+</ul>
+
+<p><strong>RPCs</strong>:</p>
+<ul>
+  <li><strong>RequestVote</strong>: Used during elections</li>
+  <li><strong>AppendEntries</strong>: Log replication and heartbeats</li>
+</ul>
+
+<p><strong>Key Properties</strong>:</p>
+<ul>
+  <li>Election Safety: At most one leader per term</li>
+  <li>Leader Append-Only: Leaders never overwrite their logs</li>
+  <li>Log Matching: Logs identical up to same index/term</li>
+  <li>Leader Completeness: Committed entries preserved</li>
+  <li>State Machine Safety: Same logs produce same state</li>
+</ul>
+
+<h4 id="paxos">Paxos</h4>
+
+<p>The original consensus algorithm:</p>
+<ul>
+  <li>Single-decree Paxos for single value agreement</li>
+  <li>Multi-Paxos for log replication</li>
+  <li>Roles: Proposers, Acceptors, Learners</li>
+</ul>
+
+<h3 id="distributed-transactions">Distributed Transactions</h3>
+
+<h4 id="two-phase-commit-2pc">Two-Phase Commit (2PC)</h4>
+
+<p>The classic atomic commitment protocol:</p>
+
+<p><strong>Phase 1 - Prepare</strong>:</p>
+<ol>
+  <li>Coordinator sends prepare request to all participants</li>
+  <li>Participants acquire locks and create undo logs</li>
+  <li>Participants vote commit/abort</li>
+  <li>Coordinator logs decision</li>
+</ol>
+
+<p><strong>Phase 2 - Commit/Abort</strong>:</p>
+<ol>
+  <li>Coordinator sends decision to all participants</li>
+  <li>Participants apply decision and release locks</li>
+  <li>Participants acknowledge completion</li>
+</ol>
+
+<p><strong>Failure Handling</strong>:</p>
+<ul>
+  <li>Coordinator failure: Participants block until recovery</li>
+  <li>Participant failure: Can lead to blocking</li>
+  <li>Network partition: Can cause indefinite blocking</li>
+</ul>
+
+<h4 id="three-phase-commit-3pc">Three-Phase Commit (3PC)</h4>
+
+<p>Non-blocking variant of 2PC:</p>
+<ol>
+  <li><strong>CanCommit</strong>: Query phase</li>
+  <li><strong>PreCommit</strong>: Prepare phase with timeout</li>
+  <li><strong>DoCommit</strong>: Final commit phase</li>
+</ol>
+
+<p>Avoids blocking but requires bounded network delays.</p>
+
+<h4 id="saga-pattern">Saga Pattern</h4>
+
+<p>For long-running transactions:</p>
+<ul>
+  <li>Sequence of local transactions</li>
+  <li>Compensating transactions for rollback</li>
+  <li>Forward recovery preferred</li>
+  <li>Eventually consistent</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of CAP theorem demonstration, vector clocks, Raft consensus, 2PC/3PC protocols, and saga pattern, see <a href="../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a></p>
+</blockquote>
+
+<h2 id="nosql-databases">NoSQL Databases</h2>
+
+<h3 id="document-stores">Document Stores</h3>
+<p>Store data as documents (usually JSON).</p>
+
+<p><strong>MongoDB Example</strong>:</p>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Insert document</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nf">insertOne</span><span class="p">({</span>
+    <span class="na">username</span><span class="p">:</span> <span class="dl">"</span><span class="s2">john_doe</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">email</span><span class="p">:</span> <span class="dl">"</span><span class="s2">john@example.com</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">preferences</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">theme</span><span class="p">:</span> <span class="dl">"</span><span class="s2">dark</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">notifications</span><span class="p">:</span> <span class="kc">true</span>
+    <span class="p">},</span>
+    <span class="na">tags</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">developer</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">javascript</span><span class="dl">"</span><span class="p">]</span>
+<span class="p">});</span>
+
+<span class="c1">// Query</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nf">find</span><span class="p">({</span> <span class="dl">"</span><span class="s2">preferences.theme</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">dark</span><span class="dl">"</span> <span class="p">});</span>
+</code></pre></div></div>
+
+<h3 id="key-value-stores">Key-Value Stores</h3>
+<p>Simple key-value pairs.</p>
+
+<p><strong>Redis Example</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Set value</span>
+SET user:1234 <span class="s1">'{"name":"John","email":"john@example.com"}'</span>
+
+<span class="c"># Get value</span>
+GET user:1234
+
+<span class="c"># Set with expiration</span>
+SETEX session:abc123 3600 <span class="s1">'{"user_id":1234}'</span>
+</code></pre></div></div>
+
+<h3 id="column-family-stores">Column-Family Stores</h3>
+<p>Organize data by column families.</p>
+
+<p><strong>Cassandra Example</strong>:</p>
+<pre><code class="language-cql">CREATE TABLE users (
+    user_id UUID PRIMARY KEY,
+    username TEXT,
+    email TEXT,
+    created_at TIMESTAMP
+);
+
+INSERT INTO users (user_id, username, email, created_at)
+VALUES (uuid(), 'john_doe', 'john@example.com', toTimestamp(now()));
+</code></pre>
+
+<h3 id="graph-databases">Graph Databases</h3>
+<p>Store data as nodes and relationships.</p>
+
+<p><strong>Neo4j Example</strong>:</p>
+<div class="language-cypher highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Create nodes</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="py">john:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'John'</span><span class="ss">})</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="py">jane:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Jane'</span><span class="ss">})</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="py">python:</span><span class="n">Skill</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Python'</span><span class="ss">})</span>
+
+<span class="c1">// Create relationships</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="n">john</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:KNOWS</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="n">jane</span><span class="ss">)</span>
+<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="n">john</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:HAS_SKILL</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="n">python</span><span class="ss">)</span>
+</code></pre></div></div>
+
+<h2 id="data-modeling-patterns">Data Modeling Patterns</h2>
+
+<h3 id="star-schema">Star Schema</h3>
+<p>Central fact table with dimension tables.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Fact table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">sales_facts</span> <span class="p">(</span>
+    <span class="n">sale_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">product_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">date_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">amount</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">quantity</span> <span class="nb">INT</span>
+<span class="p">);</span>
+
+<span class="c1">-- Dimension tables</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_products</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">category</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">brand</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_customers</span> <span class="p">(</span>
+    <span class="n">customer_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">city</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">country</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="snowflake-schema">Snowflake Schema</h3>
+<p>Normalized star schema with sub-dimensions.</p>
+
+<h3 id="entity-attribute-value-eav">Entity-Attribute-Value (EAV)</h3>
+<p>Flexible schema for variable attributes.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">entities</span> <span class="p">(</span>
+    <span class="n">entity_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">entity_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">attributes</span> <span class="p">(</span>
+    <span class="n">attribute_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">attribute_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">data_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">values</span> <span class="p">(</span>
+    <span class="n">entity_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">entities</span><span class="p">(</span><span class="n">entity_id</span><span class="p">),</span>
+    <span class="n">attribute_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">attributes</span><span class="p">(</span><span class="n">attribute_id</span><span class="p">),</span>
+    <span class="n">value</span> <span class="nb">TEXT</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">attribute_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="transactions-and-concurrency-control">Transactions and Concurrency Control</h2>
+
+<h3 id="transaction-theory">Transaction Theory</h3>
+
+<h4 id="formal-model">Formal Model</h4>
+
+<p>Transactions are modeled as sequences of read/write operations:</p>
+
+<p><strong>Schedule Properties</strong>:</p>
+<ul>
+  <li><strong>Serial Schedule</strong>: Transactions execute one at a time</li>
+  <li><strong>Serializable Schedule</strong>: Equivalent to some serial schedule</li>
+  <li><strong>Conflict Serializability</strong>: Based on conflicting operations</li>
+  <li><strong>View Serializability</strong>: Based on reads-from relationships</li>
+</ul>
+
+<p><strong>Conflict Operations</strong>:</p>
+<ul>
+  <li>Read-Write conflicts (RW)</li>
+  <li>Write-Read conflicts (WR)</li>
+  <li>Write-Write conflicts (WW)</li>
+</ul>
+
+<p><strong>Serializability Testing</strong>:</p>
+<ol>
+  <li>Build precedence graph from conflicts</li>
+  <li>Check for cycles using DFS</li>
+  <li>Acyclic graph = conflict serializable</li>
+</ol>
+
+<p><strong>Recoverability</strong>:</p>
+<ul>
+  <li><strong>Recoverable</strong>: No transaction commits before transactions it reads from</li>
+  <li><strong>Cascadeless</strong>: Transactions only read committed data</li>
+  <li><strong>Strict</strong>: No read/write of uncommitted data</li>
+</ul>
+
+<h3 id="multi-version-concurrency-control-mvcc">Multi-Version Concurrency Control (MVCC)</h3>
+
+<p>MVCC maintains multiple versions of data items to provide snapshot isolation:</p>
+
+<p><strong>Key Concepts</strong>:</p>
+<ul>
+  <li>Each transaction sees a consistent snapshot</li>
+  <li>Writers don’t block readers</li>
+  <li>Multiple versions with timestamps</li>
+  <li>Garbage collection of old versions</li>
+</ul>
+
+<p><strong>Read Operation</strong>:</p>
+<ol>
+  <li>Find versions valid at transaction start time</li>
+  <li>Select version with highest write timestamp</li>
+  <li>Update read timestamp for garbage collection</li>
+</ol>
+
+<p><strong>Write Operation</strong>:</p>
+<ol>
+  <li>Buffer writes during transaction</li>
+  <li>Create new versions at commit time</li>
+  <li>Validate against concurrent updates</li>
+</ol>
+
+<p><strong>Validation (Snapshot Isolation)</strong>:</p>
+<ul>
+  <li>First-committer-wins for write conflicts</li>
+  <li>Prevent lost updates</li>
+  <li>May allow write skew anomalies</li>
+</ul>
+
+<p><strong>Advantages</strong>:</p>
+<ul>
+  <li>High concurrency for read-heavy workloads</li>
+  <li>No read locks required</li>
+  <li>Consistent snapshots for analytics</li>
+</ul>
+
+<h3 id="two-phase-locking-2pl">Two-Phase Locking (2PL)</h3>
+
+<p>The classic pessimistic concurrency control protocol:</p>
+
+<p><strong>Lock Types</strong>:</p>
+<ul>
+  <li><strong>Shared (S)</strong>: Multiple readers allowed</li>
+  <li><strong>Exclusive (X)</strong>: Single writer, no readers</li>
+  <li><strong>Intention Locks</strong>: For hierarchical locking (IS, IX, SIX)</li>
+</ul>
+
+<p><strong>2PL Protocol</strong>:</p>
+<ol>
+  <li><strong>Growing Phase</strong>: Acquire locks as needed</li>
+  <li><strong>Shrinking Phase</strong>: Release locks, cannot acquire new ones</li>
+  <li><strong>Strict 2PL</strong>: Hold all locks until commit/abort</li>
+</ol>
+
+<p><strong>Lock Compatibility Matrix</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>     S    X
+S   Yes   No
+X   No    No
+</code></pre></div></div>
+
+<p><strong>Deadlock Handling</strong>:</p>
+<ul>
+  <li><strong>Prevention</strong>: Acquire locks in order, wound-wait, wait-die</li>
+  <li><strong>Detection</strong>: Wait-for graph, cycle detection</li>
+  <li><strong>Resolution</strong>: Abort victim transaction</li>
+</ul>
+
+<p><strong>Advantages</strong>:</p>
+<ul>
+  <li>Guarantees serializability</li>
+  <li>Well-understood and widely implemented</li>
+  <li>Works with any workload</li>
+</ul>
+
+<p><strong>Disadvantages</strong>:</p>
+<ul>
+  <li>Lower concurrency than MVCC</li>
+  <li>Potential for deadlocks</li>
+  <li>Lock overhead</li>
+</ul>
+
+<h3 id="isolation-levels">Isolation Levels</h3>
+
+<p>SQL standard isolation levels and their anomalies:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Dirty Read</th>
+      <th>Non-Repeatable</th>
+      <th>Phantom</th>
+      <th>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Read Uncommitted</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>No locks</td>
+    </tr>
+    <tr>
+      <td>Read Committed</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Short read locks</td>
+    </tr>
+    <tr>
+      <td>Repeatable Read</td>
+      <td>No</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>Long read locks</td>
+    </tr>
+    <tr>
+      <td>Serializable</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+      <td>2PL or SSI</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Additional Isolation Levels</strong>:</p>
+<ul>
+  <li><strong>Snapshot Isolation (SI)</strong>: MVCC-based, prevents lost updates</li>
+  <li><strong>Serializable Snapshot Isolation (SSI)</strong>: Detects write skew</li>
+</ul>
+
+<h3 id="advanced-concurrency-control">Advanced Concurrency Control</h3>
+
+<p><strong>Optimistic Concurrency Control (OCC)</strong>:</p>
+<ul>
+  <li>No locks during execution</li>
+  <li>Validation at commit time</li>
+  <li>Good for low-conflict workloads</li>
+</ul>
+
+<p><strong>Timestamp Ordering (TO)</strong>:</p>
+<ul>
+  <li>Assign timestamps to transactions</li>
+  <li>Ensure timestamp order = serialization order</li>
+  <li>Thomas Write Rule for optimization</li>
+</ul>
+
+<p><strong>Hybrid Approaches</strong>:</p>
+<ul>
+  <li>Combine 2PL and MVCC</li>
+  <li>Adaptive concurrency control</li>
+  <li>Machine learning for workload prediction</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of transaction theory, MVCC, 2PL with deadlock detection, isolation levels, and advanced concurrency control methods, see <a href="../../code-examples/technology/database-design/concurrency_control.py"><code class="language-plaintext highlighter-rouge">concurrency_control.py</code></a></p>
+</blockquote>
+
+<h3 id="locking-strategies">Locking Strategies</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Explicit locking</span>
+<span class="k">BEGIN</span><span class="p">;</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">accounts</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">FOR</span> <span class="k">UPDATE</span><span class="p">;</span>
+<span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span> <span class="o">-</span> <span class="mi">100</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">COMMIT</span><span class="p">;</span>
+
+<span class="c1">-- Optimistic locking with version</span>
+<span class="k">UPDATE</span> <span class="n">products</span> 
+<span class="k">SET</span> <span class="n">stock</span> <span class="o">=</span> <span class="n">stock</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="k">version</span> <span class="o">=</span> <span class="k">version</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">AND</span> <span class="k">version</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="database-security">Database Security</h2>
+
+<h3 id="access-control">Access Control</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Create user</span>
+<span class="k">CREATE</span> <span class="k">USER</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span> <span class="n">IDENTIFIED</span> <span class="k">BY</span> <span class="s1">'secure_password'</span><span class="p">;</span>
+
+<span class="c1">-- Grant permissions</span>
+<span class="k">GRANT</span> <span class="k">SELECT</span><span class="p">,</span> <span class="k">INSERT</span><span class="p">,</span> <span class="k">UPDATE</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">TO</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+
+<span class="c1">-- Revoke permissions</span>
+<span class="k">REVOKE</span> <span class="k">DELETE</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">FROM</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+
+<span class="c1">-- Role-based access</span>
+<span class="k">CREATE</span> <span class="k">ROLE</span> <span class="n">read_only</span><span class="p">;</span>
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">TO</span> <span class="n">read_only</span><span class="p">;</span>
+<span class="k">GRANT</span> <span class="n">read_only</span> <span class="k">TO</span> <span class="s1">'analyst'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="data-encryption">Data Encryption</h3>
+
+<p><strong>At Rest</strong>:</p>
+<ul>
+  <li>Transparent Data Encryption (TDE)</li>
+  <li>File system encryption</li>
+  <li>Column-level encryption</li>
+</ul>
+
+<p><strong>In Transit</strong>:</p>
+<ul>
+  <li>SSL/TLS connections</li>
+  <li>VPN tunnels</li>
+</ul>
+
+<h3 id="sql-injection-prevention">SQL Injection Prevention</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad - vulnerable to injection
+</span><span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">SELECT * FROM users WHERE username = </span><span class="sh">'</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="sh">'"</span>
+
+<span class="c1"># Good - parameterized query
+</span><span class="n">cursor</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">SELECT * FROM users WHERE username = %s</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">username</span><span class="p">,)</span>
+<span class="p">)</span>
+
+<span class="c1"># Good - using ORM
+</span><span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="p">.</span><span class="n">query</span><span class="p">.</span><span class="nf">filter_by</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">).</span><span class="nf">first</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h2 id="backup-and-recovery">Backup and Recovery</h2>
+
+<h3 id="backup-strategies">Backup Strategies</h3>
+
+<p><strong>Full Backup</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># PostgreSQL</span>
+pg_dump dbname <span class="o">&gt;</span> backup.sql
+
+<span class="c"># MySQL</span>
+mysqldump <span class="nt">--all-databases</span> <span class="o">&gt;</span> backup.sql
+</code></pre></div></div>
+
+<p><strong>Incremental Backup</strong>:</p>
+<ul>
+  <li>Only changes since last backup</li>
+  <li>Requires less storage</li>
+  <li>Faster backup, slower restore</li>
+</ul>
+
+<p><strong>Point-in-Time Recovery</strong>:</p>
+<ul>
+  <li>Transaction logs</li>
+  <li>Restore to specific moment</li>
+</ul>
+
+<h3 id="high-availability">High Availability</h3>
+
+<p><strong>Replication</strong>:</p>
+<ul>
+  <li>Master-slave</li>
+  <li>Master-master</li>
+  <li>Multi-master</li>
+</ul>
+
+<p><strong>Clustering</strong>:</p>
+<ul>
+  <li>Active-passive</li>
+  <li>Active-active</li>
+  <li>Shared storage</li>
+</ul>
+
+<h2 id="database-internals">Database Internals</h2>
+
+<h3 id="storage-engine-architecture">Storage Engine Architecture</h3>
+
+<p>Database storage engines manage physical data storage and retrieval:</p>
+
+<p><strong>Page Management</strong>:</p>
+<ul>
+  <li>Fixed-size pages (typically 4KB-16KB)</li>
+  <li>Page header with metadata (LSN, checksum, pointers)</li>
+  <li>Slotted page format for variable-length records</li>
+  <li>Free space management within pages</li>
+</ul>
+
+<p><strong>Buffer Pool</strong>:</p>
+<ul>
+  <li>Cache frequently accessed pages in memory</li>
+  <li>Page replacement policies (LRU, Clock, LRU-K)</li>
+  <li>Dirty page tracking and write-back</li>
+  <li>Pin/unpin for concurrency control</li>
+</ul>
+
+<p><strong>Storage Structures</strong>:</p>
+<ul>
+  <li><strong>Heap Files</strong>: Unordered collection of pages</li>
+  <li><strong>Sequential Files</strong>: Sorted by key</li>
+  <li><strong>Hashed Files</strong>: Hash function determines location</li>
+</ul>
+
+<h3 id="b-tree-implementation">B+ Tree Implementation</h3>
+
+<p>The most common index structure in databases:</p>
+
+<p><strong>Properties</strong>:</p>
+<ul>
+  <li>All data in leaf nodes</li>
+  <li>Internal nodes contain keys and child pointers</li>
+  <li>Leaves linked for range scans</li>
+  <li>Self-balancing with O(log n) operations</li>
+</ul>
+
+<p><strong>Operations</strong>:</p>
+<ul>
+  <li><strong>Search</strong>: Traverse from root to leaf</li>
+  <li><strong>Insert</strong>: Find leaf, split if necessary, propagate up</li>
+  <li><strong>Delete</strong>: Remove from leaf, merge if underfull</li>
+  <li><strong>Bulk Loading</strong>: Build bottom-up for efficiency</li>
+</ul>
+
+<p><strong>Optimizations</strong>:</p>
+<ul>
+  <li>Prefix compression in internal nodes</li>
+  <li>Suffix truncation for separators</li>
+  <li>Bulk insert with sorted data</li>
+  <li>Concurrent B+ trees with latch coupling</li>
+</ul>
+
+<h3 id="log-structured-merge-tree-lsm">Log-Structured Merge Tree (LSM)</h3>
+
+<p>Optimized for write-heavy workloads:</p>
+
+<p><strong>Components</strong>:</p>
+<ul>
+  <li><strong>MemTable</strong>: In-memory write buffer (skip list or RB tree)</li>
+  <li><strong>Immutable MemTable</strong>: Frozen for flushing</li>
+  <li><strong>SSTables</strong>: Sorted String Tables on disk</li>
+  <li><strong>Bloom Filters</strong>: Probabilistic existence checks</li>
+</ul>
+
+<p><strong>Write Path</strong>:</p>
+<ol>
+  <li>Write to WAL for durability</li>
+  <li>Insert into MemTable</li>
+  <li>Flush to SSTable when full</li>
+  <li>Background compaction</li>
+</ol>
+
+<p><strong>Read Path</strong>:</p>
+<ol>
+  <li>Check MemTable</li>
+  <li>Check Immutable MemTable</li>
+  <li>Search SSTables (newest to oldest)</li>
+  <li>Use bloom filters to skip files</li>
+</ol>
+
+<p><strong>Compaction Strategies</strong>:</p>
+<ul>
+  <li><strong>Size-tiered</strong>: Merge similar-sized SSTables</li>
+  <li><strong>Leveled</strong>: Maintain non-overlapping levels</li>
+  <li><strong>Time-window</strong>: Partition by time ranges</li>
+</ul>
+
+<h3 id="write-ahead-logging-wal">Write-Ahead Logging (WAL)</h3>
+
+<p>Ensures durability and recovery:</p>
+
+<p><strong>Log Structure</strong>:</p>
+<ul>
+  <li>Sequential append-only file</li>
+  <li>Each entry: [LSN, Type, TxnID, Data, Checksum]</li>
+  <li>Group commit for efficiency</li>
+</ul>
+
+<p><strong>Recovery Process</strong>:</p>
+<ol>
+  <li>Find last checkpoint</li>
+  <li>Replay log from checkpoint</li>
+  <li>Redo committed transactions</li>
+  <li>Undo incomplete transactions</li>
+</ol>
+
+<p><strong>Optimizations</strong>:</p>
+<ul>
+  <li>Log record batching</li>
+  <li>Parallel log replay</li>
+  <li>Compressed logs</li>
+  <li>Segmented log files</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of page management, buffer pool, B+ trees, LSM trees, and recovery mechanisms, see <a href="../../code-examples/technology/database-design/storage_engines.py"><code class="language-plaintext highlighter-rouge">storage_engines.py</code></a></p>
+</blockquote>
+
+<h2 id="performance-tuning">Performance Tuning</h2>
+
+<h3 id="database-configuration">Database Configuration</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- PostgreSQL</span>
+<span class="c1">-- Shared memory</span>
+<span class="n">shared_buffers</span> <span class="o">=</span> <span class="mi">256</span><span class="n">MB</span>
+<span class="n">effective_cache_size</span> <span class="o">=</span> <span class="mi">1</span><span class="n">GB</span>
+
+<span class="c1">-- Connection pooling</span>
+<span class="n">max_connections</span> <span class="o">=</span> <span class="mi">100</span>
+
+<span class="c1">-- Query planning</span>
+<span class="n">random_page_cost</span> <span class="o">=</span> <span class="mi">1</span><span class="p">.</span><span class="mi">1</span>
+</code></pre></div></div>
+
+<h3 id="query-optimization-techniques">Query Optimization Techniques</h3>
+
+<p><strong>Partitioning</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Range partitioning</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders_2024_01</span> <span class="k">PARTITION</span> <span class="k">OF</span> <span class="n">orders</span>
+<span class="k">FOR</span> <span class="k">VALUES</span> <span class="k">FROM</span> <span class="p">(</span><span class="s1">'2024-01-01'</span><span class="p">)</span> <span class="k">TO</span> <span class="p">(</span><span class="s1">'2024-02-01'</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>Materialized Views</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="n">MATERIALIZED</span> <span class="k">VIEW</span> <span class="n">monthly_sales</span> <span class="k">AS</span>
+<span class="k">SELECT</span> 
+    <span class="n">DATE_TRUNC</span><span class="p">(</span><span class="s1">'month'</span><span class="p">,</span> <span class="n">order_date</span><span class="p">)</span> <span class="k">as</span> <span class="k">month</span><span class="p">,</span>
+    <span class="k">SUM</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span> <span class="k">as</span> <span class="n">total_sales</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">month</span><span class="p">;</span>
+
+<span class="c1">-- Refresh</span>
+<span class="n">REFRESH</span> <span class="n">MATERIALIZED</span> <span class="k">VIEW</span> <span class="n">monthly_sales</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="monitoring">Monitoring</h3>
+
+<p>Key metrics:</p>
+<ul>
+  <li>Query response time</li>
+  <li>Connection pool usage</li>
+  <li>Lock waits</li>
+  <li>Cache hit ratio</li>
+  <li>Disk I/O</li>
+  <li>CPU usage</li>
+</ul>
+
+<h2 id="modern-trends-and-research-frontiers">Modern Trends and Research Frontiers</h2>
+
+<h3 id="newsql-architecture">NewSQL Architecture</h3>
+
+<p>Combining benefits of NoSQL scalability with SQL consistency:</p>
+
+<p><strong>Key Features</strong>:</p>
+<ul>
+  <li>Distributed SQL processing</li>
+  <li>ACID across partitions</li>
+  <li>Horizontal scalability</li>
+  <li>SQL interface preserved</li>
+</ul>
+
+<p><strong>Architectures</strong>:</p>
+<ul>
+  <li><strong>Shared-Nothing</strong>: Each node owns data partition</li>
+  <li><strong>Shared-Disk</strong>: Disaggregated storage layer</li>
+  <li><strong>Hybrid</strong>: Separate compute and storage tiers</li>
+</ul>
+
+<p><strong>Examples</strong>:</p>
+<ul>
+  <li>Google Spanner: Globally distributed with external consistency</li>
+  <li>CockroachDB: Raft-based with geo-replication</li>
+  <li>TiDB: MySQL-compatible with HTAP</li>
+  <li>VoltDB: In-memory with stored procedures</li>
+</ul>
+
+<h3 id="learned-index-structures">Learned Index Structures</h3>
+
+<p>ML-enhanced database components:</p>
+
+<p><strong>Learned Indexes</strong>:</p>
+<ul>
+  <li>Replace B+ trees with neural networks</li>
+  <li>CDF approximation for key-position mapping</li>
+  <li>Recursive Model Index (RMI) architecture</li>
+  <li>Error bounds for guaranteed lookup</li>
+</ul>
+
+<p><strong>Benefits</strong>:</p>
+<ul>
+  <li>Smaller memory footprint</li>
+  <li>Faster lookups for certain distributions</li>
+  <li>Adaptable to data patterns</li>
+</ul>
+
+<p><strong>Challenges</strong>:</p>
+<ul>
+  <li>Updates and inserts</li>
+  <li>Worst-case guarantees</li>
+  <li>Training overhead</li>
+</ul>
+
+<h3 id="quantum-database-algorithms">Quantum Database Algorithms</h3>
+
+<p>Leveraging quantum computing for database operations:</p>
+
+<p><strong>Grover’s Algorithm</strong>:</p>
+<ul>
+  <li>O(√N) unstructured search</li>
+  <li>Quadratic speedup over classical</li>
+  <li>Applications in query processing</li>
+</ul>
+
+<p><strong>Quantum Join Algorithms</strong>:</p>
+<ul>
+  <li>Amplitude amplification for selectivity estimation</li>
+  <li>Quantum walks for graph databases</li>
+  <li>HHL algorithm for linear systems</li>
+</ul>
+
+<p><strong>Challenges</strong>:</p>
+<ul>
+  <li>Limited qubit coherence</li>
+  <li>Quantum error correction</li>
+  <li>Classical-quantum interface</li>
+</ul>
+
+<h3 id="graph-neural-networks-for-query-optimization">Graph Neural Networks for Query Optimization</h3>
+
+<p>ML-enhanced query optimization:</p>
+
+<p><strong>Applications</strong>:</p>
+<ul>
+  <li>Cost estimation using GNNs</li>
+  <li>Join order optimization</li>
+  <li>Index selection</li>
+  <li>Workload prediction</li>
+</ul>
+
+<p><strong>Architecture</strong>:</p>
+<ul>
+  <li>Query plans as graphs</li>
+  <li>Node features: operation type, cardinality</li>
+  <li>Edge features: data flow, dependencies</li>
+  <li>Global pooling for cost prediction</li>
+</ul>
+
+<p><strong>Benefits</strong>:</p>
+<ul>
+  <li>Learn from execution history</li>
+  <li>Adapt to workload patterns</li>
+  <li>Handle complex correlations</li>
+</ul>
+
+<h3 id="blockchain-database-integration">Blockchain Database Integration</h3>
+
+<p>Immutable and distributed data management:</p>
+
+<p><strong>Use Cases</strong>:</p>
+<ul>
+  <li>Audit trails</li>
+  <li>Supply chain tracking</li>
+  <li>Regulatory compliance</li>
+  <li>Multi-party data sharing</li>
+</ul>
+
+<p><strong>Architecture</strong>:</p>
+<ul>
+  <li>Blocks contain transactions</li>
+  <li>Cryptographic chaining</li>
+  <li>Consensus mechanisms</li>
+  <li>Smart contracts for queries</li>
+</ul>
+
+<p><strong>Trade-offs</strong>:</p>
+<ul>
+  <li>Immutability vs updates</li>
+  <li>Performance vs decentralization</li>
+  <li>Storage growth</li>
+</ul>
+
+<h3 id="hardware-acceleration">Hardware Acceleration</h3>
+
+<p>Specialized hardware for databases:</p>
+
+<p><strong>GPU Acceleration</strong>:</p>
+<ul>
+  <li>Parallel query processing</li>
+  <li>Column-wise operations</li>
+  <li>Join and aggregation speedup</li>
+</ul>
+
+<p><strong>FPGA/ASIC</strong>:</p>
+<ul>
+  <li>Custom query processors</li>
+  <li>Compression/decompression</li>
+  <li>Encryption acceleration</li>
+</ul>
+
+<p><strong>Persistent Memory</strong>:</p>
+<ul>
+  <li>Byte-addressable storage</li>
+  <li>Reduced latency</li>
+  <li>Larger memory capacity</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of NewSQL architecture, learned indexes, quantum algorithms, GNN-based optimization, and blockchain databases, see <a href="../../code-examples/technology/database-design/modern_databases.py"><code class="language-plaintext highlighter-rouge">modern_databases.py</code></a></p>
+</blockquote>
+
+<h2 id="references-and-further-reading">References and Further Reading</h2>
+
+<h3 id="classical-database-theory">Classical Database Theory</h3>
+<ul>
+  <li>Ramakrishnan, R., &amp; Gehrke, J. (2003). <em>Database Management Systems</em> (3rd ed.)</li>
+  <li>Garcia-Molina, H., Ullman, J., &amp; Widom, J. (2008). <em>Database Systems: The Complete Book</em></li>
+  <li>Abiteboul, S., Hull, R., &amp; Vianu, V. (1995). <em>Foundations of Databases</em></li>
+</ul>
+
+<h3 id="distributed-databases-1">Distributed Databases</h3>
+<ul>
+  <li>Özsu, M. T., &amp; Valduriez, P. (2020). <em>Principles of Distributed Database Systems</em> (4th ed.)</li>
+  <li>Kleppmann, M. (2017). <em>Designing Data-Intensive Applications</em></li>
+  <li>Corbett, J. C., et al. (2013). “Spanner: Google’s Globally Distributed Database.” <em>ACM Transactions on Computer Systems</em></li>
+</ul>
+
+<h3 id="query-processing-and-optimization-1">Query Processing and Optimization</h3>
+<ul>
+  <li>Ioannidis, Y. E. (1996). “Query Optimization.” <em>ACM Computing Surveys</em></li>
+  <li>Chaudhuri, S. (1998). “An Overview of Query Optimization in Relational Systems.” <em>PODS</em></li>
+  <li>Marcus, R., et al. (2019). “Neo: A Learned Query Optimizer.” <em>VLDB</em></li>
+</ul>
+
+<h3 id="modern-database-systems">Modern Database Systems</h3>
+<ul>
+  <li>Pavlo, A., &amp; Aslett, M. (2016). “What’s Really New with NewSQL?” <em>SIGMOD Record</em></li>
+  <li>Kraska, T., et al. (2018). “The Case for Learned Index Structures.” <em>SIGMOD</em></li>
+  <li>Stonebraker, M., &amp; Çetintemel, U. (2018). “‘One Size Fits All’: An Idea Whose Time Has Come and Gone.” <em>Communications of the ACM</em></li>
+</ul>
+
+<h3 id="research-papers">Research Papers</h3>
+<ul>
+  <li>Hellerstein, J. M., et al. (2007). “Architecture of a Database System.” <em>Foundations and Trends in Databases</em></li>
+  <li>Bernstein, P. A., et al. (2011). “Concurrency Control and Recovery in Database Systems”</li>
+  <li>Thomson, A., et al. (2012). “Calvin: Fast Distributed Transactions for Partitioned Database Systems.” <em>SIGMOD</em></li>
+  <li>Armbrust, M., et al. (2015). “Spark SQL: Relational Data Processing in Spark.” <em>SIGMOD</em></li>
+</ul>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="design-guidelines">Design Guidelines</h3>
+<ol>
+  <li>Start with conceptual model</li>
+  <li>Normalize appropriately</li>
+  <li>Plan for growth</li>
+  <li>Consider read/write patterns</li>
+  <li>Document everything</li>
+</ol>
+
+<h3 id="development-practices">Development Practices</h3>
+<ol>
+  <li>Use version control for schema</li>
+  <li>Implement proper testing</li>
+  <li>Use migrations for changes</li>
+  <li>Monitor performance</li>
+  <li>Regular maintenance</li>
+</ol>
+
+<h3 id="data-integrity">Data Integrity</h3>
+<ol>
+  <li>Use constraints appropriately</li>
+  <li>Implement business logic checks</li>
+  <li>Validate at multiple levels</li>
+  <li>Handle edge cases</li>
+  <li>Plan for data quality</li>
+</ol>
+
+<h2 id="advanced-implementation-projects">Advanced Implementation Projects</h2>
+
+<h3 id="build-your-own-database">Build Your Own Database</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Project structure for educational database implementation
+</span><span class="sh">"""</span><span class="s">
+minidb/
+├── storage/
+│   ├── page.py          # Page management
+│   ├── buffer_pool.py   # Buffer pool manager  
+│   └── disk_manager.py  # Disk I/O
+├── index/
+│   ├── btree.py         # B+ tree implementation
+│   ├── hash_index.py    # Hash index
+│   └── bitmap.py        # Bitmap index
+├── execution/
+│   ├── executor.py      # Query executor
+│   ├── operators.py     # Scan, join, aggregate
+│   └── expression.py    # Expression evaluation
+├── concurrency/
+│   ├── lock_manager.py  # 2PL implementation
+│   ├── mvcc.py          # MVCC implementation
+│   └── deadlock.py      # Deadlock detection
+├── recovery/
+│   ├── log_manager.py   # Write-ahead logging
+│   ├── checkpoint.py    # Checkpointing
+│   └── recovery.py      # ARIES recovery
+├── optimizer/
+│   ├── parser.py        # SQL parser
+│   ├── planner.py       # Query planner
+│   └── cost_model.py    # Cost estimation
+└── distributed/
+    ├── coordinator.py   # 2PC coordinator
+    ├── partition.py     # Data partitioning
+    └── replication.py   # Replication manager
+</span><span class="sh">"""</span>
+</code></pre></div></div>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+  <li><a href="aws.html">AWS</a> - Cloud database services and DynamoDB internals</li>
+  <li><a href="docker.html">Docker</a> - Containerizing databases</li>
+  <li><a href="cybersecurity.html">Cybersecurity</a> - Database security and encryption</li>
+  <li><a href="ai.html">AI</a> - ML with databases and learned indexes</li>
+  <li><a href="networking.html">Networking</a> - Distributed database protocols</li>
+  <li><a href="quantumcomputing.html">Quantum Computing</a> - Quantum database algorithms</li>
+</ul>

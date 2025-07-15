@@ -1,0 +1,1717 @@
+<h1 id="git-version-control">Git Version Control</h1>
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css" /></header></html>
+
+<div class="hero-section">
+  <div class="hero-content">
+    <h1 class="hero-title">Git</h1>
+    <p class="hero-subtitle">Distributed Version Control: Theory and Implementation</p>
+  </div>
+</div>
+
+<div class="intro-card">
+  <p class="lead-text">Git represents a paradigm shift in version control systems, implementing a content-addressable filesystem with a distributed architecture based on cryptographic principles. Built on directed acyclic graphs (DAGs), Merkle trees, and SHA-1 hashing, Git provides mathematical guarantees about data integrity while enabling sophisticated workflows through its elegant object model.</p>
+  
+  <div class="key-insights">
+    <div class="insight-card">
+      <i class="fas fa-project-diagram"></i>
+      <h4>DAG-Based History</h4>
+      <p>Directed acyclic graph for commits</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-shield-alt"></i>
+      <h4>Cryptographic Integrity</h4>
+      <p>SHA-1/SHA-256 content addressing</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-network-wired"></i>
+      <h4>Distributed Architecture</h4>
+      <p>Peer-to-peer repository model</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="mathematical-foundations">Mathematical Foundations</h2>
+
+<h3 id="content-addressable-storage-theory">Content-Addressable Storage Theory</h3>
+
+<p>Git implements a content-addressable filesystem where objects are stored and retrieved by their SHA-1 hash. This provides cryptographic integrity and enables efficient storage through deduplication.</p>
+
+<p><strong>Key Components:</strong></p>
+<ul>
+  <li><strong>GitObject</strong>: Base class for all Git objects (blob, tree, commit, tag)</li>
+  <li><strong>SHA-1 Hashing</strong>: Content addressing using cryptographic hashes</li>
+  <li><strong>Compression</strong>: zlib compression for efficient storage</li>
+  <li><strong>Merkle Trees</strong>: Tree objects form a Merkle tree structure</li>
+  <li><strong>Commit DAG</strong>: Directed Acyclic Graph for version history</li>
+</ul>
+
+<p><strong>Object Model:</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Creating a Git object
+</span><span class="n">header</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">blob </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="se">\0</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+<span class="n">sha1</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="n">compressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="p">.</span><span class="nf">compress</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete implementation of Git’s object model, Merkle trees, and DAG operations, see <a href="../../code-examples/technology/git/content_addressable_storage.py"><code class="language-plaintext highlighter-rouge">content_addressable_storage.py</code></a></p>
+</blockquote>
+
+<h3 id="three-way-merge-algorithm">Three-Way Merge Algorithm</h3>
+
+<p>Git’s three-way merge algorithm combines changes from two branches using their common ancestor as a reference point. This enables automatic resolution of non-conflicting changes.</p>
+
+<p><strong>Algorithm Steps:</strong></p>
+<ol>
+  <li>Find common ancestor (merge base)</li>
+  <li>Compute diffs: base→ours and base→theirs</li>
+  <li>Apply non-conflicting changes automatically</li>
+  <li>Mark conflicting changes for manual resolution</li>
+</ol>
+
+<p><strong>Merge Cases:</strong></p>
+<ul>
+  <li><strong>No conflict</strong>: Changes in different files or parts</li>
+  <li><strong>Auto-merge</strong>: Same changes in both branches</li>
+  <li><strong>Conflict</strong>: Different changes to same lines</li>
+</ul>
+
+<p><strong>Example merge conflict markers:</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; ours
+Our changes
+=======
+Their changes
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For complete three-way merge implementation with conflict detection and advanced merge strategies, see <a href="../../code-examples/technology/git/three_way_merge.py"><code class="language-plaintext highlighter-rouge">three_way_merge.py</code></a></p>
+</blockquote>
+
+<h2 id="git-internals">Git Internals</h2>
+
+<h3 id="object-storage-implementation">Object Storage Implementation</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">GitObjectStore</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Low-level Git object storage implementation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">git_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">.git</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">git_dir</span> <span class="o">=</span> <span class="n">git_dir</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">objects_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">git_dir</span><span class="p">,</span> <span class="sh">"</span><span class="s">objects</span><span class="sh">"</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">write_object</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">:</span> <span class="n">GitObject</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Write object to disk using content addressing</span><span class="sh">"""</span>
+        <span class="n">sha</span> <span class="o">=</span> <span class="n">obj</span><span class="p">.</span><span class="n">sha1</span>
+        <span class="n">compressed</span> <span class="o">=</span> <span class="n">obj</span><span class="p">.</span><span class="nf">compress</span><span class="p">()</span>
+        
+        <span class="c1"># Objects stored as .git/objects/ab/cdef...
+</span>        <span class="n">dir_name</span> <span class="o">=</span> <span class="n">sha</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">sha</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+        
+        <span class="n">obj_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">objects_dir</span><span class="p">,</span> <span class="n">dir_name</span><span class="p">)</span>
+        <span class="n">os</span><span class="p">.</span><span class="nf">makedirs</span><span class="p">(</span><span class="n">obj_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        
+        <span class="n">obj_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">obj_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">obj_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">wb</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">sha</span>
+    
+    <span class="k">def</span> <span class="nf">read_object</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">sha</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GitObject</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Read and decompress object from disk</span><span class="sh">"""</span>
+        <span class="n">dir_name</span> <span class="o">=</span> <span class="n">sha</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">sha</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+        
+        <span class="n">obj_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">objects_dir</span><span class="p">,</span> <span class="n">dir_name</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">obj_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">rb</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">compressed</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">()</span>
+        
+        <span class="n">decompressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="p">.</span><span class="nf">decompress</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span>
+        
+        <span class="c1"># Parse header
+</span>        <span class="n">null_idx</span> <span class="o">=</span> <span class="n">decompressed</span><span class="p">.</span><span class="nf">index</span><span class="p">(</span><span class="sa">b</span><span class="sh">'</span><span class="se">\0</span><span class="sh">'</span><span class="p">)</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="n">decompressed</span><span class="p">[:</span><span class="n">null_idx</span><span class="p">].</span><span class="nf">decode</span><span class="p">()</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">decompressed</span><span class="p">[</span><span class="n">null_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
+        
+        <span class="n">obj_type</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">header</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nc">GitObject</span><span class="p">(</span><span class="nc">ObjectType</span><span class="p">(</span><span class="n">obj_type</span><span class="p">),</span> <span class="n">content</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">PackFile</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Git packfile format for efficient storage</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">pack_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pack_path</span> <span class="o">=</span> <span class="n">pack_path</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">idx_path</span> <span class="o">=</span> <span class="n">pack_path</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="sh">'</span><span class="s">.pack</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">.idx</span><span class="sh">'</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_load_index</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">_load_index</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Load pack index for fast lookups</span><span class="sh">"""</span>
+        <span class="c1"># Pack index format (v2):
+</span>        <span class="c1"># - Header (8 bytes)
+</span>        <span class="c1"># - Fanout table (256 * 4 bytes)
+</span>        <span class="c1"># - SHA1 entries (20 bytes each)
+</span>        <span class="c1"># - CRC32 checksums (4 bytes each)
+</span>        <span class="c1"># - Offsets (4 or 8 bytes each)
+</span>        <span class="c1"># - 64-bit offsets (if needed)
+</span>        <span class="c1"># - Pack checksum (20 bytes)
+</span>        <span class="c1"># - Index checksum (20 bytes)
+</span>        
+        <span class="n">index</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">idx_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">rb</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="c1"># Parse index file
+</span>            <span class="n">header</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">header</span> <span class="o">!=</span> <span class="sa">b</span><span class="sh">'</span><span class="se">\xff\x74\x4f\x63\x00\x00\x00\x02</span><span class="sh">'</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Invalid pack index version</span><span class="sh">"</span><span class="p">)</span>
+            
+            <span class="c1"># Read fanout table
+</span>            <span class="n">fanout</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">256</span><span class="p">):</span>
+                <span class="n">fanout</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">struct</span><span class="p">.</span><span class="nf">unpack</span><span class="p">(</span><span class="sh">'</span><span class="s">&gt;I</span><span class="sh">'</span><span class="p">,</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))[</span><span class="mi">0</span><span class="p">])</span>
+            
+            <span class="n">num_objects</span> <span class="o">=</span> <span class="n">fanout</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="c1"># Read SHA1s
+</span>            <span class="n">shas</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_objects</span><span class="p">):</span>
+                <span class="n">shas</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="mi">20</span><span class="p">).</span><span class="nf">hex</span><span class="p">())</span>
+            
+            <span class="c1"># Skip CRC32s
+</span>            <span class="n">f</span><span class="p">.</span><span class="nf">seek</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">num_objects</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            
+            <span class="c1"># Read offsets
+</span>            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sha</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">shas</span><span class="p">):</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="n">struct</span><span class="p">.</span><span class="nf">unpack</span><span class="p">(</span><span class="sh">'</span><span class="s">&gt;I</span><span class="sh">'</span><span class="p">,</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="mi">4</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">offset</span> <span class="o">&amp;</span> <span class="mh">0x80000000</span><span class="p">:</span>
+                    <span class="c1"># Large offset stored separately
+</span>                    <span class="n">offset</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_read_large_offset</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">offset</span> <span class="o">&amp;</span> <span class="mh">0x7fffffff</span><span class="p">)</span>
+                <span class="n">index</span><span class="p">[</span><span class="n">sha</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span>
+        
+        <span class="k">return</span> <span class="n">index</span>
+
+<span class="c1">### Index (Staging Area) Structure
+</span>
+<span class="sb">``</span><span class="err">`</span><span class="n">c</span>
+<span class="o">//</span> <span class="n">Git</span> <span class="n">index</span> <span class="nb">format</span>
+<span class="n">struct</span> <span class="n">index_header</span> <span class="p">{</span>
+    <span class="n">char</span> <span class="n">signature</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>      <span class="o">//</span> <span class="sh">"</span><span class="s">DIRC</span><span class="sh">"</span>
+    <span class="n">uint32_t</span> <span class="n">version</span><span class="p">;</span>       <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="ow">or</span> <span class="mi">4</span>
+    <span class="n">uint32_t</span> <span class="n">entries</span><span class="p">;</span>       <span class="o">//</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">entries</span>
+<span class="p">};</span>
+
+<span class="n">struct</span> <span class="n">index_entry</span> <span class="p">{</span>
+    <span class="n">struct</span> <span class="n">stat_data</span> <span class="p">{</span>
+        <span class="n">uint32_t</span> <span class="n">ctime_sec</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">ctime_nsec</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">mtime_sec</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">mtime_nsec</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">dev</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">ino</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">mode</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">uid</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">gid</span><span class="p">;</span>
+        <span class="n">uint32_t</span> <span class="n">size</span><span class="p">;</span>
+    <span class="p">}</span> <span class="n">stat</span><span class="p">;</span>
+    <span class="n">uint8_t</span> <span class="n">sha1</span><span class="p">[</span><span class="mi">20</span><span class="p">];</span>
+    <span class="n">uint16_t</span> <span class="n">flags</span><span class="p">;</span>
+    <span class="n">char</span> <span class="n">path</span><span class="p">[];</span> <span class="o">//</span> <span class="n">Variable</span> <span class="n">length</span>
+<span class="p">};</span>
+
+<span class="o">//</span> <span class="n">Extensions</span>
+<span class="n">struct</span> <span class="n">index_extension</span> <span class="p">{</span>
+    <span class="n">char</span> <span class="n">signature</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+    <span class="n">uint32_t</span> <span class="n">size</span><span class="p">;</span>
+    <span class="o">//</span> <span class="n">Extension</span><span class="o">-</span><span class="n">specific</span> <span class="n">data</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h3 id="reference-management">Reference Management</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RefManager</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Manages Git references (branches, tags, etc.)</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">git_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">git_dir</span> <span class="o">=</span> <span class="n">git_dir</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">refs_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">git_dir</span><span class="p">,</span> <span class="sh">"</span><span class="s">refs</span><span class="sh">"</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">read_ref</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Read reference value (commit SHA)</span><span class="sh">"""</span>
+        <span class="c1"># Check packed refs first
+</span>        <span class="n">packed_ref</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_read_packed_ref</span><span class="p">(</span><span class="n">ref_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">packed_ref</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">packed_ref</span>
+        
+        <span class="c1"># Check loose ref
+</span>        <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">git_dir</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">exists</span><span class="p">(</span><span class="n">ref_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">ref_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">().</span><span class="nf">strip</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="bp">None</span>
+    
+    <span class="k">def</span> <span class="nf">update_ref</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_sha</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+                  <span class="n">old_sha</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Atomically update reference</span><span class="sh">"""</span>
+        <span class="n">ref_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">git_dir</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">)</span>
+        
+        <span class="c1"># Ensure atomic update
+</span>        <span class="k">if</span> <span class="n">old_sha</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">read_ref</span><span class="p">(</span><span class="n">ref_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">current</span> <span class="o">!=</span> <span class="n">old_sha</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">False</span>  <span class="c1"># Concurrent modification
+</span>        
+        <span class="c1"># Write to temporary file and rename
+</span>        <span class="n">tmp_path</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">ref_path</span><span class="si">}</span><span class="s">.lock</span><span class="sh">"</span>
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">w</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">new_sha</span> <span class="o">+</span> <span class="sh">'</span><span class="se">\n</span><span class="sh">'</span><span class="p">)</span>
+        
+        <span class="n">os</span><span class="p">.</span><span class="nf">rename</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">ref_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    
+    <span class="k">def</span> <span class="nf">_read_packed_ref</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">ref_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Read from packed-refs file</span><span class="sh">"""</span>
+        <span class="n">packed_refs_path</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">git_dir</span><span class="p">,</span> <span class="sh">"</span><span class="s">packed-refs</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">exists</span><span class="p">(</span><span class="n">packed_refs_path</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">packed_refs_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">r</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">line</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">'</span><span class="s">#</span><span class="sh">'</span><span class="p">)</span> <span class="ow">or</span> <span class="n">line</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">'</span><span class="s">^</span><span class="sh">'</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="n">sha</span><span class="p">,</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="nf">strip</span><span class="p">().</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="n">ref_name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">sha</span>
+        
+        <span class="k">return</span> <span class="bp">None</span>
+</code></pre></div></div>
+
+<h2 id="advanced-command-implementation">Advanced Command Implementation</h2>
+
+<h3 id="repository-operations-at-the-protocol-level">Repository Operations at the Protocol Level</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">GitProtocol</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Git wire protocol implementation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="sh">'</span><span class="s">Transport</span><span class="sh">'</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">transport</span> <span class="o">=</span> <span class="n">transport</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">capabilities</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">discover_refs</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Discover references using smart HTTP protocol</span><span class="sh">"""</span>
+        <span class="c1"># Send: GET /info/refs?service=git-upload-pack
+</span>        <span class="n">response</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">transport</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">/info/refs</span><span class="sh">"</span><span class="p">,</span> 
+                                    <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">service</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">git-upload-pack</span><span class="sh">"</span><span class="p">})</span>
+        
+        <span class="n">refs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="se">\n</span><span class="sh">'</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">'</span><span class="s">#</span><span class="sh">'</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="sh">'</span><span class="s"> </span><span class="sh">'</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">sha</span><span class="p">,</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">refs</span><span class="p">[</span><span class="n">ref</span><span class="p">]</span> <span class="o">=</span> <span class="n">sha</span>
+                
+                <span class="c1"># Parse capabilities from first line
+</span>                <span class="k">if</span> <span class="sh">'</span><span class="se">\0</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">ref</span><span class="p">:</span>
+                    <span class="n">ref</span><span class="p">,</span> <span class="n">caps</span> <span class="o">=</span> <span class="n">ref</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="se">\0</span><span class="sh">'</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">self</span><span class="p">.</span><span class="n">capabilities</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">caps</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">))</span>
+        
+        <span class="k">return</span> <span class="n">refs</span>
+    
+    <span class="k">def</span> <span class="nf">negotiate_pack</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">wants</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> 
+                      <span class="n">haves</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Negotiate pack file using smart protocol</span><span class="sh">"""</span>
+        <span class="c1"># Build want lines
+</span>        <span class="n">request</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">want</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">wants</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">capabilities</span><span class="p">:</span>
+                <span class="n">caps</span> <span class="o">=</span> <span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">capabilities</span><span class="p">)</span>
+                <span class="n">request</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">want </span><span class="si">{</span><span class="n">want</span><span class="si">}</span><span class="s"> </span><span class="si">{</span><span class="n">caps</span><span class="si">}</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">request</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">want </span><span class="si">{</span><span class="n">want</span><span class="si">}</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Build have lines
+</span>        <span class="k">for</span> <span class="n">have</span> <span class="ow">in</span> <span class="n">haves</span><span class="p">:</span>
+            <span class="n">request</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">have </span><span class="si">{</span><span class="n">have</span><span class="si">}</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="n">request</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sh">"</span><span class="s">done</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Send request
+</span>        <span class="n">response</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">transport</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">/git-upload-pack</span><span class="sh">"</span><span class="p">,</span> 
+                                     <span class="n">data</span><span class="o">=</span><span class="sh">''</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">request</span><span class="p">))</span>
+        
+        <span class="c1"># Parse pack file
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">_parse_pack_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">CloneOperation</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">High-level clone implementation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">target_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">url</span> <span class="o">=</span> <span class="n">url</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">target_dir</span> <span class="o">=</span> <span class="n">target_dir</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">protocol</span> <span class="o">=</span> <span class="nc">GitProtocol</span><span class="p">(</span><span class="nc">HTTPTransport</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">clone</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">branch</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> 
+             <span class="n">depth</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Perform repository clone</span><span class="sh">"""</span>
+        <span class="c1"># Create directory structure
+</span>        <span class="n">os</span><span class="p">.</span><span class="nf">makedirs</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">target_dir</span><span class="p">)</span>
+        <span class="n">git_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">target_dir</span><span class="p">,</span> <span class="sh">"</span><span class="s">.git</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">os</span><span class="p">.</span><span class="nf">makedirs</span><span class="p">(</span><span class="n">git_dir</span><span class="p">)</span>
+        
+        <span class="c1"># Initialize repository structure
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_init_repo_structure</span><span class="p">(</span><span class="n">git_dir</span><span class="p">)</span>
+        
+        <span class="c1"># Discover refs
+</span>        <span class="n">refs</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">protocol</span><span class="p">.</span><span class="nf">discover_refs</span><span class="p">()</span>
+        
+        <span class="c1"># Determine what to fetch
+</span>        <span class="k">if</span> <span class="n">branch</span><span class="p">:</span>
+            <span class="n">want_ref</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">refs/heads/</span><span class="si">{</span><span class="n">branch</span><span class="si">}</span><span class="sh">"</span>
+            <span class="k">if</span> <span class="n">want_ref</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Branch </span><span class="si">{</span><span class="n">branch</span><span class="si">}</span><span class="s"> not found</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">wants</span> <span class="o">=</span> <span class="p">[</span><span class="n">refs</span><span class="p">[</span><span class="n">want_ref</span><span class="p">]]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fetch all branches
+</span>            <span class="n">wants</span> <span class="o">=</span> <span class="p">[</span><span class="n">sha</span> <span class="k">for</span> <span class="n">ref</span><span class="p">,</span> <span class="n">sha</span> <span class="ow">in</span> <span class="n">refs</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> 
+                    <span class="k">if</span> <span class="n">ref</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">refs/heads/</span><span class="sh">"</span><span class="p">)]</span>
+        
+        <span class="c1"># Negotiate pack
+</span>        <span class="k">if</span> <span class="n">depth</span><span class="p">:</span>
+            <span class="c1"># Shallow clone
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">protocol</span><span class="p">.</span><span class="n">capabilities</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">deepen </span><span class="si">{</span><span class="n">depth</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="n">pack_data</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">protocol</span><span class="p">.</span><span class="nf">negotiate_pack</span><span class="p">(</span><span class="n">wants</span><span class="p">,</span> <span class="p">[])</span>
+        
+        <span class="c1"># Process pack file
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_process_pack</span><span class="p">(</span><span class="n">git_dir</span><span class="p">,</span> <span class="n">pack_data</span><span class="p">)</span>
+        
+        <span class="c1"># Update references
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_update_refs</span><span class="p">(</span><span class="n">git_dir</span><span class="p">,</span> <span class="n">refs</span><span class="p">)</span>
+        
+        <span class="c1"># Checkout HEAD
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_checkout_head</span><span class="p">(</span><span class="n">git_dir</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="configuration">Configuration</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Set user information</span>
+git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
+git config <span class="nt">--global</span> user.email <span class="s2">"your.email@example.com"</span>
+
+<span class="c"># Set default editor</span>
+git config <span class="nt">--global</span> core.editor <span class="s2">"vim"</span>
+
+<span class="c"># Set default branch name</span>
+git config <span class="nt">--global</span> init.defaultBranch main
+
+<span class="c"># List all configurations</span>
+git config <span class="nt">--list</span>
+
+<span class="c"># Configure line endings</span>
+git config <span class="nt">--global</span> core.autocrlf <span class="nb">true</span>  <span class="c"># Windows</span>
+git config <span class="nt">--global</span> core.autocrlf input <span class="c"># Mac/Linux</span>
+</code></pre></div></div>
+
+<h3 id="basic-workflow">Basic Workflow</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check status</span>
+git status
+
+<span class="c"># Add files to staging</span>
+git add file.txt                <span class="c"># Specific file</span>
+git add <span class="nb">.</span>                       <span class="c"># All files</span>
+git add <span class="nt">-p</span>                      <span class="c"># Interactive staging</span>
+
+<span class="c"># Commit changes</span>
+git commit <span class="nt">-m</span> <span class="s2">"Add feature X"</span>
+git commit <span class="nt">-am</span> <span class="s2">"Update file"</span>    <span class="c"># Add and commit tracked files</span>
+git commit <span class="nt">--amend</span>             <span class="c"># Modify last commit</span>
+
+<span class="c"># View history</span>
+git log
+git log <span class="nt">--oneline</span>
+git log <span class="nt">--graph</span> <span class="nt">--all</span> <span class="nt">--decorate</span>
+git log <span class="nt">--follow</span> file.txt       <span class="c"># File history including renames</span>
+</code></pre></div></div>
+
+<h2 id="advanced-branching-and-merge-strategies">Advanced Branching and Merge Strategies</h2>
+
+<h3 id="merge-algorithm-implementation">Merge Algorithm Implementation</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MergeStrategy</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Base class for merge strategies</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> <span class="n">ours</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> 
+             <span class="n">theirs</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">MergeResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nb">NotImplementedError</span>
+
+<span class="k">class</span> <span class="nc">RecursiveMergeStrategy</span><span class="p">(</span><span class="n">MergeStrategy</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Git</span><span class="sh">'</span><span class="s">s default recursive merge strategy</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> <span class="n">ours</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> 
+             <span class="n">theirs</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">MergeResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="c1"># Handle multiple merge bases
+</span>        <span class="n">merge_bases</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_merge_bases</span><span class="p">(</span><span class="n">ours</span><span class="p">,</span> <span class="n">theirs</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">merge_bases</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Recursively merge the merge bases
+</span>            <span class="n">virtual_base</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">merge_bases</span><span class="p">(</span><span class="n">merge_bases</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">three_way_merge</span><span class="p">(</span><span class="n">virtual_base</span><span class="p">,</span> <span class="n">ours</span><span class="p">,</span> <span class="n">theirs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Simple three-way merge
+</span>            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">three_way_merge</span><span class="p">(</span><span class="n">merge_bases</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ours</span><span class="p">,</span> <span class="n">theirs</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">three_way_merge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> <span class="n">ours</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> 
+                       <span class="n">theirs</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">MergeResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Perform three-way merge on trees</span><span class="sh">"""</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nc">MergeResult</span><span class="p">()</span>
+        
+        <span class="c1"># Get trees
+</span>        <span class="n">base_tree</span> <span class="o">=</span> <span class="n">base</span><span class="p">.</span><span class="n">tree</span>
+        <span class="n">our_tree</span> <span class="o">=</span> <span class="n">ours</span><span class="p">.</span><span class="n">tree</span>
+        <span class="n">their_tree</span> <span class="o">=</span> <span class="n">theirs</span><span class="p">.</span><span class="n">tree</span>
+        
+        <span class="c1"># Merge trees recursively
+</span>        <span class="n">merged_tree</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">merge_trees</span><span class="p">(</span><span class="n">base_tree</span><span class="p">,</span> <span class="n">our_tree</span><span class="p">,</span> <span class="n">their_tree</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">.</span><span class="n">conflicts</span><span class="p">:</span>
+            <span class="c1"># Create merge commit
+</span>            <span class="n">merge_commit</span> <span class="o">=</span> <span class="nc">Commit</span><span class="p">(</span>
+                <span class="n">tree</span><span class="o">=</span><span class="n">merged_tree</span><span class="p">,</span>
+                <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">ours</span><span class="p">.</span><span class="n">sha</span><span class="p">,</span> <span class="n">theirs</span><span class="p">.</span><span class="n">sha</span><span class="p">],</span>
+                <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">Merge </span><span class="si">{</span><span class="n">theirs</span><span class="p">.</span><span class="n">sha</span><span class="p">[</span><span class="si">:</span><span class="mi">7</span><span class="p">]</span><span class="si">}</span><span class="s"> into </span><span class="si">{</span><span class="n">ours</span><span class="p">.</span><span class="n">sha</span><span class="p">[</span><span class="si">:</span><span class="mi">7</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
+            <span class="p">)</span>
+            <span class="n">result</span><span class="p">.</span><span class="n">commit</span> <span class="o">=</span> <span class="n">merge_commit</span>
+        
+        <span class="k">return</span> <span class="n">result</span>
+    
+    <span class="k">def</span> <span class="nf">merge_trees</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">base</span><span class="p">:</span> <span class="sh">'</span><span class="s">Tree</span><span class="sh">'</span><span class="p">,</span> <span class="n">ours</span><span class="p">:</span> <span class="sh">'</span><span class="s">Tree</span><span class="sh">'</span><span class="p">,</span> 
+                   <span class="n">theirs</span><span class="p">:</span> <span class="sh">'</span><span class="s">Tree</span><span class="sh">'</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="sh">'</span><span class="s">MergeResult</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">Tree</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Recursively merge directory trees</span><span class="sh">"""</span>
+        <span class="n">merged_entries</span> <span class="o">=</span> <span class="p">{}</span>
+        
+        <span class="c1"># Get all unique paths
+</span>        <span class="n">all_paths</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+        <span class="n">all_paths</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">base</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+        <span class="n">all_paths</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">ours</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+        <span class="n">all_paths</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">theirs</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
+        
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">all_paths</span><span class="p">:</span>
+            <span class="n">base_entry</span> <span class="o">=</span> <span class="n">base</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">our_entry</span> <span class="o">=</span> <span class="n">ours</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">their_entry</span> <span class="o">=</span> <span class="n">theirs</span><span class="p">.</span><span class="n">entries</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            
+            <span class="n">merged_entry</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">merge_entry</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">base_entry</span><span class="p">,</span> <span class="n">our_entry</span><span class="p">,</span> <span class="n">their_entry</span><span class="p">,</span> <span class="n">result</span>
+            <span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">merged_entry</span><span class="p">:</span>
+                <span class="n">merged_entries</span><span class="p">[</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged_entry</span>
+        
+        <span class="k">return</span> <span class="nc">Tree</span><span class="p">(</span><span class="n">entries</span><span class="o">=</span><span class="n">merged_entries</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">OctopusMergeStrategy</span><span class="p">(</span><span class="n">MergeStrategy</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Strategy for merging multiple branches</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">merge_multiple</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">head</span><span class="p">:</span> <span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">,</span> 
+                      <span class="n">branches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">MergeResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Merge multiple branches simultaneously</span><span class="sh">"""</span>
+        <span class="c1"># Find common base for all branches
+</span>        <span class="n">common_base</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_common_base_all</span><span class="p">([</span><span class="n">head</span><span class="p">]</span> <span class="o">+</span> <span class="n">branches</span><span class="p">)</span>
+        
+        <span class="c1"># Build multi-way merge tree
+</span>        <span class="n">merge_tree</span> <span class="o">=</span> <span class="nc">MultiWayMergeTree</span><span class="p">(</span><span class="n">common_base</span><span class="p">)</span>
+        <span class="n">merge_tree</span><span class="p">.</span><span class="nf">add_branch</span><span class="p">(</span><span class="n">head</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">branch</span> <span class="ow">in</span> <span class="n">branches</span><span class="p">:</span>
+            <span class="n">merge_tree</span><span class="p">.</span><span class="nf">add_branch</span><span class="p">(</span><span class="n">branch</span><span class="p">)</span>
+        
+        <span class="c1"># Perform merge
+</span>        <span class="n">result</span> <span class="o">=</span> <span class="n">merge_tree</span><span class="p">.</span><span class="nf">merge</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">result</span><span class="p">.</span><span class="n">success</span><span class="p">:</span>
+            <span class="c1"># Create octopus merge commit
+</span>            <span class="n">merge_commit</span> <span class="o">=</span> <span class="nc">Commit</span><span class="p">(</span>
+                <span class="n">tree</span><span class="o">=</span><span class="n">result</span><span class="p">.</span><span class="n">tree</span><span class="p">,</span>
+                <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">head</span><span class="p">.</span><span class="n">sha</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">b</span><span class="p">.</span><span class="n">sha</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">branches</span><span class="p">],</span>
+                <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">Merge branches </span><span class="si">{</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">ref</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">branches</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span>
+            <span class="p">)</span>
+            <span class="n">result</span><span class="p">.</span><span class="n">commit</span> <span class="o">=</span> <span class="n">merge_commit</span>
+        
+        <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></div>
+
+<h2 id="branching-and-merging">Branching and Merging</h2>
+
+<h3 id="branch-management">Branch Management</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List branches</span>
+git branch                      <span class="c"># Local branches</span>
+git branch <span class="nt">-r</span>                   <span class="c"># Remote branches</span>
+git branch <span class="nt">-a</span>                   <span class="c"># All branches</span>
+
+<span class="c"># Create branch</span>
+git branch feature/new-feature
+git checkout <span class="nt">-b</span> feature/new-feature  <span class="c"># Create and switch</span>
+
+<span class="c"># Switch branches</span>
+git checkout develop
+git switch develop              <span class="c"># Newer syntax</span>
+
+<span class="c"># Delete branch</span>
+git branch <span class="nt">-d</span> feature/completed  <span class="c"># Safe delete</span>
+git branch <span class="nt">-D</span> feature/abandoned  <span class="c"># Force delete</span>
+
+<span class="c"># Rename branch</span>
+git branch <span class="nt">-m</span> old-name new-name
+</code></pre></div></div>
+
+<h3 id="merging">Merging</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Merge branch</span>
+git checkout main
+git merge feature/new-feature
+
+<span class="c"># Merge with no fast-forward</span>
+git merge <span class="nt">--no-ff</span> feature/new-feature
+
+<span class="c"># Abort merge</span>
+git merge <span class="nt">--abort</span>
+
+<span class="c"># Resolve conflicts</span>
+<span class="c"># 1. Edit conflicted files</span>
+<span class="c"># 2. Mark as resolved</span>
+git add resolved-file.txt
+<span class="c"># 3. Complete merge</span>
+git commit
+</code></pre></div></div>
+
+<h3 id="rebasing">Rebasing</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Rebase current branch onto main</span>
+git rebase main
+
+<span class="c"># Interactive rebase</span>
+git rebase <span class="nt">-i</span> HEAD~3
+
+<span class="c"># Common interactive commands:</span>
+<span class="c"># pick   - use commit</span>
+<span class="c"># reword - change commit message</span>
+<span class="c"># squash - combine with previous</span>
+<span class="c"># fixup  - combine, discard message</span>
+<span class="c"># drop   - remove commit</span>
+
+<span class="c"># Abort rebase</span>
+git rebase <span class="nt">--abort</span>
+
+<span class="c"># Continue after resolving conflicts</span>
+git rebase <span class="nt">--continue</span>
+</code></pre></div></div>
+
+<h2 id="distributed-repository-synchronization">Distributed Repository Synchronization</h2>
+
+<h3 id="remote-protocol-implementation">Remote Protocol Implementation</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RemoteProtocol</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Git remote protocol handler</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">:</span> <span class="sh">'</span><span class="s">Transport</span><span class="sh">'</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">transport</span> <span class="o">=</span> <span class="n">transport</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">capabilities</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">'</span><span class="s">multi_ack_detailed</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">side-band-64k</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">ofs-delta</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">agent=git/2.x.x</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">allow-tip-sha1-in-want</span><span class="sh">'</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">allow-reachable-sha1-in-want</span><span class="sh">'</span>
+        <span class="p">}</span>
+    
+    <span class="k">def</span> <span class="nf">fetch_pack</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">:</span> <span class="sh">'</span><span class="s">Remote</span><span class="sh">'</span><span class="p">,</span> 
+                  <span class="n">refs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">FetchResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Fetch objects from remote</span><span class="sh">"""</span>
+        <span class="c1"># Phase 1: Reference discovery
+</span>        <span class="n">remote_refs</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">discover_refs</span><span class="p">()</span>
+        
+        <span class="c1"># Phase 2: Negotiation
+</span>        <span class="n">common_commits</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">negotiate_common_commits</span><span class="p">(</span><span class="n">remote_refs</span><span class="p">)</span>
+        
+        <span class="c1"># Phase 3: Pack transfer
+</span>        <span class="n">pack_data</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">receive_pack</span><span class="p">(</span><span class="n">remote_refs</span><span class="p">,</span> <span class="n">common_commits</span><span class="p">)</span>
+        
+        <span class="c1"># Phase 4: Update local refs
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">update_local_refs</span><span class="p">(</span><span class="n">pack_data</span><span class="p">,</span> <span class="n">remote_refs</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">push_pack</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">remote</span><span class="p">:</span> <span class="sh">'</span><span class="s">Remote</span><span class="sh">'</span><span class="p">,</span> 
+                 <span class="n">refspecs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">RefSpec</span><span class="sh">'</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">PushResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Push objects to remote</span><span class="sh">"""</span>
+        <span class="c1"># Validate push permissions
+</span>        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">check_push_permissions</span><span class="p">(</span><span class="n">remote</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">PermissionError</span><span class="p">(</span><span class="sh">"</span><span class="s">Push access denied</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Build pack of missing objects
+</span>        <span class="n">pack</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">build_push_pack</span><span class="p">(</span><span class="n">refspecs</span><span class="p">)</span>
+        
+        <span class="c1"># Send pack with atomic transaction
+</span>        <span class="k">with</span> <span class="n">self</span><span class="p">.</span><span class="nf">atomic_push_transaction</span><span class="p">()</span> <span class="k">as</span> <span class="n">txn</span><span class="p">:</span>
+            <span class="c1"># Upload pack
+</span>            <span class="n">txn</span><span class="p">.</span><span class="nf">send_pack</span><span class="p">(</span><span class="n">pack</span><span class="p">)</span>
+            
+            <span class="c1"># Update remote refs
+</span>            <span class="k">for</span> <span class="n">refspec</span> <span class="ow">in</span> <span class="n">refspecs</span><span class="p">:</span>
+                <span class="n">txn</span><span class="p">.</span><span class="nf">update_ref</span><span class="p">(</span><span class="n">refspec</span><span class="p">)</span>
+            
+            <span class="c1"># Commit or rollback
+</span>            <span class="k">if</span> <span class="n">txn</span><span class="p">.</span><span class="nf">verify</span><span class="p">():</span>
+                <span class="n">txn</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>
+                <span class="k">return</span> <span class="nc">PushResult</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">txn</span><span class="p">.</span><span class="nf">rollback</span><span class="p">()</span>
+                <span class="k">return</span> <span class="nc">PushResult</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> 
+                               <span class="n">reason</span><span class="o">=</span><span class="sh">"</span><span class="s">Verification failed</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">DeltaCompression</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Delta compression for efficient transfer</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">window_size</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">max_delta_size</span> <span class="o">=</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 1MB
+</span>    
+    <span class="k">def</span> <span class="nf">compute_delta</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Compute binary delta between objects</span><span class="sh">"""</span>
+        <span class="c1"># Use xdelta algorithm
+</span>        <span class="n">delta</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="c1"># Build rolling hash table for source
+</span>        <span class="n">source_hashes</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">build_hash_table</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+            <span class="c1"># Try to find matching block
+</span>            <span class="n">match</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_match</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">i</span><span class="p">:],</span> <span class="n">source_hashes</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="c1"># Emit copy instruction
+</span>                <span class="n">delta</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">DeltaOp</span><span class="p">.</span><span class="nf">copy</span><span class="p">(</span><span class="n">match</span><span class="p">.</span><span class="n">offset</span><span class="p">,</span> <span class="n">match</span><span class="p">.</span><span class="n">length</span><span class="p">))</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="n">match</span><span class="p">.</span><span class="n">length</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Emit insert instruction
+</span>                <span class="n">delta</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">DeltaOp</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">encode_delta</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="remote-repositories">Remote Repositories</h2>
+
+<h3 id="remote-management">Remote Management</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List remotes</span>
+git remote <span class="nt">-v</span>
+
+<span class="c"># Add remote</span>
+git remote add origin https://github.com/user/repo.git
+
+<span class="c"># Change remote URL</span>
+git remote set-url origin git@github.com:user/repo.git
+
+<span class="c"># Remove remote</span>
+git remote remove origin
+
+<span class="c"># Rename remote</span>
+git remote rename origin upstream
+</code></pre></div></div>
+
+<h3 id="fetching-and-pulling">Fetching and Pulling</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fetch changes</span>
+git fetch origin
+git fetch <span class="nt">--all</span>
+
+<span class="c"># Pull changes</span>
+git pull origin main
+git pull <span class="nt">--rebase</span> origin main
+
+<span class="c"># Set upstream branch</span>
+git push <span class="nt">-u</span> origin feature/new-feature
+git branch <span class="nt">--set-upstream-to</span><span class="o">=</span>origin/main
+</code></pre></div></div>
+
+<h3 id="pushing">Pushing</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Push to remote</span>
+git push origin main
+git push <span class="nt">-u</span> origin feature/new-feature  <span class="c"># Set upstream</span>
+
+<span class="c"># Push all branches</span>
+git push <span class="nt">--all</span> origin
+
+<span class="c"># Push tags</span>
+git push origin v1.0.0          <span class="c"># Specific tag</span>
+git push origin <span class="nt">--tags</span>          <span class="c"># All tags</span>
+
+<span class="c"># Force push (use with caution)</span>
+git push <span class="nt">--force</span> origin feature/rebased
+git push <span class="nt">--force-with-lease</span>     <span class="c"># Safer force push</span>
+</code></pre></div></div>
+
+<h2 id="advanced-git-algorithms">Advanced Git Algorithms</h2>
+
+<h3 id="rebase-implementation">Rebase Implementation</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RebaseOperation</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Interactive rebase implementation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">onto</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">upstream</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">branch</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">onto</span> <span class="o">=</span> <span class="n">onto</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">upstream</span> <span class="o">=</span> <span class="n">upstream</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">branch</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">todo_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">RebaseAction</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    
+    <span class="k">def</span> <span class="nf">prepare_rebase</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">RebaseAction</span><span class="sh">'</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Prepare rebase todo list</span><span class="sh">"""</span>
+        <span class="c1"># Find commits to rebase
+</span>        <span class="n">commits</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_commits_to_rebase</span><span class="p">()</span>
+        
+        <span class="c1"># Generate todo list
+</span>        <span class="k">for</span> <span class="n">commit</span> <span class="ow">in</span> <span class="n">commits</span><span class="p">:</span>
+            <span class="n">action</span> <span class="o">=</span> <span class="nc">RebaseAction</span><span class="p">(</span><span class="sh">'</span><span class="s">pick</span><span class="sh">'</span><span class="p">,</span> <span class="n">commit</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">todo_list</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">todo_list</span>
+    
+    <span class="k">def</span> <span class="nf">execute_rebase</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">RebaseResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Execute rebase operations</span><span class="sh">"""</span>
+        <span class="c1"># Save original HEAD
+</span>        <span class="n">orig_head</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_head</span><span class="p">()</span>
+        
+        <span class="c1"># Checkout onto commit
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">checkout</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">onto</span><span class="p">)</span>
+        
+        <span class="c1"># Apply commits
+</span>        <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">todo_list</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">apply_action</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">result</span><span class="p">.</span><span class="n">conflict</span><span class="p">:</span>
+                <span class="c1"># Pause for conflict resolution
+</span>                <span class="n">self</span><span class="p">.</span><span class="nf">save_rebase_state</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+                <span class="k">return</span> <span class="nc">RebaseResult</span><span class="p">(</span>
+                    <span class="n">status</span><span class="o">=</span><span class="sh">'</span><span class="s">conflict</span><span class="sh">'</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">Conflict while applying </span><span class="si">{</span><span class="n">action</span><span class="p">.</span><span class="n">commit</span><span class="p">[</span><span class="si">:</span><span class="mi">7</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
+                <span class="p">)</span>
+        
+        <span class="c1"># Update branch ref
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">update_ref</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_head</span><span class="p">())</span>
+        
+        <span class="k">return</span> <span class="nc">RebaseResult</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="sh">'</span><span class="s">success</span><span class="sh">'</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">apply_action</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="sh">'</span><span class="s">RebaseAction</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">ActionResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Apply single rebase action</span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="n">action</span><span class="p">.</span><span class="n">command</span> <span class="o">==</span> <span class="sh">'</span><span class="s">pick</span><span class="sh">'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">cherry_pick</span><span class="p">(</span><span class="n">action</span><span class="p">.</span><span class="n">commit</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">action</span><span class="p">.</span><span class="n">command</span> <span class="o">==</span> <span class="sh">'</span><span class="s">reword</span><span class="sh">'</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">cherry_pick</span><span class="p">(</span><span class="n">action</span><span class="p">.</span><span class="n">commit</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="p">.</span><span class="n">success</span><span class="p">:</span>
+                <span class="n">self</span><span class="p">.</span><span class="nf">amend_commit_message</span><span class="p">(</span><span class="n">action</span><span class="p">.</span><span class="n">new_message</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">elif</span> <span class="n">action</span><span class="p">.</span><span class="n">command</span> <span class="o">==</span> <span class="sh">'</span><span class="s">squash</span><span class="sh">'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">squash_with_previous</span><span class="p">(</span><span class="n">action</span><span class="p">.</span><span class="n">commit</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">action</span><span class="p">.</span><span class="n">command</span> <span class="o">==</span> <span class="sh">'</span><span class="s">fixup</span><span class="sh">'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">squash_with_previous</span><span class="p">(</span><span class="n">action</span><span class="p">.</span><span class="n">commit</span><span class="p">,</span> 
+                                           <span class="n">keep_message</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">action</span><span class="p">.</span><span class="n">command</span> <span class="o">==</span> <span class="sh">'</span><span class="s">drop</span><span class="sh">'</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nc">ActionResult</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>  <span class="c1"># Skip commit
+</span>        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Unknown rebase command: </span><span class="si">{</span><span class="n">action</span><span class="p">.</span><span class="n">command</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">BisectAlgorithm</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Binary search for bug introduction</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">good</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">bad</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">good_commits</span> <span class="o">=</span> <span class="p">{</span><span class="n">good</span><span class="p">}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">bad_commits</span> <span class="o">=</span> <span class="p">{</span><span class="n">bad</span><span class="p">}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">tested_commits</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">next_commit</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Find next commit to test using binary search</span><span class="sh">"""</span>
+        <span class="c1"># Build commit graph between good and bad
+</span>        <span class="n">graph</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">build_commit_graph</span><span class="p">()</span>
+        
+        <span class="c1"># Find midpoint using graph distance
+</span>        <span class="n">untested</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_untested_commits</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">untested</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        
+        <span class="c1"># Weight commits by reachability
+</span>        <span class="n">weights</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">calculate_commit_weights</span><span class="p">(</span><span class="n">untested</span><span class="p">,</span> <span class="n">graph</span><span class="p">)</span>
+        
+        <span class="c1"># Select commit that best bisects the graph
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">select_optimal_commit</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">calculate_commit_weights</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">commits</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> 
+                               <span class="n">graph</span><span class="p">:</span> <span class="sh">'</span><span class="s">CommitGraph</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Calculate bisection efficiency for each commit</span><span class="sh">"""</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="p">{}</span>
+        
+        <span class="k">for</span> <span class="n">commit</span> <span class="ow">in</span> <span class="n">commits</span><span class="p">:</span>
+            <span class="c1"># Count reachable commits from this point
+</span>            <span class="n">reachable_good</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">count_reachable</span><span class="p">(</span><span class="n">commit</span><span class="p">,</span> 
+                                                <span class="n">self</span><span class="p">.</span><span class="n">good_commits</span><span class="p">,</span> <span class="n">graph</span><span class="p">)</span>
+            <span class="n">reachable_bad</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">count_reachable</span><span class="p">(</span><span class="n">commit</span><span class="p">,</span> 
+                                               <span class="n">self</span><span class="p">.</span><span class="n">bad_commits</span><span class="p">,</span> <span class="n">graph</span><span class="p">)</span>
+            
+            <span class="c1"># Optimal weight minimizes |reachable_good - reachable_bad|
+</span>            <span class="n">weight</span> <span class="o">=</span> <span class="nf">abs</span><span class="p">(</span><span class="n">reachable_good</span> <span class="o">-</span> <span class="n">reachable_bad</span><span class="p">)</span>
+            <span class="n">weights</span><span class="p">[</span><span class="n">commit</span><span class="p">]</span> <span class="o">=</span> <span class="n">weight</span>
+        
+        <span class="k">return</span> <span class="n">weights</span>
+</code></pre></div></div>
+
+<h2 id="advanced-features">Advanced Features</h2>
+
+<h3 id="stashing">Stashing</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Save changes temporarily</span>
+git stash
+git stash save <span class="s2">"Work in progress"</span>
+
+<span class="c"># List stashes</span>
+git stash list
+
+<span class="c"># Apply stash</span>
+git stash apply                 <span class="c"># Most recent</span>
+git stash apply stash@<span class="o">{</span>2<span class="o">}</span>       <span class="c"># Specific stash</span>
+git stash pop                   <span class="c"># Apply and remove</span>
+
+<span class="c"># Show stash contents</span>
+git stash show <span class="nt">-p</span> stash@<span class="o">{</span>0<span class="o">}</span>
+
+<span class="c"># Create branch from stash</span>
+git stash branch new-feature stash@<span class="o">{</span>0<span class="o">}</span>
+
+<span class="c"># Clear stashes</span>
+git stash drop stash@<span class="o">{</span>0<span class="o">}</span>        <span class="c"># Specific stash</span>
+git stash clear                 <span class="c"># All stashes</span>
+</code></pre></div></div>
+
+<h3 id="cherry-picking">Cherry-picking</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Apply specific commit</span>
+git cherry-pick abc123
+
+<span class="c"># Cherry-pick multiple commits</span>
+git cherry-pick abc123 def456
+
+<span class="c"># Cherry-pick without committing</span>
+git cherry-pick <span class="nt">-n</span> abc123
+</code></pre></div></div>
+
+<h3 id="reset-and-revert">Reset and Revert</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Soft reset (keep changes staged)</span>
+git reset <span class="nt">--soft</span> HEAD~1
+
+<span class="c"># Mixed reset (keep changes unstaged)</span>
+git reset HEAD~1
+
+<span class="c"># Hard reset (discard changes)</span>
+git reset <span class="nt">--hard</span> HEAD~1
+
+<span class="c"># Reset to specific commit</span>
+git reset <span class="nt">--hard</span> abc123
+
+<span class="c"># Revert commit (creates new commit)</span>
+git revert abc123
+
+<span class="c"># Revert merge commit</span>
+git revert <span class="nt">-m</span> 1 merge-commit-hash
+</code></pre></div></div>
+
+<h3 id="searching-and-filtering">Searching and Filtering</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Search in files</span>
+git <span class="nb">grep</span> <span class="s2">"pattern"</span>
+git <span class="nb">grep</span> <span class="nt">-n</span> <span class="s2">"pattern"</span>           <span class="c"># With line numbers</span>
+
+<span class="c"># Find commits</span>
+git log <span class="nt">--grep</span><span class="o">=</span><span class="s2">"bug fix"</span>
+git log <span class="nt">--author</span><span class="o">=</span><span class="s2">"John"</span>
+git log <span class="nt">--since</span><span class="o">=</span><span class="s2">"2 weeks ago"</span>
+git log <span class="nt">--until</span><span class="o">=</span><span class="s2">"2023-01-01"</span>
+
+<span class="c"># Find commit that introduced bug</span>
+git bisect start
+git bisect bad                  <span class="c"># Current commit is bad</span>
+git bisect good abc123          <span class="c"># Known good commit</span>
+<span class="c"># Test and mark commits as good/bad</span>
+git bisect reset                <span class="c"># When done</span>
+</code></pre></div></div>
+
+<h2 id="advanced-workflow-patterns">Advanced Workflow Patterns</h2>
+
+<h3 id="formal-workflow-modeling">Formal Workflow Modeling</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span> <span class="n">networkx</span> <span class="k">as</span> <span class="n">nx</span>
+
+<span class="k">class</span> <span class="nc">WorkflowState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">States in a Git workflow state machine</span><span class="sh">"""</span>
+    <span class="n">DEVELOPMENT</span> <span class="o">=</span> <span class="sh">"</span><span class="s">development</span><span class="sh">"</span>
+    <span class="n">FEATURE</span> <span class="o">=</span> <span class="sh">"</span><span class="s">feature</span><span class="sh">"</span>
+    <span class="n">INTEGRATION</span> <span class="o">=</span> <span class="sh">"</span><span class="s">integration</span><span class="sh">"</span>
+    <span class="n">STAGING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">staging</span><span class="sh">"</span>
+    <span class="n">PRODUCTION</span> <span class="o">=</span> <span class="sh">"</span><span class="s">production</span><span class="sh">"</span>
+    <span class="n">HOTFIX</span> <span class="o">=</span> <span class="sh">"</span><span class="s">hotfix</span><span class="sh">"</span>
+
+<span class="k">class</span> <span class="nc">GitWorkflow</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Abstract base for Git workflow implementations</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">state_graph</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nc">DiGraph</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">transition_rules</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">TransitionRule</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">_define_workflow</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">_define_workflow</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Define workflow states and transitions</span><span class="sh">"""</span>
+        <span class="k">raise</span> <span class="nb">NotImplementedError</span>
+    
+    <span class="k">def</span> <span class="nf">validate_transition</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">from_branch</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+                          <span class="n">to_branch</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Validate if transition is allowed</span><span class="sh">"""</span>
+        <span class="n">from_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">from_branch</span><span class="p">)</span>
+        <span class="n">to_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">to_branch</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">from_state</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">to_state</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        
+        <span class="c1"># Check if path exists in state graph
+</span>        <span class="k">return</span> <span class="n">nx</span><span class="p">.</span><span class="nf">has_path</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">state_graph</span><span class="p">,</span> <span class="n">from_state</span><span class="p">,</span> <span class="n">to_state</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">suggest_next_actions</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">current_branch</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Suggest valid next actions based on current state</span><span class="sh">"""</span>
+        <span class="n">current_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">current_branch</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">current_state</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        
+        <span class="c1"># Find reachable states
+</span>        <span class="n">reachable</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nf">descendants</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">state_graph</span><span class="p">,</span> <span class="n">current_state</span><span class="p">)</span>
+        
+        <span class="n">actions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">reachable</span><span class="p">:</span>
+            <span class="n">branches</span> <span class="o">=</span> <span class="p">[</span><span class="n">b</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> 
+                       <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="n">state</span><span class="p">]</span>
+            <span class="n">actions</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="n">branches</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">actions</span>
+
+<span class="k">class</span> <span class="nc">GitFlowWorkflow</span><span class="p">(</span><span class="n">GitWorkflow</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">GitFlow workflow implementation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">_define_workflow</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="c1"># Define states
+</span>        <span class="n">states</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">,</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">FEATURE</span><span class="p">,</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">INTEGRATION</span><span class="p">,</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">STAGING</span><span class="p">,</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">,</span>
+            <span class="n">WorkflowState</span><span class="p">.</span><span class="n">HOTFIX</span>
+        <span class="p">]</span>
+        
+        <span class="n">self</span><span class="p">.</span><span class="n">state_graph</span><span class="p">.</span><span class="nf">add_nodes_from</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+        
+        <span class="c1"># Define transitions
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">state_graph</span><span class="p">.</span><span class="nf">add_edges_from</span><span class="p">([</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">FEATURE</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">FEATURE</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">STAGING</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">STAGING</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">HOTFIX</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">HOTFIX</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">WorkflowState</span><span class="p">.</span><span class="n">HOTFIX</span><span class="p">,</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">)</span>
+        <span class="p">])</span>
+        
+        <span class="c1"># Map branches to states
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">branch_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">'</span><span class="s">develop</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">DEVELOPMENT</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">master</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">main</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">PRODUCTION</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">release/*</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">STAGING</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">feature/*</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">FEATURE</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">hotfix/*</span><span class="sh">'</span><span class="p">:</span> <span class="n">WorkflowState</span><span class="p">.</span><span class="n">HOTFIX</span>
+        <span class="p">}</span>
+    
+    <span class="k">def</span> <span class="nf">create_feature_branch</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">Branch</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Create feature branch following GitFlow</span><span class="sh">"""</span>
+        <span class="c1"># Features branch from develop
+</span>        <span class="n">source</span> <span class="o">=</span> <span class="sh">'</span><span class="s">develop</span><span class="sh">'</span>
+        <span class="n">branch_name</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">feature/</span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="sh">'</span>
+        
+        <span class="c1"># Validate source exists
+</span>        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">ref_exists</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Source branch </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s"> not found</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Create branch
+</span>        <span class="n">branch</span> <span class="o">=</span> <span class="nc">Branch</span><span class="p">(</span><span class="n">branch_name</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">checkout</span><span class="p">(</span><span class="n">branch_name</span><span class="p">,</span> <span class="n">create</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">start_point</span><span class="o">=</span><span class="n">source</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">branch</span>
+
+<span class="k">class</span> <span class="nc">MonorepoWorkflow</span><span class="p">(</span><span class="n">GitWorkflow</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Workflow for monorepo management</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">projects</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">projects</span> <span class="o">=</span> <span class="n">projects</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">project_dependencies</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_analyze_dependencies</span><span class="p">()</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">_analyze_dependencies</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="p">.</span><span class="n">DiGraph</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Analyze inter-project dependencies</span><span class="sh">"""</span>
+        <span class="n">dep_graph</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nc">DiGraph</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">project</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">projects</span><span class="p">:</span>
+            <span class="n">deps</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_get_project_dependencies</span><span class="p">(</span><span class="n">project</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">deps</span><span class="p">:</span>
+                <span class="n">dep_graph</span><span class="p">.</span><span class="nf">add_edge</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">dep</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">dep_graph</span>
+    
+    <span class="k">def</span> <span class="nf">affected_projects</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">changed_files</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Determine projects affected by changes</span><span class="sh">"""</span>
+        <span class="n">directly_affected</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+        
+        <span class="c1"># Find directly affected projects
+</span>        <span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">changed_files</span><span class="p">:</span>
+            <span class="n">project</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_file_to_project</span><span class="p">(</span><span class="nb">file</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">project</span><span class="p">:</span>
+                <span class="n">directly_affected</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">project</span><span class="p">)</span>
+        
+        <span class="c1"># Find transitively affected projects
+</span>        <span class="n">all_affected</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">directly_affected</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">project</span> <span class="ow">in</span> <span class="n">directly_affected</span><span class="p">:</span>
+            <span class="c1"># All projects that depend on this one
+</span>            <span class="n">dependents</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nf">ancestors</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">project_dependencies</span><span class="p">,</span> <span class="n">project</span><span class="p">)</span>
+            <span class="n">all_affected</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">dependents</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">all_affected</span>
+</code></pre></div></div>
+
+<h2 id="git-workflows">Git Workflows</h2>
+
+<h3 id="git-flow">Git Flow</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize git flow</span>
+git flow init
+
+<span class="c"># Feature branches</span>
+git flow feature start new-feature
+git flow feature finish new-feature
+
+<span class="c"># Release branches</span>
+git flow release start 1.0.0
+git flow release finish 1.0.0
+
+<span class="c"># Hotfix branches</span>
+git flow hotfix start critical-fix
+git flow hotfix finish critical-fix
+</code></pre></div></div>
+
+<h3 id="github-flow">GitHub Flow</h3>
+
+<p>Simple workflow:</p>
+<ol>
+  <li>Create branch from main</li>
+  <li>Add commits</li>
+  <li>Open pull request</li>
+  <li>Discuss and review</li>
+  <li>Merge to main</li>
+  <li>Deploy</li>
+</ol>
+
+<h3 id="gitlab-flow">GitLab Flow</h3>
+
+<p>Environment branches:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">main</code> → <code class="language-plaintext highlighter-rouge">pre-production</code> → <code class="language-plaintext highlighter-rouge">production</code></li>
+  <li>Feature branches merge to main</li>
+  <li>Cherry-pick to environment branches</li>
+</ul>
+
+<h2 id="working-with-large-files">Working with Large Files</h2>
+
+<h3 id="git-lfs-large-file-storage">Git LFS (Large File Storage)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install Git LFS</span>
+git lfs <span class="nb">install</span>
+
+<span class="c"># Track file types</span>
+git lfs track <span class="s2">"*.psd"</span>
+git lfs track <span class="s2">"*.zip"</span>
+
+<span class="c"># List tracked patterns</span>
+git lfs track
+
+<span class="c"># Add .gitattributes</span>
+git add .gitattributes
+git commit <span class="nt">-m</span> <span class="s2">"Configure Git LFS"</span>
+
+<span class="c"># View LFS files</span>
+git lfs ls-files
+</code></pre></div></div>
+
+<h2 id="submodules">Submodules</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add submodule</span>
+git submodule add https://github.com/user/library.git libs/library
+
+<span class="c"># Initialize submodules after clone</span>
+git submodule init
+git submodule update
+
+<span class="c"># Clone with submodules</span>
+git clone <span class="nt">--recursive</span> https://github.com/user/repo.git
+
+<span class="c"># Update submodules</span>
+git submodule update <span class="nt">--remote</span>
+
+<span class="c"># Remove submodule</span>
+git submodule deinit libs/library
+git <span class="nb">rm </span>libs/library
+<span class="nb">rm</span> <span class="nt">-rf</span> .git/modules/libs/library
+</code></pre></div></div>
+
+<h2 id="hooks">Hooks</h2>
+
+<h3 id="client-side-hooks">Client-side Hooks</h3>
+
+<p>Create executable scripts in <code class="language-plaintext highlighter-rouge">.git/hooks/</code>:</p>
+
+<p><strong>pre-commit:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+<span class="c"># Run tests before commit</span>
+npm <span class="nb">test</span>
+</code></pre></div></div>
+
+<p><strong>commit-msg:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+<span class="c"># Enforce commit message format</span>
+<span class="nb">grep</span> <span class="nt">-qE</span> <span class="s2">"^(feat|fix|docs|style|refactor|test|chore): "</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="o">||</span> <span class="o">{</span>
+    <span class="nb">echo</span> <span class="s2">"Commit message must start with type: feat|fix|docs|style|refactor|test|chore"</span>
+    <span class="nb">exit </span>1
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="server-side-hooks">Server-side Hooks</h3>
+
+<ul>
+  <li><strong>pre-receive:</strong> Enforce policies</li>
+  <li><strong>update:</strong> Validate branch updates</li>
+  <li><strong>post-receive:</strong> Trigger deployments</li>
+</ul>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="commit-messages">Commit Messages</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+&lt;body&gt;
+
+&lt;footer&gt;
+</code></pre></div></div>
+
+<p>Example:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>feat(auth): add OAuth2 integration
+
+Implemented Google and GitHub OAuth2 providers
+with automatic token refresh capability.
+
+Closes #123
+</code></pre></div></div>
+
+<h3 id="branch-naming">Branch Naming</h3>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">feature/user-authentication</code></li>
+  <li><code class="language-plaintext highlighter-rouge">bugfix/login-error</code></li>
+  <li><code class="language-plaintext highlighter-rouge">hotfix/security-patch</code></li>
+  <li><code class="language-plaintext highlighter-rouge">release/v2.0.0</code></li>
+  <li><code class="language-plaintext highlighter-rouge">chore/update-dependencies</code></li>
+</ul>
+
+<h3 id="gitignore">.gitignore</h3>
+
+<pre><code class="language-gitignore"># OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
+*.exe
+*.dll
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.cache
+</code></pre>
+
+<h3 id="git-aliases">Git Aliases</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Useful aliases</span>
+git config <span class="nt">--global</span> alias.co checkout
+git config <span class="nt">--global</span> alias.br branch
+git config <span class="nt">--global</span> alias.ci commit
+git config <span class="nt">--global</span> alias.st status
+git config <span class="nt">--global</span> alias.unstage <span class="s1">'reset HEAD --'</span>
+git config <span class="nt">--global</span> alias.last <span class="s1">'log -1 HEAD'</span>
+git config <span class="nt">--global</span> alias.visual <span class="s1">'!gitk'</span>
+git config <span class="nt">--global</span> alias.lg <span class="s2">"log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)&lt;%an&gt;%Creset' --abbrev-commit"</span>
+</code></pre></div></div>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<p><strong>Detached HEAD:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create branch from current position</span>
+git checkout <span class="nt">-b</span> new-branch
+
+<span class="c"># Return to previous branch</span>
+git checkout -
+</code></pre></div></div>
+
+<p><strong>Undo operations:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Undo last commit (keep changes)</span>
+git reset <span class="nt">--soft</span> HEAD~1
+
+<span class="c"># Undo git add</span>
+git reset HEAD file.txt
+
+<span class="c"># Discard local changes</span>
+git checkout <span class="nt">--</span> file.txt
+
+<span class="c"># Recover deleted branch</span>
+git reflog
+git checkout <span class="nt">-b</span> recovered-branch abc123
+</code></pre></div></div>
+
+<p><strong>Clean repository:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Show what would be removed</span>
+git clean <span class="nt">-n</span>
+
+<span class="c"># Remove untracked files</span>
+git clean <span class="nt">-f</span>
+
+<span class="c"># Remove untracked files and directories</span>
+git clean <span class="nt">-fd</span>
+
+<span class="c"># Remove ignored files too</span>
+git clean <span class="nt">-fdx</span>
+</code></pre></div></div>
+
+<h2 id="security">Security</h2>
+
+<h3 id="signing-commits">Signing Commits</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Configure GPG</span>
+git config <span class="nt">--global</span> user.signingkey YOUR_GPG_KEY_ID
+
+<span class="c"># Sign commits</span>
+git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Signed commit"</span>
+
+<span class="c"># Always sign commits</span>
+git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>
+
+<span class="c"># Verify signatures</span>
+git log <span class="nt">--show-signature</span>
+</code></pre></div></div>
+
+<h3 id="sensitive-data">Sensitive Data</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Remove file from all history (use BFG Repo-Cleaner)</span>
+bfg <span class="nt">--delete-files</span> passwords.txt
+
+<span class="c"># Alternative with filter-branch (slower)</span>
+git filter-branch <span class="nt">--tree-filter</span> <span class="s1">'rm -f passwords.txt'</span> HEAD
+
+<span class="c"># Force push to update remote</span>
+git push <span class="nt">--force</span> <span class="nt">--all</span>
+</code></pre></div></div>
+
+<h2 id="performance-optimization-theory">Performance Optimization Theory</h2>
+
+<h3 id="git-performance-analysis">Git Performance Analysis</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">PerformanceAnalyzer</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Analyze and optimize Git repository performance</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">repo_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">repo_path</span> <span class="o">=</span> <span class="n">repo_path</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">def</span> <span class="nf">analyze_repository</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">PerformanceReport</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Comprehensive performance analysis</span><span class="sh">"""</span>
+        <span class="n">report</span> <span class="o">=</span> <span class="nc">PerformanceReport</span><span class="p">()</span>
+        
+        <span class="c1"># Object database metrics
+</span>        <span class="n">report</span><span class="p">.</span><span class="n">object_stats</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">analyze_object_database</span><span class="p">()</span>
+        
+        <span class="c1"># Pack file efficiency
+</span>        <span class="n">report</span><span class="p">.</span><span class="n">pack_stats</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">analyze_pack_files</span><span class="p">()</span>
+        
+        <span class="c1"># Reference performance
+</span>        <span class="n">report</span><span class="p">.</span><span class="n">ref_stats</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">analyze_references</span><span class="p">()</span>
+        
+        <span class="c1"># Working tree analysis
+</span>        <span class="n">report</span><span class="p">.</span><span class="n">worktree_stats</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">analyze_working_tree</span><span class="p">()</span>
+        
+        <span class="c1"># Generate recommendations
+</span>        <span class="n">report</span><span class="p">.</span><span class="n">recommendations</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">generate_recommendations</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">report</span>
+    
+    <span class="k">def</span> <span class="nf">analyze_object_database</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">ObjectStats</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Analyze object database performance</span><span class="sh">"""</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="nc">ObjectStats</span><span class="p">()</span>
+        
+        <span class="c1"># Count objects by type
+</span>        <span class="k">for</span> <span class="n">obj_file</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="nf">iter_loose_objects</span><span class="p">():</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">read_object</span><span class="p">(</span><span class="n">obj_file</span><span class="p">)</span>
+            <span class="n">stats</span><span class="p">.</span><span class="n">count_by_type</span><span class="p">[</span><span class="n">obj</span><span class="p">.</span><span class="nb">type</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">stats</span><span class="p">.</span><span class="n">total_size</span> <span class="o">+=</span> <span class="n">obj</span><span class="p">.</span><span class="n">size</span>
+            
+            <span class="c1"># Track large objects
+</span>            <span class="k">if</span> <span class="n">obj</span><span class="p">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">:</span>  <span class="c1"># 10MB
+</span>                <span class="n">stats</span><span class="p">.</span><span class="n">large_objects</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+        
+        <span class="c1"># Analyze object reachability
+</span>        <span class="n">stats</span><span class="p">.</span><span class="n">unreachable_objects</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_unreachable_objects</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="n">stats</span>
+    
+    <span class="k">def</span> <span class="nf">optimize_pack_files</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">OptimizationResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Optimize pack file organization</span><span class="sh">"""</span>
+        <span class="c1"># Repack with optimal parameters
+</span>        <span class="n">repack_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">'</span><span class="s">window</span><span class="sh">'</span><span class="p">:</span> <span class="mi">250</span><span class="p">,</span>          <span class="c1"># Larger window for better compression
+</span>            <span class="sh">'</span><span class="s">depth</span><span class="sh">'</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>            <span class="c1"># Deeper delta chains
+</span>            <span class="sh">'</span><span class="s">threads</span><span class="sh">'</span><span class="p">:</span> <span class="n">os</span><span class="p">.</span><span class="nf">cpu_count</span><span class="p">(),</span>
+            <span class="sh">'</span><span class="s">compression</span><span class="sh">'</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>       <span class="c1"># Maximum compression
+</span>            <span class="sh">'</span><span class="s">delta_base_offset</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span>
+        <span class="p">}</span>
+        
+        <span class="c1"># Use geometric repacking for large repos
+</span>        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="nf">is_large_repository</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">geometric_repack</span><span class="p">(</span><span class="n">repack_config</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">standard_repack</span><span class="p">(</span><span class="n">repack_config</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">geometric_repack</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">OptimizationResult</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Geometric repacking for better performance</span><span class="sh">"""</span>
+        <span class="c1"># Group packs by size with geometric progression
+</span>        <span class="n">packs</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_pack_files</span><span class="p">()</span>
+        
+        <span class="c1"># Sort by size
+</span>        <span class="n">packs</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+        
+        <span class="c1"># Create geometric series of pack sizes
+</span>        <span class="c1"># Each pack is ~2x the size of previous
+</span>        <span class="n">result</span> <span class="o">=</span> <span class="nc">OptimizationResult</span><span class="p">()</span>
+        <span class="n">current_group</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">target_size</span> <span class="o">=</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># Start at 1MB
+</span>        
+        <span class="k">for</span> <span class="n">pack</span> <span class="ow">in</span> <span class="n">packs</span><span class="p">:</span>
+            <span class="n">current_group</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">pack</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="nf">sum</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">current_group</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target_size</span><span class="p">:</span>
+                <span class="c1"># Repack this group
+</span>                <span class="n">new_pack</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">repack_group</span><span class="p">(</span><span class="n">current_group</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+                <span class="n">result</span><span class="p">.</span><span class="n">new_packs</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">new_pack</span><span class="p">)</span>
+                
+                <span class="c1"># Reset for next group
+</span>                <span class="n">current_group</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">target_size</span> <span class="o">*=</span> <span class="mi">2</span>  <span class="c1"># Geometric progression
+</span>        
+        <span class="k">return</span> <span class="n">result</span>
+
+<span class="k">class</span> <span class="nc">BitmapIndex</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Reachability bitmap implementation for fast operations</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">pack_file</span><span class="p">:</span> <span class="sh">'</span><span class="s">PackFile</span><span class="sh">'</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pack_file</span> <span class="o">=</span> <span class="n">pack_file</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">bitmaps</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="sh">'</span><span class="s">EWAHBitmap</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">_build_bitmaps</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">_build_bitmaps</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Build reachability bitmaps for commits</span><span class="sh">"""</span>
+        <span class="c1"># Select commits for bitmap coverage
+</span>        <span class="n">selected_commits</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">select_bitmap_commits</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">commit</span> <span class="ow">in</span> <span class="n">selected_commits</span><span class="p">:</span>
+            <span class="c1"># Build reachability bitmap
+</span>            <span class="n">bitmap</span> <span class="o">=</span> <span class="nc">EWAHBitmap</span><span class="p">()</span>
+            <span class="n">reachable</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_reachable_objects</span><span class="p">(</span><span class="n">commit</span><span class="p">)</span>
+            
+            <span class="k">for</span> <span class="n">obj_idx</span> <span class="ow">in</span> <span class="n">reachable</span><span class="p">:</span>
+                <span class="n">bitmap</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="n">obj_idx</span><span class="p">)</span>
+            
+            <span class="c1"># Compress bitmap
+</span>            <span class="n">bitmap</span><span class="p">.</span><span class="nf">compress</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">bitmaps</span><span class="p">[</span><span class="n">commit</span><span class="p">]</span> <span class="o">=</span> <span class="n">bitmap</span>
+    
+    <span class="k">def</span> <span class="nf">select_bitmap_commits</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">Select optimal commits for bitmap coverage</span><span class="sh">"""</span>
+        <span class="c1"># Use commit selection algorithm
+</span>        <span class="c1"># Goals: minimize total bitmaps while maximizing coverage
+</span>        
+        <span class="n">commits</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_all_commits</span><span class="p">()</span>
+        <span class="n">selected</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">covered_objects</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+        
+        <span class="k">while</span> <span class="nf">len</span><span class="p">(</span><span class="n">covered_objects</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">total_objects</span> <span class="o">*</span> <span class="mf">0.95</span><span class="p">:</span>
+            <span class="n">best_commit</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">best_coverage</span> <span class="o">=</span> <span class="mi">0</span>
+            
+            <span class="k">for</span> <span class="n">commit</span> <span class="ow">in</span> <span class="n">commits</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">commit</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                
+                <span class="c1"># Calculate new coverage
+</span>                <span class="n">reachable</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_reachable_objects</span><span class="p">(</span><span class="n">commit</span><span class="p">)</span>
+                <span class="n">new_coverage</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">reachable</span> <span class="o">-</span> <span class="n">covered_objects</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">new_coverage</span> <span class="o">&gt;</span> <span class="n">best_coverage</span><span class="p">:</span>
+                    <span class="n">best_commit</span> <span class="o">=</span> <span class="n">commit</span>
+                    <span class="n">best_coverage</span> <span class="o">=</span> <span class="n">new_coverage</span>
+            
+            <span class="k">if</span> <span class="n">best_commit</span><span class="p">:</span>
+                <span class="n">selected</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">best_commit</span><span class="p">)</span>
+                <span class="n">covered_objects</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span>
+                    <span class="n">self</span><span class="p">.</span><span class="nf">find_reachable_objects</span><span class="p">(</span><span class="n">best_commit</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">break</span>
+        
+        <span class="k">return</span> <span class="n">selected</span>
+</code></pre></div></div>
+
+<h2 id="performance">Performance</h2>
+
+<h3 id="optimization">Optimization</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Garbage collection</span>
+git gc
+
+<span class="c"># Aggressive garbage collection</span>
+git gc <span class="nt">--aggressive</span>
+
+<span class="c"># Verify repository integrity</span>
+git fsck
+
+<span class="c"># Count objects</span>
+git count-objects <span class="nt">-v</span>
+
+<span class="c"># Prune old objects</span>
+git prune
+</code></pre></div></div>
+
+<h3 id="large-repositories">Large Repositories</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Shallow clone</span>
+git clone <span class="nt">--depth</span> 1 https://github.com/large/repo.git
+
+<span class="c"># Partial clone (Git 2.17+)</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none https://github.com/large/repo.git
+
+<span class="c"># Sparse checkout</span>
+git sparse-checkout init
+git sparse-checkout <span class="nb">set </span>src/ docs/
+</code></pre></div></div>
+
+<h2 id="research-frontiers-in-version-control">Research Frontiers in Version Control</h2>
+
+<h3 id="merkle-dag-alternatives">Merkle DAG Alternatives</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">QuantumVersionControl</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Theoretical: Quantum superposition for version control
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">quantum_states</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">def</span> <span class="nf">create_superposition_branch</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">branches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+        <span class="sh">"""</span><span class="s">
+        Create quantum superposition of multiple branch states
+        </span><span class="sh">"""</span>
+        <span class="c1"># |ψ⟩ = Σ αᵢ|branchᵢ⟩
+</span>        <span class="c1"># Allows exploring multiple development paths simultaneously
+</span>        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">collapse_to_optimal</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">objective_function</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Collapse superposition to optimal branch based on criteria
+        </span><span class="sh">"""</span>
+        <span class="c1"># Measure quantum state to select best development path
+</span>        <span class="k">pass</span>
+
+<span class="k">class</span> <span class="nc">CRDTBasedVCS</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Conflict-free Replicated Data Types for version control
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">operation_log</span> <span class="o">=</span> <span class="nc">OperationCRDT</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">file_states</span> <span class="o">=</span> <span class="nc">StateCRDT</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">merge_without_conflicts</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">replicas</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">Replica</span><span class="sh">'</span><span class="p">]):</span>
+        <span class="sh">"""</span><span class="s">
+        Automatically merge any number of replicas without conflicts
+        </span><span class="sh">"""</span>
+        <span class="c1"># CRDTs guarantee convergence without coordination
+</span>        <span class="n">merged_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">file_states</span><span class="p">.</span><span class="nf">empty</span><span class="p">()</span>
+        
+        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">replicas</span><span class="p">:</span>
+            <span class="n">merged_state</span> <span class="o">=</span> <span class="n">merged_state</span><span class="p">.</span><span class="nf">merge</span><span class="p">(</span><span class="n">replica</span><span class="p">.</span><span class="n">state</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">merged_state</span>
+
+<span class="k">class</span> <span class="nc">BlockchainVCS</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Blockchain-based version control for trust and immutability
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">blockchain</span> <span class="o">=</span> <span class="nc">Blockchain</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">smart_contracts</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">def</span> <span class="nf">commit_with_proof_of_work</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">changes</span><span class="p">:</span> <span class="sh">'</span><span class="s">Changes</span><span class="sh">'</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">
+        Commit changes with blockchain proof of work
+        </span><span class="sh">"""</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="nc">Block</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">blockchain</span><span class="p">.</span><span class="n">height</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">(),</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">changes</span><span class="p">.</span><span class="nf">serialize</span><span class="p">(),</span>
+            <span class="n">previous_hash</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">blockchain</span><span class="p">.</span><span class="n">last_block</span><span class="p">.</span><span class="nb">hash</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># Mine block
+</span>        <span class="n">proof</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">proof_of_work</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        <span class="n">block</span><span class="p">.</span><span class="n">nonce</span> <span class="o">=</span> <span class="n">proof</span>
+        
+        <span class="c1"># Add to blockchain
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">blockchain</span><span class="p">.</span><span class="nf">add_block</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">block</span><span class="p">.</span><span class="nb">hash</span>
+</code></pre></div></div>
+
+<h3 id="machine-learning-for-version-control">Machine Learning for Version Control</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MLEnhancedGit</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Machine learning enhancements for Git workflows
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">conflict_predictor</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_conflict_model</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">commit_suggester</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_suggestion_model</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">merge_optimizer</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_merge_model</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">predict_merge_conflicts</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">branch1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+                              <span class="n">branch2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Predict probability of merge conflicts
+        </span><span class="sh">"""</span>
+        <span class="c1"># Extract features
+</span>        <span class="n">features</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">extract_branch_features</span><span class="p">(</span><span class="n">branch1</span><span class="p">,</span> <span class="n">branch2</span><span class="p">)</span>
+        
+        <span class="c1"># Predict using trained model
+</span>        <span class="n">conflict_probability</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">conflict_predictor</span><span class="p">.</span><span class="nf">predict_proba</span><span class="p">(</span>
+            <span class="n">features</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="k">return</span> <span class="n">conflict_probability</span>
+    
+    <span class="k">def</span> <span class="nf">suggest_commit_message</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">diff</span><span class="p">:</span> <span class="sh">'</span><span class="s">Diff</span><span class="sh">'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Generate commit message using transformer model
+        </span><span class="sh">"""</span>
+        <span class="c1"># Tokenize diff
+</span>        <span class="n">tokens</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">tokenize_diff</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span>
+        
+        <span class="c1"># Generate message
+</span>        <span class="n">message</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">commit_suggester</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
+            <span class="n">tokens</span><span class="p">,</span>
+            <span class="n">max_length</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span>
+            <span class="n">temperature</span><span class="o">=</span><span class="mf">0.7</span>
+        <span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">message</span>
+    
+    <span class="k">def</span> <span class="nf">optimize_merge_strategy</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">commits</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="sh">'</span><span class="s">Commit</span><span class="sh">'</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="sh">'</span><span class="s">Strategy</span><span class="sh">'</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Use reinforcement learning to find optimal merge strategy
+        </span><span class="sh">"""</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">encode_repository_state</span><span class="p">()</span>
+        
+        <span class="c1"># Use trained RL agent
+</span>        <span class="n">action</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">merge_optimizer</span><span class="p">.</span><span class="nf">act</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">decode_strategy</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="references-and-further-reading">References and Further Reading</h2>
+
+<h3 id="academic-papers">Academic Papers</h3>
+<ul>
+  <li>“A Formal Model of Git Version Control” - ICSE 2019</li>
+  <li>“Distributed Version Control as a Distributed Database” - VLDB 2018</li>
+  <li>“Merkle Trees and Content-Addressable Storage” - IEEE 2017</li>
+  <li>“Conflict-Free Replicated Data Types for Distributed Version Control” - PODC 2020</li>
+</ul>
+
+<h3 id="books">Books</h3>
+<ul>
+  <li>“Pro Git” - Scott Chacon and Ben Straub</li>
+  <li>“Version Control with Git” - Jon Loeliger and Matthew McCullough</li>
+  <li>“Git Internals” - Scott Chacon</li>
+  <li>“Building Git” - James Coglan</li>
+</ul>
+
+<h3 id="advanced-topics">Advanced Topics</h3>
+<ul>
+  <li>libgit2: Git core library implementation</li>
+  <li>JGit: Pure Java implementation of Git</li>
+  <li>Dulwich: Pure Python implementation of Git</li>
+  <li>Git wire protocol specification</li>
+  <li>Pack file format specification</li>
+  <li>Index file format specification</li>
+</ul>
+
+<h3 id="research-projects">Research Projects</h3>
+<ul>
+  <li><strong>Pijul</strong>: Patch-based version control with formal theory</li>
+  <li><strong>Darcs</strong>: Patch theory and commutation</li>
+  <li><strong>Fossil</strong>: Distributed VCS with integrated wiki and issue tracking</li>
+  <li><strong>Mercurial</strong>: Alternative DVCS with different design choices</li>
+</ul>
+
+<p>Git’s elegant design, based on solid computer science principles, has revolutionized software development. Its content-addressable storage, distributed architecture, and powerful branching model provide a foundation for complex workflows while maintaining data integrity through cryptographic guarantees. Understanding Git at this deep level enables developers to leverage its full potential and contribute to the evolution of version control systems.</p>

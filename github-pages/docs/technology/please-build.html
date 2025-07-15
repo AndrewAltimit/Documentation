@@ -1,0 +1,98 @@
+<h1 id="please-build">Please Build</h1>
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css" /></header></html>
+
+<p>Please Build is a versatile build automation tool that simplifies the process of building, testing, and deploying your projects. This documentation provides you with a step-by-step guide to getting started with Please Build and integrating it into your workflow.</p>
+
+<h2 id="key-features">Key Features</h2>
+
+<ul>
+  <li><strong>Language Agnostic</strong>: Please Build supports numerous programming languages, making it versatile for various projects.</li>
+  <li><strong>Flexible</strong>: The tool offers a customizable configuration to cater to specific project requirements.</li>
+  <li><strong>Parallel Execution</strong>: Please Build can run tasks concurrently, speeding up the build process.</li>
+  <li><strong>Incremental Builds</strong>: The tool efficiently rebuilds only what has changed, saving time and resources.</li>
+  <li><strong>Extensible</strong>: Please Build allows developers to create custom build definitions for unique scenarios.</li>
+</ul>
+
+<h2 id="installation">Installation</h2>
+
+<p>To install Please Build, run the following command in your terminal:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-sSfL</span> https://get.please.build | bash
+</code></pre></div></div>
+
+<h2 id="getting-started">Getting Started</h2>
+
+<p>To create a new Please Build project, navigate to your project directory and run the following command:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz init
+</code></pre></div></div>
+
+<p>This will generate a <code class="language-plaintext highlighter-rouge">plzconfig</code> file in the root directory, which will be used to configure Please Build.</p>
+
+<h2 id="configuration">Configuration</h2>
+
+<p>Edit the <code class="language-plaintext highlighter-rouge">plzconfig</code> file to configure Please Build according to your project’s requirements. Below is a sample <code class="language-plaintext highlighter-rouge">plzconfig</code> configuration:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">please</span><span class="p">]</span>
+<span class="n">version</span> <span class="o">=</span> <span class="mi">17</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span>
+<span class="n">selfupdate</span> <span class="o">=</span> <span class="nb">true</span>
+
+<span class="p">[</span><span class="n">build</span><span class="p">]</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">src</span><span class="o">/</span>
+<span class="n">languages</span> <span class="o">=</span> <span class="n">python</span><span class="p">,</span><span class="n">go</span>
+</code></pre></div></div>
+
+<p>For more details on the available configuration options, refer to the <a href="https://please.build/configuration.html">official documentation</a>.</p>
+
+<h2 id="build-rules">Build Rules</h2>
+
+<p>Please Build uses build rules to specify how to build, test, and deploy your project. Create a <code class="language-plaintext highlighter-rouge">BUILD.plz</code> file in the appropriate directory and define your build rules. For example:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s">"main"</span><span class="p">,</span>
+    <span class="n">main</span> <span class="o">=</span> <span class="s">"main.py"</span><span class="p">,</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="s">":lib"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">python_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s">"lib"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s">"*.py"</span><span class="p">]),</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>For more information on build rules and how to customize them, check out the <a href="https://please.build/rules.html">build rules documentation</a>.</p>
+
+<h2 id="testing">Testing</h2>
+
+<p>Please Build supports many popular testing frameworks. To add a test rule to your project, include it in the <code class="language-plaintext highlighter-rouge">BUILD.plz</code> file. Here’s an example of a Python test rule:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s">"tests"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s">"*_test.py"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="s">":lib"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>To run tests, use the following command:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz <span class="nb">test</span>
+</code></pre></div></div>
+
+<h2 id="continuous-integration">Continuous Integration</h2>
+
+<p>Integrating Please Build with continuous integration (CI) services is simple. Add the following configuration to your CI service’s configuration file (e.g., <code class="language-plaintext highlighter-rouge">.travis.yml</code> for Travis CI):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">language</span><span class="pi">:</span> <span class="s">minimal</span>
+
+<span class="na">install</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">curl -sSfL https://get.please.build | bash</span>
+
+<span class="na">script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">plz build</span>
+  <span class="pi">-</span> <span class="s">plz test</span>
+</code></pre></div></div>
+
+<h2 id="faq">FAQ</h2>
+
+<p>For frequently asked questions, please refer to the <a href="https://please.build/faq.html">FAQ section</a> in the official documentation.</p>

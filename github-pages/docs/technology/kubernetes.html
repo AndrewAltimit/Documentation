@@ -1,0 +1,1446 @@
+<h1 id="kubernetes">Kubernetes</h1>
+
+<header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header>
+
+<div class="hero-section">
+  <div class="hero-content">
+    <h1 class="hero-title">Kubernetes</h1>
+    <p class="hero-subtitle">Container Orchestration at Scale</p>
+  </div>
+</div>
+
+<div class="intro-card">
+  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments.</p>
+  
+  <div class="key-insights">
+    <div class="insight-card">
+      <i class="fas fa-cubes"></i>
+      <h4>Container Orchestration</h4>
+      <p>Automated deployment and management</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-expand-arrows-alt"></i>
+      <h4>Auto-scaling</h4>
+      <p>Dynamic resource allocation</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-sync-alt"></i>
+      <h4>Self-healing</h4>
+      <p>Automatic recovery and rollbacks</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="core-concepts">Core Concepts</h2>
+
+<div class="architecture-section">
+  <h3>
+<i class="fas fa-sitemap"></i> Architecture Overview</h3>
+  <p>Kubernetes follows a master-worker architecture:</p>
+  
+  <div class="architecture-visual">
+    <svg viewbox="0 0 700 400" class="k8s-architecture">
+      <!-- Control Plane -->
+      <rect x="50" y="50" width="600" height="120" fill="#3498db" opacity="0.1" stroke="#3498db" stroke-width="2"></rect>
+      <text x="350" y="30" text-anchor="middle" font-size="16" font-weight="bold">Control Plane</text>
+      
+      <!-- API Server -->
+      <rect x="70" y="70" width="100" height="80" fill="#e74c3c" opacity="0.5" stroke="#c0392b" stroke-width="2"></rect>
+      <text x="120" y="105" text-anchor="middle" font-size="11" fill="white">API Server</text>
+      <text x="120" y="120" text-anchor="middle" font-size="9" fill="white">Gateway</text>
+      
+      <!-- etcd -->
+      <rect x="190" y="70" width="100" height="80" fill="#27ae60" opacity="0.5" stroke="#229954" stroke-width="2"></rect>
+      <text x="240" y="105" text-anchor="middle" font-size="11" fill="white">etcd</text>
+      <text x="240" y="120" text-anchor="middle" font-size="9" fill="white">State Store</text>
+      
+      <!-- Scheduler -->
+      <rect x="310" y="70" width="100" height="80" fill="#f39c12" opacity="0.5" stroke="#d68910" stroke-width="2"></rect>
+      <text x="360" y="105" text-anchor="middle" font-size="11" fill="white">Scheduler</text>
+      <text x="360" y="120" text-anchor="middle" font-size="9" fill="white">Pod Placement</text>
+      
+      <!-- Controller Manager -->
+      <rect x="430" y="70" width="100" height="80" fill="#9b59b6" opacity="0.5" stroke="#7d3c98" stroke-width="2"></rect>
+      <text x="480" y="100" text-anchor="middle" font-size="11" fill="white">Controller</text>
+      <text x="480" y="115" text-anchor="middle" font-size="11" fill="white">Manager</text>
+      <text x="480" y="130" text-anchor="middle" font-size="9" fill="white">Controllers</text>
+      
+      <!-- Cloud Controller -->
+      <rect x="550" y="70" width="80" height="80" fill="#1abc9c" opacity="0.5" stroke="#16a085" stroke-width="2"></rect>
+      <text x="590" y="100" text-anchor="middle" font-size="10" fill="white">Cloud</text>
+      <text x="590" y="115" text-anchor="middle" font-size="10" fill="white">Controller</text>
+      <text x="590" y="130" text-anchor="middle" font-size="9" fill="white">Manager</text>
+      
+      <!-- Worker Nodes -->
+      <text x="350" y="210" text-anchor="middle" font-size="16" font-weight="bold">Worker Nodes</text>
+      
+      <!-- Node 1 -->
+      <rect x="50" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2"></rect>
+      <text x="140" y="250" text-anchor="middle" font-size="12">Node 1</text>
+      
+      <!-- kubelet -->
+      <rect x="60" y="260" width="70" height="40" fill="#3498db" opacity="0.5"></rect>
+      <text x="95" y="285" text-anchor="middle" font-size="10" fill="white">kubelet</text>
+      
+      <!-- kube-proxy -->
+      <rect x="150" y="260" width="70" height="40" fill="#e74c3c" opacity="0.5"></rect>
+      <text x="185" y="285" text-anchor="middle" font-size="10" fill="white">kube-proxy</text>
+      
+      <!-- Container runtime -->
+      <rect x="60" y="310" width="160" height="40" fill="#27ae60" opacity="0.5"></rect>
+      <text x="140" y="335" text-anchor="middle" font-size="10" fill="white">Container Runtime</text>
+      
+      <!-- Pods -->
+      <circle cx="90" cy="365" r="12" fill="#f39c12"></circle>
+      <circle cx="140" cy="365" r="12" fill="#f39c12"></circle>
+      <circle cx="190" cy="365" r="12" fill="#f39c12"></circle>
+      <text x="140" y="370" text-anchor="middle" font-size="9">Pods</text>
+      
+      <!-- Node 2 -->
+      <rect x="260" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2"></rect>
+      <text x="350" y="250" text-anchor="middle" font-size="12">Node 2</text>
+      
+      <!-- Node 3 -->
+      <rect x="470" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2"></rect>
+      <text x="560" y="250" text-anchor="middle" font-size="12">Node 3</text>
+      
+      <!-- Communication lines -->
+      <path d="M 120 150 L 140 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3"></path>
+      <path d="M 360 150 L 350 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3"></path>
+      <path d="M 480 150 L 560 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3"></path>
+    </svg>
+  </div>
+  
+  <div class="component-details">
+    <div class="component-group control-plane">
+      <h4>
+<i class="fas fa-server"></i> Control Plane Components</h4>
+      <div class="component-list">
+        <div class="component-item">
+          <i class="fas fa-plug"></i>
+          <strong>API Server:</strong> Central management point, exposes Kubernetes API
+        </div>
+        <div class="component-item">
+          <i class="fas fa-database"></i>
+          <strong>etcd:</strong> Distributed key-value store for cluster state
+        </div>
+        <div class="component-item">
+          <i class="fas fa-calendar-alt"></i>
+          <strong>Scheduler:</strong> Assigns pods to nodes based on resource requirements
+        </div>
+        <div class="component-item">
+          <i class="fas fa-cogs"></i>
+          <strong>Controller Manager:</strong> Runs controller processes
+        </div>
+        <div class="component-item">
+          <i class="fas fa-cloud"></i>
+          <strong>Cloud Controller Manager:</strong> Integrates with cloud provider APIs
+        </div>
+      </div>
+    </div>
+    
+    <div class="component-group node-components">
+      <h4>
+<i class="fas fa-microchip"></i> Node Components</h4>
+      <div class="component-list">
+        <div class="component-item">
+          <i class="fas fa-heartbeat"></i>
+          <strong>kubelet:</strong> Ensures containers are running in pods
+        </div>
+        <div class="component-item">
+          <i class="fas fa-network-wired"></i>
+          <strong>kube-proxy:</strong> Maintains network rules for pod communication
+        </div>
+        <div class="component-item">
+          <i class="fas fa-box"></i>
+          <strong>Container Runtime:</strong> Docker, containerd, or CRI-O
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 id="kubernetes-objects">Kubernetes Objects</h3>
+
+<div class="k8s-objects-section">
+  <div class="object-card pod-object">
+    <div class="object-header">
+      <i class="fas fa-cube"></i>
+      <h4>Pods</h4>
+    </div>
+    <p class="object-desc">The smallest deployable unit in Kubernetes:</p>
+    
+    <div class="object-visual">
+      <svg viewbox="0 0 300 150">
+        <!-- Pod outline -->
+        <rect x="50" y="30" width="200" height="90" rx="10" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2"></rect>
+        <text x="150" y="20" text-anchor="middle" font-size="12" font-weight="bold">Pod</text>
+        
+        <!-- Containers inside pod -->
+        <rect x="70" y="50" width="70" height="50" fill="#e74c3c" opacity="0.5" rx="5"></rect>
+        <text x="105" y="80" text-anchor="middle" font-size="10" fill="white">Container 1</text>
+        
+        <rect x="160" y="50" width="70" height="50" fill="#27ae60" opacity="0.5" rx="5"></rect>
+        <text x="195" y="80" text-anchor="middle" font-size="10" fill="white">Container 2</text>
+        
+        <!-- Shared resources -->
+        <text x="150" y="130" text-anchor="middle" font-size="9">Shared Network &amp; Storage</text>
+      </svg>
+    </div>
+    
+    <div class="code-example">
+      <div class="code-header">Pod Definition</div>
+      <pre><code class="language-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21
+    ports:
+    - containerPort: 80</code></pre>
+    </div>
+    
+    <div class="key-features">
+      <h5>Key Features:</h5>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <i class="fas fa-layer-group"></i>
+          <span>One or more containers</span>
+        </div>
+        <div class="feature-item">
+          <i class="fas fa-share-alt"></i>
+          <span>Shared network and storage</span>
+        </div>
+        <div class="feature-item">
+          <i class="fas fa-hourglass-half"></i>
+          <span>Ephemeral by design</span>
+        </div>
+        <div class="feature-item">
+          <i class="fas fa-fingerprint"></i>
+          <span>Unique IP address</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="object-card deployment-object">
+    <div class="object-header">
+      <i class="fas fa-rocket"></i>
+      <h4>Deployments</h4>
+    </div>
+    <p class="object-desc">Manages replica sets and provides declarative updates:</p>
+    
+    <div class="object-visual">
+      <svg viewbox="0 0 400 200">
+        <!-- Deployment controller -->
+        <rect x="150" y="20" width="100" height="40" fill="#9b59b6" opacity="0.5" stroke="#8e44ad" stroke-width="2"></rect>
+        <text x="200" y="45" text-anchor="middle" font-size="11" fill="white">Deployment</text>
+        
+        <!-- ReplicaSet -->
+        <rect x="125" y="80" width="150" height="40" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2"></rect>
+        <text x="200" y="105" text-anchor="middle" font-size="10">ReplicaSet</text>
+        
+        <!-- Pods -->
+        <circle cx="120" cy="160" r="20" fill="#e74c3c" opacity="0.5"></circle>
+        <text x="120" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
+        
+        <circle cx="200" cy="160" r="20" fill="#e74c3c" opacity="0.5"></circle>
+        <text x="200" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
+        
+        <circle cx="280" cy="160" r="20" fill="#e74c3c" opacity="0.5"></circle>
+        <text x="280" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
+        
+        <!-- Arrows -->
+        <path d="M 200 60 L 200 75" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)"></path>
+        <path d="M 150 120 L 120 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)"></path>
+        <path d="M 200 120 L 200 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)"></path>
+        <path d="M 250 120 L 280 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)"></path>
+        
+        <text x="330" y="105" font-size="10">Replicas: 3</text>
+      </svg>
+    </div>
+    
+    <div class="code-example">
+      <div class="code-header">Deployment Definition</div>
+      <pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+        ports:
+        - containerPort: 80</code></pre>
+    </div>
+    
+    <div class="deployment-features">
+      <h5>Features:</h5>
+      <div class="feature-cards">
+        <div class="feature-card">
+          <i class="fas fa-sync-alt"></i>
+          <h6>Rolling Updates</h6>
+          <p>Zero-downtime deployments</p>
+        </div>
+        <div class="feature-card">
+          <i class="fas fa-undo"></i>
+          <h6>Rollback</h6>
+          <p>Revert to previous versions</p>
+        </div>
+        <div class="feature-card">
+          <i class="fas fa-expand-arrows-alt"></i>
+          <h6>Scaling</h6>
+          <p>Adjust replica count</p>
+        </div>
+        <div class="feature-card">
+          <i class="fas fa-heartbeat"></i>
+          <h6>Self-healing</h6>
+          <p>Automatic pod recovery</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="object-card service-object">
+    <div class="object-header">
+      <i class="fas fa-network-wired"></i>
+      <h4>Services</h4>
+    </div>
+    <p class="object-desc">Provides stable network endpoint for pods:</p>
+    
+    <div class="service-types-visual">
+      <h5>Service Types</h5>
+      <div class="service-type-grid">
+        <div class="service-type clusterip">
+          <svg viewbox="0 0 150 120">
+            <rect x="30" y="30" width="90" height="60" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2"></rect>
+            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">ClusterIP</text>
+            <circle cx="50" cy="60" r="8" fill="#e74c3c"></circle>
+            <circle cx="75" cy="60" r="8" fill="#e74c3c"></circle>
+            <circle cx="100" cy="60" r="8" fill="#e74c3c"></circle>
+            <text x="75" y="105" text-anchor="middle" font-size="9">Internal Only</text>
+          </svg>
+        </div>
+        
+        <div class="service-type nodeport">
+          <svg viewbox="0 0 150 120">
+            <rect x="30" y="30" width="90" height="60" fill="#27ae60" opacity="0.2" stroke="#27ae60" stroke-width="2"></rect>
+            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">NodePort</text>
+            <circle cx="75" cy="60" r="8" fill="#e74c3c"></circle>
+            <line x1="75" y1="52" x2="75" y2="10" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)"></line>
+            <text x="75" y="105" text-anchor="middle" font-size="9">Node IP:Port</text>
+          </svg>
+        </div>
+        
+        <div class="service-type loadbalancer">
+          <svg viewbox="0 0 150 120">
+            <ellipse cx="75" cy="15" rx="40" ry="10" fill="#f39c12" opacity="0.3"></ellipse>
+            <text x="75" y="18" text-anchor="middle" font-size="9">LB</text>
+            <rect x="30" y="40" width="90" height="50" fill="#f39c12" opacity="0.2" stroke="#f39c12" stroke-width="2"></rect>
+            <text x="75" y="35" text-anchor="middle" font-size="10" font-weight="bold">LoadBalancer</text>
+            <circle cx="75" cy="65" r="8" fill="#e74c3c"></circle>
+            <text x="75" y="105" text-anchor="middle" font-size="9">External LB</text>
+          </svg>
+        </div>
+        
+        <div class="service-type externalname">
+          <svg viewbox="0 0 150 120">
+            <rect x="30" y="30" width="90" height="60" fill="#9b59b6" opacity="0.2" stroke="#9b59b6" stroke-width="2"></rect>
+            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">ExternalName</text>
+            <text x="75" y="60" text-anchor="middle" font-size="16">DNS</text>
+            <text x="75" y="105" text-anchor="middle" font-size="9">Maps to DNS</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    
+    <div class="code-example">
+      <div class="code-header">Service Definition</div>
+      <pre><code class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer</code></pre>
+    </div>
+  </div>
+
+#### ConfigMaps and Secrets
+
+**ConfigMap Example:**
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  database_url: "postgres://localhost:5432/mydb"
+  api_key: "public-api-key"
+```
+
+**Secret Example:**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  username: YWRtaW4=  # base64 encoded
+  password: cGFzc3dvcmQ=  # base64 encoded
+```
+
+  <div class="object-card namespace-object">
+    <div class="object-header">
+      <i class="fas fa-folder"></i>
+      <h4>Namespaces</h4>
+    </div>
+    <p class="object-desc">Logical isolation within a cluster:</p>
+    
+    <div class="namespace-visual">
+      <svg viewbox="0 0 400 250">
+        <!-- Cluster boundary -->
+        <rect x="20" y="20" width="360" height="210" fill="none" stroke="#2c3e50" stroke-width="2" stroke-dasharray="5,5"></rect>
+        <text x="200" y="15" text-anchor="middle" font-size="12" font-weight="bold">Kubernetes Cluster</text>
+        
+        <!-- Default namespace -->
+        <rect x="40" y="40" width="150" height="80" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2"></rect>
+        <text x="115" y="60" text-anchor="middle" font-size="11" font-weight="bold">default</text>
+        <circle cx="70" cy="90" r="8" fill="#e74c3c"></circle>
+        <circle cx="100" cy="90" r="8" fill="#e74c3c"></circle>
+        <circle cx="130" cy="90" r="8" fill="#e74c3c"></circle>
+        <text x="100" y="110" text-anchor="middle" font-size="9">User Apps</text>
+        
+        <!-- kube-system namespace -->
+        <rect x="210" y="40" width="150" height="80" fill="#e74c3c" opacity="0.2" stroke="#e74c3c" stroke-width="2"></rect>
+        <text x="285" y="60" text-anchor="middle" font-size="11" font-weight="bold">kube-system</text>
+        <rect cx="240" cy="85" width="12" height="12" fill="#c0392b"></rect>
+        <rect cx="270" cy="85" width="12" height="12" fill="#c0392b"></rect>
+        <rect cx="300" cy="85" width="12" height="12" fill="#c0392b"></rect>
+        <text x="270" y="110" text-anchor="middle" font-size="9">System Pods</text>
+        
+        <!-- Development namespace -->
+        <rect x="40" y="140" width="150" height="70" fill="#27ae60" opacity="0.2" stroke="#27ae60" stroke-width="2"></rect>
+        <text x="115" y="160" text-anchor="middle" font-size="11" font-weight="bold">development</text>
+        <circle cx="70" cy="185" r="8" fill="#229954"></circle>
+        <circle cx="100" cy="185" r="8" fill="#229954"></circle>
+        <text x="85" y="205" text-anchor="middle" font-size="9">Dev Apps</text>
+        
+        <!-- Production namespace -->
+        <rect x="210" y="140" width="150" height="70" fill="#f39c12" opacity="0.2" stroke="#f39c12" stroke-width="2"></rect>
+        <text x="285" y="160" text-anchor="middle" font-size="11" font-weight="bold">production</text>
+        <circle cx="240" cy="185" r="8" fill="#d68910"></circle>
+        <circle cx="270" cy="185" r="8" fill="#d68910"></circle>
+        <text x="255" y="205" text-anchor="middle" font-size="9">Prod Apps</text>
+      </svg>
+    </div>
+    
+    <div class="code-example">
+      <div class="code-header">Namespace Definition</div>
+      <pre><code class="language-yaml">apiVersion: v1
+kind: Namespace
+metadata:
+  name: development</code></pre>
+    </div>
+    
+    <div class="default-namespaces">
+      <h5>Default Namespaces:</h5>
+      <div class="namespace-list">
+        <div class="namespace-item">
+          <code>default</code>
+          <span>Default namespace for objects</span>
+        </div>
+        <div class="namespace-item">
+          <code>kube-system</code>
+          <span>Kubernetes system objects</span>
+        </div>
+        <div class="namespace-item">
+          <code>kube-public</code>
+          <span>Publicly accessible data</span>
+        </div>
+        <div class="namespace-item">
+          <code>kube-node-lease</code>
+          <span>Node heartbeat data</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 id="workload-resources">Workload Resources</h2>
+
+<h3 id="statefulsets">StatefulSets</h3>
+
+<p>For stateful applications requiring stable identities:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StatefulSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">serviceName</span><span class="pi">:</span> <span class="s">postgres</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:13</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-storage</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/postgresql/data</span>
+  <span class="na">volumeClaimTemplates</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-storage</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">requests</span><span class="pi">:</span>
+          <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
+</code></pre></div></div>
+
+<p><strong>Features:</strong></p>
+<ul>
+  <li>Ordered deployment and scaling</li>
+  <li>Stable network identities</li>
+  <li>Persistent storage</li>
+  <li>Ordered termination</li>
+</ul>
+
+<h3 id="daemonsets">DaemonSets</h3>
+
+<p>Ensures pods run on all (or selected) nodes:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">fluentd</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">fluentd</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">fluentd</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">fluentd</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">fluentd:v1.14</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">limits</span><span class="pi">:</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">200Mi</span>
+</code></pre></div></div>
+
+<p><strong>Use Cases:</strong></p>
+<ul>
+  <li>Log collection</li>
+  <li>Monitoring agents</li>
+  <li>Network plugins</li>
+  <li>Storage drivers</li>
+</ul>
+
+<h3 id="jobs-and-cronjobs">Jobs and CronJobs</h3>
+
+<p><strong>Job Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">backup-job</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">backup-tool:latest</span>
+        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./backup.sh"</span><span class="pi">]</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
+  <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">3</span>
+</code></pre></div></div>
+
+<p><strong>CronJob Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CronJob</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">daily-backup</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">schedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>  <span class="c1"># 2 AM daily</span>
+  <span class="na">jobTemplate</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">template</span><span class="pi">:</span>
+        <span class="na">spec</span><span class="pi">:</span>
+          <span class="na">containers</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
+            <span class="na">image</span><span class="pi">:</span> <span class="s">backup-tool:latest</span>
+          <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
+</code></pre></div></div>
+
+<h2 id="networking">Networking</h2>
+
+<h3 id="cluster-networking">Cluster Networking</h3>
+
+<p><strong>Network Model Requirements:</strong></p>
+<ul>
+  <li>All pods can communicate with each other</li>
+  <li>All nodes can communicate with all pods</li>
+  <li>No NAT between pods</li>
+</ul>
+
+<h3 id="ingress">Ingress</h3>
+
+<p>HTTP/HTTPS routing to services:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-ingress</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">nginx.ingress.kubernetes.io/rewrite-target</span><span class="pi">:</span> <span class="s">/</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">app.example.com</span>
+    <span class="na">http</span><span class="pi">:</span>
+      <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/api</span>
+        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
+        <span class="na">backend</span><span class="pi">:</span>
+          <span class="na">service</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">api-service</span>
+            <span class="na">port</span><span class="pi">:</span>
+              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
+      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/</span>
+        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
+        <span class="na">backend</span><span class="pi">:</span>
+          <span class="na">service</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">frontend-service</span>
+            <span class="na">port</span><span class="pi">:</span>
+              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
+</code></pre></div></div>
+
+<h3 id="network-policies">Network Policies</h3>
+
+<p>Fine-grained network access control:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api-netpol</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">api</span>
+  <span class="na">policyTypes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">Ingress</span>
+  <span class="pi">-</span> <span class="s">Egress</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">app</span><span class="pi">:</span> <span class="s">frontend</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="na">egress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">app</span><span class="pi">:</span> <span class="s">database</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
+</code></pre></div></div>
+
+<h2 id="storage">Storage</h2>
+
+<h3 id="container-storage-interface-csi-architecture">Container Storage Interface (CSI) Architecture</h3>
+
+<p>The Container Storage Interface defines a standard for exposing block and file storage systems to containerized workloads:</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// CSI Controller Service - Manages volumes at cluster level</span>
+<span class="k">type</span> <span class="n">ControllerServer</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="c">// Volume lifecycle operations</span>
+    <span class="n">CreateVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">CreateVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">CreateVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">DeleteVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">DeleteVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">DeleteVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Snapshot operations</span>
+    <span class="n">CreateSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">CreateSnapshotRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">CreateSnapshotResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">DeleteSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">DeleteSnapshotRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">DeleteSnapshotResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Volume attachment</span>
+    <span class="n">ControllerPublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerPublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerPublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">ControllerUnpublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerUnpublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerUnpublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Capabilities</span>
+    <span class="n">ControllerGetCapabilities</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerGetCapabilitiesRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerGetCapabilitiesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c">// CSI Node Service - Manages volumes on individual nodes</span>
+<span class="k">type</span> <span class="n">NodeServer</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="c">// Node operations</span>
+    <span class="n">NodeStageVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeStageVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeStageVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeUnstageVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeUnstageVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeUnstageVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Mount operations</span>
+    <span class="n">NodePublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodePublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodePublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeUnpublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeUnpublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeUnpublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Node info</span>
+    <span class="n">NodeGetInfo</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetInfoRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetInfoResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeGetCapabilities</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetCapabilitiesRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetCapabilitiesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="storage-orchestration-theory">Storage Orchestration Theory</h3>
+
+<h4 id="volume-lifecycle-state-machine">Volume Lifecycle State Machine</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">import</span> <span class="n">asyncio</span>
+
+<span class="k">class</span> <span class="nc">VolumeState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">PENDING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">pending</span><span class="sh">"</span>
+    <span class="n">PROVISIONING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">provisioning</span><span class="sh">"</span>
+    <span class="n">AVAILABLE</span> <span class="o">=</span> <span class="sh">"</span><span class="s">available</span><span class="sh">"</span>
+    <span class="n">BINDING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">binding</span><span class="sh">"</span>
+    <span class="n">BOUND</span> <span class="o">=</span> <span class="sh">"</span><span class="s">bound</span><span class="sh">"</span>
+    <span class="n">RELEASING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">releasing</span><span class="sh">"</span>
+    <span class="n">FAILED</span> <span class="o">=</span> <span class="sh">"</span><span class="s">failed</span><span class="sh">"</span>
+    <span class="n">DELETED</span> <span class="o">=</span> <span class="sh">"</span><span class="s">deleted</span><span class="sh">"</span>
+
+<span class="k">class</span> <span class="nc">VolumeLifecycleManager</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Manages volume state transitions with formal verification</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="c1"># State transition graph
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">transitions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">PENDING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">BINDING</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">BINDING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">RELEASING</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">RELEASING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">:</span> <span class="nf">set</span><span class="p">()</span>
+        <span class="p">}</span>
+        
+        <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">state_lock</span> <span class="o">=</span> <span class="n">asyncio</span><span class="p">.</span><span class="nc">Lock</span><span class="p">()</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">transition_volume</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Atomically transition volume state with validation</span><span class="sh">"""</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">self</span><span class="p">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="n">current_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">PENDING</span><span class="p">)</span>
+            
+            <span class="c1"># Verify transition is valid
+</span>            <span class="k">if</span> <span class="n">new_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">transitions</span><span class="p">[</span><span class="n">current_state</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Invalid transition: </span><span class="si">{</span><span class="n">current_state</span><span class="si">}</span><span class="s"> → </span><span class="si">{</span><span class="n">new_state</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            
+            <span class="c1"># Perform state transition
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+            
+            <span class="c1"># Trigger side effects
+</span>            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_handle_state_change</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="n">current_state</span><span class="p">,</span> <span class="n">new_state</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="bp">True</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_handle_state_change</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+                                  <span class="n">old_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">,</span> 
+                                  <span class="n">new_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Handle side effects of state transitions</span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_provision_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_attach_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_cleanup_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="advanced-storage-patterns">Advanced Storage Patterns</h3>
+
+<h4 id="distributed-volume-replication">Distributed Volume Replication</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">VolumeReplica</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Represents a replica of a volume</span><span class="sh">"""</span>
+    <span class="n">node_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">replica_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">state</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># primary, secondary, syncing
+</span>    <span class="n">last_sync</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">checksum</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="k">class</span> <span class="nc">DistributedVolumeManager</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Manages distributed volume replication with consistency guarantees</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">replication_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span> <span class="o">=</span> <span class="n">replication_factor</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">VolumeReplica</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">replication_factor</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    
+    <span class="k">def</span> <span class="nf">calculate_placement</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">
+        Deterministic replica placement using consistent hashing
+        with failure domain awareness
+        </span><span class="sh">"""</span>
+        <span class="c1"># Sort nodes for deterministic ordering
+</span>        <span class="n">sorted_nodes</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+        
+        <span class="c1"># Use consistent hashing for placement
+</span>        <span class="n">placements</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span><span class="p">):</span>
+            <span class="n">hash_input</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">volume_id</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+            <span class="n">hash_value</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">hash_input</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">node_index</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">)</span>
+            
+            <span class="c1"># Ensure replicas are on different nodes
+</span>            <span class="n">selected_node</span> <span class="o">=</span> <span class="n">sorted_nodes</span><span class="p">[</span><span class="n">node_index</span><span class="p">]</span>
+            <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">selected_node</span> <span class="ow">in</span> <span class="n">placements</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">):</span>
+                <span class="n">node_index</span> <span class="o">=</span> <span class="p">(</span><span class="n">node_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">)</span>
+                <span class="n">selected_node</span> <span class="o">=</span> <span class="n">sorted_nodes</span><span class="p">[</span><span class="n">node_index</span><span class="p">]</span>
+                <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+            
+            <span class="k">if</span> <span class="n">selected_node</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">placements</span><span class="p">:</span>
+                <span class="n">placements</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">selected_node</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">placements</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span><span class="p">]</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">write_with_quorum</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Write data to volume with quorum consensus
+        </span><span class="sh">"""</span>
+        <span class="n">replicas</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">replicas</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Insufficient replicas for quorum: </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">replicas</span><span class="p">)</span><span class="si">}</span><span class="s"> &lt; </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Parallel writes to all replicas
+</span>        <span class="n">write_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">replicas</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">replica</span><span class="p">.</span><span class="n">state</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">"</span><span class="s">primary</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">secondary</span><span class="sh">"</span><span class="p">]:</span>
+                <span class="n">write_tasks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">_write_to_replica</span><span class="p">(</span><span class="n">replica</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+        
+        <span class="c1"># Wait for quorum
+</span>        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="p">.</span><span class="nf">gather</span><span class="p">(</span><span class="o">*</span><span class="n">write_tasks</span><span class="p">,</span> <span class="n">return_exceptions</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">successful_writes</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">successful_writes</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span>
+</code></pre></div></div>
+
+<h3 id="storage-performance-optimization">Storage Performance Optimization</h3>
+
+<h4 id="io-scheduler-and-cache-management">I/O Scheduler and Cache Management</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
+<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Deque</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">IORequest</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Represents an I/O request with QoS parameters</span><span class="sh">"""</span>
+    <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">length</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># read, write
+</span>    <span class="n">priority</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">deadline</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">submitted_at</span><span class="p">:</span> <span class="nb">float</span>
+    
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># For priority queue ordering
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">deadline</span> <span class="o">&lt;</span> <span class="n">other</span><span class="p">.</span><span class="n">deadline</span>
+
+<span class="k">class</span> <span class="nc">StorageScheduler</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Advanced I/O scheduler implementing deadline-aware scheduling
+    with fairness guarantees
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">queue_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">queue_depth</span> <span class="o">=</span> <span class="n">queue_depth</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Min-heap by deadline
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Deque</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Token bucket for fairness
+</span>        
+    <span class="k">def</span> <span class="nf">submit_request</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">IORequest</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Submit I/O request with deadline and priority</span><span class="sh">"""</span>
+        <span class="c1"># Add to priority queue
+</span>        <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
+        
+        <span class="c1"># Add to per-volume queue for fairness
+</span>        <span class="k">if</span> <span class="n">request</span><span class="p">.</span><span class="n">volume_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="nf">deque</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Initial tokens
+</span>        
+        <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">get_next_request</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">
+        Get next request using Earliest Deadline First (EDF)
+        with token-based fairness
+        </span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        
+        <span class="c1"># Check deadline violations
+</span>        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+        <span class="k">while</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span>
+            <span class="n">candidate</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="c1"># Check if volume has tokens (fairness)
+</span>            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">candidate</span><span class="p">.</span><span class="n">volume_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Deduct token and process request
+</span>                <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">candidate</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">return</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Move to next deadline
+</span>                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">)</span>
+                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+                <span class="k">break</span>
+        
+        <span class="c1"># Replenish tokens periodically
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_replenish_tokens</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="bp">None</span>
+    
+    <span class="k">def</span> <span class="nf">_replenish_tokens</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Token bucket algorithm for fairness</span><span class="sh">"""</span>
+        <span class="k">for</span> <span class="n">volume_id</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span>
+                <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="mi">10</span>  <span class="c1"># Max tokens
+</span>            <span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="storage-classes-with-advanced-features">Storage Classes with Advanced Features</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">high-performance-replicated</span>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">csi.storage.k8s.io/advanced-driver</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="c1"># Performance tier</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">nvme-ssd</span>
+  <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50000"</span>
+  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000Mi"</span>
+  
+  <span class="c1"># Replication settings</span>
+  <span class="na">replicationFactor</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3"</span>
+  <span class="na">replicationMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">synchronous"</span>  <span class="c1"># synchronous, asynchronous</span>
+  <span class="na">consistencyLevel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">strong"</span>      <span class="c1"># strong, eventual</span>
+  
+  <span class="c1"># Data protection</span>
+  <span class="na">encryption</span><span class="pi">:</span> <span class="s2">"</span><span class="s">aes-256-gcm"</span>
+  <span class="na">checksumAlgorithm</span><span class="pi">:</span> <span class="s2">"</span><span class="s">crc32c"</span>
+  
+  <span class="c1"># Advanced features</span>
+  <span class="na">deduplication</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">compression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">lz4"</span>
+  <span class="na">snapshotSchedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">*/6</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>  <span class="c1"># Every 6 hours</span>
+  
+  <span class="c1"># QoS settings</span>
+  <span class="na">qosClass</span><span class="pi">:</span> <span class="s2">"</span><span class="s">guaranteed"</span>
+  <span class="na">minIOPS</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10000"</span>
+  <span class="na">maxIOPS</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50000"</span>
+  <span class="na">burstDuration</span><span class="pi">:</span> <span class="s2">"</span><span class="s">60s"</span>
+  
+<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">WaitForFirstConsumer</span>
+</code></pre></div></div>
+
+<h3 id="volume-snapshot-controller-implementation">Volume Snapshot Controller Implementation</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// VolumeSnapshotController manages snapshot lifecycle</span>
+<span class="k">type</span> <span class="n">VolumeSnapshotController</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">client</span>           <span class="n">kubernetes</span><span class="o">.</span><span class="n">Interface</span>
+    <span class="n">snapshotClient</span>   <span class="n">snapclient</span><span class="o">.</span><span class="n">Interface</span>
+    <span class="n">csiClient</span>        <span class="n">csi</span><span class="o">.</span><span class="n">ControllerClient</span>
+    <span class="n">queue</span>            <span class="n">workqueue</span><span class="o">.</span><span class="n">RateLimitingInterface</span>
+    <span class="n">snapshotStore</span>    <span class="n">cache</span><span class="o">.</span><span class="n">Store</span>
+    <span class="n">volumeStore</span>      <span class="n">cache</span><span class="o">.</span><span class="n">Store</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span><span class="n">VolumeSnapshotController</span><span class="p">)</span> <span class="n">syncSnapshot</span><span class="p">(</span><span class="n">key</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">namespace</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">cache</span><span class="o">.</span><span class="n">SplitMetaNamespaceKey</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="n">snapshot</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">snapshotStore</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="n">vs</span> <span class="o">:=</span> <span class="n">snapshot</span><span class="o">.</span><span class="p">(</span><span class="o">*</span><span class="n">v1</span><span class="o">.</span><span class="n">VolumeSnapshot</span><span class="p">)</span>
+    
+    <span class="k">switch</span> <span class="n">vs</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">Phase</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotPending</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">createSnapshot</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotCreating</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">checkSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotReady</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">bindSnapshotContent</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotFailed</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">handleSnapshotFailure</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span><span class="n">VolumeSnapshotController</span><span class="p">)</span> <span class="n">createSnapshot</span><span class="p">(</span><span class="n">vs</span> <span class="o">*</span><span class="n">v1</span><span class="o">.</span><span class="n">VolumeSnapshot</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c">// Get source PVC</span>
+    <span class="n">pvc</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">getPVC</span><span class="p">(</span><span class="n">vs</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Source</span><span class="o">.</span><span class="n">PersistentVolumeClaimName</span><span class="p">,</span> <span class="n">vs</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Get CSI driver from PV</span>
+    <span class="n">pv</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">getPV</span><span class="p">(</span><span class="n">pvc</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">VolumeName</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Create snapshot via CSI</span>
+    <span class="n">req</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateSnapshotRequest</span><span class="p">{</span>
+        <span class="n">SourceVolumeId</span><span class="o">:</span> <span class="n">pv</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">CSI</span><span class="o">.</span><span class="n">VolumeHandle</span><span class="p">,</span>
+        <span class="n">Name</span><span class="o">:</span>          <span class="n">vs</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span>
+        <span class="n">Parameters</span><span class="o">:</span>    <span class="n">vs</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Parameters</span><span class="p">,</span>
+    <span class="p">}</span>
+    
+    <span class="n">resp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">csiClient</span><span class="o">.</span><span class="n">CreateSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">TODO</span><span class="p">(),</span> <span class="n">req</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">updateSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotFailed</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">Error</span><span class="p">())</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Update status</span>
+    <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">updateSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotCreating</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">Snapshot</span><span class="o">.</span><span class="n">SnapshotId</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="configuration-management">Configuration Management</h2>
+
+<h3 id="resource-management">Resource Management</h3>
+
+<p><strong>Resource Requests and Limits:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">resource-demo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
+</code></pre></div></div>
+
+<h3 id="horizontal-pod-autoscaling">Horizontal Pod Autoscaling</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling/v2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HorizontalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-hpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">scaleTargetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+  <span class="na">minReplicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">metrics</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
+    <span class="na">resource</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">70</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
+    <span class="na">resource</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">80</span>
+</code></pre></div></div>
+
+<h3 id="vertical-pod-autoscaling">Vertical Pod Autoscaling</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+  <span class="na">updatePolicy</span><span class="pi">:</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span>
+</code></pre></div></div>
+
+<h2 id="security">Security</h2>
+
+<h3 id="role-based-access-control-rbac">Role-Based Access Control (RBAC)</h3>
+
+<p><strong>Role Definition:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
+<span class="na">rules</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
+  <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
+  <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">get"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">watch"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">list"</span><span class="pi">]</span>
+</code></pre></div></div>
+
+<p><strong>RoleBinding:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">read-pods</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="na">subjects</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">User</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">jane</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+</code></pre></div></div>
+
+<h3 id="pod-security-standards">Pod Security Standards</h3>
+
+<p><strong>Pod Security Policy Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodSecurityPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">restricted</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">privileged</span><span class="pi">:</span> <span class="kc">false</span>
+  <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>
+  <span class="na">requiredDropCapabilities</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ALL</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">configMap'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">emptyDir'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">projected'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">secret'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">downwardAPI'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">persistentVolumeClaim'</span>
+  <span class="na">runAsUser</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">MustRunAsNonRoot'</span>
+  <span class="na">seLinux</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">RunAsAny'</span>
+  <span class="na">fsGroup</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">RunAsAny'</span>
+</code></pre></div></div>
+
+<h3 id="service-accounts">Service Accounts</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-service-account</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">app-service-account</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+</code></pre></div></div>
+
+<h2 id="observability">Observability</h2>
+
+<h3 id="liveness-and-readiness-probes">Liveness and Readiness Probes</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-pod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">livenessProbe</span><span class="pi">:</span>
+      <span class="na">httpGet</span><span class="pi">:</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/health</span>
+        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">30</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">readinessProbe</span><span class="pi">:</span>
+      <span class="na">httpGet</span><span class="pi">:</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/ready</span>
+        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<h3 id="monitoring-with-prometheus">Monitoring with Prometheus</h3>
+
+<p><strong>ServiceMonitor Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-metrics</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>
+  <span class="na">endpoints</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>
+    <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/metrics</span>
+</code></pre></div></div>
+
+<h2 id="kubectl-commands">kubectl Commands</h2>
+
+<h3 id="basic-commands">Basic Commands</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Cluster info</span>
+kubectl cluster-info
+kubectl get nodes
+
+<span class="c"># Working with resources</span>
+kubectl get pods
+kubectl get services
+kubectl get deployments
+kubectl describe pod &lt;pod-name&gt;
+
+<span class="c"># Creating resources</span>
+kubectl create <span class="nt">-f</span> manifest.yaml
+kubectl apply <span class="nt">-f</span> manifest.yaml
+
+<span class="c"># Updating resources</span>
+kubectl edit deployment &lt;deployment-name&gt;
+kubectl scale deployment &lt;deployment-name&gt; <span class="nt">--replicas</span><span class="o">=</span>5
+
+<span class="c"># Deleting resources</span>
+kubectl delete pod &lt;pod-name&gt;
+kubectl delete <span class="nt">-f</span> manifest.yaml
+</code></pre></div></div>
+
+<h3 id="advanced-commands">Advanced Commands</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Port forwarding</span>
+kubectl port-forward pod/&lt;pod-name&gt; 8080:80
+
+<span class="c"># Executing commands in pods</span>
+kubectl <span class="nb">exec</span> <span class="nt">-it</span> &lt;pod-name&gt; <span class="nt">--</span> /bin/bash
+
+<span class="c"># Viewing logs</span>
+kubectl logs &lt;pod-name&gt;
+kubectl logs <span class="nt">-f</span> &lt;pod-name&gt;  <span class="c"># Follow logs</span>
+
+<span class="c"># Copying files</span>
+kubectl <span class="nb">cp</span> &lt;pod-name&gt;:/path/to/file ./local-file
+kubectl <span class="nb">cp</span> ./local-file &lt;pod-name&gt;:/path/to/file
+
+<span class="c"># Resource usage</span>
+kubectl top nodes
+kubectl top pods
+
+<span class="c"># Debugging</span>
+kubectl describe pod &lt;pod-name&gt;
+kubectl get events <span class="nt">--sort-by</span><span class="o">=</span>.metadata.creationTimestamp
+</code></pre></div></div>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="resource-organization">Resource Organization</h3>
+<ul>
+  <li>Use namespaces for environment separation</li>
+  <li>Label resources consistently</li>
+  <li>Use resource quotas and limits</li>
+  <li>Implement pod disruption budgets</li>
+</ul>
+
+<h3 id="security-1">Security</h3>
+<ul>
+  <li>Enable RBAC</li>
+  <li>Use network policies</li>
+  <li>Run containers as non-root</li>
+  <li>Scan images for vulnerabilities</li>
+  <li>Use secrets for sensitive data</li>
+</ul>
+
+<h3 id="high-availability">High Availability</h3>
+<ul>
+  <li>Run multiple replicas</li>
+  <li>Use pod anti-affinity rules</li>
+  <li>Implement health checks</li>
+  <li>Use horizontal pod autoscaling</li>
+</ul>
+
+<h3 id="monitoring-and-logging">Monitoring and Logging</h3>
+<ul>
+  <li>Centralize logging</li>
+  <li>Implement comprehensive monitoring</li>
+  <li>Set up alerts</li>
+  <li>Use distributed tracing</li>
+</ul>
+
+<h2 id="helm---kubernetes-package-manager">Helm - Kubernetes Package Manager</h2>
+
+<h3 id="chart-structure">Chart Structure</h3>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mychart/
+├── Chart.yaml
+├── values.yaml
+├── templates/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── ingress.yaml
+└── charts/
+</code></pre></div></div>
+
+<h3 id="basic-helm-commands">Basic Helm Commands</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install a chart</span>
+helm <span class="nb">install </span>myrelease ./mychart
+
+<span class="c"># Upgrade a release</span>
+helm upgrade myrelease ./mychart
+
+<span class="c"># List releases</span>
+helm list
+
+<span class="c"># Rollback</span>
+helm rollback myrelease 1
+
+<span class="c"># Uninstall</span>
+helm uninstall myrelease
+</code></pre></div></div>
+
+<h2 id="common-patterns">Common Patterns</h2>
+
+<h3 id="sidecar-pattern">Sidecar Pattern</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-sidecar</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">sidecar</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">logging-agent:latest</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shared-logs</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shared-logs</span>
+    <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
+</code></pre></div></div>
+
+<h3 id="init-containers">Init Containers</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-init</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">initContainers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">init-db</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:1.28</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db-service</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">1;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+</code></pre></div></div>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<ol>
+  <li>
+<strong>ImagePullBackOff</strong>
+    <ul>
+      <li>Check image name and tag</li>
+      <li>Verify registry credentials</li>
+      <li>Check network connectivity</li>
+    </ul>
+  </li>
+  <li>
+<strong>CrashLoopBackOff</strong>
+    <ul>
+      <li>Check application logs</li>
+      <li>Verify resource limits</li>
+      <li>Check liveness probe configuration</li>
+    </ul>
+  </li>
+  <li>
+<strong>Pending Pods</strong>
+    <ul>
+      <li>Check resource availability</li>
+      <li>Verify node selectors</li>
+      <li>Check persistent volume claims</li>
+    </ul>
+  </li>
+  <li>
+<strong>Service Connection Issues</strong>
+    <ul>
+      <li>Verify service selectors</li>
+      <li>Check network policies</li>
+      <li>Validate DNS resolution</li>
+    </ul>
+  </li>
+</ol>
+
+<p>Kubernetes provides a robust platform for deploying and managing containerized applications at scale. Its declarative approach, combined with powerful abstractions and extensive ecosystem, makes it an essential tool for modern cloud-native development.</p>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+  <li>
+<a href="docker.html">Docker</a> - Container fundamentals and image creation</li>
+  <li>
+<a href="aws.html">AWS</a> - Managed Kubernetes services (EKS)</li>
+  <li>
+<a href="terraform.html">Terraform</a> - Infrastructure as Code for Kubernetes</li>
+  <li>
+<a href="networking.html">Networking</a> - Network concepts and protocols</li>
+  <li>
+<a href="database-design.html">Database Design</a> - Stateful applications in Kubernetes</li>
+  <li>
+<a href="cybersecurity.html">Cybersecurity</a> - Container and cluster security</li>
+</ul>
