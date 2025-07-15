@@ -1,28 +1,42 @@
-name: Build and Deploy Jekyll
+---
+name: Jekyll Build and Deploy
 
 on:
   push:
     branches:
       - update-docs
       - main
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: self-hosted
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build site using Docker Compose
+      - name: Copy Jekyll config to github-pages directory
         run: |
-          docker-compose run --rm jekyll bundle install
-          docker-compose run --rm jekyll jekyll build
+          cp _config.yml github-pages/
+          cp Gemfile github-pages/
+          cp Gemfile.lock github-pages/ || true
+          mkdir -p github-pages/assets/css
+          cp -r assets/css/* github-pages/assets/css/ || true
 
-      - name: Upload built site to GitHub Pages (optional)
+      - name: Build Jekyll site
+        run: |
+          cd github-pages
+          docker run --rm \
+            -v "${{ github.workspace }}/github-pages:/srv/jekyll" \
+            -v "${{ github.workspace }}/_site:/srv/jekyll/_site" \
+            jekyll/jekyll:4.2.2 \
+            /bin/bash -c "bundle install && jekyll build"
+
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./_site
+          publish_branch: gh-pages
+          cname: false
