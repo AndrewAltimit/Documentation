@@ -1,0 +1,2133 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.24.0 by Michael Rose
+  Copyright 2013-2020 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>Database Design - Andrews Notebook</title>
+<meta name="description" content="Technology and Physics notes">
+
+
+  <meta name="author" content="Andrew">
+  
+
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Andrews Notebook">
+<meta property="og:title" content="Database Design">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design.html">
+
+
+  <meta property="og:description" content="Technology and Physics notes">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="canonical" href="https://andrewaltimit.github.io/Documentation/docs/technology/database-design.html">
+
+
+
+
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    
+      "@type": "Person",
+      "name": null,
+      "url": "https://andrewaltimit.github.io/Documentation/"
+    
+  }
+</script>
+
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--single">
+    <nav class="skip-links">
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    <!--[if lt IE 9]>
+<div class="notice--danger align-center" style="margin: 0;">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience.</div>
+<![endif]-->
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/Documentation/">
+          Andrews Notebook
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a href="https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/">Quick-Start Guide</a>
+            </li></ul>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      
+
+
+
+<div id="main" role="main">
+  
+
+
+  <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
+    <meta itemprop="headline" content="Database Design">
+    
+    
+    
+
+    <div class="page__inner-wrap">
+      
+        <header>
+          <h1 id="page-title" class="page__title" itemprop="headline">Database Design
+</h1>
+          
+
+
+        </header>
+      
+
+      <section class="page__content" itemprop="text">
+        
+        <h1 id="database-design">Database Design</h1>
+
+<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css" /></header></html>
+
+<p>Every application needs to store data. Whether you’re building a social network, e-commerce platform, or analytics system, you’ll face fundamental questions: How should data be organized? How can multiple users access it simultaneously? What happens if the system crashes? Database design provides systematic answers to these challenges.</p>
+
+<h2 id="why-databases-matter">Why Databases Matter</h2>
+
+<p>Imagine building an online store. You start by storing product information in files:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># products.json
+</span><span class="p">[</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Laptop</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">price</span><span class="sh">"</span><span class="p">:</span> <span class="mi">999</span><span class="p">,</span> <span class="sh">"</span><span class="s">stock</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">},</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Mouse</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">price</span><span class="sh">"</span><span class="p">:</span> <span class="mi">29</span><span class="p">,</span> <span class="sh">"</span><span class="s">stock</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">}</span>
+<span class="p">]</span>
+</code></pre></div></div>
+
+<p>This works initially, but problems emerge quickly:</p>
+<ul>
+  <li>What if two customers buy the same product simultaneously?</li>
+  <li>How do you ensure stock never goes negative?</li>
+  <li>What if the server crashes during a purchase?</li>
+  <li>How do you find all products under $50 efficiently?</li>
+</ul>
+
+<p>Databases solve these problems through carefully designed systems that have evolved over decades. Let’s explore how they work, starting with practical needs and building up to the theory that makes modern databases possible.</p>
+
+<h2 id="from-files-to-databases">From Files to Databases</h2>
+
+<h3 id="the-relational-model-organizing-your-data">The Relational Model: Organizing Your Data</h3>
+
+<p>The breakthrough came when Edgar Codd realized that data could be organized as tables (relations) with well-defined rules. This wasn’t just tidiness—it enabled powerful operations and guarantees.</p>
+
+<p>Consider our e-commerce example. Instead of one complex file, we organize data into focused tables:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Products table: Each row is a product</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>  <span class="c1">-- Unique identifier</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">stock</span> <span class="nb">INT</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">stock</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1">-- Never negative!</span>
+<span class="p">);</span>
+
+<span class="c1">-- Orders table: Each row is an order</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">order_date</span> <span class="nb">TIMESTAMP</span><span class="p">,</span>
+    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">customers</span><span class="p">(</span><span class="n">customer_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p>This structure brings immediate benefits:</p>
+<ul>
+  <li><strong>No redundancy</strong>: Product info stored once, referenced many times</li>
+  <li><strong>Data integrity</strong>: Can’t reference non-existent customers</li>
+  <li><strong>Efficient queries</strong>: Indexes make lookups fast</li>
+  <li><strong>Concurrent access</strong>: Multiple users can read/write safely</li>
+</ul>
+
+<h3 id="acid-making-databases-reliable">ACID: Making Databases Reliable</h3>
+
+<p>The real magic happens when databases guarantee ACID properties. These aren’t abstract concepts—they solve real problems:</p>
+
+<p><strong>Atomicity</strong> - “All or Nothing”
+When a customer places an order, multiple things must happen:</p>
+<ol>
+  <li>Decrease product stock</li>
+  <li>Create order record</li>
+  <li>Charge payment</li>
+  <li>Send confirmation email</li>
+</ol>
+
+<p>If step 3 fails, you don’t want steps 1-2 to remain. Atomicity ensures either everything succeeds or nothing changes.</p>
+
+<p><strong>Consistency</strong> - “Rules Always Apply”
+Your business rules (stock &gt;= 0, valid email format) are enforced always, even during system failures.</p>
+
+<p><strong>Isolation</strong> - “No Interference”
+Two customers buying the last item see consistent results—one succeeds, one sees “out of stock”. No weird partial states.</p>
+
+<p><strong>Durability</strong> - “Confirmed Means Saved”
+Once you tell a customer “order confirmed”, that order survives power outages, crashes, and restarts.</p>
+
+<h3 id="sql-the-universal-database-language">SQL: The Universal Database Language</h3>
+
+<p>SQL emerged as the standard way to interact with relational databases. It’s declarative—you say what you want, not how to get it:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Find all orders from high-value customers last month</span>
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">order_count</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">as</span> <span class="n">revenue</span>
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span> <span class="n">o</span><span class="p">.</span><span class="n">order_date</span> <span class="o">&gt;=</span> <span class="n">DATE_SUB</span><span class="p">(</span><span class="k">CURRENT_DATE</span><span class="p">,</span> <span class="n">INTERVAL</span> <span class="mi">30</span> <span class="k">DAY</span><span class="p">)</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span>
+<span class="k">Order</span> <span class="k">BY</span> <span class="n">revenue</span> <span class="k">DESC</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>The database figures out the most efficient way to execute this—which tables to read first, which indexes to use, how to join the data. This separation of “what” from “how” is powerful.</p>
+
+<h2 id="database-normalization-avoiding-data-disasters">Database Normalization: Avoiding Data Disasters</h2>
+
+<p>As your application grows, poor data organization leads to nightmares. Normalization is the process of organizing data to minimize redundancy and dependency issues.</p>
+
+<h3 id="why-normalization-matters">Why Normalization Matters</h3>
+
+<p>Consider this poorly designed table:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Orders Table:
+OrderID | CustomerName | CustomerEmail | Product1 | Price1 | Product2 | Price2
+1001    | John Smith   | john@email   | Laptop   | 999    | Mouse    | 29
+1002    | John Smith   | john@email   | Keyboard | 79     | NULL     | NULL
+</code></pre></div></div>
+
+<p>Problems:</p>
+<ol>
+  <li><strong>Update anomalies</strong>: Change John’s email? Update every row!</li>
+  <li><strong>Insert anomalies</strong>: Can’t add products without orders</li>
+  <li><strong>Delete anomalies</strong>: Delete last order? Lose customer info!</li>
+  <li><strong>Wasted space</strong>: Those NULLs add up</li>
+</ol>
+
+<h3 id="the-normalization-process">The Normalization Process</h3>
+
+<p>Normalization systematically eliminates these problems:</p>
+
+<p><strong>Step 1: Eliminate Repeating Groups (1NF)</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Multiple products in one row</span>
+<span class="c1">-- Good: Separate rows for each product</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">product_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">quantity</span> <span class="nb">INT</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>Step 2: Remove Partial Dependencies (2NF)</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Product price depends only on product, not order</span>
+<span class="c1">-- Split into separate tables</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">product_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">product_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">quantity</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">products</span><span class="p">(</span><span class="n">product_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>Step 3: Remove Transitive Dependencies (3NF)</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Customer info depends on customer, not order</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="p">(</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">order_date</span> <span class="nb">TIMESTAMP</span><span class="p">,</span>
+    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">customers</span><span class="p">(</span><span class="n">customer_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p>Now updates are simple, storage efficient, and data integrity is maintained!</p>
+
+<h3 id="when-to-break-the-rules">When to Break the Rules</h3>
+
+<p>Sometimes denormalization improves performance. Amazon might store customer names in order records to avoid joins in their massive order history displays. The key is knowing why you’re breaking the rules and managing the trade-offs.</p>
+
+<h2 id="modeling-relationships-connecting-your-data">Modeling Relationships: Connecting Your Data</h2>
+
+<h3 id="one-to-one">One-to-One</h3>
+<p>Each record in Table A relates to one record in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_profiles</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">user_id</span><span class="p">),</span>
+    <span class="n">bio</span> <span class="nb">TEXT</span><span class="p">,</span>
+    <span class="n">avatar_url</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="one-to-many">One-to-Many</h3>
+<p>One record in Table A relates to many in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">authors</span> <span class="p">(</span>
+    <span class="n">author_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">books</span> <span class="p">(</span>
+    <span class="n">book_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
+    <span class="n">author_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">authors</span><span class="p">(</span><span class="n">author_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="many-to-many">Many-to-Many</h3>
+<p>Multiple records in Table A relate to multiple in Table B.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">students</span> <span class="p">(</span>
+    <span class="n">student_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">courses</span> <span class="p">(</span>
+    <span class="n">course_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">enrollments</span> <span class="p">(</span>
+    <span class="n">student_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">students</span><span class="p">(</span><span class="n">student_id</span><span class="p">),</span>
+    <span class="n">course_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">courses</span><span class="p">(</span><span class="n">course_id</span><span class="p">),</span>
+    <span class="n">enrollment_date</span> <span class="nb">DATE</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">student_id</span><span class="p">,</span> <span class="n">course_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="indexing-making-queries-lightning-fast">Indexing: Making Queries Lightning Fast</h2>
+
+<p>Imagine finding a word in a dictionary versus a novel. The dictionary has an index (alphabetical order), while the novel requires reading every page. Database indexes work similarly.</p>
+
+<h3 id="when-indexes-transform-performance">When Indexes Transform Performance</h3>
+
+<p>Without an index, finding a customer among millions requires checking every row:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Slow: Full table scan</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">customers</span> <span class="k">WHERE</span> <span class="n">email</span> <span class="o">=</span> <span class="s1">'john@example.com'</span><span class="p">;</span>
+<span class="c1">-- Time: 5 seconds for 10 million rows</span>
+</code></pre></div></div>
+
+<p>With an index:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_customers_email</span> <span class="k">ON</span> <span class="n">customers</span><span class="p">(</span><span class="n">email</span><span class="p">);</span>
+<span class="c1">-- Same query now takes 0.005 seconds!</span>
+</code></pre></div></div>
+
+<h3 id="types-of-indexes-and-when-to-use-them">Types of Indexes and When to Use Them</h3>
+
+<p><strong>B-Tree Index</strong>: Your Swiss Army Knife</p>
+<ul>
+  <li>Use for: Most queries, especially ranges</li>
+  <li>Example: Finding orders between dates, products under $100</li>
+  <li>How it works: Like a phone book - hierarchical, sorted</li>
+</ul>
+
+<p><strong>Hash Index</strong>: The Speed Demon</p>
+<ul>
+  <li>Use for: Exact matches only</li>
+  <li>Example: Looking up users by ID</li>
+  <li>How it works: Like a hash table - direct lookup</li>
+</ul>
+
+<p><strong>Full-Text Index</strong>: The Search Engine</p>
+<ul>
+  <li>Use for: Text search, “contains” queries</li>
+  <li>Example: Finding products with “wireless” in description</li>
+  <li>How it works: Breaks text into searchable tokens</li>
+</ul>
+
+<p><strong>Bitmap Index</strong>: The Space Saver</p>
+<ul>
+  <li>Use for: Columns with few unique values</li>
+  <li>Example: Status fields (active/inactive), categories</li>
+  <li>How it works: One bit per row per unique value</li>
+</ul>
+
+<h3 id="smart-indexing-strategies">Smart Indexing Strategies</h3>
+
+<p><strong>Composite Indexes</strong>: Order Matters!</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- This index helps both queries:</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_date</span> <span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">);</span>
+<span class="c1">-- Fast: WHERE customer_id = 123</span>
+<span class="c1">-- Fast: WHERE customer_id = 123 AND order_date &gt; '2024-01-01'</span>
+<span class="c1">-- Slow: WHERE order_date &gt; '2024-01-01'  -- Can't use index efficiently!</span>
+</code></pre></div></div>
+
+<p><strong>Covering Indexes</strong>: Include Everything</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Index includes all needed columns - no table lookup needed!</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_covering</span> 
+<span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">)</span> 
+<span class="n">INCLUDE</span> <span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">status</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>Partial Indexes</strong>: Index Only What You Need</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Only index active users - smaller, faster</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_active_users</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">active</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="the-cost-of-indexes">The Cost of Indexes</h3>
+
+<p>Indexes aren’t free:</p>
+<ul>
+  <li><strong>Storage</strong>: Each index is a data structure that needs disk space</li>
+  <li><strong>Write performance</strong>: Every INSERT/UPDATE must update indexes</li>
+  <li><strong>Maintenance</strong>: Indexes can become fragmented</li>
+</ul>
+
+<p>Rule of thumb: Index based on read patterns, but don’t index everything!</p>
+
+<h2 id="how-databases-execute-your-queries">How Databases Execute Your Queries</h2>
+
+<p>When you write a SQL query, the database performs remarkable optimizations behind the scenes. Understanding this helps you write better queries.</p>
+
+<h3 id="the-journey-of-a-query">The Journey of a Query</h3>
+
+<p>Let’s follow this query through the database:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">as</span> <span class="n">lifetime_value</span>
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p><strong>Step 1: Parse and Validate</strong></p>
+<ul>
+  <li>Check syntax: Are the SQL keywords correct?</li>
+  <li>Verify objects: Do these tables and columns exist?</li>
+  <li>Check permissions: Can this user access this data?</li>
+</ul>
+
+<p><strong>Step 2: Optimize</strong>
+The optimizer considers multiple execution strategies:</p>
+
+<p><em>Plan A: Scan all customers, then find their orders</em></p>
+<ul>
+  <li>Cost: 1 million customers × average 10 orders each = expensive!</li>
+</ul>
+
+<p><em>Plan B: Use country index, then join</em></p>
+<ul>
+  <li>Cost: 50,000 US customers × 10 orders = much better!</li>
+</ul>
+
+<p><em>Plan C: Start with high-value orders, then find customers</em></p>
+<ul>
+  <li>Cost: Depends on how many orders &gt; $100…</li>
+</ul>
+
+<p>The optimizer estimates costs using statistics about your data.</p>
+
+<p><strong>Step 3: Execute</strong>
+The chosen plan becomes physical operations:</p>
+<ol>
+  <li>Index seek on customers.country</li>
+  <li>Hash join with orders</li>
+  <li>Aggregate by customer</li>
+  <li>Filter by total &gt; 1000</li>
+</ol>
+
+<h3 id="understanding-query-plans">Understanding Query Plans</h3>
+
+<p>Databases show you their execution strategy:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> 
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
+
+<span class="c1">-- Output:</span>
+<span class="n">HashAggregate</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">1234</span><span class="p">.</span><span class="mi">56</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+  <span class="o">-&gt;</span> <span class="n">Hash</span> <span class="k">Join</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">234</span><span class="p">.</span><span class="mi">56</span> <span class="k">rows</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+        <span class="n">Hash</span> <span class="n">Cond</span><span class="p">:</span> <span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">)</span>
+        <span class="o">-&gt;</span> <span class="n">Seq</span> <span class="n">Scan</span> <span class="k">on</span> <span class="n">orders</span> <span class="n">o</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">0</span><span class="p">.</span><span class="mi">00</span> <span class="k">rows</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+        <span class="o">-&gt;</span> <span class="n">Hash</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">123</span><span class="p">.</span><span class="mi">45</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+              <span class="o">-&gt;</span> <span class="n">Seq</span> <span class="n">Scan</span> <span class="k">on</span> <span class="n">customers</span> <span class="k">c</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">0</span><span class="p">.</span><span class="mi">00</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Reading plans bottom-up:</p>
+<ol>
+  <li>Scan customers table (1000 rows)</li>
+  <li>Build hash table</li>
+  <li>Scan orders table (10000 rows)</li>
+  <li>For each order, probe hash table (fast!)</li>
+  <li>Aggregate results</li>
+</ol>
+
+<h3 id="the-magic-of-relational-algebra">The Magic of Relational Algebra</h3>
+
+<p>Behind every optimization is relational algebra—a mathematical framework that makes query optimization possible. Just as arithmetic has commutative (a+b = b+a) and associative ((a+b)+c = a+(b+c)) properties, relational operations have rules:</p>
+
+<p><strong>Pushing Selections Down</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Original: Join everything, then filter</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span><span class="p">;</span>
+
+<span class="c1">-- Optimized: Filter first, then join (much less data!)</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span> 
+<span class="k">JOIN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">customers</span> <span class="k">WHERE</span> <span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span><span class="p">)</span> <span class="k">c</span> 
+<span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>The optimizer applies these transformations automatically!</p>
+
+<p><strong>Join Reordering</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Three-way join: 6 possible orders!</span>
+<span class="c1">-- A ⋈ B ⋈ C could be:</span>
+<span class="c1">-- (A ⋈ B) ⋈ C</span>
+<span class="c1">-- A ⋈ (B ⋈ C)  </span>
+<span class="c1">-- (A ⋈ C) ⋈ B</span>
+<span class="c1">-- etc.</span>
+</code></pre></div></div>
+
+<p>The optimizer estimates costs for each order and picks the best one.</p>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For implementations of query optimization algorithms, see <a href="../../code-examples/technology/database-design/query_processing.py"><code class="language-plaintext highlighter-rouge">query_processing.py</code></a></p>
+</blockquote>
+
+<h3 id="query-optimization-in-practice">Query Optimization in Practice</h3>
+
+<p><strong>Common Performance Killers and Solutions</strong>:</p>
+
+<ol>
+  <li><strong>The N+1 Query Problem</strong>
+```python
+    <h1 id="bad-1-query--n-queries">Bad: 1 query + N queries</h1>
+    <p>customers = db.query(“SELECT * FROM customers”)
+for customer in customers:
+ orders = db.query(f”SELECT * FROM orders WHERE customer_id = {customer.id}”)
+ # If you have 1000 customers, this runs 1001 queries!</p>
+  </li>
+</ol>
+
+<h1 id="good-1-query-with-join">Good: 1 query with JOIN</h1>
+<p>result = db.query(“””
+    SELECT c.<em>, o.</em>
+    FROM customers c
+    LEFT JOIN orders o ON c.customer_id = o.customer_id
+“””)</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+2. **Missing Indexes on Foreign Keys**
+```sql
+-- Orders reference customers, but no index on customer_id!
+-- Every join does full table scan
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+-- Now joins are fast
+</code></pre></div></div>
+
+<ol>
+  <li><strong>Wrong Data Types</strong>
+```sql
+– Bad: Storing numbers as strings
+CREATE TABLE products (
+ price VARCHAR(10)  – “99.99” stored as string!
+);
+– WHERE price &gt; 100 requires converting every row!</li>
+</ol>
+
+<p>– Good: Use numeric types
+CREATE TABLE products (
+    price DECIMAL(10,2)  – Numeric comparisons are fast
+);</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+4. **SELECT * Abuse**
+```sql
+-- Bad: Fetching all columns when you need two
+SELECT * FROM users;  -- Transfers unnecessary data
+
+-- Good: Request only what you need  
+SELECT id, email FROM users;  -- Less network traffic, less memory
+</code></pre></div></div>
+
+<h2 id="scaling-beyond-one-machine-distributed-databases">Scaling Beyond One Machine: Distributed Databases</h2>
+
+<p>Eventually, your database outgrows a single server. Maybe you have too much data, too many users, or need geographical distribution. This is where distributed databases come in—and where things get interesting.</p>
+
+<h3 id="the-cap-theorem-pick-two">The CAP Theorem: Pick Two</h3>
+
+<p>In 2000, Eric Brewer observed that distributed systems face a fundamental trade-off. You can have at most two of:</p>
+
+<p><strong>Consistency</strong>: Everyone sees the same data</p>
+<ul>
+  <li>Example: Bank account balance is identical at all branches</li>
+  <li>Cost: Might need to wait for all nodes to agree</li>
+</ul>
+
+<p><strong>Availability</strong>: System always responds</p>
+<ul>
+  <li>Example: Shopping cart always works, even during Black Friday</li>
+  <li>Cost: Might show slightly outdated data</li>
+</ul>
+
+<p><strong>Partition Tolerance</strong>: Survives network failures</p>
+<ul>
+  <li>Example: East Coast datacenter loses connection to West Coast</li>
+  <li>Cost: Must choose between C and A when split happens</li>
+</ul>
+
+<h3 id="real-world-trade-offs">Real-World Trade-offs</h3>
+
+<p><strong>Banking System (CP - Consistency + Partition Tolerance)</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ATM withdrawal must check all replicas
+</span><span class="k">def</span> <span class="nf">withdraw</span><span class="p">(</span><span class="n">account_id</span><span class="p">,</span> <span class="n">amount</span><span class="p">):</span>
+    <span class="c1"># Check balance across all nodes (might fail if network is down)
+</span>    <span class="k">if</span> <span class="nf">check_all_nodes_balance</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">amount</span><span class="p">:</span>
+        <span class="nf">deduct_all_nodes</span><span class="p">(</span><span class="n">account_id</span><span class="p">,</span> <span class="n">amount</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">Success</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="sh">"</span><span class="s">Insufficient funds</span><span class="sh">"</span>
+</code></pre></div></div>
+<p>Better to say “ATM temporarily unavailable” than allow overdrafts!</p>
+
+<p><strong>Social Media Feed (AP - Availability + Partition Tolerance)</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Always show something, even if not latest
+</span><span class="k">def</span> <span class="nf">get_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">get_latest_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">NetworkPartition</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">get_cached_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>  <span class="c1"># Might be 5 minutes old
+</span></code></pre></div></div>
+<p>Better to show slightly old posts than no posts!</p>
+
+<p><strong>Configuration Service (CA - Consistency + Availability)</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Only works within single datacenter
+</span><span class="k">def</span> <span class="nf">update_config</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="c1"># All nodes in datacenter see same config
+</span>    <span class="nf">broadcast_to_local_nodes</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sh">"</span><span class="s">Updated</span><span class="sh">"</span>
+</code></pre></div></div>
+<p>Assumes datacenter network is reliable (risky assumption!).</p>
+
+<h3 id="the-challenge-of-time-in-distributed-systems">The Challenge of Time in Distributed Systems</h3>
+
+<p>In a single database, there’s one clock. In distributed systems, every node has its own clock, and they drift. This creates surprising problems:</p>
+
+<p><strong>The Problem</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Node A (Time: 10:00:00): User updates email to "new@email.com"
+Node B (Time: 09:59:58): User updates email to "old@email.com"
+
+Which update happened first? Node B's clock is 2 seconds behind!
+</code></pre></div></div>
+
+<p><strong>Solution 1: Vector Clocks - Tracking Causality</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Each node tracks its version and others it knows about
+</span><span class="n">Node</span> <span class="n">A</span><span class="p">:</span> <span class="p">{</span><span class="n">A</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>  <span class="c1"># "I'm at version 1, last saw B at 0"
+</span><span class="n">Node</span> <span class="n">B</span><span class="p">:</span> <span class="p">{</span><span class="n">A</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>  <span class="c1"># "I'm at version 1, last saw A at 0"
+</span>
+<span class="c1"># After A sends update to B:
+</span><span class="n">Node</span> <span class="n">A</span><span class="p">:</span> <span class="p">{</span><span class="n">A</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>  <span class="c1"># Incremented own counter
+</span><span class="n">Node</span> <span class="n">B</span><span class="p">:</span> <span class="p">{</span><span class="n">A</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>  <span class="c1"># Merged A's knowledge, incremented own
+</span>
+<span class="c1"># Now B knows A's update happened before its next action
+</span></code></pre></div></div>
+
+<p><strong>Solution 2: Hybrid Logical Clocks - Best of Both Worlds</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">HybridClock</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">physical_time</span> <span class="o">=</span> <span class="nf">get_system_time</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">logical_counter</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">def</span> <span class="nf">tick</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">new_time</span> <span class="o">=</span> <span class="nf">get_system_time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">new_time</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">physical_time</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">physical_time</span> <span class="o">=</span> <span class="n">new_time</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">logical_counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">logical_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="nf">return </span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">physical_time</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">logical_counter</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>This gives us timestamps that respect both wall clock time and causality!</p>
+
+<h3 id="consensus-getting-distributed-nodes-to-agree">Consensus: Getting Distributed Nodes to Agree</h3>
+
+<p>The heart of distributed databases is consensus—how do multiple nodes agree on data values? This is harder than it sounds when nodes can crash and networks can fail.</p>
+
+<h4 id="raft-consensus-made-understandable">Raft: Consensus Made Understandable</h4>
+
+<p>Raft breaks the problem into manageable pieces:</p>
+
+<p><strong>The Leader Election Analogy</strong>
+Imagine a group project where you need a coordinator:</p>
+<ol>
+  <li><strong>Everyone starts as a follower</strong> - waiting for a leader</li>
+  <li><strong>If no leader speaks up</strong> - someone volunteers (becomes candidate)</li>
+  <li><strong>Candidates request votes</strong> - “I’ll be leader, okay?”</li>
+  <li><strong>Majority wins</strong> - becomes leader, others go back to following</li>
+  <li><strong>Leader sends heartbeats</strong> - “Still here, still in charge!”</li>
+</ol>
+
+<p><strong>How It Handles Failures</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified Raft leader election
+</span><span class="k">class</span> <span class="nc">RaftNode</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">follower</span><span class="sh">"</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">term</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="o">=</span> <span class="bp">None</span>
+        
+    <span class="k">def</span> <span class="nf">election_timeout</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="c1"># No heartbeat from leader? Start election!
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">candidate</span><span class="sh">"</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">term</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span>
+        
+        <span class="n">votes</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Vote for self
+</span>        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">other_nodes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">node</span><span class="p">.</span><span class="nf">request_vote</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">term</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="p">):</span>
+                <span class="n">votes</span> <span class="o">+=</span> <span class="mi">1</span>
+                
+        <span class="k">if</span> <span class="n">votes</span> <span class="o">&gt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">all_nodes</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">leader</span><span class="sh">"</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">send_heartbeats</span><span class="p">()</span>  <span class="c1"># Tell everyone I'm leader
+</span></code></pre></div></div>
+
+<p><strong>Why This Works</strong>:</p>
+<ul>
+  <li>Only one leader per term (majority vote)</li>
+  <li>Split votes resolved by random timeouts</li>
+  <li>Old leaders step down when they see higher terms</li>
+  <li>All changes go through leader (simplifies consistency)</li>
+</ul>
+
+<h4 id="paxos-the-original-complex-solution">Paxos: The Original (Complex) Solution</h4>
+
+<p>Paxos solves the same problem but is notoriously hard to understand. Leslie Lamport even wrote a paper explaining it through an analogy of ancient Greek legislators! The key insight: use two phases (prepare/accept) to ensure safety even with failures.</p>
+
+<h3 id="distributed-transactions-all-or-nothing-across-machines">Distributed Transactions: All or Nothing Across Machines</h3>
+
+<p>Remember ACID’s atomicity? It gets tricky when data spans multiple machines. How do you ensure all machines commit or all abort?</p>
+
+<h4 id="two-phase-commit-2pc-the-wedding-protocol">Two-Phase Commit (2PC): The Wedding Protocol</h4>
+
+<p>Think of 2PC like a wedding ceremony:</p>
+
+<p><strong>Phase 1 - “Do you take this transaction?”</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Coordinator (the officiant)
+</span><span class="k">def</span> <span class="nf">prepare_transaction</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">participants</span><span class="p">):</span>
+    <span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">participant</span> <span class="ow">in</span> <span class="n">participants</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">participant</span><span class="p">.</span><span class="nf">prepare</span><span class="p">(</span><span class="n">tx_id</span><span class="p">)</span>  <span class="c1"># "Do you commit?"
+</span>        <span class="n">responses</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="nf">all</span><span class="p">(</span><span class="n">r</span> <span class="o">==</span> <span class="sh">"</span><span class="s">YES</span><span class="sh">"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">):</span>
+        <span class="n">decision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">COMMIT</span><span class="sh">"</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">decision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">ABORT</span><span class="sh">"</span>
+    
+    <span class="nf">log_decision</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">decision</span><span class="p">)</span>  <span class="c1"># Write to disk before telling anyone
+</span>    <span class="k">return</span> <span class="n">decision</span>
+</code></pre></div></div>
+
+<p><strong>Phase 2 - “I now pronounce you committed”</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">commit_transaction</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">participants</span><span class="p">,</span> <span class="n">decision</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">participant</span> <span class="ow">in</span> <span class="n">participants</span><span class="p">:</span>
+        <span class="n">participant</span><span class="p">.</span><span class="nf">commit</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">decision</span><span class="p">)</span>  <span class="c1"># "You may now commit"
+</span>        <span class="c1"># Participant applies changes or rolls back
+</span></code></pre></div></div>
+
+<p><strong>The Problem: What if the coordinator crashes?</strong></p>
+<ul>
+  <li>Participants are stuck waiting (“standing at the altar”)</li>
+  <li>Can’t commit (might need to abort)</li>
+  <li>Can’t abort (others might have committed)</li>
+  <li>This is called “blocking”</li>
+</ul>
+
+<h4 id="saga-pattern-breaking-up-long-transactions">Saga Pattern: Breaking Up Long Transactions</h4>
+
+<p>For operations that take minutes or hours (like booking a trip), use sagas:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TripBookingSaga</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">flight_id</span> <span class="o">=</span> <span class="nf">book_flight</span><span class="p">()</span>        <span class="c1"># Step 1
+</span>            <span class="n">hotel_id</span> <span class="o">=</span> <span class="nf">book_hotel</span><span class="p">()</span>          <span class="c1"># Step 2
+</span>            <span class="n">car_id</span> <span class="o">=</span> <span class="nf">book_rental_car</span><span class="p">()</span>       <span class="c1"># Step 3
+</span>            <span class="nf">send_confirmation</span><span class="p">()</span>              <span class="c1"># Step 4
+</span>        <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Compensate in reverse order
+</span>            <span class="k">if</span> <span class="n">car_id</span><span class="p">:</span> <span class="nf">cancel_rental_car</span><span class="p">(</span><span class="n">car_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">hotel_id</span><span class="p">:</span> <span class="nf">cancel_hotel</span><span class="p">(</span><span class="n">hotel_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">flight_id</span><span class="p">:</span> <span class="nf">cancel_flight</span><span class="p">(</span><span class="n">flight_id</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+</code></pre></div></div>
+
+<p>Each step is a complete transaction. If something fails, run compensating actions. Not perfect (someone might see then not see a booking) but practical for long operations.</p>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For working implementations of these algorithms, see <a href="../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a></p>
+</blockquote>
+
+<h2 id="nosql-when-relational-isnt-the-right-fit">NoSQL: When Relational Isn’t the Right Fit</h2>
+
+<p>Not all data fits neatly into tables. NoSQL databases emerged to handle specific use cases where relational databases struggle.</p>
+
+<h3 id="document-stores-natural-for-nested-data">Document Stores: Natural for Nested Data</h3>
+
+<p><strong>When to Use</strong>: Variable schemas, nested data, rapid development</p>
+
+<p><strong>MongoDB Example - Product Catalog</strong>:</p>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Products have wildly different attributes</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">insertOne</span><span class="p">({</span>
+    <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Gaming Laptop</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">price</span><span class="p">:</span> <span class="mi">1299</span><span class="p">,</span>
+    <span class="na">specs</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">cpu</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Intel i7</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">ram</span><span class="p">:</span> <span class="dl">"</span><span class="s2">16GB</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">gpu</span><span class="p">:</span> <span class="dl">"</span><span class="s2">RTX 3060</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">display</span><span class="p">:</span> <span class="p">{</span>
+            <span class="na">size</span><span class="p">:</span> <span class="dl">"</span><span class="s2">15.6 inches</span><span class="dl">"</span><span class="p">,</span>
+            <span class="na">resolution</span><span class="p">:</span> <span class="dl">"</span><span class="s2">1920x1080</span><span class="dl">"</span><span class="p">,</span>
+            <span class="na">refresh_rate</span><span class="p">:</span> <span class="dl">"</span><span class="s2">144Hz</span><span class="dl">"</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="na">reviews</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span><span class="na">user</span><span class="p">:</span> <span class="dl">"</span><span class="s2">gamer123</span><span class="dl">"</span><span class="p">,</span> <span class="na">rating</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="na">text</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Runs everything!</span><span class="dl">"</span><span class="p">},</span>
+        <span class="p">{</span><span class="na">user</span><span class="p">:</span> <span class="dl">"</span><span class="s2">techie99</span><span class="dl">"</span><span class="p">,</span> <span class="na">rating</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="na">text</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Great but runs hot</span><span class="dl">"</span><span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">});</span>
+
+<span class="c1">// Query nested fields naturally</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">find</span><span class="p">({</span>
+    <span class="dl">"</span><span class="s2">specs.ram</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">16GB</span><span class="dl">"</span><span class="p">,</span>
+    <span class="dl">"</span><span class="s2">specs.display.refresh_rate</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">144Hz</span><span class="dl">"</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<p>In SQL, this would require multiple tables and joins!</p>
+
+<h3 id="key-value-stores-speed-above-all">Key-Value Stores: Speed Above All</h3>
+
+<p><strong>When to Use</strong>: Caching, sessions, real-time features</p>
+
+<p><strong>Redis Example - Gaming Leaderboard</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Update player score (atomic operation)</span>
+ZINCRBY game:leaderboard 100 <span class="s2">"player:alice"</span>
+
+<span class="c"># Get top 10 players instantly</span>
+ZREVRANGE game:leaderboard 0 9 WITHSCORES
+
+<span class="c"># Cache expensive database query</span>
+SET cache:top_products <span class="s1">'[{"id":1,"name":"Laptop"}...]'</span> EX 300
+</code></pre></div></div>
+
+<p>Millions of operations per second, sub-millisecond latency!</p>
+
+<h3 id="column-family-stores-big-data-time-series">Column-Family Stores: Big Data Time Series</h3>
+
+<p><strong>When to Use</strong>: Time-series data, write-heavy workloads, analytics</p>
+
+<p><strong>Cassandra Example - IoT Sensor Data</strong>:</p>
+<pre><code class="language-cql">-- Optimized for time-series queries
+CREATE TABLE sensor_data (
+    sensor_id UUID,
+    timestamp TIMESTAMP,
+    temperature DOUBLE,
+    humidity DOUBLE,
+    PRIMARY KEY (sensor_id, timestamp)
+) WITH CLUSTERING ORDER BY (timestamp DESC);
+
+-- Fast writes from millions of sensors
+INSERT INTO sensor_data (sensor_id, timestamp, temperature, humidity)
+VALUES (123e4567-e89b-12d3-a456-426614174000, now(), 22.5, 45.2);
+
+-- Efficient time-range queries
+SELECT * FROM sensor_data 
+WHERE sensor_id = 123e4567-e89b-12d3-a456-426614174000
+AND timestamp &gt; '2024-01-01' AND timestamp &lt; '2024-01-02';
+</code></pre>
+
+<h3 id="graph-databases-its-all-about-relationships">Graph Databases: It’s All About Relationships</h3>
+
+<p><strong>When to Use</strong>: Social networks, recommendations, fraud detection</p>
+
+<p><strong>Neo4j Example - Friend Recommendations</strong>:</p>
+<div class="language-cypher highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Find friends of friends who aren't already friends</span>
+<span class="k">MATCH</span><span class="w"> </span><span class="ss">(</span><span class="py">me:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Alice'</span><span class="ss">})</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="n">friend</span><span class="ss">)</span>
+      <span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="py">foaf:</span><span class="n">Person</span><span class="ss">)</span>
+<span class="k">WHERE</span> <span class="n">NOT</span><span class="w"> </span><span class="ss">(</span><span class="n">me</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-</span><span class="ss">(</span><span class="n">foaf</span><span class="ss">)</span> <span class="ow">AND</span> <span class="n">me</span> <span class="o">&lt;&gt;</span> <span class="n">foaf</span>
+<span class="k">RETURN</span> <span class="n">foaf.name</span><span class="ss">,</span> <span class="nf">COUNT</span><span class="ss">(</span><span class="o">*</span><span class="ss">)</span> <span class="k">as</span> <span class="n">mutual_friends</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">mutual_friends</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">10</span><span class="ss">;</span>
+</code></pre></div></div>
+
+<p>Try writing this in SQL - it’s a recursive nightmare!</p>
+
+<h2 id="data-modeling-patterns">Data Modeling Patterns</h2>
+
+<h3 id="star-schema">Star Schema</h3>
+<p>Central fact table with dimension tables.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Fact table</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">sales_facts</span> <span class="p">(</span>
+    <span class="n">sale_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">product_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">date_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">amount</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">quantity</span> <span class="nb">INT</span>
+<span class="p">);</span>
+
+<span class="c1">-- Dimension tables</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_products</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">category</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">brand</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_customers</span> <span class="p">(</span>
+    <span class="n">customer_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">city</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">country</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="snowflake-schema">Snowflake Schema</h3>
+<p>Normalized star schema with sub-dimensions.</p>
+
+<h3 id="entity-attribute-value-eav">Entity-Attribute-Value (EAV)</h3>
+<p>Flexible schema for variable attributes.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">entities</span> <span class="p">(</span>
+    <span class="n">entity_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">entity_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">attributes</span> <span class="p">(</span>
+    <span class="n">attribute_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">attribute_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+    <span class="n">data_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">values</span> <span class="p">(</span>
+    <span class="n">entity_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">entities</span><span class="p">(</span><span class="n">entity_id</span><span class="p">),</span>
+    <span class="n">attribute_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">attributes</span><span class="p">(</span><span class="n">attribute_id</span><span class="p">),</span>
+    <span class="n">value</span> <span class="nb">TEXT</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">attribute_id</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="transactions-and-concurrency-managing-simultaneous-access">Transactions and Concurrency: Managing Simultaneous Access</h2>
+
+<p>When multiple users access a database simultaneously, chaos can ensue. Transactions and concurrency control bring order to this chaos.</p>
+
+<h3 id="the-concurrency-problem">The Concurrency Problem</h3>
+
+<p>Consider this scenario in an online store:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Two customers buy the last item simultaneously
+# Customer A's thread:
+</span><span class="n">stock</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT stock FROM products WHERE id = 123</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Returns 1
+</span><span class="k">if</span> <span class="n">stock</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="c1"># Context switch to Customer B here!
+</span>    <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">UPDATE products SET stock = stock - 1 WHERE id = 123</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">INSERT INTO orders ...</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># Customer B's thread (running at same time):
+</span><span class="n">stock</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT stock FROM products WHERE id = 123</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Also returns 1!
+</span><span class="k">if</span> <span class="n">stock</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">UPDATE products SET stock = stock - 1 WHERE id = 123</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">INSERT INTO orders ...</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># Result: stock = -1, both customers think they got the item!
+</span></code></pre></div></div>
+
+<h3 id="how-databases-solve-this">How Databases Solve This</h3>
+
+<p>Databases use two main strategies: pessimistic (locking) and optimistic (versioning).</p>
+
+<h4 id="strategy-1-locking-pessimistic">Strategy 1: Locking (Pessimistic)</h4>
+
+<p><strong>Two-Phase Locking (2PL)</strong>: Grab locks, do work, release locks</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">BEGIN</span> <span class="n">TRANSACTION</span><span class="p">;</span>
+<span class="c1">-- Lock the row for update</span>
+<span class="k">SELECT</span> <span class="n">stock</span> <span class="k">FROM</span> <span class="n">products</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">FOR</span> <span class="k">UPDATE</span><span class="p">;</span>
+<span class="c1">-- Now only this transaction can modify this row</span>
+<span class="k">UPDATE</span> <span class="n">products</span> <span class="k">SET</span> <span class="n">stock</span> <span class="o">=</span> <span class="n">stock</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">orders</span> <span class="p">...;</span>
+<span class="k">COMMIT</span><span class="p">;</span>  <span class="c1">-- Releases all locks</span>
+</code></pre></div></div>
+
+<p><strong>Lock Types</strong>:</p>
+<ul>
+  <li><strong>Shared (S)</strong>: Multiple readers OK (SELECT)</li>
+  <li><strong>Exclusive (X)</strong>: Single writer, no readers (UPDATE/DELETE)</li>
+</ul>
+
+<p><strong>The Deadlock Problem</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Transaction 1: Lock A, waiting for B
+Transaction 2: Lock B, waiting for A
+-- Both stuck forever!
+</code></pre></div></div>
+
+<p>Databases detect deadlocks and kill one transaction to break the cycle.</p>
+
+<h4 id="strategy-2-multi-version-concurrency-control-mvcc">Strategy 2: Multi-Version Concurrency Control (MVCC)</h4>
+
+<p>Instead of locking, keep multiple versions of data. Each transaction sees a consistent snapshot:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified MVCC concept
+</span><span class="k">class</span> <span class="nc">MVCCDatabase</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># {key: [(value, timestamp, deleted), ...]}
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">def</span> <span class="nf">begin_transaction</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">timestamp</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="nc">Transaction</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">timestamp</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">tx</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="c1"># Find latest version visible to this transaction
+</span>        <span class="n">versions</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">deleted</span> <span class="ow">in</span> <span class="nf">reversed</span><span class="p">(</span><span class="n">versions</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ts</span> <span class="o">&lt;=</span> <span class="n">tx</span><span class="p">.</span><span class="n">start_time</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">deleted</span> <span class="k">else</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    
+    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">tx</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="c1"># Create new version, don't overwrite
+</span>        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">].</span><span class="nf">append</span><span class="p">((</span><span class="n">value</span><span class="p">,</span> <span class="n">tx</span><span class="p">.</span><span class="n">start_time</span><span class="p">,</span> <span class="bp">False</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p><strong>How PostgreSQL Uses MVCC</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Transaction 1 (started at time 100)</span>
+<span class="k">BEGIN</span><span class="p">;</span>
+<span class="k">SELECT</span> <span class="n">balance</span> <span class="k">FROM</span> <span class="n">accounts</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="c1">-- Sees balance = 1000 (version from time 50)</span>
+
+<span class="c1">-- Transaction 2 (started at time 101)</span>
+<span class="k">BEGIN</span><span class="p">;</span>
+<span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="mi">900</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">COMMIT</span><span class="p">;</span>
+<span class="c1">-- Creates new version at time 101</span>
+
+<span class="c1">-- Transaction 1 still sees old version!</span>
+<span class="k">SELECT</span> <span class="n">balance</span> <span class="k">FROM</span> <span class="n">accounts</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="c1">-- Still sees balance = 1000 (snapshot from time 100)</span>
+</code></pre></div></div>
+
+<p><strong>Benefits</strong>:</p>
+<ul>
+  <li>Readers never block writers</li>
+  <li>Writers never block readers</li>
+  <li>Great for read-heavy workloads</li>
+  <li>Natural time-travel queries (“show me data as of yesterday”)</li>
+</ul>
+
+<h3 id="understanding-serializability">Understanding Serializability</h3>
+
+<p>The gold standard for correctness is serializability: the result should be as if transactions ran one at a time, even though they actually ran concurrently.</p>
+
+<p><strong>Testing for Conflicts</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Two transactions operating on same data
+</span><span class="n">T1</span><span class="p">:</span> <span class="nc">READ</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="nc">WRITE</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+<span class="n">T2</span><span class="p">:</span> <span class="nc">WRITE</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="nc">READ</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+
+<span class="c1"># Conflicts:
+# T1.READ(A) conflicts with T2.WRITE(A)  (Read-Write)
+# T2.READ(B) conflicts with T1.WRITE(B)  (Read-Write)
+</span>
+<span class="c1"># Build a graph: T1 -&gt; T2 (T1 must come before T2)
+#                T2 -&gt; T1 (T2 must come before T1)
+# Cycle! Not serializable.
+</span></code></pre></div></div>
+
+<p><strong>Why This Matters</strong>:
+Non-serializable schedules can produce results impossible with serial execution:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Account transfer race condition</span>
+<span class="c1">-- T1: Transfer $100 from A to B</span>
+<span class="c1">-- T2: Transfer $100 from B to A</span>
+
+<span class="c1">-- Serial execution: No net change</span>
+<span class="c1">-- Bad concurrent execution: Money appears/disappears!</span>
+</code></pre></div></div>
+
+<h3 id="isolation-levels-choosing-your-guarantees">Isolation Levels: Choosing Your Guarantees</h3>
+
+<p>Databases offer different isolation levels—trade-offs between correctness and performance:</p>
+
+<p><strong>Read Uncommitted</strong>: “I live dangerously”</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SET</span> <span class="n">TRANSACTION</span> <span class="k">ISOLATION</span> <span class="k">LEVEL</span> <span class="k">READ</span> <span class="k">UNCOMMITTED</span><span class="p">;</span>
+<span class="c1">-- Can see uncommitted changes (dirty reads)</span>
+<span class="c1">-- Use case: Rough analytics where exactness doesn't matter</span>
+</code></pre></div></div>
+
+<p><strong>Read Committed</strong>: “Show me committed data” (PostgreSQL default)</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SET</span> <span class="n">TRANSACTION</span> <span class="k">ISOLATION</span> <span class="k">LEVEL</span> <span class="k">READ</span> <span class="k">COMMITTED</span><span class="p">;</span>
+<span class="c1">-- Each query sees committed data at query start</span>
+<span class="c1">-- Problem: Same query can return different results</span>
+<span class="k">SELECT</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">orders</span><span class="p">;</span>  <span class="c1">-- Returns 100</span>
+<span class="c1">-- Another transaction commits new order</span>
+<span class="k">SELECT</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">orders</span><span class="p">;</span>  <span class="c1">-- Returns 101</span>
+</code></pre></div></div>
+
+<p><strong>Repeatable Read</strong>: “My view stays consistent”</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SET</span> <span class="n">TRANSACTION</span> <span class="k">ISOLATION</span> <span class="k">LEVEL</span> <span class="k">REPEATABLE</span> <span class="k">READ</span><span class="p">;</span>
+<span class="c1">-- All queries see same snapshot</span>
+<span class="c1">-- Problem: Phantom reads (new rows matching WHERE)</span>
+</code></pre></div></div>
+
+<p><strong>Serializable</strong>: “Perfect isolation”</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SET</span> <span class="n">TRANSACTION</span> <span class="k">ISOLATION</span> <span class="k">LEVEL</span> <span class="k">SERIALIZABLE</span><span class="p">;</span>
+<span class="c1">-- As if transactions ran one at a time</span>
+<span class="c1">-- Might fail with "serialization error" - retry needed</span>
+</code></pre></div></div>
+
+<p><strong>Real-World Example</strong>: Seat Booking</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- With READ COMMITTED: Two people might book same seat</span>
+<span class="c1">-- With SERIALIZABLE: One succeeds, one gets error to retry</span>
+
+<span class="k">BEGIN</span> <span class="k">ISOLATION</span> <span class="k">LEVEL</span> <span class="k">SERIALIZABLE</span><span class="p">;</span>
+<span class="k">SELECT</span> <span class="n">seat_id</span> <span class="k">FROM</span> <span class="n">seats</span> 
+<span class="k">WHERE</span> <span class="n">flight_id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">AND</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'available'</span> 
+<span class="k">LIMIT</span> <span class="mi">1</span> <span class="k">FOR</span> <span class="k">UPDATE</span><span class="p">;</span>
+
+<span class="k">UPDATE</span> <span class="n">seats</span> <span class="k">SET</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'booked'</span><span class="p">,</span> <span class="n">customer_id</span> <span class="o">=</span> <span class="mi">456</span>
+<span class="k">WHERE</span> <span class="n">seat_id</span> <span class="o">=</span> <span class="mi">789</span><span class="p">;</span>
+<span class="k">COMMIT</span><span class="p">;</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For implementations of these concepts, see <a href="../../code-examples/technology/database-design/concurrency_control.py"><code class="language-plaintext highlighter-rouge">concurrency_control.py</code></a></p>
+</blockquote>
+
+<h3 id="practical-locking-patterns">Practical Locking Patterns</h3>
+
+<p><strong>Pattern 1: Preventing Lost Updates</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Problem: Two users editing same document</span>
+<span class="c1">-- Solution: Optimistic locking with version</span>
+
+<span class="c1">-- User A loads document</span>
+<span class="k">SELECT</span> <span class="n">content</span><span class="p">,</span> <span class="k">version</span> <span class="k">FROM</span> <span class="n">documents</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+<span class="c1">-- Returns: content="Hello", version=5</span>
+
+<span class="c1">-- User B loads same document  </span>
+<span class="k">SELECT</span> <span class="n">content</span><span class="p">,</span> <span class="k">version</span> <span class="k">FROM</span> <span class="n">documents</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+<span class="c1">-- Returns: content="Hello", version=5</span>
+
+<span class="c1">-- User A saves changes</span>
+<span class="k">UPDATE</span> <span class="n">documents</span> 
+<span class="k">SET</span> <span class="n">content</span> <span class="o">=</span> <span class="s1">'Hello World'</span><span class="p">,</span> <span class="k">version</span> <span class="o">=</span> <span class="k">version</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">AND</span> <span class="k">version</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+<span class="c1">-- Success! 1 row updated</span>
+
+<span class="c1">-- User B tries to save</span>
+<span class="k">UPDATE</span> <span class="n">documents</span>
+<span class="k">SET</span> <span class="n">content</span> <span class="o">=</span> <span class="s1">'Hello Everyone'</span><span class="p">,</span> <span class="k">version</span> <span class="o">=</span> <span class="k">version</span> <span class="o">+</span> <span class="mi">1</span>  
+<span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">AND</span> <span class="k">version</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+<span class="c1">-- Failure! 0 rows updated (version is now 6)</span>
+<span class="c1">-- Application shows: "Document was modified by another user"</span>
+</code></pre></div></div>
+
+<p><strong>Pattern 2: Queue Processing</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Multiple workers processing job queue</span>
+<span class="c1">-- Need to ensure each job processed once</span>
+
+<span class="k">WITH</span> <span class="n">next_job</span> <span class="k">AS</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">job_id</span> <span class="k">FROM</span> <span class="n">job_queue</span>
+    <span class="k">WHERE</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'pending'</span>
+    <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">priority</span> <span class="k">DESC</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">ASC</span>
+    <span class="k">LIMIT</span> <span class="mi">1</span>
+    <span class="k">FOR</span> <span class="k">UPDATE</span> <span class="n">SKIP</span> <span class="n">LOCKED</span>  <span class="c1">-- Key: Skip rows locked by others</span>
+<span class="p">)</span>
+<span class="k">UPDATE</span> <span class="n">job_queue</span> 
+<span class="k">SET</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'processing'</span><span class="p">,</span> <span class="n">worker_id</span> <span class="o">=</span> <span class="s1">'worker-1'</span>
+<span class="k">WHERE</span> <span class="n">job_id</span> <span class="o">=</span> <span class="p">(</span><span class="k">SELECT</span> <span class="n">job_id</span> <span class="k">FROM</span> <span class="n">next_job</span><span class="p">)</span>
+<span class="n">RETURNING</span> <span class="o">*</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="database-security">Database Security</h2>
+
+<h3 id="access-control">Access Control</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Create user</span>
+<span class="k">CREATE</span> <span class="k">USER</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span> <span class="n">IDENTIFIED</span> <span class="k">BY</span> <span class="s1">'secure_password'</span><span class="p">;</span>
+
+<span class="c1">-- Grant permissions</span>
+<span class="k">GRANT</span> <span class="k">SELECT</span><span class="p">,</span> <span class="k">INSERT</span><span class="p">,</span> <span class="k">UPDATE</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">TO</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+
+<span class="c1">-- Revoke permissions</span>
+<span class="k">REVOKE</span> <span class="k">DELETE</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">FROM</span> <span class="s1">'app_user'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+
+<span class="c1">-- Role-based access</span>
+<span class="k">CREATE</span> <span class="k">ROLE</span> <span class="n">read_only</span><span class="p">;</span>
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="n">mydb</span><span class="p">.</span><span class="o">*</span> <span class="k">TO</span> <span class="n">read_only</span><span class="p">;</span>
+<span class="k">GRANT</span> <span class="n">read_only</span> <span class="k">TO</span> <span class="s1">'analyst'</span><span class="o">@</span><span class="s1">'localhost'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="data-encryption">Data Encryption</h3>
+
+<p><strong>At Rest</strong>:</p>
+<ul>
+  <li>Transparent Data Encryption (TDE)</li>
+  <li>File system encryption</li>
+  <li>Column-level encryption</li>
+</ul>
+
+<p><strong>In Transit</strong>:</p>
+<ul>
+  <li>SSL/TLS connections</li>
+  <li>VPN tunnels</li>
+</ul>
+
+<h3 id="sql-injection-prevention">SQL Injection Prevention</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad - vulnerable to injection
+</span><span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">SELECT * FROM users WHERE username = </span><span class="sh">'</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="sh">'"</span>
+
+<span class="c1"># Good - parameterized query
+</span><span class="n">cursor</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">SELECT * FROM users WHERE username = %s</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">username</span><span class="p">,)</span>
+<span class="p">)</span>
+
+<span class="c1"># Good - using ORM
+</span><span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="p">.</span><span class="n">query</span><span class="p">.</span><span class="nf">filter_by</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">).</span><span class="nf">first</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h2 id="backup-and-recovery">Backup and Recovery</h2>
+
+<h3 id="backup-strategies">Backup Strategies</h3>
+
+<p><strong>Full Backup</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># PostgreSQL</span>
+pg_dump dbname <span class="o">&gt;</span> backup.sql
+
+<span class="c"># MySQL</span>
+mysqldump <span class="nt">--all-databases</span> <span class="o">&gt;</span> backup.sql
+</code></pre></div></div>
+
+<p><strong>Incremental Backup</strong>:</p>
+<ul>
+  <li>Only changes since last backup</li>
+  <li>Requires less storage</li>
+  <li>Faster backup, slower restore</li>
+</ul>
+
+<p><strong>Point-in-Time Recovery</strong>:</p>
+<ul>
+  <li>Transaction logs</li>
+  <li>Restore to specific moment</li>
+</ul>
+
+<h3 id="high-availability">High Availability</h3>
+
+<p><strong>Replication</strong>:</p>
+<ul>
+  <li>Master-slave</li>
+  <li>Master-master</li>
+  <li>Multi-master</li>
+</ul>
+
+<p><strong>Clustering</strong>:</p>
+<ul>
+  <li>Active-passive</li>
+  <li>Active-active</li>
+  <li>Shared storage</li>
+</ul>
+
+<h2 id="how-databases-store-your-data">How Databases Store Your Data</h2>
+
+<p>Understanding database internals helps you design better schemas and debug performance issues.</p>
+
+<h3 id="the-storage-hierarchy">The Storage Hierarchy</h3>
+
+<p>Databases carefully manage the journey from SQL to disk:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SQL Query
+    ↓
+Buffer Pool (RAM) - "Hot" data cached here
+    ↓
+Storage Engine - Manages pages and files
+    ↓  
+File System - Database files
+    ↓
+Disk - Actual persistent storage
+</code></pre></div></div>
+
+<h3 id="pages-the-building-blocks">Pages: The Building Blocks</h3>
+
+<p>Databases don’t read individual rows from disk—they read pages (typically 8KB or 16KB):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>+------------------Page 1 (8KB)-------------------+
+| Header (checksum, LSN, free space pointer)      |
+|--------------------------------------------------||
+| Row 1: {id: 1, name: "Alice", email: "..."}    |
+| Row 2: {id: 2, name: "Bob", email: "..."}      |
+| Row 3: {id: 3, name: "Charlie", email: "..."}  |
+| ... (more rows) ...                             |
+| Free Space                                       |
++--------------------------------------------------+
+</code></pre></div></div>
+
+<p><strong>Why Pages Matter</strong>:</p>
+<ul>
+  <li>Disk I/O is slow; reading 8KB isn’t much slower than reading 100 bytes</li>
+  <li>Related data stored together (spatial locality)</li>
+  <li>Enables efficient caching in memory</li>
+</ul>
+
+<h3 id="buffer-pool-your-databases-cache">Buffer Pool: Your Database’s Cache</h3>
+
+<p>The buffer pool is why databases can serve queries from memory:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BufferPool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">size_mb</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pages</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># page_id -&gt; page_data
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">lru</span> <span class="o">=</span> <span class="nc">OrderedDict</span><span class="p">()</span>  <span class="c1"># for eviction
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">max_pages</span> <span class="o">=</span> <span class="n">size_mb</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">//</span> <span class="mi">8</span>  <span class="c1"># 8KB pages
+</span>    
+    <span class="k">def</span> <span class="nf">get_page</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">page_id</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">page_id</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">pages</span><span class="p">:</span>
+            <span class="c1"># Cache hit! Move to end (most recently used)
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">lru</span><span class="p">.</span><span class="nf">move_to_end</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">pages</span><span class="p">[</span><span class="n">page_id</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Cache miss - read from disk
+</span>            <span class="n">page</span> <span class="o">=</span> <span class="nf">read_page_from_disk</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">add_to_cache</span><span class="p">(</span><span class="n">page_id</span><span class="p">,</span> <span class="n">page</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">page</span>
+</code></pre></div></div>
+
+<p><strong>Tuning Buffer Pool</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- PostgreSQL: Check cache hit ratio</span>
+<span class="k">SELECT</span> 
+    <span class="k">sum</span><span class="p">(</span><span class="n">blks_hit</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="k">sum</span><span class="p">(</span><span class="n">blks_hit</span><span class="p">)</span><span class="o">+</span><span class="k">sum</span><span class="p">(</span><span class="n">blks_read</span><span class="p">))</span> <span class="k">as</span> <span class="n">cache_hit_ratio</span>
+<span class="k">FROM</span> <span class="n">pg_stat_database</span><span class="p">;</span>
+<span class="c1">-- Want &gt; 0.95 (95% from cache)</span>
+
+<span class="c1">-- Increase if too low</span>
+<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">shared_buffers</span> <span class="o">=</span> <span class="s1">'4GB'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="b-trees-the-workhorse-index-structure">B+ Trees: The Workhorse Index Structure</h3>
+
+<p>B+ trees power most database indexes. Think of them as a multi-level phone book:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                    [M]
+                   /   \
+            [D,G,J]     [P,S,V]
+           /   |   \     /   |   \
+        [A-C][D-F][G-I][M-O][P-R][S-U][V-Z]
+         ↓    ↓    ↓    ↓    ↓    ↓    ↓
+      (actual data rows in leaf nodes)
+</code></pre></div></div>
+
+<p><strong>Why B+ Trees Work Well</strong>:</p>
+<ol>
+  <li><strong>Shallow</strong>: Even with millions of rows, only 3-4 levels deep</li>
+  <li><strong>Cache-friendly</strong>: Each node fits in a page</li>
+  <li><strong>Range queries</strong>: Leaf nodes linked for scanning</li>
+  <li><strong>Predictable</strong>: Always balanced, consistent performance</li>
+</ol>
+
+<p><strong>Following a Search</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Finding "John" in a B+ tree index on names
+</span><span class="mf">1.</span> <span class="n">Root</span><span class="p">:</span> <span class="sh">"</span><span class="s">John</span><span class="sh">"</span> <span class="o">&lt;</span> <span class="sh">"</span><span class="s">M</span><span class="sh">"</span><span class="p">,</span> <span class="n">go</span> <span class="n">left</span>
+<span class="mf">2.</span> <span class="n">Level</span> <span class="mi">2</span><span class="p">:</span> <span class="sh">"</span><span class="s">John</span><span class="sh">"</span> <span class="o">&gt;</span> <span class="sh">"</span><span class="s">G</span><span class="sh">"</span><span class="p">,</span> <span class="n">go</span> <span class="n">to</span> <span class="n">middle</span> <span class="n">child</span>  
+<span class="mf">3.</span> <span class="n">Leaf</span><span class="p">:</span> <span class="n">Scan</span> <span class="sh">"</span><span class="s">G-I</span><span class="sh">"</span> <span class="n">page</span><span class="p">,</span> <span class="n">find</span> <span class="sh">"</span><span class="s">John</span><span class="sh">"</span> <span class="o">-&gt;</span> <span class="n">row</span> <span class="n">location</span>
+<span class="mf">4.</span> <span class="n">Fetch</span> <span class="n">actual</span> <span class="n">row</span> <span class="k">from</span> <span class="n">heap</span> <span class="nb">file</span>
+</code></pre></div></div>
+
+<p><strong>Insert Example</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="n">leaf</span> <span class="o">=</span> <span class="nf">find_leaf</span><span class="p">(</span><span class="n">tree</span><span class="p">.</span><span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">leaf</span><span class="p">.</span><span class="nf">has_space</span><span class="p">():</span>
+        <span class="n">leaf</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Split leaf into two
+</span>        <span class="n">new_leaf</span> <span class="o">=</span> <span class="n">leaf</span><span class="p">.</span><span class="nf">split</span><span class="p">()</span>
+        <span class="n">middle_key</span> <span class="o">=</span> <span class="n">new_leaf</span><span class="p">.</span><span class="n">keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="c1"># Propagate split up the tree
+</span>        <span class="nf">insert_into_parent</span><span class="p">(</span><span class="n">leaf</span><span class="p">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">middle_key</span><span class="p">,</span> <span class="n">new_leaf</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="lsm-trees-built-for-big-data-writes">LSM Trees: Built for Big Data Writes</h3>
+
+<p>While B+ trees update in place, LSM trees use a different strategy perfect for write-heavy workloads:</p>
+
+<p><strong>The Big Idea</strong>: Buffer writes in memory, flush to disk in batches</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Writes go to:
+    MemTable (in RAM)
+         ↓ (when full)
+    SSTable Level 0 (on disk)
+         ↓ (compaction)
+    SSTable Level 1 (larger, sorted)
+         ↓ (compaction)
+    SSTable Level 2 (even larger)
+</code></pre></div></div>
+
+<p><strong>Write Path Example</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">LSMTree</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="c1"># 1. Log for crash recovery
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">wal</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">SET </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s"> = </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># 2. Add to in-memory table
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">memtable</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        
+        <span class="c1"># 3. Flush when full
+</span>        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">memtable</span><span class="p">.</span><span class="nf">size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">THRESHOLD</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">flush_to_disk</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">flush_to_disk</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="c1"># Sort and write to new SSTable file
+</span>        <span class="n">sorted_data</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">memtable</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>
+        <span class="n">sstable</span> <span class="o">=</span> <span class="nf">create_sstable</span><span class="p">(</span><span class="n">sorted_data</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">sstables</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">sstable</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">memtable</span><span class="p">.</span><span class="nf">clear</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><strong>Why Cassandra/RocksDB Use LSM</strong>:</p>
+<ul>
+  <li>Sequential writes are 100x faster than random writes</li>
+  <li>Great for time-series data (always appending)</li>
+  <li>Compaction happens in background</li>
+</ul>
+
+<p><strong>The Trade-off</strong>:</p>
+<ul>
+  <li>Writes: Super fast (just append)</li>
+  <li>Reads: Slower (might check multiple files)</li>
+  <li>Solution: Bloom filters to skip files that definitely don’t have the key</li>
+</ul>
+
+<h3 id="write-ahead-logging-surviving-crashes">Write-Ahead Logging: Surviving Crashes</h3>
+
+<p>How do databases maintain ACID’s durability when power fails mid-transaction? Write-Ahead Logging (WAL).</p>
+
+<p><strong>The Rule</strong>: Log changes before applying them</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">WriteAheadLog</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">log_file</span> <span class="o">=</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">database.wal</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">ab</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Append, binary
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">lsn</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Log Sequence Number
+</span>    
+    <span class="k">def</span> <span class="nf">log_update</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">tx_id</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">row_id</span><span class="p">,</span> <span class="n">old_value</span><span class="p">,</span> <span class="n">new_value</span><span class="p">):</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">"</span><span class="s">lsn</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">lsn</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">tx_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">tx_id</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">UPDATE</span><span class="sh">"</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">table</span><span class="sh">"</span><span class="p">:</span> <span class="n">table</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">row_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">row_id</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">old_value</span><span class="sh">"</span><span class="p">:</span> <span class="n">old_value</span><span class="p">,</span>  <span class="c1"># For undo
+</span>            <span class="sh">"</span><span class="s">new_value</span><span class="sh">"</span><span class="p">:</span> <span class="n">new_value</span>   <span class="c1"># For redo
+</span>        <span class="p">}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">log_file</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">serialize</span><span class="p">(</span><span class="n">entry</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">log_file</span><span class="p">.</span><span class="nf">flush</span><span class="p">()</span>  <span class="c1"># Force to disk
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">lsn</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="c1"># Only now safe to update actual data
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">lsn</span>
+</code></pre></div></div>
+
+<p><strong>Recovery After Crash</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">recover</span><span class="p">():</span>
+    <span class="c1"># Phase 1: Analysis - What was happening?
+</span>    <span class="n">committed_txns</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    <span class="n">active_txns</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nf">read_log_from_checkpoint</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">BEGIN</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">active_txns</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">entry</span><span class="p">.</span><span class="n">tx_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">entry</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">COMMIT</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">active_txns</span><span class="p">.</span><span class="nf">remove</span><span class="p">(</span><span class="n">entry</span><span class="p">.</span><span class="n">tx_id</span><span class="p">)</span>
+            <span class="n">committed_txns</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">entry</span><span class="p">.</span><span class="n">tx_id</span><span class="p">)</span>
+    
+    <span class="c1"># Phase 2: Redo - Replay committed transactions
+</span>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nf">read_log_from_checkpoint</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="p">.</span><span class="n">tx_id</span> <span class="ow">in</span> <span class="n">committed_txns</span><span class="p">:</span>
+            <span class="nf">apply_change</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+    
+    <span class="c1"># Phase 3: Undo - Rollback incomplete transactions
+</span>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nf">reversed</span><span class="p">(</span><span class="nf">read_log_from_checkpoint</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="p">.</span><span class="n">tx_id</span> <span class="ow">in</span> <span class="n">active_txns</span><span class="p">:</span>
+            <span class="nf">undo_change</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Why This Works</strong>:</p>
+<ul>
+  <li>Log is sequential (fast writes)</li>
+  <li>Log records are small</li>
+  <li>Can reconstruct any state from log</li>
+  <li>Checkpoints limit recovery time</li>
+</ul>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For working implementations, see <a href="../../code-examples/technology/database-design/storage_engines.py"><code class="language-plaintext highlighter-rouge">storage_engines.py</code></a></p>
+</blockquote>
+
+<h2 id="performance-tuning-making-it-fast">Performance Tuning: Making It Fast</h2>
+
+<p>Performance tuning is part science, part art. Here’s a practical approach:</p>
+
+<h3 id="step-1-measure-first">Step 1: Measure First</h3>
+
+<p><strong>Find Slow Queries</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- PostgreSQL: Find slowest queries</span>
+<span class="k">SELECT</span> 
+    <span class="n">mean_exec_time</span><span class="p">,</span>
+    <span class="n">calls</span><span class="p">,</span>
+    <span class="n">total_exec_time</span><span class="p">,</span>
+    <span class="n">query</span>
+<span class="k">FROM</span> <span class="n">pg_stat_statements</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">mean_exec_time</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p><strong>Check Cache Performance</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Cache hit ratio (want &gt; 95%)</span>
+<span class="k">SELECT</span> 
+    <span class="k">sum</span><span class="p">(</span><span class="n">heap_blks_hit</span><span class="p">)</span> <span class="o">/</span> 
+    <span class="p">(</span><span class="k">sum</span><span class="p">(</span><span class="n">heap_blks_hit</span><span class="p">)</span> <span class="o">+</span> <span class="k">sum</span><span class="p">(</span><span class="n">heap_blks_read</span><span class="p">))</span> <span class="k">as</span> <span class="n">cache_hit_ratio</span>
+<span class="k">FROM</span> <span class="n">pg_statio_user_tables</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="step-2-tune-configuration">Step 2: Tune Configuration</h3>
+
+<p><strong>Memory Settings</strong> (PostgreSQL example):</p>
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Buffer pool - start with 25% of RAM
+</span><span class="py">shared_buffers</span> <span class="p">=</span> <span class="s">4GB</span>
+
+<span class="c"># Total memory for queries  
+</span><span class="py">work_mem</span> <span class="p">=</span> <span class="s">50MB  # Per operation!</span>
+
+<span class="c"># Maintenance operations
+</span><span class="py">maintenance_work_mem</span> <span class="p">=</span> <span class="s">1GB</span>
+
+<span class="c"># Effective cache - tell planner about OS cache
+</span><span class="py">effective_cache_size</span> <span class="p">=</span> <span class="s">12GB  # ~75% of RAM</span>
+</code></pre></div></div>
+
+<h3 id="step-3-optimize-schema">Step 3: Optimize Schema</h3>
+
+<p><strong>Partitioning for Large Tables</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Partition orders by month</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">order_id</span> <span class="nb">BIGINT</span><span class="p">,</span>
+    <span class="n">order_date</span> <span class="nb">DATE</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
+    <span class="n">total</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">PARTITION</span> <span class="k">BY</span> <span class="k">RANGE</span> <span class="p">(</span><span class="n">order_date</span><span class="p">);</span>
+
+<span class="c1">-- Create monthly partitions</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders_2024_01</span> <span class="k">PARTITION</span> <span class="k">OF</span> <span class="n">orders</span>
+    <span class="k">FOR</span> <span class="k">VALUES</span> <span class="k">FROM</span> <span class="p">(</span><span class="s1">'2024-01-01'</span><span class="p">)</span> <span class="k">TO</span> <span class="p">(</span><span class="s1">'2024-02-01'</span><span class="p">);</span>
+
+<span class="c1">-- Queries on date ranges now scan only relevant partitions!</span>
+</code></pre></div></div>
+
+<p><strong>Materialized Views for Complex Queries</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Expensive dashboard query</span>
+<span class="k">CREATE</span> <span class="n">MATERIALIZED</span> <span class="k">VIEW</span> <span class="n">customer_stats</span> <span class="k">AS</span>
+<span class="k">SELECT</span> 
+    <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span>
+    <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
+    <span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">order_count</span><span class="p">,</span>
+    <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">as</span> <span class="n">lifetime_value</span><span class="p">,</span>
+    <span class="k">MAX</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_date</span><span class="p">)</span> <span class="k">as</span> <span class="n">last_order_date</span>
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
+
+<span class="c1">-- Refresh periodically</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_customer_stats_value</span> <span class="k">ON</span> <span class="n">customer_stats</span><span class="p">(</span><span class="n">lifetime_value</span><span class="p">);</span>
+
+<span class="c1">-- Now dashboard query is instant!</span>
+</code></pre></div></div>
+
+<h3 id="step-4-monitor-and-iterate">Step 4: Monitor and Iterate</h3>
+
+<p><strong>Key Metrics to Watch</strong>:</p>
+<ul>
+  <li><strong>Response time</strong>: 95th percentile latency</li>
+  <li><strong>Throughput</strong>: Queries per second</li>
+  <li><strong>Resource usage</strong>: CPU, memory, disk I/O</li>
+  <li><strong>Lock waits</strong>: Blocked queries</li>
+  <li><strong>Connection pool</strong>: Active vs idle connections</li>
+</ul>
+
+<h2 id="the-future-of-databases">The Future of Databases</h2>
+
+<p>Database technology continues to evolve rapidly. Here are the cutting-edge developments:</p>
+
+<h3 id="newsql-best-of-both-worlds">NewSQL: Best of Both Worlds</h3>
+
+<p>NewSQL databases provide SQL and ACID guarantees at massive scale:</p>
+
+<p><strong>Google Spanner</strong>: The Pioneer</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Looks like regular SQL</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="n">INT64</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">email</span> <span class="n">STRING</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span>
+<span class="p">)</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">);</span>
+
+<span class="c1">-- But runs across continents!</span>
+<span class="c1">-- Synchronous replication globally</span>
+<span class="c1">-- External consistency via TrueTime</span>
+</code></pre></div></div>
+
+<p>Spanner uses atomic clocks and GPS to synchronize time globally, enabling consistent transactions across the planet!</p>
+
+<p><strong>CockroachDB</strong>: Spanner for Mortals</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Familiar PostgreSQL syntax</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
+    <span class="n">customer_id</span> <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">total</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">region</span> <span class="n">STRING</span> <span class="k">AS</span> <span class="p">(</span><span class="k">CASE</span> 
+        <span class="k">WHEN</span> <span class="n">country</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'US'</span><span class="p">,</span> <span class="s1">'CA'</span><span class="p">)</span> <span class="k">THEN</span> <span class="s1">'NA'</span>
+        <span class="k">WHEN</span> <span class="n">country</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'GB'</span><span class="p">,</span> <span class="s1">'FR'</span><span class="p">,</span> <span class="s1">'DE'</span><span class="p">)</span> <span class="k">THEN</span> <span class="s1">'EU'</span>
+        <span class="k">ELSE</span> <span class="s1">'OTHER'</span> 
+    <span class="k">END</span><span class="p">)</span> <span class="n">STORED</span>  <span class="c1">-- Computed column for partitioning</span>
+<span class="p">);</span>
+
+<span class="c1">-- Automatically distributed, survives datacenter failures</span>
+</code></pre></div></div>
+
+<h3 id="machine-learning-in-databases">Machine Learning in Databases</h3>
+
+<p>Databases are beginning to use ML to optimize themselves:</p>
+
+<p><strong>Learned Indexes</strong>: Replacing B+ Trees with ML</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Traditional B+ tree: Follow pointers
+</span><span class="k">def</span> <span class="nf">btree_lookup</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">root</span>
+    <span class="k">while</span> <span class="ow">not</span> <span class="n">node</span><span class="p">.</span><span class="n">is_leaf</span><span class="p">:</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">node</span><span class="p">.</span><span class="nf">find_child</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">node</span><span class="p">.</span><span class="nf">find_position</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<span class="c1"># Learned index: Predict position directly!
+</span><span class="k">def</span> <span class="nf">learned_lookup</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+    <span class="c1"># Neural network learns the cumulative distribution
+</span>    <span class="n">predicted_pos</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">*</span> <span class="n">num_records</span>
+    
+    <span class="c1"># Handle prediction error
+</span>    <span class="n">min_pos</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">predicted_pos</span> <span class="o">-</span> <span class="n">error_bound</span><span class="p">)</span>
+    <span class="n">max_pos</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">num_records</span><span class="p">,</span> <span class="n">predicted_pos</span> <span class="o">+</span> <span class="n">error_bound</span><span class="p">)</span>
+    
+    <span class="c1"># Binary search in small range
+</span>    <span class="k">return</span> <span class="nf">binary_search</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">min_pos</span><span class="p">:</span><span class="n">max_pos</span><span class="p">],</span> <span class="n">key</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Results</strong>: 70% less memory, 2x faster lookups for some workloads!</p>
+
+<p><strong>Self-Tuning Databases</strong>:</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Database observes your queries and auto-creates indexes</span>
+<span class="c1">-- Monday: Many queries filtering by customer_id</span>
+<span class="c1">-- Tuesday: Database automatically creates index</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_id</span> <span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">);</span>
+<span class="c1">-- No DBA needed!</span>
+</code></pre></div></div>
+
+<h3 id="quantum-databases-the-far-future">Quantum Databases: The Far Future</h3>
+
+<p>Quantum computing could revolutionize database searches:</p>
+
+<p><strong>Grover’s Algorithm</strong>: Quantum Search</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Classical search: Check each item
+</span><span class="k">def</span> <span class="nf">classical_search</span><span class="p">(</span><span class="n">database</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">database</span><span class="p">:</span>  <span class="c1"># O(n)
+</span>        <span class="k">if</span> <span class="n">item</span> <span class="o">==</span> <span class="n">target</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">item</span>
+
+<span class="c1"># Quantum search: Superposition magic
+</span><span class="k">def</span> <span class="nf">quantum_search</span><span class="p">(</span><span class="n">database</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="c1"># Put all items in superposition
+</span>    <span class="c1"># Amplify probability of target
+</span>    <span class="c1"># Measure to get result
+</span>    <span class="c1"># Only O(√n) iterations!
+</span>    <span class="k">pass</span>
+</code></pre></div></div>
+
+<p>For a billion-row table:</p>
+<ul>
+  <li>Classical: 1 billion checks worst case</li>
+  <li>Quantum: ~31,000 checks worst case</li>
+</ul>
+
+<p><strong>Current Reality</strong>:</p>
+<ul>
+  <li>Quantum computers are noisy and limited</li>
+  <li>Only work for specific problems</li>
+  <li>Still years from practical database use</li>
+  <li>But research is accelerating!</li>
+</ul>
+
+<h3 id="ai-powered-query-optimization">AI-Powered Query Optimization</h3>
+
+<p>Traditional optimizers use statistics and rules. Modern systems learn from experience:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Query plan as a graph
+</span><span class="n">query_graph</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">nodes</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">op</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">TableScan</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">table</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">},</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">op</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">TableScan</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">table</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">customers</span><span class="sh">"</span><span class="p">},</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="sh">"</span><span class="s">op</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">HashJoin</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">condition</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">orders.customer_id = customers.id</span><span class="sh">"</span><span class="p">},</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="sh">"</span><span class="s">op</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Filter</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">predicate</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">total &gt; 100</span><span class="sh">"</span><span class="p">}</span>
+    <span class="p">],</span>
+    <span class="sh">"</span><span class="s">edges</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">from</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">to</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">from</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">to</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">from</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="sh">"</span><span class="s">to</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># GNN learns optimal plans
+</span><span class="n">optimal_plan</span> <span class="o">=</span> <span class="n">query_optimizer_gnn</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">query_graph</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Real Benefits Today</strong>:</p>
+<ul>
+  <li>Better cardinality estimates for complex joins</li>
+  <li>Learns correlations statistics miss</li>
+  <li>Adapts to workload changes</li>
+  <li>Microsoft and Google using in production</li>
+</ul>
+
+<h3 id="blockchain-databases-trust-through-technology">Blockchain Databases: Trust Through Technology</h3>
+
+<p>Blockchains bring immutability and trust to databases:</p>
+
+<p><strong>Use Case: Supply Chain Tracking</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Traditional database: Can be altered</span>
+<span class="k">UPDATE</span> <span class="n">shipments</span> <span class="k">SET</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'delivered'</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+<span class="c1">-- Who changed it? When? Can we trust this?</span>
+
+<span class="c1">-- Blockchain database: Immutable audit trail</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">blockchain_shipments</span> <span class="p">(</span>
+    <span class="n">shipment_id</span><span class="p">,</span>
+    <span class="n">status</span><span class="p">,</span>
+    <span class="k">location</span><span class="p">,</span>
+    <span class="nb">timestamp</span><span class="p">,</span>
+    <span class="n">previous_hash</span><span class="p">,</span>
+    <span class="n">signature</span>
+<span class="p">)</span> <span class="k">VALUES</span> <span class="p">(</span>
+    <span class="mi">123</span><span class="p">,</span>
+    <span class="s1">'delivered'</span><span class="p">,</span>
+    <span class="s1">'Customer warehouse'</span><span class="p">,</span>
+    <span class="n">NOW</span><span class="p">(),</span>
+    <span class="n">SHA256</span><span class="p">(</span><span class="n">previous_record</span><span class="p">),</span>
+    <span class="n">SIGN</span><span class="p">(</span><span class="k">data</span><span class="p">,</span> <span class="n">private_key</span><span class="p">)</span>
+<span class="p">);</span>
+<span class="c1">-- Cryptographically proven, tamper-evident</span>
+</code></pre></div></div>
+
+<p><strong>When It Makes Sense</strong>:</p>
+<ul>
+  <li>Multiple organizations need shared truth</li>
+  <li>Audit trail requirements</li>
+  <li>Regulatory compliance</li>
+  <li>High-value transactions</li>
+</ul>
+
+<p><strong>When It Doesn’t</strong>:</p>
+<ul>
+  <li>Need to update/delete data</li>
+  <li>High transaction volume</li>
+  <li>Single organization control</li>
+  <li>Performance critical</li>
+</ul>
+
+<h3 id="hardware-accelerated-databases">Hardware-Accelerated Databases</h3>
+
+<p>Modern hardware enables new database architectures:</p>
+
+<p><strong>GPU Databases</strong>: Massive Parallelism</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Running on GPU: 100x faster for analytics</span>
+<span class="k">SELECT</span> 
+    <span class="n">product_category</span><span class="p">,</span>
+    <span class="k">SUM</span><span class="p">(</span><span class="n">quantity</span> <span class="o">*</span> <span class="n">price</span><span class="p">)</span> <span class="k">as</span> <span class="n">revenue</span><span class="p">,</span>
+    <span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span> <span class="n">customer_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">unique_customers</span>
+<span class="k">FROM</span> <span class="n">sales_fact</span>
+<span class="k">WHERE</span> <span class="n">sale_date</span> <span class="o">&gt;=</span> <span class="s1">'2024-01-01'</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">product_category</span><span class="p">;</span>
+
+<span class="c1">-- GPU executes thousands of threads in parallel</span>
+</code></pre></div></div>
+
+<p><strong>Persistent Memory</strong>: Best of RAM and SSD</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Traditional: RAM is fast but volatile
+</span><span class="n">ram_buffer</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Lost on power failure
+</span>
+<span class="c1"># Persistent Memory: Fast AND durable
+</span><span class="n">pmem_buffer</span> <span class="o">=</span> <span class="nc">PersistentDict</span><span class="p">(</span><span class="sh">"</span><span class="s">/mnt/pmem/buffer</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">pmem_buffer</span><span class="p">[</span><span class="sh">"</span><span class="s">key</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">value</span><span class="sh">"</span>  <span class="c1"># Survives power loss!
+# Nearly RAM speed, SSD persistence
+</span></code></pre></div></div>
+
+<p><strong>Smart SSDs</strong>: Compute at Storage</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Traditional: Move data to CPU
+</span><span class="n">data</span> <span class="o">=</span> <span class="n">ssd</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT * FROM huge_table</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">filtered</span> <span class="o">=</span> <span class="n">cpu</span><span class="p">.</span><span class="nf">filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">condition</span><span class="p">)</span>
+
+<span class="c1"># Smart SSD: Filter at storage layer  
+</span><span class="n">filtered</span> <span class="o">=</span> <span class="n">smart_ssd</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT * FROM huge_table WHERE condition</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># Only relevant data travels to CPU
+</span></code></pre></div></div>
+
+<blockquote>
+  <p><strong>Code Reference</strong>: For implementations of these modern approaches, see <a href="../../code-examples/technology/database-design/modern_databases.py"><code class="language-plaintext highlighter-rouge">modern_databases.py</code></a></p>
+</blockquote>
+
+<h2 id="learning-resources">Learning Resources</h2>
+
+<h3 id="books-for-different-levels">Books for Different Levels</h3>
+
+<p><strong>Getting Started</strong>:</p>
+<ul>
+  <li>Kleppmann, M. (2017). <em>Designing Data-Intensive Applications</em> - Best modern overview</li>
+  <li>Karwin, B. (2010). <em>SQL Antipatterns</em> - Learn from common mistakes</li>
+</ul>
+
+<p><strong>Going Deeper</strong>:</p>
+<ul>
+  <li>Ramakrishnan &amp; Gehrke (2003). <em>Database Management Systems</em> - Solid textbook</li>
+  <li>Petrov, A. (2019). <em>Database Internals</em> - How databases actually work</li>
+</ul>
+
+<p><strong>Research Frontiers</strong>:</p>
+<ul>
+  <li>Recent SIGMOD, VLDB, and ICDE conference proceedings</li>
+  <li><a href="https://blog.acolyer.org/">The Morning Paper</a> - Database paper summaries</li>
+</ul>
+
+<h3 id="online-resources">Online Resources</h3>
+
+<p><strong>Interactive Learning</strong>:</p>
+<ul>
+  <li><a href="https://use-the-index-luke.com/">Use The Index, Luke</a> - SQL indexing tutorial</li>
+  <li><a href="https://pgexercises.com/">PostgreSQL Exercises</a> - Practice SQL</li>
+  <li><a href="https://mystery.knightlab.com/">Mystery: SQL Murder Mystery</a> - Learn SQL solving a mystery</li>
+</ul>
+
+<p><strong>Talks and Videos</strong>:</p>
+<ul>
+  <li><a href="https://www.youtube.com/c/CMUDatabaseGroup">CMU Database Group</a> - Excellent lectures</li>
+  <li><a href="https://www.youtube.com/watch?v=PdtlXdse7pw">Designing Data-Intensive Applications</a> - Kleppmann’s talks</li>
+</ul>
+
+<h3 id="hands-on-projects">Hands-On Projects</h3>
+
+<ol>
+  <li><strong>Build a Mini Database</strong>: Implement B+ tree, buffer pool, and simple queries</li>
+  <li><strong>Benchmark Different Databases</strong>: Compare PostgreSQL, MySQL, MongoDB for your use case</li>
+  <li><strong>Distributed System</strong>: Build a simple distributed key-value store with Raft</li>
+  <li><strong>Query Optimizer</strong>: Write a cost-based optimizer for simple queries</li>
+</ol>
+
+<h2 id="best-practices-from-the-trenches">Best Practices from the Trenches</h2>
+
+<h3 id="design-principles-that-scale">Design Principles That Scale</h3>
+
+<p><strong>1. Design for 10x Growth</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Works today, fails at scale</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>  <span class="c1">-- Runs out at 2 billion!</span>
+    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>    <span class="c1">-- Some emails are longer!</span>
+<span class="p">);</span>
+
+<span class="c1">-- Good: Room to grow</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="nb">BIGINT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
+    <span class="k">INDEX</span> <span class="n">idx_email</span> <span class="p">(</span><span class="n">email</span><span class="p">),</span>
+    <span class="k">INDEX</span> <span class="n">idx_created</span> <span class="p">(</span><span class="n">created_at</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>2. Make Schemas Self-Documenting</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Cryptic names</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">usr_prch_hist</span> <span class="p">(</span><span class="n">u_id</span> <span class="nb">INT</span><span class="p">,</span> <span class="n">p_id</span> <span class="nb">INT</span><span class="p">,</span> <span class="n">ts</span> <span class="nb">INT</span><span class="p">);</span>
+
+<span class="c1">-- Good: Clear intent</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_purchase_history</span> <span class="p">(</span>
+    <span class="n">user_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">product_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">purchased_at</span> <span class="nb">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">quantity</span> <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">unit_price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">products</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
+    <span class="k">INDEX</span> <span class="n">idx_user_purchases</span> <span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">purchased_at</span> <span class="k">DESC</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p><strong>3. Plan for Maintenance</strong></p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Add metadata columns to important tables</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">id</span> <span class="nb">BIGINT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="c1">-- Business columns</span>
+    <span class="n">customer_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">total</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    
+    <span class="c1">-- Maintenance columns</span>
+    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
+    <span class="n">updated_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span> <span class="k">ON</span> <span class="k">UPDATE</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
+    <span class="k">version</span> <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1">-- For optimistic locking</span>
+    <span class="n">is_deleted</span> <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>  <span class="c1">-- Soft deletes</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="common-pitfalls-to-avoid">Common Pitfalls to Avoid</h3>
+
+<ol>
+  <li><strong>N+1 Queries</strong>: Load related data in one query, not one per row</li>
+  <li><strong>Missing Indexes on Foreign Keys</strong>: Every FK should have an index</li>
+  <li><strong>Storing Calculated Values</strong>: Use generated columns or views instead</li>
+  <li><strong>Ignoring Time Zones</strong>: Store UTC, convert for display</li>
+  <li><strong>Not Planning for Deletes</strong>: Soft deletes often better than hard deletes</li>
+</ol>
+
+<h2 id="build-your-own-database">Build Your Own Database</h2>
+
+<p>The best way to understand databases is to build one. Here’s a practical progression:</p>
+
+<h3 id="project-1-key-value-store-weekend-project">Project 1: Key-Value Store (Weekend Project)</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Start simple - in-memory key-value store
+</span><span class="k">class</span> <span class="nc">SimpleKVStore</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">log</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># For durability
+</span>    
+    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">log</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">SET </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s"> </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">snapshot</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">snapshot.db</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="p">.</span><span class="nf">dump</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="project-2-b-tree-index-1-2-weeks">Project 2: B+ Tree Index (1-2 Weeks)</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Add indexing for range queries
+</span><span class="k">class</span> <span class="nc">BPlusTree</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">root</span> <span class="o">=</span> <span class="nc">LeafNode</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
+    
+    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="c1"># Find leaf, split if needed
+</span>        <span class="c1"># Update parents
+</span>        <span class="k">pass</span>
+    
+    <span class="k">def</span> <span class="nf">range_query</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="c1"># Find start leaf
+</span>        <span class="c1"># Scan linked leaves until end
+</span>        <span class="k">pass</span>
+</code></pre></div></div>
+
+<h3 id="project-3-simple-sql-engine-1-month">Project 3: Simple SQL Engine (1 Month)</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Parse and execute basic SQL
+</span><span class="k">class</span> <span class="nc">MiniSQL</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+        <span class="n">ast</span> <span class="o">=</span> <span class="nf">parse_sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">ast</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SELECT</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">scan_table</span><span class="p">(</span><span class="n">ast</span><span class="p">.</span><span class="n">table</span><span class="p">)</span>
+            <span class="n">filtered</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">apply_where</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">where</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">project</span><span class="p">(</span><span class="n">filtered</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">columns</span><span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="n">ast</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">CREATE TABLE</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">create_table</span><span class="p">(</span><span class="n">ast</span><span class="p">.</span><span class="n">table_name</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">columns</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="project-4-add-transactions-2-months">Project 4: Add Transactions (2 Months)</h3>
+<ul>
+  <li>Implement write-ahead logging</li>
+  <li>Add simple 2PL for isolation</li>
+  <li>Build recovery manager</li>
+  <li>Handle concurrent access</li>
+</ul>
+
+<p>Each project builds on the last, gradually introducing complexity!</p>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+  <li><a href="aws.html">AWS</a> - Cloud database services and DynamoDB internals</li>
+  <li><a href="docker.html">Docker</a> - Containerizing databases</li>
+  <li><a href="cybersecurity.html">Cybersecurity</a> - Database security and encryption</li>
+  <li><a href="ai.html">AI</a> - Machine learning with databases and learned indexes</li>
+  <li><a href="networking.html">Networking</a> - Distributed database protocols</li>
+  <li><a href="quantumcomputing.html">Quantum Computing</a> - Future of quantum database algorithms</li>
+</ul>
+
+<h2 id="summary">Summary</h2>
+
+<p>Databases are the foundation of modern applications. From simple files to distributed systems spanning the globe, they solve the fundamental challenge of storing and retrieving data reliably at scale.</p>
+
+<p>Whether you’re building a small app or a global platform, understanding how databases work—from B+ trees to distributed consensus—helps you make better design decisions and debug issues when they arise.</p>
+
+<p>The field continues to evolve rapidly, with machine learning, new hardware, and distributed systems pushing the boundaries of what’s possible. But the core principles—organizing data efficiently, managing concurrent access, and ensuring reliability—remain timeless.</p>
+
+<p>Start with the basics, experiment with different databases, and gradually work your way up to advanced topics. The journey from <code class="language-plaintext highlighter-rouge">SELECT * FROM users</code> to building distributed systems is challenging but incredibly rewarding.</p>
+
+        
+      </section>
+
+      <footer class="page__meta">
+        
+        
+
+
+        
+
+
+      </footer>
+
+      
+
+      
+    </div>
+
+    
+  </article>
+
+  
+  
+</div>
+
+    </div>
+
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+
+    
+
+    
+      <li><a href="/Documentation/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+    
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2025 Andrews Notebook. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/minimal-mistakes-jekyll-theme/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/Documentation/assets/js/main.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+  </body>
+</html>
