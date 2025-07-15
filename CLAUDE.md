@@ -74,7 +74,7 @@ FastAPI server providing tools via Model Context Protocol:
 - **Content Creation**: create_manim_animation, compile_latex
 - **Remote Services**: ComfyUI (image generation), AI Toolkit (LoRA training)
 
-Configuration in `mcp-config.json` defines tools, security, and rate limits.
+Configuration in `.mcp.json` defines tools, security, and rate limits.
 
 ### Container Architecture
 - **python-ci**: All Python CI/CD tools (Python 3.11)
