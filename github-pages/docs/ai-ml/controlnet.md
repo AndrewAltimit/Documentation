@@ -9,11 +9,9 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-
-{: .no_toc }
-
-<div class="code-example" markdown="1">
-Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">ControlNet Guide</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
 </div>
 
 ## Table of contents
