@@ -1,3 +1,8 @@
+---
+layout: default
+title: Git Version Control
+---
+
 # Git Version Control
 
 <html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>

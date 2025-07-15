@@ -1,3 +1,8 @@
+---
+layout: default
+title: Artificial Intelligence
+---
+
 # Artificial Intelligence
 
 <html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>

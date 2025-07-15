@@ -1,3 +1,8 @@
+---
+layout: default
+title: Andrew's Notebook
+---
+
 # Andrew's Notebook
 
 <html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>

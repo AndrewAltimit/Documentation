@@ -1,3 +1,8 @@
+---
+layout: default
+title: Cybersecurity
+---
+
 # Cybersecurity
 
 <html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>

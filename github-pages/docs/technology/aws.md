@@ -1,3 +1,8 @@
+---
+layout: default
+title: AWS Developer's Guide
+---
+
 # AWS Developer's Guide
 
 <html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
