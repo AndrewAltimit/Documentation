@@ -9,6 +9,28 @@ Contains the GitHub Pages website documentation for "Andrew's Notebook":
 - Includes topics like Quantum Computing, AI, Docker, Terraform, etc.
 - Available at: https://andrewaltimit.github.io/Documentation/
 
+### Building the Site Locally
+```bash
+# Using docker-compose (from repository root)
+docker-compose run --rm jekyll
+
+# Or using Docker directly (from github-pages directory)
+cd github-pages
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  jekyll/jekyll:4.2.2 \
+  jekyll build
+
+# Serve locally for testing (http://localhost:4000)
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  -p 4000:4000 \
+  jekyll/jekyll:4.2.2 \
+  jekyll serve --host 0.0.0.0
+```
+
 ## 📁 development-docs/
 Contains internal documentation for AI agents and development:
 - `CLAUDE.md` - Instructions for Claude Code AI assistant

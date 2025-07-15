@@ -65,6 +65,41 @@ docker-compose down
 ./scripts/run-ci.sh json-lint   # Validate JSON files
 ```
 
+### Building GitHub Pages Site Locally
+```bash
+# Build the Jekyll site using Docker (creates _site folder)
+cd github-pages
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  jekyll/jekyll:4.2.2 \
+  jekyll build
+
+# Alternative: Build using docker-compose from root directory
+docker-compose run --rm jekyll
+
+# Generate Gemfile.lock if needed (for dependency management)
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  jekyll/jekyll:4.2.2 \
+  bundle install
+
+# Serve the site locally for testing (available at http://localhost:4000)
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  -p 4000:4000 \
+  jekyll/jekyll:4.2.2 \
+  jekyll serve --host 0.0.0.0
+
+# Clean build artifacts
+docker run --rm \
+  --volume="$PWD:/srv/jekyll:Z" \
+  jekyll/jekyll:4.2.2 \
+  jekyll clean
+```
+
 ## Architecture
 
 ### MCP Server (`tools/mcp/mcp_server.py`)
