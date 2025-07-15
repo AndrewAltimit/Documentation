@@ -11,24 +11,14 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.1  # or 3.0/3.2
-          bundler-cache: true
-
-      - name: Install dependencies
+      - name: Build site using Docker Compose
         run: |
-          bundle config set --local path 'vendor/bundle'
-          bundle install
+          docker-compose run --rm jekyll bundle install
+          docker-compose run --rm jekyll jekyll build
 
-      - name: Build site with Jekyll
-        run: bundle exec jekyll build
-
-      - name: Deploy to GitHub Pages
+      - name: Upload built site to GitHub Pages (optional)
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
