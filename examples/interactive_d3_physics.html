@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Physics Visualizations with D3.js</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .visualization {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        .controls label {
+            margin-right: 10px;
+        }
+        .controls input[type="range"] {
+            width: 200px;
+            vertical-align: middle;
+        }
+        .value-display {
+            display: inline-block;
+            width: 60px;
+            text-align: right;
+        }
+        svg {
+            display: block;
+            margin: 0 auto;
+        }
+        .axis {
+            stroke: #666;
+            stroke-width: 1;
+        }
+        .grid {
+            stroke: #ddd;
+            stroke-width: 0.5;
+            stroke-dasharray: 2,2;
+        }
+        button {
+            padding: 5px 15px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.stop {
+            background-color: #f44336;
+        }
+        button.stop:hover {
+            background-color: #da190b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Physics Visualizations</h1>
+        
+        <!-- Double Pendulum -->
+        <div class="visualization">
+            <h2>Double Pendulum - Chaos Theory</h2>
+            <div class="controls">
+                <label>Length 1: <input type="range" id="l1" min="50" max="150" value="100">
+                    <span class="value-display" id="l1-value">100</span></label>
+                <label>Length 2: <input type="range" id="l2" min="50" max="150" value="100">
+                    <span class="value-display" id="l2-value">100</span></label>
+                <button id="start-pendulum">Start</button>
+                <button id="stop-pendulum" class="stop">Stop</button>
+                <button id="reset-pendulum">Reset</button>
+            </div>
+            <svg id="double-pendulum" width="800" height="400"></svg>
+        </div>
+
+        <!-- Wave Interference -->
+        <div class="visualization">
+            <h2>Wave Interference Pattern</h2>
+            <div class="controls">
+                <label>Frequency: <input type="range" id="frequency" min="0.5" max="3" step="0.1" value="1">
+                    <span class="value-display" id="freq-value">1.0</span></label>
+                <label>Distance: <input type="range" id="distance" min="50" max="200" value="100">
+                    <span class="value-display" id="dist-value">100</span></label>
+                <button id="animate-waves">Animate</button>
+                <button id="stop-waves" class="stop">Stop</button>
+            </div>
+            <svg id="wave-interference" width="800" height="400"></svg>
+        </div>
+
+        <!-- Gravitational Orbits -->
+        <div class="visualization">
+            <h2>Gravitational Orbit Simulation</h2>
+            <div class="controls">
+                <label>Initial Velocity: <input type="range" id="velocity" min="1" max="5" step="0.1" value="2.5">
+                    <span class="value-display" id="vel-value">2.5</span></label>
+                <label>Mass Ratio: <input type="range" id="mass" min="0.5" max="3" step="0.1" value="1">
+                    <span class="value-display" id="mass-value">1.0</span></label>
+                <button id="launch-orbit">Launch</button>
+                <button id="clear-orbits">Clear Trails</button>
+            </div>
+            <svg id="orbital-mechanics" width="800" height="400"></svg>
+        </div>
+    </div>
+
+    <script>
+        // Double Pendulum Implementation
+        class DoublePendulum {
+            constructor(svg, l1, l2) {
+                this.svg = d3.select(svg);
+                this.width = +this.svg.attr('width');
+                this.height = +this.svg.attr('height');
+                this.centerX = this.width / 2;
+                this.centerY = 100;
+                
+                // Pendulum parameters
+                this.l1 = l1;
+                this.l2 = l2;
+                this.m1 = 10;
+                this.m2 = 10;
+                this.g = 1;
+                
+                // Initial conditions
+                this.a1 = Math.PI / 2;
+                this.a2 = Math.PI / 2;
+                this.a1_v = 0;
+                this.a2_v = 0;
+                
+                this.trail = [];
+                this.maxTrailLength = 500;
+                
+                this.setupVisualization();
+            }
+            
+            setupVisualization() {
+                this.svg.selectAll("*").remove();
+                
+                // Background
+                this.svg.append('rect')
+                    .attr('width', this.width)
+                    .attr('height', this.height)
+                    .attr('fill', '#f8f8f8');
+                
+                // Trail path
+                this.trailPath = this.svg.append('path')
+                    .attr('fill', 'none')
+                    .attr('stroke', 'rgba(255, 0, 0, 0.3)')
+                    .attr('stroke-width', 2);
+                
+                // Pendulum group
+                this.pendulumGroup = this.svg.append('g');
+                
+                // First rod
+                this.rod1 = this.pendulumGroup.append('line')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 3);
+                
+                // Second rod
+                this.rod2 = this.pendulumGroup.append('line')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 3);
+                
+                // Pivot
+                this.pivot = this.pendulumGroup.append('circle')
+                    .attr('cx', this.centerX)
+                    .attr('cy', this.centerY)
+                    .attr('r', 5)
+                    .attr('fill', '#666');
+                
+                // First mass
+                this.mass1 = this.pendulumGroup.append('circle')
+                    .attr('r', this.m1)
+                    .attr('fill', '#4CAF50');
+                
+                // Second mass
+                this.mass2 = this.pendulumGroup.append('circle')
+                    .attr('r', this.m2)
+                    .attr('fill', '#2196F3');
+            }
+            
+            update(dt) {
+                // Double pendulum equations of motion
+                let num1 = -this.g * (2 * this.m1 + this.m2) * Math.sin(this.a1);
+                let num2 = -this.m2 * this.g * Math.sin(this.a1 - 2 * this.a2);
+                let num3 = -2 * Math.sin(this.a1 - this.a2) * this.m2;
+                let num4 = this.a2_v * this.a2_v * this.l2 + this.a1_v * this.a1_v * this.l1 * Math.cos(this.a1 - this.a2);
+                let den = this.l1 * (2 * this.m1 + this.m2 - this.m2 * Math.cos(2 * this.a1 - 2 * this.a2));
+                let a1_a = (num1 + num2 + num3 * num4) / den;
+                
+                num1 = 2 * Math.sin(this.a1 - this.a2);
+                num2 = (this.a1_v * this.a1_v * this.l1 * (this.m1 + this.m2));
+                num3 = this.g * (this.m1 + this.m2) * Math.cos(this.a1);
+                num4 = this.a2_v * this.a2_v * this.l2 * this.m2 * Math.cos(this.a1 - this.a2);
+                den = this.l2 * (2 * this.m1 + this.m2 - this.m2 * Math.cos(2 * this.a1 - 2 * this.a2));
+                let a2_a = (num1 * (num2 + num3 + num4)) / den;
+                
+                // Update velocities
+                this.a1_v += a1_a * dt;
+                this.a2_v += a2_a * dt;
+                
+                // Update angles
+                this.a1 += this.a1_v * dt;
+                this.a2 += this.a2_v * dt;
+                
+                // Add damping
+                this.a1_v *= 0.999;
+                this.a2_v *= 0.999;
+            }
+            
+            draw() {
+                // Calculate positions
+                let x1 = this.centerX + this.l1 * Math.sin(this.a1);
+                let y1 = this.centerY + this.l1 * Math.cos(this.a1);
+                let x2 = x1 + this.l2 * Math.sin(this.a2);
+                let y2 = y1 + this.l2 * Math.cos(this.a2);
+                
+                // Update trail
+                this.trail.push({x: x2, y: y2});
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+                
+                // Draw trail
+                if (this.trail.length > 1) {
+                    let line = d3.line()
+                        .x(d => d.x)
+                        .y(d => d.y)
+                        .curve(d3.curveNatural);
+                    this.trailPath.attr('d', line(this.trail));
+                }
+                
+                // Update pendulum
+                this.rod1
+                    .attr('x1', this.centerX)
+                    .attr('y1', this.centerY)
+                    .attr('x2', x1)
+                    .attr('y2', y1);
+                
+                this.rod2
+                    .attr('x1', x1)
+                    .attr('y1', y1)
+                    .attr('x2', x2)
+                    .attr('y2', y2);
+                
+                this.mass1
+                    .attr('cx', x1)
+                    .attr('cy', y1);
+                
+                this.mass2
+                    .attr('cx', x2)
+                    .attr('cy', y2);
+            }
+        }
+
+        // Wave Interference Implementation
+        class WaveInterference {
+            constructor(svg) {
+                this.svg = d3.select(svg);
+                this.width = +this.svg.attr('width');
+                this.height = +this.svg.attr('height');
+                
+                this.frequency = 1;
+                this.sourceDistance = 100;
+                this.time = 0;
+                this.resolution = 5;
+                
+                this.setupVisualization();
+            }
+            
+            setupVisualization() {
+                this.svg.selectAll("*").remove();
+                
+                // Create color scale
+                this.colorScale = d3.scaleSequential(d3.interpolateRdBu)
+                    .domain([-2, 2]);
+                
+                // Create grid
+                this.grid = [];
+                for (let x = 0; x < this.width; x += this.resolution) {
+                    for (let y = 0; y < this.height; y += this.resolution) {
+                        this.grid.push({x, y});
+                    }
+                }
+                
+                // Draw sources
+                let source1X = this.width / 2 - this.sourceDistance / 2;
+                let source2X = this.width / 2 + this.sourceDistance / 2;
+                let sourceY = this.height / 2;
+                
+                this.svg.append('circle')
+                    .attr('cx', source1X)
+                    .attr('cy', sourceY)
+                    .attr('r', 5)
+                    .attr('fill', 'red');
+                
+                this.svg.append('circle')
+                    .attr('cx', source2X)
+                    .attr('cy', sourceY)
+                    .attr('r', 5)
+                    .attr('fill', 'blue');
+            }
+            
+            update(dt) {
+                this.time += dt;
+                
+                let source1X = this.width / 2 - this.sourceDistance / 2;
+                let source2X = this.width / 2 + this.sourceDistance / 2;
+                let sourceY = this.height / 2;
+                
+                // Clear previous
+                this.svg.selectAll('rect.wave-pixel').remove();
+                
+                // Calculate interference pattern
+                this.svg.selectAll('rect.wave-pixel')
+                    .data(this.grid)
+                    .enter()
+                    .append('rect')
+                    .attr('class', 'wave-pixel')
+                    .attr('x', d => d.x)
+                    .attr('y', d => d.y)
+                    .attr('width', this.resolution)
+                    .attr('height', this.resolution)
+                    .attr('fill', d => {
+                        let dist1 = Math.sqrt(Math.pow(d.x - source1X, 2) + Math.pow(d.y - sourceY, 2));
+                        let dist2 = Math.sqrt(Math.pow(d.x - source2X, 2) + Math.pow(d.y - sourceY, 2));
+                        
+                        let wave1 = Math.sin(this.frequency * (dist1 - this.time * 50)) / (1 + dist1 * 0.01);
+                        let wave2 = Math.sin(this.frequency * (dist2 - this.time * 50)) / (1 + dist2 * 0.01);
+                        
+                        let amplitude = wave1 + wave2;
+                        return this.colorScale(amplitude);
+                    });
+            }
+        }
+
+        // Orbital Mechanics Implementation
+        class OrbitalMechanics {
+            constructor(svg) {
+                this.svg = d3.select(svg);
+                this.width = +this.svg.attr('width');
+                this.height = +this.svg.attr('height');
+                
+                this.centerX = this.width / 2;
+                this.centerY = this.height / 2;
+                
+                this.G = 1000;
+                this.centralMass = 1;
+                
+                this.objects = [];
+                
+                this.setupVisualization();
+            }
+            
+            setupVisualization() {
+                this.svg.selectAll("*").remove();
+                
+                // Background
+                this.svg.append('rect')
+                    .attr('width', this.width)
+                    .attr('height', this.height)
+                    .attr('fill', '#000033');
+                
+                // Central star
+                let gradient = this.svg.append('defs')
+                    .append('radialGradient')
+                    .attr('id', 'star-gradient');
+                
+                gradient.append('stop')
+                    .attr('offset', '0%')
+                    .attr('stop-color', '#ffff00');
+                
+                gradient.append('stop')
+                    .attr('offset', '100%')
+                    .attr('stop-color', '#ff9900');
+                
+                this.svg.append('circle')
+                    .attr('cx', this.centerX)
+                    .attr('cy', this.centerY)
+                    .attr('r', 20)
+                    .attr('fill', 'url(#star-gradient)');
+                
+                // Trail container
+                this.trailContainer = this.svg.append('g');
+                
+                // Object container
+                this.objectContainer = this.svg.append('g');
+            }
+            
+            addObject(velocity, mass) {
+                let obj = {
+                    x: this.centerX + 150,
+                    y: this.centerY,
+                    vx: 0,
+                    vy: -velocity * 20,
+                    mass: mass,
+                    trail: [],
+                    color: d3.schemeCategory10[this.objects.length % 10]
+                };
+                
+                obj.element = this.objectContainer.append('circle')
+                    .attr('r', 5 + mass * 2)
+                    .attr('fill', obj.color);
+                
+                obj.trailPath = this.trailContainer.append('path')
+                    .attr('fill', 'none')
+                    .attr('stroke', obj.color)
+                    .attr('stroke-width', 1)
+                    .attr('stroke-opacity', 0.5);
+                
+                this.objects.push(obj);
+            }
+            
+            update(dt) {
+                this.objects.forEach(obj => {
+                    // Calculate gravitational force
+                    let dx = this.centerX - obj.x;
+                    let dy = this.centerY - obj.y;
+                    let r = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (r > 5) {
+                        let force = this.G * this.centralMass * obj.mass / (r * r);
+                        let ax = force * dx / r / obj.mass;
+                        let ay = force * dy / r / obj.mass;
+                        
+                        // Update velocity
+                        obj.vx += ax * dt;
+                        obj.vy += ay * dt;
+                        
+                        // Update position
+                        obj.x += obj.vx * dt;
+                        obj.y += obj.vy * dt;
+                        
+                        // Update trail
+                        obj.trail.push({x: obj.x, y: obj.y});
+                        if (obj.trail.length > 500) {
+                            obj.trail.shift();
+                        }
+                        
+                        // Draw
+                        obj.element
+                            .attr('cx', obj.x)
+                            .attr('cy', obj.y);
+                        
+                        if (obj.trail.length > 1) {
+                            let line = d3.line()
+                                .x(d => d.x)
+                                .y(d => d.y);
+                            obj.trailPath.attr('d', line(obj.trail));
+                        }
+                    }
+                });
+            }
+            
+            clearTrails() {
+                this.objects.forEach(obj => {
+                    obj.trail = [];
+                    obj.trailPath.attr('d', '');
+                });
+            }
+        }
+
+        // Initialize visualizations
+        let pendulum, waveViz, orbitalViz;
+        let animationFrames = {};
+
+        // Double Pendulum Controls
+        d3.select('#l1').on('input', function() {
+            d3.select('#l1-value').text(this.value);
+        });
+        
+        d3.select('#l2').on('input', function() {
+            d3.select('#l2-value').text(this.value);
+        });
+        
+        d3.select('#start-pendulum').on('click', function() {
+            let l1 = +d3.select('#l1').property('value');
+            let l2 = +d3.select('#l2').property('value');
+            
+            pendulum = new DoublePendulum('#double-pendulum', l1, l2);
+            
+            if (animationFrames.pendulum) {
+                cancelAnimationFrame(animationFrames.pendulum);
+            }
+            
+            let lastTime = 0;
+            function animate(currentTime) {
+                let dt = (currentTime - lastTime) / 1000;
+                if (dt > 0.1) dt = 0.1;
+                
+                if (dt > 0) {
+                    pendulum.update(dt);
+                    pendulum.draw();
+                }
+                
+                lastTime = currentTime;
+                animationFrames.pendulum = requestAnimationFrame(animate);
+            }
+            
+            animate(0);
+        });
+        
+        d3.select('#stop-pendulum').on('click', function() {
+            if (animationFrames.pendulum) {
+                cancelAnimationFrame(animationFrames.pendulum);
+            }
+        });
+        
+        d3.select('#reset-pendulum').on('click', function() {
+            if (animationFrames.pendulum) {
+                cancelAnimationFrame(animationFrames.pendulum);
+            }
+            let l1 = +d3.select('#l1').property('value');
+            let l2 = +d3.select('#l2').property('value');
+            pendulum = new DoublePendulum('#double-pendulum', l1, l2);
+            pendulum.draw();
+        });
+
+        // Wave Interference Controls
+        d3.select('#frequency').on('input', function() {
+            d3.select('#freq-value').text(this.value);
+            if (waveViz) waveViz.frequency = +this.value;
+        });
+        
+        d3.select('#distance').on('input', function() {
+            d3.select('#dist-value').text(this.value);
+            if (waveViz) {
+                waveViz.sourceDistance = +this.value;
+                waveViz.setupVisualization();
+            }
+        });
+        
+        d3.select('#animate-waves').on('click', function() {
+            if (!waveViz) {
+                waveViz = new WaveInterference('#wave-interference');
+            }
+            
+            if (animationFrames.waves) {
+                cancelAnimationFrame(animationFrames.waves);
+            }
+            
+            function animate() {
+                waveViz.update(0.05);
+                animationFrames.waves = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        });
+        
+        d3.select('#stop-waves').on('click', function() {
+            if (animationFrames.waves) {
+                cancelAnimationFrame(animationFrames.waves);
+            }
+        });
+
+        // Orbital Mechanics Controls
+        d3.select('#velocity').on('input', function() {
+            d3.select('#vel-value').text(this.value);
+        });
+        
+        d3.select('#mass').on('input', function() {
+            d3.select('#mass-value').text(this.value);
+        });
+        
+        d3.select('#launch-orbit').on('click', function() {
+            if (!orbitalViz) {
+                orbitalViz = new OrbitalMechanics('#orbital-mechanics');
+                
+                function animate() {
+                    orbitalViz.update(0.02);
+                    animationFrames.orbital = requestAnimationFrame(animate);
+                }
+                animate();
+            }
+            
+            let velocity = +d3.select('#velocity').property('value');
+            let mass = +d3.select('#mass').property('value');
+            orbitalViz.addObject(velocity, mass);
+        });
+        
+        d3.select('#clear-orbits').on('click', function() {
+            if (orbitalViz) {
+                orbitalViz.clearTrails();
+            }
+        });
+
+        // Initialize first visualization
+        pendulum = new DoublePendulum('#double-pendulum', 100, 100);
+        pendulum.draw();
+        
+        waveViz = new WaveInterference('#wave-interference');
+        waveViz.update(0);
+        
+        orbitalViz = new OrbitalMechanics('#orbital-mechanics');
+    </script>
+</body>
+</html>
