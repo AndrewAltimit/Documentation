@@ -119,36 +119,62 @@
     border-bottom: 1px solid #e1e4e8;
   }
   
-  /* Override Minimal Mistakes navbar styling */
-  .masthead {
+  /* Override Minimal Mistakes navbar styling with higher specificity */
+  body .masthead {
     border-bottom: 1px solid #e1e4e8;
     background: white;
+    position: relative;
+    clear: both;
+    margin-bottom: 0;
+    padding: 0;
   }
   
-  .masthead__inner-wrap {
+  body .masthead__inner-wrap {
     padding: 0.5em 1em !important; /* Force compact padding */
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  
+  body .greedy-nav {
+    background: transparent;
+    display: flex;
+    align-items: center;
+    width: 100%;
     max-width: 100%;
   }
   
-  .greedy-nav {
-    background: transparent;
+  body .greedy-nav a,
+  body .greedy-nav__toggle {
+    margin: 0 0.25rem !important; /* Even more condensed spacing */
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.875rem !important; /* Smaller font */
+    line-height: 1.2 !important;
+    display: flex;
+    align-items: center;
   }
   
-  .greedy-nav a {
-    margin: 0 0.5rem !important; /* Force condensed spacing */
-    font-size: 0.9rem !important;
+  body .greedy-nav .visible-links {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem !important;
+    overflow: visible;
   }
   
-  .greedy-nav .visible-links {
-    font-size: 0.9rem !important;
+  body .greedy-nav .visible-links li {
+    flex: 0 0 auto;
   }
   
-  .greedy-nav .visible-links a {
+  body .greedy-nav .visible-links a {
     position: relative;
-    margin: 0 0.5rem !important;
+    margin: 0 0.25rem !important;
+    padding: 0.25rem 0.5rem !important;
+    white-space: nowrap;
   }
   
-  .greedy-nav .visible-links a:before {
+  body .greedy-nav .visible-links a:before {
     content: "";
     position: absolute;
     left: 0;
@@ -160,17 +186,48 @@
     transition: transform 0.3s ease;
   }
   
-  .greedy-nav .visible-links a:hover:before {
+  body .greedy-nav .visible-links a:hover:before {
     transform: scaleX(1);
   }
   
-  .masthead__menu-item {
-    font-size: 0.9rem !important; /* Slightly smaller font */
+  body .masthead__menu {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  
+  body .masthead__menu-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem !important;
   }
   
   /* Site title in masthead */
-  .site-title {
-    font-size: 1.25rem !important;
+  body .site-title {
+    font-size: 1.125rem !important; /* Even smaller title */
+    font-weight: 600;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+  }
+  
+  body .site-subtitle {
+    display: none; /* Hide subtitle to save space */
+  }
+  
+  /* Ensure the navbar takes minimal vertical space */
+  body .masthead {
+    min-height: auto !important;
+  }
+  
+  /* Hidden links (hamburger menu) also need to be smaller */
+  body .greedy-nav .hidden-links {
+    font-size: 0.875rem !important;
+  }
+  
+  body .greedy-nav .hidden-links a {
+    padding: 0.25rem 1rem !important;
+    font-size: 0.875rem !important;
   }
   
   /* Widescreen optimized layout */
@@ -390,14 +447,38 @@
     margin-bottom: 2rem;
   }
   
-  /* The hero section is a sibling of page__inner-wrap, so we need a different approach */
-  article.page:has(.hero-section) .page__inner-wrap header h1 {
+  /* Hide the page title when content starts with a hero section */
+  .page__inner-wrap header h1#page-title {
     display: none;
   }
   
-  /* Fallback for browsers that don't support :has() */
+  /* Show title only when there's no hero section - use JavaScript to add class */
+  .page__inner-wrap.no-hero header h1#page-title {
+    display: block;
+  }
+  
+  /* Ensure hero section takes up the full width */
   .page__content .hero-section:first-child {
-    margin-top: -3rem;
+    margin-top: -2rem;
+    margin-left: -3rem;
+    margin-right: -3rem;
+    margin-bottom: 2rem;
+  }
+  
+  /* Adjust hero section margins for smaller screens */
+  @media (max-width: 1439px) {
+    .page__content .hero-section:first-child {
+      margin-left: -2rem;
+      margin-right: -2rem;
+    }
+  }
+  
+  @media (max-width: 1023px) {
+    .page__content .hero-section:first-child {
+      margin-left: -1rem;
+      margin-right: -1rem;
+      margin-top: -1rem;
+    }
   }
   
   /* Additional enhancements for better visual hierarchy */
@@ -464,9 +545,26 @@
   }
 </style>
 
-<!-- Mobile navigation toggle script -->
+<!-- Mobile navigation toggle script and hero section detection -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Detect hero section and hide duplicate title
+  const pageContent = document.querySelector('.page__content');
+  const pageInnerWrap = document.querySelector('.page__inner-wrap');
+  
+  if (pageContent && pageInnerWrap) {
+    const firstChild = pageContent.firstElementChild;
+    
+    // Check if the first element is a hero section
+    if (firstChild && firstChild.classList.contains('hero-section')) {
+      // Hero section exists, hide the title
+      pageInnerWrap.classList.remove('no-hero');
+    } else {
+      // No hero section, show the title
+      pageInnerWrap.classList.add('no-hero');
+    }
+  }
+  
   // Create mobile menu toggle button if it doesn't exist
   if (window.innerWidth <= 1023) {
     if (!document.querySelector('.nav-toggle')) {
@@ -1003,119 +1101,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">ControlNet Guide</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
 </div>
-
-<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
-
-<ol id="markdown-toc">
-  <li><a href="#what-is-controlnet" id="markdown-toc-what-is-controlnet">What is ControlNet?</a>    <ol>
-      <li><a href="#how-controlnet-works" id="markdown-toc-how-controlnet-works">How ControlNet Works</a></li>
-    </ol>
-  </li>
-  <li><a href="#controlnet-types" id="markdown-toc-controlnet-types">ControlNet Types</a>    <ol>
-      <li><a href="#pose-control" id="markdown-toc-pose-control">Pose Control</a>        <ol>
-          <li><a href="#openpose" id="markdown-toc-openpose">OpenPose</a></li>
-          <li><a href="#dwpose" id="markdown-toc-dwpose">DWPose</a></li>
-        </ol>
-      </li>
-      <li><a href="#edge-detection" id="markdown-toc-edge-detection">Edge Detection</a>        <ol>
-          <li><a href="#canny-edge" id="markdown-toc-canny-edge">Canny Edge</a></li>
-          <li><a href="#mlsd-m-lsd" id="markdown-toc-mlsd-m-lsd">MLSD (M-LSD)</a></li>
-          <li><a href="#softedge-hedpidi" id="markdown-toc-softedge-hedpidi">SoftEdge (HED/PIDI)</a></li>
-        </ol>
-      </li>
-      <li><a href="#depth-control" id="markdown-toc-depth-control">Depth Control</a>        <ol>
-          <li><a href="#midas" id="markdown-toc-midas">MiDaS</a></li>
-          <li><a href="#zoe-depth" id="markdown-toc-zoe-depth">Zoe Depth</a></li>
-          <li><a href="#leres" id="markdown-toc-leres">LeReS</a></li>
-        </ol>
-      </li>
-      <li><a href="#semantic-control" id="markdown-toc-semantic-control">Semantic Control</a>        <ol>
-          <li><a href="#segmentation" id="markdown-toc-segmentation">Segmentation</a></li>
-          <li><a href="#normal-maps" id="markdown-toc-normal-maps">Normal Maps</a></li>
-        </ol>
-      </li>
-      <li><a href="#line-art-control" id="markdown-toc-line-art-control">Line Art Control</a>        <ol>
-          <li><a href="#anime-line-art" id="markdown-toc-anime-line-art">Anime Line Art</a></li>
-          <li><a href="#scribble" id="markdown-toc-scribble">Scribble</a></li>
-        </ol>
-      </li>
-      <li><a href="#special-controls" id="markdown-toc-special-controls">Special Controls</a>        <ol>
-          <li><a href="#shuffle" id="markdown-toc-shuffle">Shuffle</a></li>
-          <li><a href="#tile" id="markdown-toc-tile">Tile</a></li>
-          <li><a href="#inpaint" id="markdown-toc-inpaint">Inpaint</a></li>
-        </ol>
-      </li>
-    </ol>
-  </li>
-  <li><a href="#installation-and-setup" id="markdown-toc-installation-and-setup">Installation and Setup</a>    <ol>
-      <li><a href="#comfyui-installation" id="markdown-toc-comfyui-installation">ComfyUI Installation</a></li>
-      <li><a href="#required-components" id="markdown-toc-required-components">Required Components</a></li>
-    </ol>
-  </li>
-  <li><a href="#basic-workflows" id="markdown-toc-basic-workflows">Basic Workflows</a>    <ol>
-      <li><a href="#simple-controlnet-workflow" id="markdown-toc-simple-controlnet-workflow">Simple ControlNet Workflow</a></li>
-      <li><a href="#multi-controlnet-setup" id="markdown-toc-multi-controlnet-setup">Multi-ControlNet Setup</a></li>
-      <li><a href="#controlnet-parameters" id="markdown-toc-controlnet-parameters">ControlNet Parameters</a></li>
-    </ol>
-  </li>
-  <li><a href="#advanced-techniques" id="markdown-toc-advanced-techniques">Advanced Techniques</a>    <ol>
-      <li><a href="#strength-scheduling" id="markdown-toc-strength-scheduling">Strength Scheduling</a></li>
-      <li><a href="#multiple-control-combinations" id="markdown-toc-multiple-control-combinations">Multiple Control Combinations</a>        <ol>
-          <li><a href="#pose--depth" id="markdown-toc-pose--depth">Pose + Depth</a></li>
-          <li><a href="#edge--segmentation" id="markdown-toc-edge--segmentation">Edge + Segmentation</a></li>
-        </ol>
-      </li>
-      <li><a href="#control-mode-selection" id="markdown-toc-control-mode-selection">Control Mode Selection</a></li>
-      <li><a href="#resolution-considerations" id="markdown-toc-resolution-considerations">Resolution Considerations</a></li>
-    </ol>
-  </li>
-  <li><a href="#preprocessing-best-practices" id="markdown-toc-preprocessing-best-practices">Preprocessing Best Practices</a>    <ol>
-      <li><a href="#image-preparation" id="markdown-toc-image-preparation">Image Preparation</a></li>
-      <li><a href="#preprocessor-selection" id="markdown-toc-preprocessor-selection">Preprocessor Selection</a></li>
-      <li><a href="#custom-preprocessing" id="markdown-toc-custom-preprocessing">Custom Preprocessing</a></li>
-    </ol>
-  </li>
-  <li><a href="#model-compatibility" id="markdown-toc-model-compatibility">Model Compatibility</a>    <ol>
-      <li><a href="#controlnet-versions" id="markdown-toc-controlnet-versions">ControlNet Versions</a></li>
-      <li><a href="#t2i-adapter" id="markdown-toc-t2i-adapter">T2I-Adapter</a></li>
-    </ol>
-  </li>
-  <li><a href="#common-workflows" id="markdown-toc-common-workflows">Common Workflows</a>    <ol>
-      <li><a href="#character-consistency" id="markdown-toc-character-consistency">Character Consistency</a></li>
-      <li><a href="#architecture-visualization" id="markdown-toc-architecture-visualization">Architecture Visualization</a></li>
-      <li><a href="#style-transfer-with-structure" id="markdown-toc-style-transfer-with-structure">Style Transfer with Structure</a></li>
-    </ol>
-  </li>
-  <li><a href="#troubleshooting" id="markdown-toc-troubleshooting">Troubleshooting</a>    <ol>
-      <li><a href="#common-issues" id="markdown-toc-common-issues">Common Issues</a>        <ol>
-          <li><a href="#preprocessor-not-detecting-features" id="markdown-toc-preprocessor-not-detecting-features">Preprocessor Not Detecting Features</a></li>
-          <li><a href="#over-controlling-generation" id="markdown-toc-over-controlling-generation">Over-controlling Generation</a></li>
-          <li><a href="#artifacts-at-edges" id="markdown-toc-artifacts-at-edges">Artifacts at Edges</a></li>
-        </ol>
-      </li>
-      <li><a href="#performance-optimization" id="markdown-toc-performance-optimization">Performance Optimization</a></li>
-    </ol>
-  </li>
-  <li><a href="#creative-applications" id="markdown-toc-creative-applications">Creative Applications</a>    <ol>
-      <li><a href="#hybrid-controls" id="markdown-toc-hybrid-controls">Hybrid Controls</a></li>
-      <li><a href="#temporal-consistency" id="markdown-toc-temporal-consistency">Temporal Consistency</a></li>
-      <li><a href="#interactive-control" id="markdown-toc-interactive-control">Interactive Control</a></li>
-    </ol>
-  </li>
-  <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
-      <li><a href="#dos" id="markdown-toc-dos">Do’s</a></li>
-      <li><a href="#donts" id="markdown-toc-donts">Don’ts</a></li>
-    </ol>
-  </li>
-  <li><a href="#future-developments" id="markdown-toc-future-developments">Future Developments</a>    <ol>
-      <li><a href="#emerging-controlnet-technologies" id="markdown-toc-emerging-controlnet-technologies">Emerging ControlNet Technologies</a></li>
-      <li><a href="#integration-trends" id="markdown-toc-integration-trends">Integration Trends</a></li>
-    </ol>
-  </li>
-  <li><a href="#conclusion" id="markdown-toc-conclusion">Conclusion</a></li>
-</ol>
-
-<hr />
 
 <h2 id="what-is-controlnet">What is ControlNet?</h2>
 
