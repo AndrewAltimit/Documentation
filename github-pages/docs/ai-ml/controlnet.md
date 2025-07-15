@@ -14,13 +14,6 @@ toc_icon: "cog"
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
 
 ## What is ControlNet?
 
