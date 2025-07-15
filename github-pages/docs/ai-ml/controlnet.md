@@ -3,8 +3,6 @@ layout: docs
 title: ControlNet Guide
 parent: AI/ML Documentation
 nav_order: 7
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

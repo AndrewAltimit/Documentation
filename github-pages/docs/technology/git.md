@@ -1,8 +1,6 @@
 ---
 layout: docs
 title: Git Version Control
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

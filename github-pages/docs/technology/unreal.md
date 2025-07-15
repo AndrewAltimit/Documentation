@@ -1,8 +1,6 @@
 ---
 layout: docs
 title: Unreal Engine
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

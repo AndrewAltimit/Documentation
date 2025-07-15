@@ -1,8 +1,6 @@
 ---
 layout: docs
 title: AWS Developer's Guide
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

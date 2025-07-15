@@ -1,9 +1,10 @@
 ---
-layout: default
+layout: docs
 title: AI/ML Documentation
 nav_order: 20
 has_children: true
 permalink: /docs/ai-ml/
+toc: false  # Index pages typically don't need TOC
 ---
 
 # AI/ML Documentation

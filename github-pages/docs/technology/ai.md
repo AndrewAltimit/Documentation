@@ -1,8 +1,6 @@
 ---
 layout: docs
 title: Artificial Intelligence
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

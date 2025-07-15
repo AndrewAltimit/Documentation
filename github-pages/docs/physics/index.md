@@ -1,11 +1,10 @@
 ---
-layout: single
+layout: docs
 title: Physics
+toc: false  # Index pages typically don't need TOC
 ---
 
 # Physics
-
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 - [Classical Mechanics](classical-mechanics.html)
 - [Thermodynamics](thermodynamics.html)

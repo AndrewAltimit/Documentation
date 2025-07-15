@@ -1,11 +1,10 @@
 ---
-layout: single
+layout: docs
 title: Andrew's Notebook
+toc: false  # Index pages typically don't need TOC
 ---
 
 # Andrew's Notebook
-
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 **[🔍 Search Documentation](search.html)**
 

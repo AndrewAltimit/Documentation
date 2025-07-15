@@ -1,11 +1,10 @@
 ---
-layout: single
+layout: docs
 title: Technology
+toc: false  # Index pages typically don't need TOC
 ---
 
 # Technology
-
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 - [Terraform](terraform.html)
 - [Docker](docker.html)

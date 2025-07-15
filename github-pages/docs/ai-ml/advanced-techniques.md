@@ -3,8 +3,6 @@ layout: docs
 title: Advanced Techniques & Workflows
 parent: AI/ML Documentation
 nav_order: 8
-sidebar:
-  nav: "docs"
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

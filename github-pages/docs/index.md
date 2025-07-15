@@ -1,11 +1,10 @@
 ---
-layout: single
+layout: docs
 title: Topics
+toc: false  # Index pages typically don't need TOC
 ---
 
 # Topics
-
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
 
 ## Technology
 - [Terraform](technology/terraform.html)
