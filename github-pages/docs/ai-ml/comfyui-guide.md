@@ -42,7 +42,7 @@ ComfyUI is a powerful node-based interface for Stable Diffusion that enables use
 
 ```bash
 # Clone the ComfyUI MCP setup
-git clone <comfyui-mcp-gist-url> comfyui-mcp
+git clone https://github.com/andrewaltimit/Documentation comfyui-mcp
 cd comfyui-mcp
 
 # Build and start services

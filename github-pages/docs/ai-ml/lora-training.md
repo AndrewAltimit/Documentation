@@ -54,7 +54,7 @@ Where:
 
 ```bash
 # Clone AI Toolkit MCP setup
-git clone <ai-toolkit-mcp-gist-url> ai-toolkit-trainer
+git clone https://github.com/andrewaltimit/Documentation ai-toolkit-trainer
 cd ai-toolkit-trainer
 
 # Build and start services
