@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Containers
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Containers
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section">
   <div class="hero-content">

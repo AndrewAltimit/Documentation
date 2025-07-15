@@ -1,8 +1,14 @@
 ---
-layout: default
+layout: docs
 title: Base Models Comparison
 parent: AI/ML Documentation
 nav_order: 4
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
 # Base Models Comparison Guide

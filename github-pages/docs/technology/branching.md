@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Branching Stategy
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Branching Stategy
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 A branching strategy is designed to minimize the complexity of managing multiple long-lived branches. It promotes a culture of collaboration and continuous integration by encouraging developers to commit their changes frequently to the mainline. This results in fewer merge conflicts and enables rapid feedback on new features or bug fixes.
 

@@ -1,15 +1,20 @@
 ---
-layout: single
+layout: docs
 title: Kubernetes
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Kubernetes
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">Kubernetes</h1>
+    
     <p class="hero-subtitle">Container Orchestration at Scale</p>
   </div>
 </div>

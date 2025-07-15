@@ -1,11 +1,17 @@
 ---
-layout: default
+layout: docs
 title: ControlNet Guide
 parent: AI/ML Documentation
 nav_order: 7
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# ControlNet Guide
+
 {: .no_toc }
 
 <div class="code-example" markdown="1">

@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: AWS Developer's Guide
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# AWS Developer's Guide
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Think of AWS as a massive technology toolkit in the cloud. Instead of buying and maintaining your own servers, you rent computing power, storage, and dozens of other services from Amazon's data centers around the world. It's like having access to an entire IT department that scales with your needs - you only pay for what you use, and you can start small and grow as big as you need.
 

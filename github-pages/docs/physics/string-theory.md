@@ -1,15 +1,20 @@
 ---
-layout: single
+layout: docs
 title: String Theory
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# String Theory
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">String Theory</h1>
+    
     <p class="hero-subtitle">The Quest for a Theory of Everything</p>
   </div>
 </div>

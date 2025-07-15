@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Database Design
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Database Design
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Every application needs to store data. Whether you're building a social network, e-commerce platform, or analytics system, you'll face fundamental questions: How should data be organized? How can multiple users access it simultaneously? What happens if the system crashes? Database design provides systematic answers to these challenges.
 

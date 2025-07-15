@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Quantum Field Theory
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Quantum Field Theory
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Quantum Field Theory (QFT) is the theoretical framework that combines quantum mechanics with special relativity to describe the fundamental forces and particles of nature. It treats particles as excited states of underlying quantum fields that permeate all of spacetime.
 

@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Please Build
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Please Build
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Please Build is a versatile build automation tool that simplifies the process of building, testing, and deploying your projects. This documentation provides you with a step-by-step guide to getting started with Please Build and integrating it into your workflow.
 

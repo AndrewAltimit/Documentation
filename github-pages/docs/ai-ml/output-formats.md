@@ -1,11 +1,17 @@
 ---
-layout: default
+layout: docs
 title: Output Formats Guide
 parent: AI/ML Documentation
 nav_order: 6
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Output Formats Guide
+
 {: .no_toc }
 
 <div class="code-example" markdown="1">

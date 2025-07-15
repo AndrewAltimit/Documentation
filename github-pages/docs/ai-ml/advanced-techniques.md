@@ -1,11 +1,17 @@
 ---
-layout: default
+layout: docs
 title: Advanced Techniques & Workflows
 parent: AI/ML Documentation
 nav_order: 8
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Advanced Techniques & Workflows
+
 {: .no_toc }
 
 <div class="code-example" markdown="1">

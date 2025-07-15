@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Artifical Intelligence Deep Dive
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Artifical Intelligence Deep Dive
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 ---
 

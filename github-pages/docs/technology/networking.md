@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Networking
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Networking
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Every time you open a web page, send a message, or stream a video, data travels through an intricate network of connections. Understanding how these networks function is essential for anyone working with technology—from developers optimizing applications to administrators ensuring reliable service.
 

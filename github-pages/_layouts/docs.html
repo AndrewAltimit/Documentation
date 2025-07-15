@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: 'en-US' }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{{ page.title | default: site.title }}</title>
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    
+    <link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+    <link rel="stylesheet" href="{{ '/style.css' | relative_url }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  </head>
+  <body>
+    <div class="site-container">
+      <!-- Navigation Sidebar -->
+      <nav class="navigation-sidebar">
+        <div class="site-title">
+          <a href="{{ '/' | relative_url }}">{{ site.title }}</a>
+        </div>
+        
+        {% if site.data.navigation.docs %}
+        <ul class="nav-list">
+          {% for nav in site.data.navigation.docs %}
+            <li class="nav-section">
+              <h3 class="nav-section-title">{{ nav.title }}</h3>
+              {% if nav.children %}
+                <ul class="nav-items">
+                  {% for child in nav.children %}
+                    <li>
+                      <a href="{{ child.url | relative_url }}" 
+                         {% if page.url == child.url %}class="active"{% endif %}>
+                        {{ child.title }}
+                      </a>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </nav>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        {% if page.title %}
+          <header class="page-header">
+            <h1>{{ page.title }}</h1>
+          </header>
+        {% endif %}
+
+        <article class="page-content">
+          {{ content }}
+        </article>
+
+        {% if page.toc %}
+          <aside class="toc-sidebar">
+            <nav class="toc">
+              <h4 class="toc-title">
+                <i class="fas fa-{{ page.toc_icon | default: 'list' }}"></i>
+                {{ page.toc_label | default: "On this page" }}
+              </h4>
+              <div class="toc-content"></div>
+            </nav>
+          </aside>
+        {% endif %}
+      </main>
+    </div>
+
+    <script src="{{ '/assets/js/navigation.js' | relative_url }}"></script>
+    <script>
+      // Generate table of contents
+      if (document.querySelector('.toc')) {
+        const headings = document.querySelectorAll('.page-content h2, .page-content h3');
+        const tocContent = document.querySelector('.toc-content');
+        
+        if (headings.length > 0) {
+          const tocList = document.createElement('ul');
+          tocList.className = 'toc-list';
+          
+          headings.forEach(heading => {
+            if (!heading.id) {
+              heading.id = heading.textContent.toLowerCase()
+                .replace(/[^\w\s]/g, '')
+                .replace(/\s+/g, '-');
+            }
+            
+            const li = document.createElement('li');
+            li.className = heading.tagName.toLowerCase();
+            
+            const a = document.createElement('a');
+            a.href = '#' + heading.id;
+            a.textContent = heading.textContent;
+            
+            li.appendChild(a);
+            tocList.appendChild(li);
+          });
+          
+          tocContent.appendChild(tocList);
+        }
+      }
+    </script>
+  </body>
+</html>

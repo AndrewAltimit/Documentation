@@ -1,15 +1,20 @@
 ---
-layout: single
+layout: docs
 title: Condensed Matter Physics
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Condensed Matter Physics
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">Condensed Matter Physics</h1>
+    
     <p class="hero-subtitle">Exploring the Quantum World of Materials</p>
   </div>
 </div>

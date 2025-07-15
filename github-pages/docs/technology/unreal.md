@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Unreal Engine
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Unreal Engine
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Unreal Engine is a powerful game development engine created by Epic Games. It's widely used in the gaming industry for developing games, simulations, and interactive experiences. In this guide, we'll explore the fundamentals of Unreal Engine, including an overview of the editor, blueprints, level design, materials, lighting, and more.
 

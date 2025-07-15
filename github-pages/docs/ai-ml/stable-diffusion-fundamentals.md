@@ -1,11 +1,17 @@
 ---
-layout: default
+layout: docs
 title: Stable Diffusion Fundamentals
 parent: AI/ML Documentation
 nav_order: 1
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Stable Diffusion Fundamentals
+
 {: .no_toc }
 
 <div class="code-example" markdown="1">

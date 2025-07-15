@@ -1,11 +1,16 @@
 ---
-layout: single
+layout: docs
 title: Cybersecurity
+sidebar:
+  nav: "docs"
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
 ---
 
-# Cybersecurity
 
-<html><header><link rel="stylesheet" href="https://andrewaltimit.github.io/Documentation/style.css"></header></html>
+<!-- Custom styles are now loaded via main.scss -->
 
 Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. It encompasses a wide range of technologies, processes, and practices designed to safeguard digital assets.
 
