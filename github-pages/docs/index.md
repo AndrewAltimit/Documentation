@@ -18,6 +18,17 @@ title: Topics
 - [Branching Strategies](technology/branching.html)
 - [Please Build](technology/please-build.html)
 
+## AI/ML - Generative AI
+- [AI/ML Documentation Overview](ai-ml/index.html)
+- [Stable Diffusion Fundamentals](ai-ml/stable-diffusion-fundamentals.html)
+- [ComfyUI Comprehensive Guide](ai-ml/comfyui-guide.html)
+- [LoRA Training Guide](ai-ml/lora-training.html)
+- [Base Models Comparison](ai-ml/base-models-comparison.html)
+- [Model Types Explained](ai-ml/model-types.html)
+- [Output Formats Guide](ai-ml/output-formats.html)
+- [ControlNet Guide](ai-ml/controlnet.html)
+- [Advanced Techniques & Workflows](ai-ml/advanced-techniques.html)
+
 ## Physics
 - [Classical Mechanics](physics/classical-mechanics.html)
 - [Relativity](physics/relativity.html)
