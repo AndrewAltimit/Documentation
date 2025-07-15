@@ -13,35 +13,39 @@ title: Classical Mechanics
 
 *Explore the fundamental principles that govern the motion of everyday objects*
 
-Classical mechanics is the branch of physics that deals with the motion of macroscopic objects from projectiles to parts of machinery, as well as astronomical objects such as spacecraft, planets, stars, and galaxies. It provides extremely accurate results when studying large objects that are not extremely massive and speeds that are not approaching the speed of light.
+Have you ever wondered why a ball follows a curved path when thrown, or how engineers design bridges that don't collapse? Classical mechanics provides the answers. It's the branch of physics that describes the motion of everyday objects—from the coffee cup on your desk to the planets orbiting our sun.
+
+At its heart, classical mechanics is about understanding cause and effect in the physical world. Push something, and it moves. Drop something, and it falls. But as we'll discover, these simple observations lead to profound mathematical frameworks that revolutionized our understanding of nature and enabled the modern technological world.
 
 ---
 
-## Overview
+## Journey Through Classical Mechanics
 
-**Core Principles**
-- [Newton's Laws of Motion](#newtons-laws-of-motion)
-- [Conservation Laws](#conservation-laws)
-- [Work and Energy](#work-and-energy)
+**Starting with the Basics**
+- [Newton's Laws: The Foundation](#newtons-laws-of-motion)
+- [Understanding Motion](#kinematics)
+- [Forces in Action](#dynamics)
 
-**Motion Analysis**
-- [Kinematics](#kinematics)
-- [Projectile Motion](#projectile-motion)
-- [Simple Harmonic Motion](#simple-harmonic-motion)
+**Building Powerful Tools**
+- [Conservation Laws: Nature's Bookkeeping](#conservation-laws)
+- [Energy Methods: A Better Way](#work-and-energy)
+- [Beyond Point Particles](#rotational-motion)
 
-**Advanced Topics**
-- [Rotational Motion](#rotational-motion)
-- [Gravitation](#gravitation)
-- [Oscillations and Waves](#oscillations-and-waves)
+**Advanced Frameworks**
+- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics)
+- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics)
+- [Modern Perspectives](#modern-applications)
 
-**Applications and Context**
-- [Engineering Applications](#engineering-applications)
-- [Problem-Solving Strategies](#problem-solving-strategies)
-- [Historical Context](#historical-context)
+**Deeper Understanding**
+- [When Newton Isn't Enough](#limitations-and-extensions)
+- [Chaos and Complexity](#chaos-theory-and-nonlinear-dynamics)
+- [Connections to Modern Physics](#research-frontiers)
 
 ---
 
-## Fundamental Concepts
+## The Foundation: Newton's Revolution
+
+Before Newton, motion was a mystery. Objects moved, but why? Newton's genius was recognizing that motion follows precise mathematical laws. Let's build our understanding from the ground up.
 
 ### Newton's Laws of Motion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.newton.ac.uk/files/preprints/ni16002.pdf"> Paper: <b><i>Philosophiæ Naturalis Principia Mathematica</i></b> - Isaac Newton</a></p>
@@ -93,10 +97,21 @@ For every action, there is an equal and opposite reaction.
 F₁₂ = -F₂₁
 ```
 
-### Conservation Laws
+### Why Newton's Laws Matter
+
+These three simple laws explain an incredible range of phenomena:
+- Why you lurch forward when a car brakes suddenly (First Law)
+- How rockets work in the vacuum of space (Third Law)
+- Why heavier objects don't fall faster (Second Law with gravity)
+
+But as powerful as Newton's laws are, they have a limitation: you need to know all the forces. What if the forces are complicated? What if you don't care about forces at all, just motion? This is where our journey gets interesting.
+
+### Conservation Laws: Nature's Hidden Symmetries
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_04.html"> Lecture: <b><i>Conservation of Energy - Feynman Lectures</i></b></a></p>
 
-Classical mechanics is governed by several fundamental conservation laws:
+Here's where physics gets elegant. Instead of tracking forces at every instant, we can use conservation laws—quantities that remain constant throughout motion. It's like having a bank account that never changes its total balance, even as money moves between checking and savings.
+
+These conservation laws aren't arbitrary; they reflect deep symmetries in nature:
 
 <details>
 <summary><b>Click to expand: Interactive Conservation Laws Demonstration</b></summary>
@@ -165,9 +180,19 @@ Where:
 - r = position vector
 - p = linear momentum
 
-## Kinematics
+### The Power of Conservation
 
-Kinematics describes the motion of objects without considering the forces that cause the motion.
+Conservation laws often provide shortcuts to solving problems. Consider a figure skater spinning: when she pulls her arms in, she spins faster. Why? Angular momentum (L = Iω) must stay constant. Decreasing I (moment of inertia) means ω (angular velocity) must increase. No forces needed—just conservation!
+
+But even conservation laws have limitations when dealing with constraints and complex systems. This leads us to a revolutionary approach...
+
+## Kinematics: Describing Motion
+
+### From Observation to Mathematics
+
+Now that we understand forces through Newton's laws, let's step back and look at motion itself. How do we describe where things are and how fast they're moving? This is kinematics—the language of motion.
+
+Kinematics describes motion without asking "why?"—that's dynamics. It's like studying the choreography of a dance without worrying about the muscles involved.
 
 ### One-Dimensional Motion
 
@@ -220,9 +245,13 @@ R = (v₀²sin(2θ))/g
 H = (v₀²sin²(θ))/(2g)
 ```
 
-## Dynamics
+## Dynamics: Forces in Action
 
-Dynamics studies the forces and their effects on motion.
+### Connecting Force to Motion
+
+While kinematics describes motion, dynamics explains it. This is where Newton's second law (F = ma) becomes our primary tool. But as we'll see, thinking in terms of energy often provides a more elegant approach.
+
+Dynamics bridges the gap between abstract forces and observable motion:
 
 ### Work and Energy
 
@@ -274,7 +303,13 @@ Where:
 T = 2π/ω = 2π√(m/k)
 ```
 
-## Rotational Motion
+## Rotational Motion: Beyond Point Particles
+
+### Why Rotation Matters
+
+So far, we've treated objects as point particles. But real objects have size and shape. They can spin, roll, and tumble. This adds richness to mechanics—and complexity.
+
+The beautiful discovery: rotational motion follows the same patterns as linear motion, just with different quantities:
 
 <details>
 <summary><b>Mermaid Diagram: Linear vs Rotational Motion Analogy</b></summary>
@@ -351,7 +386,11 @@ The rotational equivalent of force:
 τ = Iα
 ```
 
-## Gravitation
+## Gravitation: The First Unified Theory
+
+### From Falling Apples to Orbiting Planets
+
+Newton's greatest triumph wasn't just explaining how things move—it was recognizing that the force pulling an apple to Earth is the same force keeping the Moon in orbit. This was humanity's first "unified theory," connecting terrestrial and celestial mechanics.
 
 ### Newton's Law of Universal Gravitation
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.wilbourhall.org/pdfs/NewtonPrincipia.pdf"> Paper: <b><i>Principia - Book III: The System of the World</i></b></a></p>
@@ -394,7 +433,13 @@ T = 2π√(r³/GM)
 
 This is Kepler's Third Law for circular orbits.
 
-## Oscillations and Waves
+## Oscillations and Waves: Patterns in Motion
+
+### The Universality of Oscillations
+
+Look around: pendulum clocks tick, guitar strings vibrate, atoms in solids jiggle. Oscillatory motion is everywhere because it emerges whenever there's a restoring force—something that pushes a system back toward equilibrium.
+
+But real oscillations don't last forever...
 
 ### Damped Oscillations
 
@@ -425,11 +470,19 @@ Where:
 - f = frequency
 - λ = wavelength
 
-## Lagrangian Mechanics
+## Lagrangian Mechanics: A New Perspective
+
+### Beyond Forces: Why We Need Lagrangian Mechanics
+
+Imagine trying to analyze a bead sliding on a curved wire. With Newton's laws, you'd need to constantly track the constraint force from the wire—a mathematical nightmare. Lagrange asked a brilliant question: what if we could ignore constraint forces entirely?
+
+The answer revolutionized physics. Instead of thinking about forces, Lagrange focused on energy and the *path* a system takes through its possible configurations.
 
 ### The Principle of Least Action
 
-Nature minimizes the action integral:
+Here's the profound insight: Nature is lazy. Among all possible paths between two points, a system follows the path that minimizes (or extremizes) a quantity called "action":
+
+**Action:**
 
 ```
 S = ∫_{t₁}^{t₂} L(q, q̇, t) dt
@@ -437,19 +490,28 @@ S = ∫_{t₁}^{t₂} L(q, q̇, t) dt
 
 Where L = T - V is the Lagrangian (kinetic minus potential energy).
 
+**The Magic:** This single principle replaces F = ma and automatically handles constraints!
+
 **Euler-Lagrange Equations:**
 ```
 d/dt(∂L/∂q̇ᵢ) - ∂L/∂qᵢ = 0
 ```
 
-These equations provide a powerful alternative to Newton's laws.
+These equations provide a powerful alternative to Newton's laws. No constraint forces appear—they're automatically accounted for by choosing appropriate coordinates.
 
-### Generalized Coordinates
+### Generalized Coordinates: Freedom from Cartesian Tyranny
+
+Here's another liberation: we're not stuck with x, y, z coordinates. Use whatever coordinates make the problem simple!
+
+**Examples:**
+- Pendulum? Use the angle θ instead of (x, y)
+- Particle on a sphere? Use spherical coordinates (θ, φ)
+- Double pendulum? Use two angles (θ₁, θ₂)
 
 For a system with n degrees of freedom:
-- **Configuration space:** Q = {q₁, q₂, ..., qₙ}
-- **Phase space:** Γ = {q₁, ..., qₙ, p₁, ..., pₙ}
-- **Generalized momentum:** pᵢ = ∂L/∂q̇ᵢ
+- **Configuration space:** Q = {q₁, q₂, ..., qₙ} - all possible positions
+- **Generalized momentum:** pᵢ = ∂L/∂q̇ᵢ - not always mass × velocity!
+- **Phase space:** Γ = {q₁, ..., qₙ, p₁, ..., pₙ} - positions and momenta together
 
 ### Constraints and Lagrange Multipliers
 
@@ -460,9 +522,11 @@ For a system with n degrees of freedom:
 L' = L + Σᵢ λᵢfᵢ(q, t)
 ```
 
-### Noether's Theorem
+### Noether's Theorem: The Deep Connection
 
-Every continuous symmetry corresponds to a conserved quantity:
+Emmy Noether discovered one of the most profound results in physics: every symmetry in nature corresponds to a conservation law. This isn't coincidence—it's fundamental to how the universe works.
+
+**The Symmetry-Conservation Dictionary:**
 
 | Symmetry | Conservation Law |
 |----------|------------------|
@@ -477,29 +541,46 @@ If the action is invariant under qᵢ → qᵢ + εξᵢ(q), then:
 Q = Σᵢ (∂L/∂q̇ᵢ)ξᵢ = constant
 ```
 
-### Example: Double Pendulum
+### Example: Double Pendulum - Where Newton Struggles
+
+The double pendulum perfectly illustrates why we need Lagrangian mechanics. With Newton's approach, you'd need to track tension forces in both rods, which constantly change direction. With Lagrange? Just write down the energy:
 
 ```python
 def double_pendulum_lagrangian(theta1, theta2, theta1_dot, theta2_dot, 
                                 m1, m2, l1, l2, g):
-    """Lagrangian for double pendulum"""
-    # Kinetic energy
+    """Lagrangian for double pendulum - no constraint forces needed!"""
+    # Kinetic energy - just from velocities
     T = 0.5*m1*(l1*theta1_dot)**2 + 0.5*m2*((l1*theta1_dot)**2 + 
         (l2*theta2_dot)**2 + 2*l1*l2*theta1_dot*theta2_dot*
         np.cos(theta1-theta2))
     
-    # Potential energy
+    # Potential energy - just from positions
     V = -m1*g*l1*np.cos(theta1) - m2*g*(l1*np.cos(theta1) + 
         l2*np.cos(theta2))
     
-    return T - V
+    return T - V  # That's it! Equations of motion follow automatically
 ```
 
-## Hamiltonian Mechanics
+### The Limitation of Lagrangian Mechanics
 
-### Hamilton's Equations
+Lagrangian mechanics is powerful, but it still thinks in terms of trajectories through configuration space. What if we want to think more abstractly about the *state* of a system? What if we want to understand the geometry of all possible motions? What if we want to connect classical mechanics to quantum mechanics? 
 
-The Hamiltonian represents total energy:
+These questions led Hamilton to reformulate mechanics once again, creating a framework so elegant and powerful that it remains central to theoretical physics today...
+
+## Hamiltonian Mechanics: The Ultimate Abstraction
+
+### From Configuration Space to Phase Space
+
+Hamilton realized that instead of thinking about positions and velocities, we should think about positions and momenta as independent variables. This seems like a minor change, but it revolutionizes our perspective.
+
+**Why the change?** In phase space:
+- The evolution of a system becomes a flow
+- Conservation laws become geometric properties
+- The connection to quantum mechanics becomes clear
+
+### Hamilton's Equations: Beautiful Symmetry
+
+The Hamiltonian H typically represents total energy:
 ```
 H(q, p, t) = Σᵢ pᵢq̇ᵢ - L(q, q̇, t)
 ```
@@ -510,18 +591,20 @@ q̇ᵢ = ∂H/∂pᵢ
 ṗᵢ = -∂H/∂qᵢ
 ```
 
-### Phase Space and Liouville's Theorem
+### Phase Space: Where Physics Becomes Geometry
 
-**Liouville's Theorem:** Phase space volume is conserved:
+In phase space, a system's state is a single point. As time evolves, this point traces a path. But here's the beautiful part: phase space has structure.
+
+**Liouville's Theorem:** Phase space volume is preserved by time evolution
 ```
 dρ/dt + {ρ, H} = 0
 ```
 
-Where {·,·} denotes the Poisson bracket.
+This means if you start with a blob of initial conditions, the blob might deform and stretch, but its volume never changes. It's like incompressible fluid flow—a deep connection between mechanics and fluid dynamics!
 
-### Poisson Brackets
+### Poisson Brackets: The Language of Classical Mechanics
 
-Fundamental algebraic structure of classical mechanics:
+Poisson brackets are to classical mechanics what commutators are to quantum mechanics. They encode how quantities change with time and relate to each other:
 
 ```
 {f, g} = Σᵢ (∂f/∂qᵢ ∂g/∂pᵢ - ∂f/∂pᵢ ∂g/∂qᵢ)
@@ -560,7 +643,11 @@ For integrable systems, transform to (I, θ) where:
 - **Angle variables:** θᵢ with period 2π
 - **Hamilton's equations:** İᵢ = 0, θ̇ᵢ = ωᵢ(I) = ∂H/∂Iᵢ
 
-## Hamilton-Jacobi Theory
+## Hamilton-Jacobi Theory: The Final Synthesis
+
+### Unifying Particles and Waves
+
+The Hamilton-Jacobi equation represents the culmination of classical mechanics. It reformulates mechanics in terms of a single function S (the action), which satisfies a partial differential equation. This might seem like unnecessary abstraction, but it reveals something profound: classical mechanics has a wave-like character!
 
 ### Hamilton-Jacobi Equation
 
@@ -588,14 +675,26 @@ S = W(q) - Et
 H(q, ∂W/∂q) = E
 ```
 
-### Connection to Quantum Mechanics
+### The Bridge to Quantum Mechanics
 
-In the limit ℏ → 0:
+Here's where Hamilton's genius shines. The mathematical structure of classical mechanics—Poisson brackets, phase space, canonical transformations—carries over almost unchanged to quantum mechanics. Just replace:
+
+- Poisson brackets {A, B} → Commutators [Â, B̂]/(iℏ)
+- Phase space points → Wave functions
+- Trajectories → Probability amplitudes
+
+In the classical limit (ℏ → 0):
 ```
 ψ = exp(iS/ℏ)
 ```
 
-Leads to the Schrödinger equation from Hamilton-Jacobi theory.
+The quantum wave function reduces to classical action! This deep connection shows that classical and quantum mechanics aren't separate theories—they're different aspects of a unified framework.
+
+## When Predictability Breaks Down: Chaos
+
+### The End of the Clockwork Universe
+
+For centuries after Newton, physicists believed the universe was deterministic—if you knew initial conditions perfectly, you could predict the future forever. Then came a shocking discovery: even simple classical systems can be unpredictable.
 
 ## Chaos Theory and Nonlinear Dynamics
 
@@ -615,14 +714,16 @@ Reduce continuous dynamics to discrete map:
 - Record intersections of trajectory with Σ
 - Study resulting discrete map
 
-### KAM Theory
+### KAM Theory: Order in Chaos
 
-**Kolmogorov-Arnold-Moser theorem:** Under small perturbations, most invariant tori survive if:
-- System is nearly integrable
-- Frequencies satisfy diophantine condition
-- Perturbation is sufficiently smooth
+Just when chaos seems to destroy all hope of understanding, KAM theory provides comfort. Even in chaotic systems, islands of regularity persist.
 
-**Arnold diffusion:** In systems with n ≥ 3, trajectories can diffuse through destroyed tori.
+**Kolmogorov-Arnold-Moser theorem:** Small perturbations can't destroy everything
+- Most quasi-periodic orbits survive (slightly deformed)
+- Chaos is confined to specific regions
+- Regular and chaotic motion coexist
+
+**The surprising result:** The solar system is mostly stable despite being chaotic! KAM theory explains why planets haven't collided after billions of years.
 
 ### Strange Attractors
 
@@ -638,9 +739,13 @@ Reduce continuous dynamics to discrete map:
 - Sensitive dependence on initial conditions
 - Bounded but non-periodic
 
-## Geometric Mechanics
+## Modern Perspectives: Geometry Rules
 
-### Symplectic Geometry
+### Why Geometry?
+
+As we've climbed from Newton to Lagrange to Hamilton, we've increasingly seen that mechanics is really about geometry. Forces are vectors, energy is a scalar, but phase space has rich geometric structure. Modern physics embraces this geometric viewpoint.
+
+### Symplectic Geometry: The Natural Language
 
 **Symplectic manifold:** (M, ω) where ω is a closed, non-degenerate 2-form.
 
@@ -667,7 +772,9 @@ Reduce continuous dynamics to discrete map:
 **Hannay angle:** Classical analog of Berry phase
 **Foucault pendulum:** Example of geometric phase
 
-## Modern Applications
+## From Theory to Practice: Modern Applications
+
+The abstract frameworks we've developed aren't just mathematical elegance—they're essential for modern technology and science:
 
 ### Molecular Dynamics
 
@@ -704,9 +811,13 @@ def verlet_integration(positions, velocities, forces, dt, mass):
 
 **Kinetic theory:** Bridge between particle and fluid descriptions
 
-## Computational Methods
+## Computational Methods: Respecting the Physics
 
-### Symplectic Integrators
+### The Numerical Challenge
+
+Computers can't solve differential equations exactly—they take small steps. But naive methods gradually violate conservation laws, leading to unphysical results. The solution? Use the geometric structure!
+
+### Symplectic Integrators: Preserving What Matters
 
 Preserve phase space structure:
 
@@ -725,9 +836,11 @@ def stormer_verlet(q, p, H, dt):
     return q_new, p_new
 ```
 
-### Variational Integrators
+### Variational Integrators: Discrete Mechanics Done Right
 
-Discretize the action principle:
+Remember how Lagrangian mechanics came from minimizing action? Variational integrators apply this principle directly to discrete time steps. Instead of discretizing differential equations (which can introduce errors), we discretize the action principle itself.
+
+The result: perfect conservation of discrete momentum and energy, even for very long simulations. This is how we can accurately simulate the solar system for millions of years!
 ```
 S_d = Σₖ L_d(qₖ, qₖ₊₁, h)
 ```
@@ -737,7 +850,9 @@ S_d = Σₖ L_d(qₖ, qₖ₊₁, h)
 D₂L_d(qₖ₋₁, qₖ) + D₁L_d(qₖ, qₖ₊₁) = 0
 ```
 
-## Research Frontiers
+## The Living Edge of Classical Mechanics
+
+You might think classical mechanics is a "finished" subject, but research continues at the frontiers:
 
 ### Quantum-Classical Correspondence
 
@@ -757,11 +872,15 @@ D₂L_d(qₖ₋₁, qₖ) + D₁L_d(qₖ, qₖ₊₁) = 0
 **Edge states:** Protected by topology
 **Applications:** Mechanical metamaterials
 
-### Machine Learning in Classical Mechanics
+### Machine Learning Meets Mechanics
 
-**Neural ODEs:** Learn dynamics from data
-**Hamiltonian neural networks:** Preserve conservation laws
-**Physics-informed neural networks:** Incorporate physical constraints
+The newest frontier: using AI to discover physical laws from data. But there's a catch—naive neural networks don't respect physics. The solution? Build physical principles into the architecture:
+
+**Neural ODEs:** Learn dynamics from data while guaranteeing smooth evolution
+**Hamiltonian neural networks:** Neural nets that automatically conserve energy
+**Physics-informed neural networks:** Incorporate PDEs as constraints
+
+These approaches let us discover governing equations from observations—essentially automating what took humans centuries to develop!
 
 ## Advanced Mathematical Tools
 
@@ -822,14 +941,20 @@ D₂L_d(qₖ₋₁, qₖ) + D₁L_d(qₖ, qₖ₊₁) = 0
 - **Planetary Motion:** Predicting positions of planets
 - **Space Missions:** Trajectory planning for spacecraft
 
-## Limitations of Classical Mechanics
+## When Classical Mechanics Fails
+
+### The Boundaries of the Classical World
+
+As powerful as classical mechanics is, nature has surprises that require new physics:
 
 Classical mechanics breaks down in several regimes:
 
-1. **High Speeds:** When velocities approach the speed of light, relativistic effects become important
-2. **Small Scales:** At atomic and subatomic scales, quantum mechanical effects dominate
-3. **Strong Gravitational Fields:** Near massive objects like black holes, general relativity is needed
-4. **Extreme Precision:** GPS satellites require relativistic corrections for accurate positioning
+1. **High Speeds:** When velocities approach the speed of light, time dilates and mass increases—enter special relativity
+2. **Small Scales:** At atomic scales, particles exhibit wave-like behavior—enter quantum mechanics
+3. **Strong Gravitational Fields:** Near black holes, space and time curve—enter general relativity
+4. **Many Particles:** With 10²³ particles, statistical mechanics becomes necessary
+
+But here's the beautiful part: the mathematical structures we've developed—Lagrangians, Hamiltonians, symmetries—carry over to these new theories. Classical mechanics isn't wrong; it's the limiting case of deeper theories.
 
 ## Advanced Code Examples
 
@@ -1226,6 +1351,12 @@ These developments laid the foundation for modern physics and engineering.
 
 ---
 
+## Continue Your Journey
+
+### Where to Go From Here
+
+Classical mechanics is both an endpoint and a beginning. It's complete in itself, yet it opens doors to all of modern physics. Whether you're interested in engineering applications, theoretical physics, or computational methods, the foundations you've learned here will serve you well.
+
 ## Essential Resources
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_toc.html"> Book: <b><i>The Feynman Lectures on Physics, Volume I</i></b></a></p>
@@ -1236,8 +1367,13 @@ These developments laid the foundation for modern physics and engineering.
 ---
 
 ## See Also
+
+### Natural Next Steps:
+- [Quantum Mechanics](quantum-mechanics.html) - Where classical mechanics meets the microscopic world
+- [Statistical Mechanics](statistical-mechanics.html) - From Newton's laws to thermodynamics
+- [Relativity](relativity.html) - When speeds approach c or gravity gets strong
+
+### Applied Directions:
 - [Thermodynamics](thermodynamics.html) - Energy and heat in mechanical systems
-- [Statistical Mechanics](statistical-mechanics.html) - From microscopic to macroscopic
-- [Relativity](relativity.html) - Extensions at high velocities
-- [Quantum Mechanics](quantum-mechanics.html) - Behavior at small scales
-- [Condensed Matter Physics](condensed-matter.html) - Applications to materials
+- [Condensed Matter Physics](condensed-matter.html) - Mechanics of materials
+- [Computational Physics](computational-physics.html) - Numerical methods for complex systems
