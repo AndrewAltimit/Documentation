@@ -1,0 +1,1003 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.27.1 by Michael Rose
+  Copyright 2013-2025 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>Model Types Explained - Andrews Notebook</title>
+<meta name="description" content="Technology and Physics notes">
+
+
+  <meta name="author" content="Andrew">
+  
+
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Andrews Notebook">
+<meta property="og:title" content="Model Types Explained">
+<meta property="og:url" content="/github-pages/docs/ai-ml/model-types.html">
+
+
+  <meta property="og:description" content="Technology and Physics notes">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="canonical" href="/github-pages/docs/ai-ml/model-types.html">
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+
+  <link href="/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+  
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css"></noscript>
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--default" dir="ltr">
+    <nav class="skip-links">
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/">
+          Andrews Notebook
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a
+                href="https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/"
+                
+                
+              >Quick-Start Guide</a>
+            </li></ul>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      <h1 class="no_toc" id="model-types-explained">Model Types Explained</h1>
+
+<div class="code-example">
+  <p>Understanding different model components in the Stable Diffusion ecosystem: LoRAs, CLIP, VAE, ControlNet, and more.</p>
+</div>
+
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
+
+<ol id="markdown-toc">
+  <li><a href="#overview" id="markdown-toc-overview">Overview</a></li>
+  <li><a href="#component-architecture" id="markdown-toc-component-architecture">Component Architecture</a></li>
+  <li><a href="#base-models-checkpoints" id="markdown-toc-base-models-checkpoints">Base Models (Checkpoints)</a>    <ol>
+      <li><a href="#what-they-are" id="markdown-toc-what-they-are">What They Are</a></li>
+      <li><a href="#structure" id="markdown-toc-structure">Structure</a></li>
+      <li><a href="#types-of-checkpoints" id="markdown-toc-types-of-checkpoints">Types of Checkpoints</a></li>
+      <li><a href="#file-formats" id="markdown-toc-file-formats">File Formats</a></li>
+    </ol>
+  </li>
+  <li><a href="#lora-low-rank-adaptation" id="markdown-toc-lora-low-rank-adaptation">LoRA (Low-Rank Adaptation)</a>    <ol>
+      <li><a href="#understanding-lora" id="markdown-toc-understanding-lora">Understanding LoRA</a></li>
+      <li><a href="#how-lora-works" id="markdown-toc-how-lora-works">How LoRA Works</a></li>
+      <li><a href="#lora-types" id="markdown-toc-lora-types">LoRA Types</a>        <ol>
+          <li><a href="#style-loras" id="markdown-toc-style-loras">Style LoRAs</a></li>
+          <li><a href="#character-loras" id="markdown-toc-character-loras">Character LoRAs</a></li>
+          <li><a href="#concept-loras" id="markdown-toc-concept-loras">Concept LoRAs</a></li>
+          <li><a href="#enhancement-loras" id="markdown-toc-enhancement-loras">Enhancement LoRAs</a></li>
+        </ol>
+      </li>
+      <li><a href="#lora-parameters" id="markdown-toc-lora-parameters">LoRA Parameters</a></li>
+      <li><a href="#lora-stacking" id="markdown-toc-lora-stacking">LoRA Stacking</a></li>
+    </ol>
+  </li>
+  <li><a href="#clip-text-encoder" id="markdown-toc-clip-text-encoder">CLIP (Text Encoder)</a>    <ol>
+      <li><a href="#what-is-clip" id="markdown-toc-what-is-clip">What is CLIP?</a></li>
+      <li><a href="#clip-variants" id="markdown-toc-clip-variants">CLIP Variants</a></li>
+      <li><a href="#how-clip-works" id="markdown-toc-how-clip-works">How CLIP Works</a></li>
+      <li><a href="#clip-skip" id="markdown-toc-clip-skip">CLIP Skip</a></li>
+      <li><a href="#custom-clip-models" id="markdown-toc-custom-clip-models">Custom CLIP Models</a></li>
+    </ol>
+  </li>
+  <li><a href="#vae-variational-autoencoder" id="markdown-toc-vae-variational-autoencoder">VAE (Variational Autoencoder)</a>    <ol>
+      <li><a href="#understanding-vae" id="markdown-toc-understanding-vae">Understanding VAE</a></li>
+      <li><a href="#vae-process" id="markdown-toc-vae-process">VAE Process</a></li>
+      <li><a href="#common-vae-models" id="markdown-toc-common-vae-models">Common VAE Models</a></li>
+      <li><a href="#vae-selection-impact" id="markdown-toc-vae-selection-impact">VAE Selection Impact</a></li>
+      <li><a href="#tiled-vae" id="markdown-toc-tiled-vae">Tiled VAE</a></li>
+    </ol>
+  </li>
+  <li><a href="#controlnet" id="markdown-toc-controlnet">ControlNet</a>    <ol>
+      <li><a href="#what-is-controlnet" id="markdown-toc-what-is-controlnet">What is ControlNet?</a></li>
+      <li><a href="#controlnet-types" id="markdown-toc-controlnet-types">ControlNet Types</a>        <ol>
+          <li><a href="#pose-control" id="markdown-toc-pose-control">Pose Control</a></li>
+          <li><a href="#edge-detection" id="markdown-toc-edge-detection">Edge Detection</a></li>
+          <li><a href="#depth" id="markdown-toc-depth">Depth</a></li>
+          <li><a href="#semantic" id="markdown-toc-semantic">Semantic</a></li>
+        </ol>
+      </li>
+      <li><a href="#controlnet-workflow" id="markdown-toc-controlnet-workflow">ControlNet Workflow</a></li>
+      <li><a href="#controlnet-parameters" id="markdown-toc-controlnet-parameters">ControlNet Parameters</a></li>
+    </ol>
+  </li>
+  <li><a href="#embeddings-textual-inversions" id="markdown-toc-embeddings-textual-inversions">Embeddings (Textual Inversions)</a>    <ol>
+      <li><a href="#what-are-embeddings" id="markdown-toc-what-are-embeddings">What Are Embeddings?</a></li>
+      <li><a href="#how-they-work" id="markdown-toc-how-they-work">How They Work</a></li>
+      <li><a href="#embedding-types" id="markdown-toc-embedding-types">Embedding Types</a></li>
+      <li><a href="#using-embeddings" id="markdown-toc-using-embeddings">Using Embeddings</a></li>
+    </ol>
+  </li>
+  <li><a href="#hypernetworks" id="markdown-toc-hypernetworks">Hypernetworks</a>    <ol>
+      <li><a href="#understanding-hypernetworks" id="markdown-toc-understanding-hypernetworks">Understanding Hypernetworks</a></li>
+      <li><a href="#characteristics" id="markdown-toc-characteristics">Characteristics</a></li>
+      <li><a href="#when-to-use" id="markdown-toc-when-to-use">When to Use</a></li>
+    </ol>
+  </li>
+  <li><a href="#lycorislocon" id="markdown-toc-lycorislocon">LyCORIS/LoCon</a>    <ol>
+      <li><a href="#advanced-lora-variants" id="markdown-toc-advanced-lora-variants">Advanced LoRA Variants</a></li>
+      <li><a href="#comparison-with-standard-lora" id="markdown-toc-comparison-with-standard-lora">Comparison with Standard LoRA</a></li>
+    </ol>
+  </li>
+  <li><a href="#model-merging" id="markdown-toc-model-merging">Model Merging</a>    <ol>
+      <li><a href="#checkpoint-merging" id="markdown-toc-checkpoint-merging">Checkpoint Merging</a></li>
+      <li><a href="#merge-methods" id="markdown-toc-merge-methods">Merge Methods</a></li>
+      <li><a href="#lora-merging" id="markdown-toc-lora-merging">LoRA Merging</a></li>
+    </ol>
+  </li>
+  <li><a href="#ip-adapter" id="markdown-toc-ip-adapter">IP-Adapter</a>    <ol>
+      <li><a href="#image-prompt-adapter" id="markdown-toc-image-prompt-adapter">Image Prompt Adapter</a></li>
+      <li><a href="#use-cases" id="markdown-toc-use-cases">Use Cases</a></li>
+    </ol>
+  </li>
+  <li><a href="#model-organization" id="markdown-toc-model-organization">Model Organization</a>    <ol>
+      <li><a href="#directory-structure" id="markdown-toc-directory-structure">Directory Structure</a></li>
+      <li><a href="#naming-conventions" id="markdown-toc-naming-conventions">Naming Conventions</a></li>
+    </ol>
+  </li>
+  <li><a href="#performance-considerations" id="markdown-toc-performance-considerations">Performance Considerations</a>    <ol>
+      <li><a href="#memory-usage" id="markdown-toc-memory-usage">Memory Usage</a></li>
+      <li><a href="#optimization-tips" id="markdown-toc-optimization-tips">Optimization Tips</a></li>
+    </ol>
+  </li>
+  <li><a href="#choosing-the-right-models" id="markdown-toc-choosing-the-right-models">Choosing the Right Models</a>    <ol>
+      <li><a href="#decision-matrix" id="markdown-toc-decision-matrix">Decision Matrix</a></li>
+      <li><a href="#compatibility-matrix" id="markdown-toc-compatibility-matrix">Compatibility Matrix</a></li>
+    </ol>
+  </li>
+  <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
+      <li><a href="#model-selection" id="markdown-toc-model-selection">Model Selection</a></li>
+      <li><a href="#quality-pipeline" id="markdown-toc-quality-pipeline">Quality Pipeline</a></li>
+      <li><a href="#testing-workflow" id="markdown-toc-testing-workflow">Testing Workflow</a></li>
+    </ol>
+  </li>
+  <li><a href="#conclusion" id="markdown-toc-conclusion">Conclusion</a></li>
+</ol>
+
+<hr />
+
+<h2 id="overview">Overview</h2>
+
+<p>The Stable Diffusion ecosystem consists of various model types that work together to generate images. Understanding each component’s role and how they interact is crucial for achieving optimal results.</p>
+
+<h2 id="component-architecture">Component Architecture</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text Input → [CLIP] → Text Embeddings
+                           ↓
+                      [U-Net/DiT]  ← [LoRA/ControlNet]
+                           ↓
+                   Latent Space
+                           ↓
+                        [VAE]
+                           ↓
+                    Final Image
+</code></pre></div></div>
+
+<h2 id="base-models-checkpoints">Base Models (Checkpoints)</h2>
+
+<h3 id="what-they-are">What They Are</h3>
+
+<p>Base models, or checkpoints, are the complete trained diffusion models containing all components needed for image generation.</p>
+
+<h3 id="structure">Structure</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Checkpoint Components</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">U-Net/DiT</span><span class="pi">:</span> <span class="s">Denoising network (~3.5GB)</span>
+<span class="pi">-</span> <span class="na">CLIP</span><span class="pi">:</span> <span class="s">Text encoder (~500MB)</span>
+<span class="pi">-</span> <span class="na">VAE</span><span class="pi">:</span> <span class="s">Image encoder/decoder (~350MB)</span>
+<span class="pi">-</span> <span class="na">Configuration</span><span class="pi">:</span> <span class="s">Model settings</span>
+<span class="na">Total Size</span><span class="pi">:</span> <span class="s">2-7GB typically</span>
+</code></pre></div></div>
+
+<h3 id="types-of-checkpoints">Types of Checkpoints</h3>
+
+<ol>
+  <li><strong>Original</strong>: Full models from original training</li>
+  <li><strong>Pruned</strong>: Removed unnecessary data (smaller size)</li>
+  <li><strong>EMA</strong>: Exponential Moving Average (sometimes better quality)</li>
+  <li><strong>Fine-tuned</strong>: Specialized versions for specific styles</li>
+</ol>
+
+<h3 id="file-formats">File Formats</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Extension</th>
+      <th>Features</th>
+      <th>Size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SafeTensors</td>
+      <td>.safetensors</td>
+      <td>Secure, fast loading</td>
+      <td>Standard</td>
+    </tr>
+    <tr>
+      <td>CKPT</td>
+      <td>.ckpt</td>
+      <td>Legacy PyTorch format</td>
+      <td>Standard</td>
+    </tr>
+    <tr>
+      <td>Diffusers</td>
+      <td>(folder)</td>
+      <td>HuggingFace format</td>
+      <td>Larger</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="lora-low-rank-adaptation">LoRA (Low-Rank Adaptation)</h2>
+
+<h3 id="understanding-lora">Understanding LoRA</h3>
+
+<p>LoRAs are small neural network layers that modify the behavior of base models without changing the original weights.</p>
+
+<h3 id="how-lora-works">How LoRA Works</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Mathematical representation
+</span><span class="n">W</span><span class="sh">'</span><span class="s"> = W + ΔW = W + B×A
+
+Where:
+- W: Original model weights (frozen)
+- B, A: Low-rank matrices (trainable)
+- Rank r &lt;&lt; original dimensions
+</span></code></pre></div></div>
+
+<h3 id="lora-types">LoRA Types</h3>
+
+<h4 id="style-loras">Style LoRAs</h4>
+<ul>
+  <li><strong>Purpose</strong>: Apply artistic styles</li>
+  <li><strong>Size</strong>: 10-100MB</li>
+  <li><strong>Rank</strong>: Usually 16-64</li>
+  <li><strong>Usage</strong>: Art styles, painting techniques</li>
+</ul>
+
+<h4 id="character-loras">Character LoRAs</h4>
+<ul>
+  <li><strong>Purpose</strong>: Consistent character generation</li>
+  <li><strong>Size</strong>: 50-200MB</li>
+  <li><strong>Rank</strong>: Usually 32-128</li>
+  <li><strong>Usage</strong>: Specific people, OCs, game characters</li>
+</ul>
+
+<h4 id="concept-loras">Concept LoRAs</h4>
+<ul>
+  <li><strong>Purpose</strong>: Add new objects/concepts</li>
+  <li><strong>Size</strong>: 20-150MB</li>
+  <li><strong>Rank</strong>: Variable based on complexity</li>
+  <li><strong>Usage</strong>: Objects, poses, clothing</li>
+</ul>
+
+<h4 id="enhancement-loras">Enhancement LoRAs</h4>
+<ul>
+  <li><strong>Purpose</strong>: Improve specific aspects</li>
+  <li><strong>Size</strong>: 10-50MB</li>
+  <li><strong>Rank</strong>: Usually 8-32</li>
+  <li><strong>Usage</strong>: Detail enhancement, hand fixes</li>
+</ul>
+
+<h3 id="lora-parameters">LoRA Parameters</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">strength_model</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>    <span class="c1"># How much LoRA affects U-Net
+</span>    <span class="sh">"</span><span class="s">strength_clip</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>     <span class="c1"># How much LoRA affects CLIP
+</span>    <span class="sh">"</span><span class="s">rank</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>               <span class="c1"># Complexity of adaptation
+</span>    <span class="sh">"</span><span class="s">alpha</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>              <span class="c1"># Scaling factor
+</span>    <span class="sh">"</span><span class="s">module</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">,</span>          <span class="c1"># Which layers to modify
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="lora-stacking">LoRA Stacking</h3>
+
+<p>Multiple LoRAs can be combined:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Base Model → LoRA1 (0.7) → LoRA2 (0.5) → LoRA3 (0.3)
+</code></pre></div></div>
+
+<p>Best practices:</p>
+<ul>
+  <li>Order matters (apply most important first)</li>
+  <li>Reduce strength for each additional LoRA</li>
+  <li>Test combinations for conflicts</li>
+</ul>
+
+<h2 id="clip-text-encoder">CLIP (Text Encoder)</h2>
+
+<h3 id="what-is-clip">What is CLIP?</h3>
+
+<p>CLIP (Contrastive Language-Image Pre-training) converts text prompts into numerical representations the model can understand.</p>
+
+<h3 id="clip-variants">CLIP Variants</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Tokens</th>
+      <th>Dimensions</th>
+      <th>Used By</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>CLIP ViT-L/14</td>
+      <td>77</td>
+      <td>768</td>
+      <td>SD 1.x</td>
+    </tr>
+    <tr>
+      <td>OpenCLIP ViT-H/14</td>
+      <td>77</td>
+      <td>1024</td>
+      <td>SD 2.x</td>
+    </tr>
+    <tr>
+      <td>CLIP ViT-L + OpenCLIP ViT-G</td>
+      <td>77×2</td>
+      <td>768+1280</td>
+      <td>SDXL</td>
+    </tr>
+    <tr>
+      <td>T5-XXL</td>
+      <td>256</td>
+      <td>4096</td>
+      <td>FLUX</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="how-clip-works">How CLIP Works</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"a cat" → Tokenizer → [49406, 320, 2368, 49407, ...]
+           ↓
+      Token Embeddings
+           ↓
+      Transformer Layers
+           ↓
+      [768-dimensional vector per token]
+</code></pre></div></div>
+
+<h3 id="clip-skip">CLIP Skip</h3>
+
+<p>Some models benefit from using earlier CLIP layers:</p>
+<ul>
+  <li><strong>CLIP Skip 1</strong>: Use final layer (default)</li>
+  <li><strong>CLIP Skip 2</strong>: Skip last layer (common for anime)</li>
+  <li><strong>CLIP Skip 3+</strong>: Rarely used</li>
+</ul>
+
+<h3 id="custom-clip-models">Custom CLIP Models</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Loading custom CLIP
+</span><span class="p">[</span><span class="n">CLIPLoader</span><span class="p">]</span> <span class="err">→</span> <span class="n">clip_name</span><span class="p">:</span> <span class="sh">"</span><span class="s">custom_clip.safetensors</span><span class="sh">"</span>
+             <span class="err">→</span> <span class="nb">type</span><span class="p">:</span> <span class="sh">"</span><span class="s">stable_diffusion</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<h2 id="vae-variational-autoencoder">VAE (Variational Autoencoder)</h2>
+
+<h3 id="understanding-vae">Understanding VAE</h3>
+
+<p>VAE compresses images between pixel space and latent space, reducing computational requirements.</p>
+
+<h3 id="vae-process">VAE Process</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Encoding: Image (512×512×3) → VAE Encoder → Latent (64×64×4)
+Decoding: Latent (64×64×4) → VAE Decoder → Image (512×512×3)
+</code></pre></div></div>
+
+<h3 id="common-vae-models">Common VAE Models</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>VAE Model</th>
+      <th>Best For</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>vae-ft-mse-840000</td>
+      <td>General use</td>
+      <td>Balanced, widely compatible</td>
+    </tr>
+    <tr>
+      <td>vae-ft-ema-560000</td>
+      <td>Anime/Art</td>
+      <td>Brighter colors, smoother</td>
+    </tr>
+    <tr>
+      <td>sdxl_vae</td>
+      <td>SDXL models</td>
+      <td>Optimized for SDXL</td>
+    </tr>
+    <tr>
+      <td>kl-f8-anime2</td>
+      <td>Anime</td>
+      <td>Better skin tones</td>
+    </tr>
+    <tr>
+      <td>blessed2.vae</td>
+      <td>Photorealism</td>
+      <td>Better color accuracy</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="vae-selection-impact">VAE Selection Impact</h3>
+
+<p>Different VAEs affect:</p>
+<ul>
+  <li>Color saturation</li>
+  <li>Contrast levels</li>
+  <li>Detail preservation</li>
+  <li>Skin tone accuracy</li>
+  <li>Overall brightness</li>
+</ul>
+
+<h3 id="tiled-vae">Tiled VAE</h3>
+
+<p>For large images with limited VRAM:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">VAE</span> <span class="nc">Encode </span><span class="p">(</span><span class="n">Tiled</span><span class="p">)]</span> <span class="err">→</span> <span class="n">tile_size</span><span class="p">:</span> <span class="mi">512</span>
+                    <span class="err">→</span> <span class="n">overlap</span><span class="p">:</span> <span class="mi">64</span>
+</code></pre></div></div>
+
+<h2 id="controlnet">ControlNet</h2>
+
+<h3 id="what-is-controlnet">What is ControlNet?</h3>
+
+<p>ControlNet adds spatial control to diffusion models by conditioning on additional inputs like poses, edges, or depth maps.</p>
+
+<h3 id="controlnet-types">ControlNet Types</h3>
+
+<h4 id="pose-control">Pose Control</h4>
+<ul>
+  <li><strong>OpenPose</strong>: Human skeleton detection</li>
+  <li><strong>DWPose</strong>: More accurate pose estimation</li>
+  <li><strong>Animal Pose</strong>: For animal skeletons</li>
+</ul>
+
+<h4 id="edge-detection">Edge Detection</h4>
+<ul>
+  <li><strong>Canny</strong>: Simple edge detection</li>
+  <li><strong>MLSD</strong>: Straight line detection</li>
+  <li><strong>SoftEdge</strong>: Preserves more detail</li>
+</ul>
+
+<h4 id="depth">Depth</h4>
+<ul>
+  <li><strong>MiDaS</strong>: Monocular depth estimation</li>
+  <li><strong>Zoe</strong>: More accurate depth</li>
+  <li><strong>LeReS</strong>: High-quality depth</li>
+</ul>
+
+<h4 id="semantic">Semantic</h4>
+<ul>
+  <li><strong>Segmentation</strong>: Region-based control</li>
+  <li><strong>Normal Maps</strong>: Surface orientation</li>
+  <li><strong>Scribble</strong>: Rough sketch input</li>
+</ul>
+
+<h3 id="controlnet-workflow">ControlNet Workflow</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">ControlNet</span> <span class="n">Preprocessor</span><span class="p">]</span> <span class="err">→</span> <span class="n">Control</span> <span class="n">Signal</span>
+                                            <span class="err">↓</span>
+<span class="p">[</span><span class="n">Text</span> <span class="n">Prompt</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Model</span> <span class="o">+</span> <span class="n">ControlNet</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Controlled</span> <span class="n">Generation</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="controlnet-parameters">ControlNet Parameters</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># Control influence (0-2)
+</span>    <span class="sh">"</span><span class="s">start_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># When to start applying
+</span>    <span class="sh">"</span><span class="s">end_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># When to stop applying
+</span>    <span class="sh">"</span><span class="s">preprocessor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="c1"># Detection method
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="embeddings-textual-inversions">Embeddings (Textual Inversions)</h2>
+
+<h3 id="what-are-embeddings">What Are Embeddings?</h3>
+
+<p>Embeddings are small files that teach CLIP new concepts using existing tokens, requiring no model changes.</p>
+
+<h3 id="how-they-work">How They Work</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"photo of xyz person" → CLIP → [Special Token Embedding]
+                                         ↓
+                               Learned representation
+</code></pre></div></div>
+
+<h3 id="embedding-types">Embedding Types</h3>
+
+<ol>
+  <li><strong>Negative Embeddings</strong>: Improve quality by avoiding bad patterns
+    <ul>
+      <li>EasyNegative</li>
+      <li>BadPrompt</li>
+      <li>NG_DeepNegative</li>
+    </ul>
+  </li>
+  <li><strong>Style Embeddings</strong>: Capture specific artistic styles</li>
+  <li><strong>Object Embeddings</strong>: Specific objects or concepts</li>
+  <li><strong>Person Embeddings</strong>: Individual faces (less effective than LoRA)</li>
+</ol>
+
+<h3 id="using-embeddings">Using Embeddings</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Positive prompt
+</span><span class="sh">"</span><span class="s">photo of embedding:my_style</span><span class="sh">"</span>
+
+<span class="c1"># Negative prompt  
+</span><span class="sh">"</span><span class="s">embedding:EasyNegative, embedding:BadHands</span><span class="sh">"</span>
+</code></pre></div></div>
+
+<h2 id="hypernetworks">Hypernetworks</h2>
+
+<h3 id="understanding-hypernetworks">Understanding Hypernetworks</h3>
+
+<p>Hypernetworks are neural networks that modify the weights of another network during inference, sitting between embeddings and LoRAs in complexity.</p>
+
+<h3 id="characteristics">Characteristics</h3>
+
+<ul>
+  <li><strong>Size</strong>: 25-200MB typically</li>
+  <li><strong>Flexibility</strong>: More than embeddings, less than LoRA</li>
+  <li><strong>Performance</strong>: Slower than LoRA</li>
+  <li><strong>Quality</strong>: Generally inferior to LoRA</li>
+</ul>
+
+<h3 id="when-to-use">When to Use</h3>
+
+<ul>
+  <li>Legacy models trained as hypernetworks</li>
+  <li>Specific artistic styles</li>
+  <li>When LoRA training isn’t feasible</li>
+</ul>
+
+<h2 id="lycorislocon">LyCORIS/LoCon</h2>
+
+<h3 id="advanced-lora-variants">Advanced LoRA Variants</h3>
+
+<p>LyCORIS (LoRA beYond Conventional) methods offer more sophisticated adaptations:</p>
+
+<ol>
+  <li><strong>LoCon</strong>: LoRA with Convolution layers</li>
+  <li><strong>LoHa</strong>: Uses Hadamard products</li>
+  <li><strong>LoKr</strong>: Kronecker product decomposition</li>
+  <li><strong>DyLoRA</strong>: Dynamic rank allocation</li>
+</ol>
+
+<h3 id="comparison-with-standard-lora">Comparison with Standard LoRA</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>LoRA</th>
+      <th>LoCon</th>
+      <th>LoHa</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Parameters</td>
+      <td>Least</td>
+      <td>Medium</td>
+      <td>Most</td>
+    </tr>
+    <tr>
+      <td>Quality</td>
+      <td>Good</td>
+      <td>Better</td>
+      <td>Best</td>
+    </tr>
+    <tr>
+      <td>Speed</td>
+      <td>Fast</td>
+      <td>Medium</td>
+      <td>Slower</td>
+    </tr>
+    <tr>
+      <td>Size</td>
+      <td>Small</td>
+      <td>Medium</td>
+      <td>Larger</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="model-merging">Model Merging</h2>
+
+<h3 id="checkpoint-merging">Checkpoint Merging</h3>
+
+<p>Combine multiple models:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Model</span> <span class="n">A</span><span class="p">]</span> <span class="err">×</span> <span class="mf">0.6</span> <span class="o">+</span> <span class="p">[</span><span class="n">Model</span> <span class="n">B</span><span class="p">]</span> <span class="err">×</span> <span class="mf">0.4</span> <span class="o">=</span> <span class="p">[</span><span class="n">Merged</span> <span class="n">Model</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="merge-methods">Merge Methods</h3>
+
+<ol>
+  <li><strong>Weighted Sum</strong>: Simple linear combination</li>
+  <li><strong>Add Difference</strong>: A + (B - C) × M</li>
+  <li><strong>Block Weighted</strong>: Different weights per layer</li>
+</ol>
+
+<h3 id="lora-merging">LoRA Merging</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Merge LoRA into checkpoint
+</span><span class="p">[</span><span class="n">Checkpoint</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">LoRA</span> <span class="err">×</span> <span class="n">strength</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">New</span> <span class="n">Checkpoint</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h2 id="ip-adapter">IP-Adapter</h2>
+
+<h3 id="image-prompt-adapter">Image Prompt Adapter</h3>
+
+<p>IP-Adapter allows using images as prompts alongside text:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Reference</span> <span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">CLIP</span> <span class="n">Vision</span><span class="p">]</span> <span class="err">→</span> <span class="n">Image</span> <span class="n">Features</span>
+                                          <span class="err">↓</span>
+<span class="p">[</span><span class="n">Text</span> <span class="n">Prompt</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">CLIP</span> <span class="n">Text</span><span class="p">]</span> <span class="err">→</span> <span class="n">Combined</span> <span class="n">Conditioning</span>
+</code></pre></div></div>
+
+<h3 id="use-cases">Use Cases</h3>
+
+<ul>
+  <li>Style reference</li>
+  <li>Character consistency</li>
+  <li>Composition guidance</li>
+  <li>Face swapping</li>
+</ul>
+
+<h2 id="model-organization">Model Organization</h2>
+
+<h3 id="directory-structure">Directory Structure</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>models/
+├── checkpoints/      # Base models
+│   ├── realistic/
+│   ├── anime/
+│   └── artistic/
+├── loras/           # LoRA models
+│   ├── style/
+│   ├── character/
+│   └── concept/
+├── vae/             # VAE models
+├── clip/            # Text encoders
+├── controlnet/      # Control models
+├── embeddings/      # Textual inversions
+├── ipadapter/       # IP-Adapter models
+└── upscale_models/  # ESRGAN/etc
+</code></pre></div></div>
+
+<h3 id="naming-conventions">Naming Conventions</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>model_name_version_variant_size.safetensors
+
+Examples:
+- sdxl_base_1.0_fp16.safetensors
+- anime_style_lora_v2_rank32.safetensors
+- vae_ft_mse_840000_ema_pruned.safetensors
+</code></pre></div></div>
+
+<h2 id="performance-considerations">Performance Considerations</h2>
+
+<h3 id="memory-usage">Memory Usage</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>VRAM Usage</th>
+      <th>Loading Time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SD 1.5 Checkpoint</td>
+      <td>~2GB</td>
+      <td>5-10s</td>
+    </tr>
+    <tr>
+      <td>SDXL Checkpoint</td>
+      <td>~6GB</td>
+      <td>10-20s</td>
+    </tr>
+    <tr>
+      <td>LoRA</td>
+      <td>~100MB</td>
+      <td>&lt;1s</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>~350MB</td>
+      <td>2-5s</td>
+    </tr>
+    <tr>
+      <td>ControlNet</td>
+      <td>~1.5GB</td>
+      <td>5-10s</td>
+    </tr>
+    <tr>
+      <td>CLIP</td>
+      <td>~500MB</td>
+      <td>2-5s</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="optimization-tips">Optimization Tips</h3>
+
+<ol>
+  <li><strong>Share Components</strong>: Reuse CLIP/VAE across models</li>
+  <li><strong>Lazy Loading</strong>: Load only when needed</li>
+  <li><strong>Quantization</strong>: Use fp16 or int8 versions</li>
+  <li><strong>CPU Offload</strong>: Move unused components to RAM</li>
+</ol>
+
+<h2 id="choosing-the-right-models">Choosing the Right Models</h2>
+
+<h3 id="decision-matrix">Decision Matrix</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Primary Model</th>
+      <th>Additional Models</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Photorealism</td>
+      <td>Realistic checkpoint</td>
+      <td>Quality VAE, detail LoRA</td>
+    </tr>
+    <tr>
+      <td>Anime art</td>
+      <td>Anime checkpoint/Pony</td>
+      <td>Style LoRA, anime VAE</td>
+    </tr>
+    <tr>
+      <td>Specific character</td>
+      <td>Any checkpoint</td>
+      <td>Character LoRA</td>
+    </tr>
+    <tr>
+      <td>Pose control</td>
+      <td>Any checkpoint</td>
+      <td>ControlNet OpenPose</td>
+    </tr>
+    <tr>
+      <td>Style transfer</td>
+      <td>Any checkpoint</td>
+      <td>Style LoRA/embedding</td>
+    </tr>
+    <tr>
+      <td>Text in image</td>
+      <td>FLUX/SDXL</td>
+      <td>Sometimes ControlNet</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="compatibility-matrix">Compatibility Matrix</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>SD 1.5</th>
+      <th>SD 2.x</th>
+      <th>SDXL</th>
+      <th>FLUX</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SD1.5 LoRA</td>
+      <td>✓</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>SDXL LoRA</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✓</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>FLUX LoRA</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✓</td>
+    </tr>
+    <tr>
+      <td>SD1.5 VAE</td>
+      <td>✓</td>
+      <td>≈</td>
+      <td>✗</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>SDXL VAE</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✓</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>Embeddings</td>
+      <td>✓</td>
+      <td>≈</td>
+      <td>≈</td>
+      <td>✗</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="model-selection">Model Selection</h3>
+
+<ol>
+  <li><strong>Start with base model</strong> matching your target style</li>
+  <li><strong>Add LoRAs</strong> for specific features</li>
+  <li><strong>Use appropriate VAE</strong> for color accuracy</li>
+  <li><strong>Apply ControlNet</strong> only when needed</li>
+  <li><strong>Optimize with embeddings</strong> for quality</li>
+</ol>
+
+<h3 id="quality-pipeline">Quality Pipeline</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Base Model → VAE Selection → LoRA Stack → 
+Embeddings → ControlNet (optional) → Generation
+</code></pre></div></div>
+
+<h3 id="testing-workflow">Testing Workflow</h3>
+
+<ol>
+  <li>Generate with base model only</li>
+  <li>Add one component at a time</li>
+  <li>Adjust strengths incrementally</li>
+  <li>Document successful combinations</li>
+</ol>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Understanding the various model types in the Stable Diffusion ecosystem enables you to:</p>
+<ul>
+  <li>Choose the right components for your needs</li>
+  <li>Optimize generation quality and speed</li>
+  <li>Troubleshoot issues effectively</li>
+  <li>Create complex, controlled outputs</li>
+</ul>
+
+<p>The key is understanding how each component contributes to the final result and how they interact with each other. Start simple and gradually incorporate more sophisticated components as needed.</p>
+
+      
+    </div>
+
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+
+    
+
+    
+      <li><a href="/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+    
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2025 <a href="">Andrews Notebook</a>. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/jekyll-themes/minimal-mistakes/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/assets/js/main.min.js"></script>
+
+
+
+
+
+
+
+
+
+  </body>
+</html>

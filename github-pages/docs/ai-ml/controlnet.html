@@ -1,0 +1,876 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.27.1 by Michael Rose
+  Copyright 2013-2025 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>ControlNet Guide - Andrews Notebook</title>
+<meta name="description" content="Technology and Physics notes">
+
+
+  <meta name="author" content="Andrew">
+  
+
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Andrews Notebook">
+<meta property="og:title" content="ControlNet Guide">
+<meta property="og:url" content="/github-pages/docs/ai-ml/controlnet.html">
+
+
+  <meta property="og:description" content="Technology and Physics notes">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="canonical" href="/github-pages/docs/ai-ml/controlnet.html">
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+
+  <link href="/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+  
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css"></noscript>
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--default" dir="ltr">
+    <nav class="skip-links">
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/">
+          Andrews Notebook
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a
+                href="https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/"
+                
+                
+              >Quick-Start Guide</a>
+            </li></ul>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      <h1 class="no_toc" id="controlnet-guide">ControlNet Guide</h1>
+
+<div class="code-example">
+  <p>Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
+</div>
+
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
+
+<ol id="markdown-toc">
+  <li><a href="#what-is-controlnet" id="markdown-toc-what-is-controlnet">What is ControlNet?</a>    <ol>
+      <li><a href="#how-controlnet-works" id="markdown-toc-how-controlnet-works">How ControlNet Works</a></li>
+    </ol>
+  </li>
+  <li><a href="#controlnet-types" id="markdown-toc-controlnet-types">ControlNet Types</a>    <ol>
+      <li><a href="#pose-control" id="markdown-toc-pose-control">Pose Control</a>        <ol>
+          <li><a href="#openpose" id="markdown-toc-openpose">OpenPose</a></li>
+          <li><a href="#dwpose" id="markdown-toc-dwpose">DWPose</a></li>
+        </ol>
+      </li>
+      <li><a href="#edge-detection" id="markdown-toc-edge-detection">Edge Detection</a>        <ol>
+          <li><a href="#canny-edge" id="markdown-toc-canny-edge">Canny Edge</a></li>
+          <li><a href="#mlsd-m-lsd" id="markdown-toc-mlsd-m-lsd">MLSD (M-LSD)</a></li>
+          <li><a href="#softedge-hedpidi" id="markdown-toc-softedge-hedpidi">SoftEdge (HED/PIDI)</a></li>
+        </ol>
+      </li>
+      <li><a href="#depth-control" id="markdown-toc-depth-control">Depth Control</a>        <ol>
+          <li><a href="#midas" id="markdown-toc-midas">MiDaS</a></li>
+          <li><a href="#zoe-depth" id="markdown-toc-zoe-depth">Zoe Depth</a></li>
+          <li><a href="#leres" id="markdown-toc-leres">LeReS</a></li>
+        </ol>
+      </li>
+      <li><a href="#semantic-control" id="markdown-toc-semantic-control">Semantic Control</a>        <ol>
+          <li><a href="#segmentation" id="markdown-toc-segmentation">Segmentation</a></li>
+          <li><a href="#normal-maps" id="markdown-toc-normal-maps">Normal Maps</a></li>
+        </ol>
+      </li>
+      <li><a href="#line-art-control" id="markdown-toc-line-art-control">Line Art Control</a>        <ol>
+          <li><a href="#anime-line-art" id="markdown-toc-anime-line-art">Anime Line Art</a></li>
+          <li><a href="#scribble" id="markdown-toc-scribble">Scribble</a></li>
+        </ol>
+      </li>
+      <li><a href="#special-controls" id="markdown-toc-special-controls">Special Controls</a>        <ol>
+          <li><a href="#shuffle" id="markdown-toc-shuffle">Shuffle</a></li>
+          <li><a href="#tile" id="markdown-toc-tile">Tile</a></li>
+          <li><a href="#inpaint" id="markdown-toc-inpaint">Inpaint</a></li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+  <li><a href="#installation-and-setup" id="markdown-toc-installation-and-setup">Installation and Setup</a>    <ol>
+      <li><a href="#comfyui-installation" id="markdown-toc-comfyui-installation">ComfyUI Installation</a></li>
+      <li><a href="#required-components" id="markdown-toc-required-components">Required Components</a></li>
+    </ol>
+  </li>
+  <li><a href="#basic-workflows" id="markdown-toc-basic-workflows">Basic Workflows</a>    <ol>
+      <li><a href="#simple-controlnet-workflow" id="markdown-toc-simple-controlnet-workflow">Simple ControlNet Workflow</a></li>
+      <li><a href="#multi-controlnet-setup" id="markdown-toc-multi-controlnet-setup">Multi-ControlNet Setup</a></li>
+      <li><a href="#controlnet-parameters" id="markdown-toc-controlnet-parameters">ControlNet Parameters</a></li>
+    </ol>
+  </li>
+  <li><a href="#advanced-techniques" id="markdown-toc-advanced-techniques">Advanced Techniques</a>    <ol>
+      <li><a href="#strength-scheduling" id="markdown-toc-strength-scheduling">Strength Scheduling</a></li>
+      <li><a href="#multiple-control-combinations" id="markdown-toc-multiple-control-combinations">Multiple Control Combinations</a>        <ol>
+          <li><a href="#pose--depth" id="markdown-toc-pose--depth">Pose + Depth</a></li>
+          <li><a href="#edge--segmentation" id="markdown-toc-edge--segmentation">Edge + Segmentation</a></li>
+        </ol>
+      </li>
+      <li><a href="#control-mode-selection" id="markdown-toc-control-mode-selection">Control Mode Selection</a></li>
+      <li><a href="#resolution-considerations" id="markdown-toc-resolution-considerations">Resolution Considerations</a></li>
+    </ol>
+  </li>
+  <li><a href="#preprocessing-best-practices" id="markdown-toc-preprocessing-best-practices">Preprocessing Best Practices</a>    <ol>
+      <li><a href="#image-preparation" id="markdown-toc-image-preparation">Image Preparation</a></li>
+      <li><a href="#preprocessor-selection" id="markdown-toc-preprocessor-selection">Preprocessor Selection</a></li>
+      <li><a href="#custom-preprocessing" id="markdown-toc-custom-preprocessing">Custom Preprocessing</a></li>
+    </ol>
+  </li>
+  <li><a href="#model-compatibility" id="markdown-toc-model-compatibility">Model Compatibility</a>    <ol>
+      <li><a href="#controlnet-versions" id="markdown-toc-controlnet-versions">ControlNet Versions</a></li>
+      <li><a href="#t2i-adapter" id="markdown-toc-t2i-adapter">T2I-Adapter</a></li>
+    </ol>
+  </li>
+  <li><a href="#common-workflows" id="markdown-toc-common-workflows">Common Workflows</a>    <ol>
+      <li><a href="#character-consistency" id="markdown-toc-character-consistency">Character Consistency</a></li>
+      <li><a href="#architecture-visualization" id="markdown-toc-architecture-visualization">Architecture Visualization</a></li>
+      <li><a href="#style-transfer-with-structure" id="markdown-toc-style-transfer-with-structure">Style Transfer with Structure</a></li>
+    </ol>
+  </li>
+  <li><a href="#troubleshooting" id="markdown-toc-troubleshooting">Troubleshooting</a>    <ol>
+      <li><a href="#common-issues" id="markdown-toc-common-issues">Common Issues</a>        <ol>
+          <li><a href="#preprocessor-not-detecting-features" id="markdown-toc-preprocessor-not-detecting-features">Preprocessor Not Detecting Features</a></li>
+          <li><a href="#over-controlling-generation" id="markdown-toc-over-controlling-generation">Over-controlling Generation</a></li>
+          <li><a href="#artifacts-at-edges" id="markdown-toc-artifacts-at-edges">Artifacts at Edges</a></li>
+        </ol>
+      </li>
+      <li><a href="#performance-optimization" id="markdown-toc-performance-optimization">Performance Optimization</a></li>
+    </ol>
+  </li>
+  <li><a href="#creative-applications" id="markdown-toc-creative-applications">Creative Applications</a>    <ol>
+      <li><a href="#hybrid-controls" id="markdown-toc-hybrid-controls">Hybrid Controls</a></li>
+      <li><a href="#temporal-consistency" id="markdown-toc-temporal-consistency">Temporal Consistency</a></li>
+      <li><a href="#interactive-control" id="markdown-toc-interactive-control">Interactive Control</a></li>
+    </ol>
+  </li>
+  <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
+      <li><a href="#dos" id="markdown-toc-dos">Do’s</a></li>
+      <li><a href="#donts" id="markdown-toc-donts">Don’ts</a></li>
+    </ol>
+  </li>
+  <li><a href="#future-developments" id="markdown-toc-future-developments">Future Developments</a>    <ol>
+      <li><a href="#emerging-controlnet-technologies" id="markdown-toc-emerging-controlnet-technologies">Emerging ControlNet Technologies</a></li>
+      <li><a href="#integration-trends" id="markdown-toc-integration-trends">Integration Trends</a></li>
+    </ol>
+  </li>
+  <li><a href="#conclusion" id="markdown-toc-conclusion">Conclusion</a></li>
+</ol>
+
+<hr />
+
+<h2 id="what-is-controlnet">What is ControlNet?</h2>
+
+<p>ControlNet is a neural network architecture that adds spatial control to diffusion models. It allows you to guide image generation using various types of conditioning inputs like human poses, edge maps, depth maps, and more, while maintaining the quality and capabilities of the base model.</p>
+
+<h3 id="how-controlnet-works">How ControlNet Works</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Input Image → Preprocessor → Control Map
+                                ↓
+Text Prompt → Base Model + ControlNet → Controlled Output
+</code></pre></div></div>
+
+<p>ControlNet creates a trainable copy of the diffusion model’s encoder blocks, which learns to respond to specific spatial conditions while preserving the original model’s generation capabilities.</p>
+
+<h2 id="controlnet-types">ControlNet Types</h2>
+
+<h3 id="pose-control">Pose Control</h3>
+
+<h4 id="openpose">OpenPose</h4>
+<p>Detects human body keypoints and skeleton structure.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Human pose transfer</span>
+<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">18-25 body points</span>
+<span class="na">Includes</span><span class="pi">:</span> <span class="s">Body, hands, face</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Character consistency, pose reference</span>
+</code></pre></div></div>
+
+<p><strong>Preprocessor Options</strong>:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">openpose_full</code>: Body + hands + face</li>
+  <li><code class="language-plaintext highlighter-rouge">openpose_body</code>: Body only</li>
+  <li><code class="language-plaintext highlighter-rouge">openpose_hand</code>: Hands focus</li>
+  <li><code class="language-plaintext highlighter-rouge">openpose_face</code>: Face landmarks</li>
+</ul>
+
+<p><strong>Example Workflow</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Reference</span> <span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">OpenPose</span> <span class="n">Preprocessor</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Pose</span> <span class="n">Skeleton</span><span class="p">]</span>
+                                                    <span class="err">↓</span>
+<span class="sh">"</span><span class="s">A warrior in armor</span><span class="sh">"</span> <span class="err">→</span> <span class="p">[</span><span class="n">ControlNet</span> <span class="n">OpenPose</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Posed</span> <span class="n">Character</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h4 id="dwpose">DWPose</h4>
+<p>More accurate pose estimation with better occlusion handling.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Advantages</span><span class="pi">:</span> <span class="s">Better accuracy, stable tracking</span>
+<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">More detailed skeleton</span>
+<span class="na">Performance</span><span class="pi">:</span> <span class="s">Slower but more reliable</span>
+<span class="na">Use case</span><span class="pi">:</span> <span class="s">Complex poses, partial visibility</span>
+</code></pre></div></div>
+
+<h3 id="edge-detection">Edge Detection</h3>
+
+<h4 id="canny-edge">Canny Edge</h4>
+<p>Classic edge detection algorithm for clean line extraction.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Preserve shapes and outlines</span>
+<span class="na">Parameters</span><span class="pi">:</span> <span class="s">Low/High threshold</span>
+<span class="na">Output</span><span class="pi">:</span> <span class="s">Binary edge map</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Architecture, objects, clean lines</span>
+</code></pre></div></div>
+
+<p><strong>Parameter Guide</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">low_threshold</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>   <span class="c1"># Lower = more edges
+</span>    <span class="sh">"</span><span class="s">high_threshold</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>  <span class="c1"># Higher = fewer edges
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="mlsd-m-lsd">MLSD (M-LSD)</h4>
+<p>Detects straight lines and geometric structures.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Architectural elements</span>
+<span class="na">Specialty</span><span class="pi">:</span> <span class="s">Straight line detection</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Buildings, interiors, technical drawings</span>
+</code></pre></div></div>
+
+<h4 id="softedge-hedpidi">SoftEdge (HED/PIDI)</h4>
+<p>Preserves more subtle edge information.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Methods</span><span class="pi">:</span> <span class="s">HED, PIDI, PidiNet</span>
+<span class="na">Purpose</span><span class="pi">:</span> <span class="s">Artistic edge preservation</span>  
+<span class="na">Quality</span><span class="pi">:</span> <span class="s">Softer, more natural edges</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Organic subjects, artistic styles</span>
+</code></pre></div></div>
+
+<h3 id="depth-control">Depth Control</h3>
+
+<h4 id="midas">MiDaS</h4>
+<p>Monocular depth estimation for general scenes.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Versions</span><span class="pi">:</span> <span class="s">MiDaS v2.1, v3.0</span>
+<span class="na">Resolution</span><span class="pi">:</span> <span class="s">Multiple model sizes</span>
+<span class="na">Output</span><span class="pi">:</span> <span class="s">Relative depth map</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">General depth control</span>
+</code></pre></div></div>
+
+<h4 id="zoe-depth">Zoe Depth</h4>
+<p>More accurate depth estimation with metric depth.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Accuracy</span><span class="pi">:</span> <span class="s">Superior to MiDaS</span>
+<span class="na">Type</span><span class="pi">:</span> <span class="s">Metric depth (actual distances)</span>
+<span class="na">Training</span><span class="pi">:</span> <span class="s">NYU Depth v2, KITTI</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Realistic depth, outdoor scenes</span>
+</code></pre></div></div>
+
+<h4 id="leres">LeReS</h4>
+<p>Learning to Recover 3D Scene Shape.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Quality</span><span class="pi">:</span> <span class="s">High quality depth</span>
+<span class="na">Features</span><span class="pi">:</span> <span class="s">Handles complex scenes</span>
+<span class="na">Speed</span><span class="pi">:</span> <span class="s">Slower than MiDaS</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Complex compositions</span>
+</code></pre></div></div>
+
+<h3 id="semantic-control">Semantic Control</h3>
+
+<h4 id="segmentation">Segmentation</h4>
+<p>Uses semantic segmentation maps for region-based control.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Models</span><span class="pi">:</span> <span class="s">ADE20K, COCO, custom</span>
+<span class="na">Classes</span><span class="pi">:</span> <span class="s">150+ object categories</span>
+<span class="na">Control</span><span class="pi">:</span> <span class="s">Per-region styling</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Scene composition</span>
+</code></pre></div></div>
+
+<p><strong>Color Mapping Example</strong>:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">segmentation_colors</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">sky</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">134</span><span class="p">,</span> <span class="mi">193</span><span class="p">,</span> <span class="mi">249</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">building</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">tree</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">person</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">ground</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">139</span><span class="p">,</span> <span class="mi">69</span><span class="p">,</span> <span class="mi">19</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="normal-maps">Normal Maps</h4>
+<p>Surface normal information for 3D-aware generation.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">3D surface orientation</span>
+<span class="na">Format</span><span class="pi">:</span> <span class="s">RGB encoded normals</span>
+<span class="na">Use case</span><span class="pi">:</span> <span class="s">3D consistency, lighting</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Products, sculptures</span>
+</code></pre></div></div>
+
+<h3 id="line-art-control">Line Art Control</h3>
+
+<h4 id="anime-line-art">Anime Line Art</h4>
+<p>Extracts clean lines suitable for anime/manga style.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Anime/manga line extraction</span>
+<span class="na">Cleanliness</span><span class="pi">:</span> <span class="s">Very clean lines</span>
+<span class="na">Style</span><span class="pi">:</span> <span class="s">Manga-appropriate</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Anime characters, manga</span>
+</code></pre></div></div>
+
+<h4 id="scribble">Scribble</h4>
+<p>Converts rough sketches to control inputs.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Modes</span><span class="pi">:</span> <span class="s">Scribble, Fake Scribble</span>
+<span class="na">Input</span><span class="pi">:</span> <span class="s">Hand-drawn sketches</span>
+<span class="na">Tolerance</span><span class="pi">:</span> <span class="s">High noise tolerance</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Quick ideation</span>
+</code></pre></div></div>
+
+<h3 id="special-controls">Special Controls</h3>
+
+<h4 id="shuffle">Shuffle</h4>
+<p>Rearranges image content while preserving style.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Style transfer with layout change</span>
+<span class="na">Method</span><span class="pi">:</span> <span class="s">Spatial shuffling</span>
+<span class="na">Randomness</span><span class="pi">:</span> <span class="s">Controllable</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Creative variations</span>
+</code></pre></div></div>
+
+<h4 id="tile">Tile</h4>
+<p>Enables tiled/seamless generation and upscaling.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Seamless textures, upscaling</span>
+<span class="na">Method</span><span class="pi">:</span> <span class="s">Overlapping tiles</span>
+<span class="na">Quality</span><span class="pi">:</span> <span class="s">Maintains consistency</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Patterns, super-resolution</span>
+</code></pre></div></div>
+
+<h4 id="inpaint">Inpaint</h4>
+<p>Specialized control for masked region generation.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Input</span><span class="pi">:</span> <span class="s">Image + Mask</span>
+<span class="na">Control</span><span class="pi">:</span> <span class="s">Only masked areas</span>
+<span class="na">Blending</span><span class="pi">:</span> <span class="s">Seamless integration</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">Object removal, editing</span>
+</code></pre></div></div>
+
+<h2 id="installation-and-setup">Installation and Setup</h2>
+
+<h3 id="comfyui-installation">ComfyUI Installation</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install ControlNet models</span>
+<span class="nb">cd </span>ComfyUI/models/controlnet
+
+<span class="c"># Download models (example)</span>
+wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth
+wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1p_sd15_depth.pth
+</code></pre></div></div>
+
+<h3 id="required-components">Required Components</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Core</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">ComfyUI-ControlNet-Aux (preprocessors)</span>
+<span class="pi">-</span> <span class="s">ControlNet models (specific to base model)</span>
+<span class="pi">-</span> <span class="s">Base diffusion model (SD 1.5, SDXL, etc.)</span>
+
+<span class="na">Optional</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">Custom preprocessors</span>
+<span class="pi">-</span> <span class="s">Additional ControlNet models</span>
+</code></pre></div></div>
+
+<h2 id="basic-workflows">Basic Workflows</h2>
+
+<h3 id="simple-controlnet-workflow">Simple ControlNet Workflow</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ComfyUI nodes
+</span><span class="p">[</span><span class="n">Load</span> <span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">ControlNet</span> <span class="n">Preprocessor</span><span class="p">]</span> <span class="err">→</span> <span class="n">Control</span> <span class="n">Image</span>
+                                               <span class="err">↓</span>
+<span class="p">[</span><span class="n">Load</span> <span class="n">ControlNet</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span><span class="p">]</span> <span class="err">←</span> <span class="p">[</span><span class="n">Positive</span> <span class="n">Prompt</span><span class="p">]</span>
+                            <span class="err">↓</span>
+                    <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">VAE</span> <span class="n">Decode</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Save</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="multi-controlnet-setup">Multi-ControlNet Setup</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Stack multiple ControlNets
+</span><span class="p">[</span><span class="n">OpenPose</span> <span class="n">Control</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span> <span class="mi">1</span><span class="p">]</span>
+                            <span class="err">↓</span>
+<span class="p">[</span><span class="n">Depth</span> <span class="n">Control</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span> <span class="mi">2</span><span class="p">]</span>
+                            <span class="err">↓</span>
+                    <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="controlnet-parameters">ControlNet Parameters</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># 0-2, control influence
+</span>    <span class="sh">"</span><span class="s">start_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># When to start applying
+</span>    <span class="sh">"</span><span class="s">end_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># When to stop applying
+</span>    <span class="sh">"</span><span class="s">control_mode</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">balanced</span><span class="sh">"</span><span class="p">,</span> <span class="c1"># balanced/prompt/control
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="advanced-techniques">Advanced Techniques</h2>
+
+<h3 id="strength-scheduling">Strength Scheduling</h3>
+
+<p>Vary ControlNet influence during generation:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reduce control over time for more creativity
+</span><span class="n">strength_schedule</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mi">0</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>    <span class="c1"># Full control at start
+</span>    <span class="mf">0.5</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Reduce midway
+</span>    <span class="mf">0.8</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>  <span class="c1"># Minimal at end
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="multiple-control-combinations">Multiple Control Combinations</h3>
+
+<h4 id="pose--depth">Pose + Depth</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Character in specific pose with depth
+</span><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">openpose</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>
+<span class="p">]</span>
+</code></pre></div></div>
+
+<h4 id="edge--segmentation">Edge + Segmentation</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Precise shapes with semantic regions
+</span><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">canny</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span>
+    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">segmentation</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">}</span>
+<span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="control-mode-selection">Control Mode Selection</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Description</th>
+      <th>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Balanced</td>
+      <td>Equal weight to prompt and control</td>
+      <td>General use</td>
+    </tr>
+    <tr>
+      <td>Prompt</td>
+      <td>Prioritize text prompt</td>
+      <td>Creative freedom</td>
+    </tr>
+    <tr>
+      <td>Control</td>
+      <td>Prioritize ControlNet</td>
+      <td>Exact matching</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="resolution-considerations">Resolution Considerations</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ControlNet resolution tips
+</span><span class="k">if</span> <span class="n">base_model</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SD1.5</span><span class="sh">"</span><span class="p">:</span>
+    <span class="n">control_res</span> <span class="o">=</span> <span class="mi">512</span>
+<span class="k">elif</span> <span class="n">base_model</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">:</span>
+    <span class="n">control_res</span> <span class="o">=</span> <span class="mi">1024</span>
+    
+<span class="c1"># Preprocess to match
+</span><span class="n">control_image</span> <span class="o">=</span> <span class="nf">resize_image</span><span class="p">(</span><span class="n">input_image</span><span class="p">,</span> <span class="n">control_res</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="preprocessing-best-practices">Preprocessing Best Practices</h2>
+
+<h3 id="image-preparation">Image Preparation</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">prepare_control_image</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">control_type</span><span class="p">):</span>
+    <span class="c1"># Ensure correct resolution
+</span>    <span class="n">image</span> <span class="o">=</span> <span class="nf">resize_to_model_resolution</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+    
+    <span class="c1"># Enhance contrast for edge detection
+</span>    <span class="k">if</span> <span class="n">control_type</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">"</span><span class="s">canny</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mlsd</span><span class="sh">"</span><span class="p">]:</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="nf">enhance_contrast</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+    
+    <span class="c1"># Denoise for cleaner extraction
+</span>    <span class="k">if</span> <span class="n">control_type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">openpose</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="nf">denoise</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">image</span>
+</code></pre></div></div>
+
+<h3 id="preprocessor-selection">Preprocessor Selection</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Input Quality</th>
+      <th>Recommended Preprocessor</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Clean photo</td>
+      <td>Standard preprocessor</td>
+    </tr>
+    <tr>
+      <td>Noisy image</td>
+      <td>Robust variants (DW, LeReS+)</td>
+    </tr>
+    <tr>
+      <td>Artistic</td>
+      <td>Soft variants (HED, PIDI)</td>
+    </tr>
+    <tr>
+      <td>Technical</td>
+      <td>Precise variants (MLSD)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="custom-preprocessing">Custom Preprocessing</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Create custom control maps
+</span><span class="kn">import</span> <span class="n">cv2</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">custom_edge_detection</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
+    <span class="c1"># Combine multiple edge detectors
+</span>    <span class="n">canny</span> <span class="o">=</span> <span class="n">cv2</span><span class="p">.</span><span class="nc">Canny</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">150</span><span class="p">)</span>
+    <span class="n">laplacian</span> <span class="o">=</span> <span class="n">cv2</span><span class="p">.</span><span class="nc">Laplacian</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">cv2</span><span class="p">.</span><span class="n">CV_64F</span><span class="p">)</span>
+    
+    <span class="c1"># Weighted combination
+</span>    <span class="n">combined</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">canny</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">laplacian</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">combined</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">uint8</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="model-compatibility">Model Compatibility</h2>
+
+<h3 id="controlnet-versions">ControlNet Versions</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Base Model</th>
+      <th>ControlNet Version</th>
+      <th>File Pattern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SD 1.5</td>
+      <td>v1.1</td>
+      <td>control_v11<em>_sd15_</em>.pth</td>
+    </tr>
+    <tr>
+      <td>SD 2.1</td>
+      <td>v1.1 SD2</td>
+      <td>control_v11<em>_sd21_</em>.pth</td>
+    </tr>
+    <tr>
+      <td>SDXL</td>
+      <td>SDXL</td>
+      <td>controlnet-<em>-sdxl-</em>.safetensors</td>
+    </tr>
+    <tr>
+      <td>FLUX</td>
+      <td>Coming Soon</td>
+      <td>TBD</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="t2i-adapter">T2I-Adapter</h3>
+
+<p>Alternative to ControlNet with different characteristics:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Advantages</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">Smaller model size (~80MB vs ~1.4GB)</span>
+<span class="pi">-</span> <span class="s">Faster inference</span>
+<span class="pi">-</span> <span class="s">Multiple adapters combinable</span>
+
+<span class="na">Disadvantages</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">Sometimes less precise</span>
+<span class="pi">-</span> <span class="s">Fewer available types</span>
+</code></pre></div></div>
+
+<h2 id="common-workflows">Common Workflows</h2>
+
+<h3 id="character-consistency">Character Consistency</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Maintain character across poses
+</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">reference_image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">character_reference.png</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">preprocessor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">openpose_full</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">prompt_template</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">character_name, {pose_description}</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">fixed_for_consistency</span><span class="sh">"</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="architecture-visualization">Architecture Visualization</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Technical drawing to render
+</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">line_drawing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">floor_plan.png</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">preprocessor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mlsd</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">modern house interior, photorealistic</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">control_strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mf">7.5</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="style-transfer-with-structure">Style Transfer with Structure</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Preserve composition, change style
+</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">content_image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">photo.jpg</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">preprocessors</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">softedge</span><span class="sh">"</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">style_prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">oil painting in the style of van gogh</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">control_balance</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">softedge</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<h4 id="preprocessor-not-detecting-features">Preprocessor Not Detecting Features</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Solutions
+</span><span class="o">-</span> <span class="n">Increase</span> <span class="n">image</span> <span class="n">contrast</span>
+<span class="o">-</span> <span class="n">Try</span> <span class="n">different</span> <span class="n">preprocessor</span> <span class="n">variant</span>
+<span class="o">-</span> <span class="n">Adjust</span> <span class="n">detection</span> <span class="n">thresholds</span>
+<span class="o">-</span> <span class="n">Use</span> <span class="n">manual</span> <span class="n">annotation</span> <span class="n">tools</span>
+</code></pre></div></div>
+
+<h4 id="over-controlling-generation">Over-controlling Generation</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reduce control influence
+</span><span class="p">{</span>
+    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>  <span class="c1"># Lower from 1.0
+</span>    <span class="sh">"</span><span class="s">end_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>  <span class="c1"># Stop control early
+</span>    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>  <span class="c1"># Increase prompt importance
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="artifacts-at-edges">Artifacts at Edges</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Edge artifact mitigation
+</span><span class="o">-</span> <span class="n">Use</span> <span class="n">softedge</span> <span class="n">instead</span> <span class="n">of</span> <span class="n">canny</span>
+<span class="o">-</span> <span class="n">Blur</span> <span class="n">control</span> <span class="nb">map</span> <span class="n">slightly</span>
+<span class="o">-</span> <span class="n">Reduce</span> <span class="n">control</span> <span class="n">strength</span> <span class="n">at</span> <span class="n">boundaries</span>
+<span class="o">-</span> <span class="n">Enable</span> <span class="sh">"</span><span class="s">soft</span><span class="sh">"</span> <span class="n">control</span> <span class="n">mode</span>
+</code></pre></div></div>
+
+<h3 id="performance-optimization">Performance Optimization</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Memory-efficient ControlNet
+</span><span class="p">{</span>
+    <span class="sh">"</span><span class="s">low_vram_mode</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">preprocessor_device</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cpu</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">control_net_device</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">offload_when_unused</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="creative-applications">Creative Applications</h2>
+
+<h3 id="hybrid-controls">Hybrid Controls</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Combine photo and sketch
+</span><span class="n">photo_depth</span> <span class="o">=</span> <span class="nf">extract_depth</span><span class="p">(</span><span class="n">photo</span><span class="p">)</span>
+<span class="n">sketch_lines</span> <span class="o">=</span> <span class="nf">process_sketch</span><span class="p">(</span><span class="n">drawing</span><span class="p">)</span>
+<span class="n">combined_control</span> <span class="o">=</span> <span class="nf">blend_controls</span><span class="p">(</span><span class="n">photo_depth</span><span class="p">,</span> <span class="n">sketch_lines</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="temporal-consistency">Temporal Consistency</h3>
+
+<p>For animations:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Frame-to-frame consistency
+</span><span class="n">previous_control</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">video_frames</span><span class="p">:</span>
+    <span class="n">current_control</span> <span class="o">=</span> <span class="nf">extract_pose</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">previous_control</span><span class="p">:</span>
+        <span class="c1"># Smooth between frames
+</span>        <span class="n">current_control</span> <span class="o">=</span> <span class="nf">interpolate_controls</span><span class="p">(</span>
+            <span class="n">previous_control</span><span class="p">,</span> <span class="n">current_control</span><span class="p">,</span> <span class="mf">0.3</span>
+        <span class="p">)</span>
+    <span class="nf">generate_frame</span><span class="p">(</span><span class="n">current_control</span><span class="p">)</span>
+    <span class="n">previous_control</span> <span class="o">=</span> <span class="n">current_control</span>
+</code></pre></div></div>
+
+<h3 id="interactive-control">Interactive Control</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Real-time adjustment
+</span><span class="k">class</span> <span class="nc">InteractiveControl</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">update_strength</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">control_strength</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">regenerate</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">switch_preprocessor</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">new_type</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">control_map</span> <span class="o">=</span> <span class="nf">preprocess</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nb">input</span><span class="p">,</span> <span class="n">new_type</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">regenerate</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="dos">Do’s</h3>
+<p>✓ Match control resolution to model resolution<br />
+✓ Use appropriate preprocessor for input type<br />
+✓ Experiment with strength values<br />
+✓ Combine multiple controls thoughtfully<br />
+✓ Save successful control maps for reuse</p>
+
+<h3 id="donts">Don’ts</h3>
+<p>✗ Don’t use 100% control strength always<br />
+✗ Don’t ignore prompt importance<br />
+✗ Don’t use incompatible model versions<br />
+✗ Don’t expect perfect results immediately<br />
+✗ Don’t overstack controls (3+ rarely helpful)</p>
+
+<h2 id="future-developments">Future Developments</h2>
+
+<h3 id="emerging-controlnet-technologies">Emerging ControlNet Technologies</h3>
+
+<ol>
+  <li><strong>3D-Aware Control</strong>: Full 3D scene understanding</li>
+  <li><strong>Video ControlNet</strong>: Temporal consistency</li>
+  <li><strong>Semantic Editing</strong>: Natural language control</li>
+  <li><strong>Adaptive Control</strong>: Self-adjusting strength</li>
+  <li><strong>Neural Controls</strong>: Learned control patterns</li>
+</ol>
+
+<h3 id="integration-trends">Integration Trends</h3>
+
+<ul>
+  <li>Real-time control preview</li>
+  <li>Mobile-optimized controls</li>
+  <li>Cloud-based preprocessing</li>
+  <li>AI-assisted control creation</li>
+</ul>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>ControlNet transforms diffusion models from probabilistic generators into precision tools. By understanding the various control types and their optimal applications, you can achieve unprecedented control over AI image generation while maintaining the creative capabilities of the base models.</p>
+
+<p>The key to mastery is experimentation: try different preprocessors, adjust strengths, and combine controls creatively. As the technology evolves, ControlNet continues to bridge the gap between artistic vision and AI capabilities.</p>
+
+      
+    </div>
+
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+
+    
+
+    
+      <li><a href="/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+    
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2025 <a href="">Andrews Notebook</a>. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/jekyll-themes/minimal-mistakes/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/assets/js/main.min.js"></script>
+
+
+
+
+
+
+
+
+
+  </body>
+</html>
