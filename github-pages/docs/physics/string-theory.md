@@ -7,8 +7,8 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-
-<!-- Custom styles are now loaded via main.scss -->
+<!-- Custom styles for string theory visualizations -->
+<link rel="stylesheet" href="{{ '/assets/css/physics-string-theory.css' | relative_url }}">
 
 <div class="hero-section">
   <div class="hero-content">
