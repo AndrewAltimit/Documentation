@@ -12,7 +12,6 @@ toc_icon: "cog"
 
 <div class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">Containers & Docker</h1>
     <p class="hero-subtitle">Build, Ship, and Run Anywhere</p>
   </div>
 </div>

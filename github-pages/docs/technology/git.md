@@ -12,7 +12,6 @@ toc_icon: "cog"
 
 <div class="hero-section">
   <div class="hero-content">
-    <h1 class="hero-title">Git</h1>
     <p class="hero-subtitle">A Comprehensive Guide to Distributed Version Control with Git</p>
   </div>
 </div>
