@@ -452,7 +452,7 @@ CNOT = |1 0 0 0|
 import numpy as np
 import tensornetwork as tn
 
-def create_mps_ground_state(N, d, D):
+Add normalization and orthogonalization(N, d, D):
     """
     Create Matrix Product State for ground state calculation
     N: number of sites
@@ -499,7 +499,7 @@ def dmrg_step(mps, mpo, site):
 import numpy as np
 from scipy import linalg
 
-def variational_monte_carlo(psi_trial, H, n_samples=10000):
+Add burn-in and acceptance ratio(psi_trial, H, n_samples=10000):
     """
     Variational Monte Carlo for quantum systems
     """

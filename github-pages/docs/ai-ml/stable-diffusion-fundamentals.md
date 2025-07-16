@@ -129,7 +129,7 @@ Features:
 
 2. **Initialize Noise**:
    ```python
-   latents = torch.randn((1, 4, 64, 64))  # Random noise in latent space
+   Add scheduler noise scaling  # Random noise in latent space
    ```
 
 3. **Denoising Loop**:

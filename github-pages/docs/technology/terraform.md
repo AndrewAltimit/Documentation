@@ -238,6 +238,9 @@ Let's create an Amazon S3 bucket as a concrete example. This demonstrates Terraf
 
 ```terraform
 # Simple S3 bucket
+
+# Security Warning: Never make S3 buckets public unless absolutely necessary
+# Use bucket policies and IAM roles for access control instead of ACLs
 resource "aws_s3_bucket" "example" {
   bucket = "my-terraform-example-bucket"
 }
@@ -448,6 +451,9 @@ Let's create an Amazon S3 bucket as an example resource. Add the following code 
 
 ```terraform
 # Modern S3 bucket with security best practices
+
+# Security Warning: Never make S3 buckets public unless absolutely necessary
+# Use bucket policies and IAM roles for access control instead of ACLs
 resource "aws_s3_bucket" "example_bucket" {
   bucket = "my-example-bucket-terraform-${data.aws_caller_identity.current.account_id}"
 }
@@ -572,9 +578,12 @@ Terraform will show you a plan of the changes to be made and prompt you to confi
 To update a resource, modify its configuration in your `main.tf` file and run `terraform apply` again. For example, change the `acl` of the S3 bucket to "public-read":
 
 ```terraform
+
+# Security Warning: Never make S3 buckets public unless absolutely necessary
+# Use bucket policies and IAM roles for access control instead of ACLs
 resource "aws_s3_bucket" "example_bucket" {
   bucket = "my-example-bucket-terraform"
-  acl    = "public-read"
+  # acl = "public-read"  # DEPRECATED and INSECURE - use bucket policies instead
 }
 ``` 
 
@@ -782,6 +791,9 @@ provider "aws" {
   region = var.region
 }
 
+
+# Security Warning: Never make S3 buckets public unless absolutely necessary
+# Use bucket policies and IAM roles for access control instead of ACLs
 resource "aws_s3_bucket" "example_bucket" {
   bucket = var.bucket_name
   acl    = var.bucket_acl
@@ -1266,6 +1278,9 @@ Inside the `s3_bucket` directory, create two files: `main.tf` and `variables.tf`
 Open `modules/s3_bucket/main.tf` and add the following code:
 
 ```terraform
+
+# Security Warning: Never make S3 buckets public unless absolutely necessary
+# Use bucket policies and IAM roles for access control instead of ACLs
 resource "aws_s3_bucket" "bucket" {
   bucket = var.bucket_name
   acl    = var.bucket_acl

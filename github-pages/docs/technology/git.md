@@ -29,7 +29,7 @@ toc_icon: "cog"
     <div class="insight-card">
       <i class="fas fa-shield-alt"></i>
       <h4>Cryptographic Integrity</h4>
-      <p>SHA-1/SHA-256 content addressing</p>
+      <p>SHA-1/SHA-256 content addressing (SHA-256 recommended)</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-network-wired"></i>
@@ -52,6 +52,7 @@ Git implements a content-addressable filesystem where objects are stored and ret
 **Key Components:**
 - **GitObject**: Base class for all Git objects (blob, tree, commit, tag)
 - **SHA-1 Hashing**: Content addressing using cryptographic hashes
+  - **⚠️ Security Notice**: SHA-1 is cryptographically broken and deprecated. While Git still uses SHA-1 by default for backward compatibility, it's recommended to migrate to SHA-256 for new repositories using `git init --object-format=sha256`
 - **Compression**: zlib compression for efficient storage
 - **Merkle Trees**: Tree objects form a Merkle tree structure
 - **Commit DAG**: Directed Acyclic Graph for version history

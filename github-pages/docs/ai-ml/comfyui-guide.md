@@ -59,11 +59,25 @@ docker-compose up -d
 git clone https://github.com/comfyanonymous/ComfyUI.git
 cd ComfyUI
 
+# Install PyTorch with CUDA support first (choose your CUDA version)
+# For CUDA 11.8:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# For CUDA 12.1:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# For CPU only (not recommended for production):
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
 # Install dependencies
 pip install -r requirements.txt
 
-# Install xformers for better performance (optional)
-pip install xformers
+# Install xformers for better performance (optional, must match PyTorch/CUDA version)
+# For CUDA 11.8:
+pip install xformers --index-url https://download.pytorch.org/whl/cu118
+
+# For CUDA 12.1:
+pip install xformers --index-url https://download.pytorch.org/whl/cu121
 
 # Run ComfyUI
 python main.py
@@ -357,7 +371,7 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
 ### Model Management
 
 ```python
-# Upload LoRA with metadata
+Complete function with error handling
 response = requests.post("http://localhost:8189/mcp/tool", json={
     "tool": "upload-lora",
     "arguments": {

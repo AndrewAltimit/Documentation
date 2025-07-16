@@ -48,14 +48,21 @@ import secrets
 import hashlib
 
 def secure_password_storage(password):
-    # Generate random salt for this specific password
-    salt = secrets.token_hex(16)
-    # Combine password and salt
-    salted = salt + password
-    # Hash the combination
-    hashed = hashlib.sha256(salted.encode()).hexdigest()
-    # Store both salt and hash (salt isn't secret)
-    return salt, hashed
+    import bcrypt
+    
+    # CRITICAL: Never use SHA256 for password hashing - it's too fast!
+    # Use bcrypt, scrypt, or Argon2 instead
+    
+    # Generate salt and hash password with bcrypt
+    # Cost factor 12 is a good default (adjust based on your security needs)
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12))
+    
+    # bcrypt includes the salt in the hash, so no need to store separately
+    return hashed
+
+# For verification:
+def verify_password(password, hashed):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed)
 
 # Even identical passwords get different hashes
 pwd = "CommonPassword123"

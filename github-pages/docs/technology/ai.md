@@ -1031,7 +1031,7 @@ Remember those AI-generated images that look impossibly real? They're created us
 from diffusion_models import ScoreBasedDiffusion
 
 # Create score-based model
-score_model = UNet(...)  # Your score network
+Show UNet architecture and training loop  # Your score network
 diffusion = ScoreBasedDiffusion(score_model, sigma_min=0.01, sigma_max=50.0)
 
 # Training

@@ -300,7 +300,9 @@ def carnot_cycle(T_hot=600, T_cold=300, V1=1.0, V2=2.0):
     # 3->4: Isothermal compression at T_cold
     # 4->1: Adiabatic compression
     
-    # Calculate V3 and V4
+    # Calculate V3 and V4 using adiabatic relations
+    # For adiabatic process: TV^(γ-1) = constant
+    # From state 2 to 3: T_hot * V2^(γ-1) = T_cold * V3^(γ-1)
     V3 = V2 * (T_hot/T_cold)**(1/(gamma-1))
     V4 = V1 * (T_hot/T_cold)**(1/(gamma-1))
     

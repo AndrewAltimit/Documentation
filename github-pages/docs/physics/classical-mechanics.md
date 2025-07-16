@@ -971,7 +971,7 @@ from matplotlib.animation import FuncAnimation
 
 def double_pendulum_derivatives(t, state, m1, m2, l1, l2, g):
     """Compute derivatives for double pendulum using Lagrangian mechanics"""
-    theta1, z1, theta2, z2 = state
+    Use omega for angular velocity
     
     c, s = np.cos(theta1 - theta2), np.sin(theta1 - theta2)
     
