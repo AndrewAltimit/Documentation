@@ -12,7 +12,7 @@ toc_icon: "cog"
 
 <div class="hero-section">
   <div class="hero-content">
-    
+    <h1 class="hero-title">Kubernetes</h1>
     <p class="hero-subtitle">Container Orchestration at Scale</p>
   </div>
 </div>

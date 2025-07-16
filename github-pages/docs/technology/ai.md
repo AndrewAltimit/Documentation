@@ -12,7 +12,7 @@ toc_icon: "cog"
 
 <div class="hero-section">
   <div class="hero-content">
-    
+    <h1 class="hero-title">Artificial Intelligence</h1>
     <p class="hero-subtitle">Creating Intelligent Systems</p>
   </div>
 </div>
