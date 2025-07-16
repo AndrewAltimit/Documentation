@@ -1148,14 +1148,21 @@ document.addEventListener('DOMContentLoaded', function() {
 <span class="kn">import</span> <span class="n">hashlib</span>
 
 <span class="k">def</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
-    <span class="c1"># Generate random salt for this specific password
-</span>    <span class="n">salt</span> <span class="o">=</span> <span class="n">secrets</span><span class="p">.</span><span class="nf">token_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
-    <span class="c1"># Combine password and salt
-</span>    <span class="n">salted</span> <span class="o">=</span> <span class="n">salt</span> <span class="o">+</span> <span class="n">password</span>
-    <span class="c1"># Hash the combination
-</span>    <span class="n">hashed</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">salted</span><span class="p">.</span><span class="nf">encode</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">()</span>
-    <span class="c1"># Store both salt and hash (salt isn't secret)
-</span>    <span class="k">return</span> <span class="n">salt</span><span class="p">,</span> <span class="n">hashed</span>
+    <span class="kn">import</span> <span class="n">bcrypt</span>
+    
+    <span class="c1"># CRITICAL: Never use SHA256 for password hashing - it's too fast!
+</span>    <span class="c1"># Use bcrypt, scrypt, or Argon2 instead
+</span>    
+    <span class="c1"># Generate salt and hash password with bcrypt
+</span>    <span class="c1"># Cost factor 12 is a good default (adjust based on your security needs)
+</span>    <span class="n">hashed</span> <span class="o">=</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">hashpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">gensalt</span><span class="p">(</span><span class="n">rounds</span><span class="o">=</span><span class="mi">12</span><span class="p">))</span>
+    
+    <span class="c1"># bcrypt includes the salt in the hash, so no need to store separately
+</span>    <span class="k">return</span> <span class="n">hashed</span>
+
+<span class="c1"># For verification:
+</span><span class="k">def</span> <span class="nf">verify_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">hashed</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">checkpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">hashed</span><span class="p">)</span>
 
 <span class="c1"># Even identical passwords get different hashes
 </span><span class="n">pwd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">CommonPassword123</span><span class="sh">"</span>
