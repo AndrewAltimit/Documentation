@@ -13,17 +13,17 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ## Available Advanced Topics
 
-### [AI Mathematics: Theoretical Foundations](/docs/advanced/ai-mathematics/)
+### [AI Mathematics: Theoretical Foundations](/docs/advanced/ai-mathematics.html)
 - **Prerequisites**: Measure theory, functional analysis, probability theory
 - **Topics**: PAC learning, VC dimension, Rademacher complexity, statistical learning theory, optimization landscapes, kernel methods
 - **Audience**: ML researchers, theoretical CS students, mathematicians
 
-### [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/)
+### [Distributed Systems Theory](/docs/advanced/distributed-systems-theory.html)
 - **Prerequisites**: Formal methods, temporal logic, graph theory, complexity theory
 - **Topics**: FLP impossibility, CAP theorem, consensus algorithms, Byzantine fault tolerance, formal verification
 - **Audience**: Distributed systems researchers, formal methods practitioners
 
-### [Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research/)
+### [Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research.html)
 - **Prerequisites**: Linear algebra, complex analysis, group theory, quantum mechanics
 - **Topics**: Quantum complexity theory, error correction, topological quantum computing, NISQ algorithms
 - **Audience**: Quantum computing researchers, theoretical physicists
@@ -86,19 +86,19 @@ If you're a researcher wanting to contribute:
 ## Reading Order Suggestions
 
 ### For Theoretical Computer Scientists
-1. Start with [AI Mathematics](/docs/advanced/ai-mathematics/) sections on computational learning theory
-2. Move to [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) for consensus algorithms
-3. Explore [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/) for complexity theory connections
+1. Start with [AI Mathematics](/docs/advanced/ai-mathematics.html) sections on computational learning theory
+2. Move to [Distributed Systems Theory](/docs/advanced/distributed-systems-theory.html) for consensus algorithms
+3. Explore [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html) for complexity theory connections
 
 ### For Mathematicians
-1. Begin with statistical learning theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
-2. Study topological methods in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
-3. Examine formal verification in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
+1. Begin with statistical learning theory in [AI Mathematics](/docs/advanced/ai-mathematics.html)
+2. Study topological methods in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html)
+3. Examine formal verification in [Distributed Systems](/docs/advanced/distributed-systems-theory.html)
 
 ### For Physicists
-1. Start with [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
-2. Explore information theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
-3. Study fault tolerance in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
+1. Start with [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html)
+2. Explore information theory in [AI Mathematics](/docs/advanced/ai-mathematics.html)
+3. Study fault tolerance in [Distributed Systems](/docs/advanced/distributed-systems-theory.html)
 
 ## Academic Integrity
 

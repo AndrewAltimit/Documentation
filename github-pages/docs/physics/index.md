@@ -7,6 +7,7 @@ toc: false  # Index pages typically don't need TOC
 # Physics
 
 - [Classical Mechanics](classical-mechanics.html)
+- [Computational Physics](computational-physics.html)
 - [Thermodynamics](thermodynamics.html)
 - [Statistical Mechanics](statistical-mechanics.html)
 - [Relativity](relativity.html)

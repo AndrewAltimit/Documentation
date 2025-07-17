@@ -1377,6 +1377,6 @@ Classical mechanics is both an endpoint and a beginning. It's complete in itself
 - [Relativity](relativity.html) - When speeds approach c or gravity gets strong
 
 ### Applied Directions:
+- [Computational Physics](computational-physics.html) - Numerical methods for solving complex mechanical systems
 - [Thermodynamics](thermodynamics.html) - Energy and heat in mechanical systems
 - [Condensed Matter Physics](condensed-matter.html) - Mechanics of materials
-- [Computational Physics](computational-physics.html) - Numerical methods for complex systems

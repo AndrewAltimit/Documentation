@@ -13,6 +13,7 @@ Perfect for beginners or quick refreshers:
 - [Databases in 5 Minutes](database-crash-course.html) - From spreadsheets to superpowers
 
 ## Complete Documentation
+- [CI/CD - Continuous Integration & Deployment](ci-cd.html) *(Automated pipelines from code to production)*
 - [Terraform](terraform.html)
 - [Docker](docker.html) *(Full guide with advanced topics)*
 - [AWS](aws.html)

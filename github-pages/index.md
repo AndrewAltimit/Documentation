@@ -20,10 +20,10 @@ Welcome to my technical documentation. This is a collection of notes, guides, an
 ### Development & Tools
 
 - **[Git](docs/technology/git.html)** - Version control system
-- **[Branching Strategies](docs/technology/branching-strategies.html)** - Git workflow patterns
+- **[Branching Strategies](docs/technology/branching.html)** - Git workflow patterns
 - **[Database Design](docs/technology/database-design.html)** - Database architecture and best practices
 - **[Unreal Engine](docs/technology/unreal.html)** - Game engine development
-- **[Please Build](docs/technology/please.html)** - Build system and automation
+- **[Please Build](docs/technology/please-build.html)** - Build system and automation
 
 ### Advanced Topics
 

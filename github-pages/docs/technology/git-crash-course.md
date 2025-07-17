@@ -159,8 +159,8 @@ git log --oneline
 
 You've learned the Git basics! When you're ready to level up:
 
-- **[Branching & Collaboration →](/docs/technology/branching/)** - Work with branches and teams (Intermediate)
-- **[Git Internals →](/docs/technology/git/)** - How Git really works under the hood (Advanced)
+- **[Branching & Collaboration →](/docs/technology/branching.html)** - Work with branches and teams (Intermediate)
+- **[Git Internals →](/docs/technology/git.html)** - How Git really works under the hood (Advanced)
 - **Practice Project**: Create a repository for your personal notes or a small project
 
 {% include progressive-disclosure.html 
