@@ -1,30 +1,41 @@
 ---
 layout: docs
 title: Technology
-toc: false  # Index pages typically don't need TOC
+toc: false
 ---
 
-## Quick Start - 5 Minute Crash Courses
-Perfect for beginners or quick refreshers:
-- [Git in 5 Minutes](git-crash-course.html) - Version control using time travel analogies
-- [Docker in 5 Minutes](docker-crash-course.html) - Containers explained with shipping analogies  
-- [Databases in 5 Minutes](database-crash-course.html) - From spreadsheets to superpowers
+# Technology Documentation
 
-## Complete Documentation
-- [CI/CD - Continuous Integration & Deployment](ci-cd.html) *(Automated pipelines from code to production)*
-- [Terraform](terraform.html)
-- [Docker](docker.html) *(Full guide with advanced topics)*
-- [AWS](aws.html)
-- [Kubernetes](kubernetes.html)
-- [Database Design](database-design.html) *(Architecture and optimization)*
-- [Networking](networking.html)
-- [Cybersecurity](cybersecurity.html)
-- [Git Version Control](git.html) *(Complete workflows and best practices)*
-- [Branching Strategies](branching.html)
-- [Unreal Engine](unreal.html)
-- [Quantum Computing](quantumcomputing.html)
-- **Artificial Intelligence**
-  - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) *(Start here if new to AI)*
-  - [AI Fundamentals - Complete](ai.html) *(With technical details)*
-  - [AI Deep Dive - Advanced](ai-lecture-2023.html) *(Research & implementation)*
-- [Please Build](please-build.html)
+## Infrastructure & Operations
+- [Terraform](terraform.html) - Infrastructure as Code platform
+- [Docker](docker.html) - Containerization technology and architecture  
+- [Docker Essentials](docker-essentials.html) - Container commands and operations reference
+- [AWS](aws.html) - Amazon Web Services cloud platform
+- [Kubernetes](kubernetes.html) - Container orchestration at scale
+- [CI/CD](ci-cd.html) - Continuous Integration and Deployment pipelines
+
+## Development & Version Control
+- [Git](git.html) - Distributed version control system
+- [Git Command Reference](git-reference.html) - Comprehensive command reference
+- [Branching Strategies](branching.html) - Git workflow patterns and best practices
+- [Database Design](database-design.html) - Relational and NoSQL architecture
+
+## Networking & Security
+- [Networking](networking.html) - TCP/IP, protocols, and network architecture
+- [Cybersecurity](cybersecurity.html) - Security principles and threat mitigation
+
+## Advanced Technologies
+- [Quantum Computing](quantumcomputing.html) - Quantum algorithms and programming
+- [Unreal Engine](unreal.html) - Game engine architecture and development
+
+## Artificial Intelligence
+- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Core concepts and terminology
+- [AI Fundamentals - Complete](ai.html) - Comprehensive technical overview
+- [AI Deep Dive - Advanced](ai-lecture-2023.html) - Research papers and implementation
+
+## Build Systems
+- [Please Build](please-build.html) - High-performance build system
+
+## Additional Resources
+- [AI/ML Hub](../ai-ml/index.html) - Specialized machine learning documentation
+- [Reference Sheets](../reference/index.html) - Quick reference materials

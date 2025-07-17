@@ -3,7 +3,7 @@ layout: docs
 title: Andrew's Notebook
 ---
 
-Welcome to my technical documentation. This is a collection of notes, guides, and references on various technology and physics topics.
+Technical documentation repository covering infrastructure, software development, physics, and artificial intelligence. This knowledge base contains reference materials, architectural overviews, and research notes.
 
 **[🔍 Search Documentation](search.html)**
 
@@ -12,14 +12,16 @@ Welcome to my technical documentation. This is a collection of notes, guides, an
 ### Infrastructure & DevOps
 
 - **[Terraform](docs/technology/terraform.html)** - Infrastructure as Code
-- **[Docker](docs/technology/docker.html)** - Containerization platform
+- **[Docker Essentials](docs/technology/docker-essentials.html)** - Container platform reference
+- **[Docker](docs/technology/docker.html)** - Containerization concepts and architecture
 - **[Kubernetes](docs/technology/kubernetes.html)** - Container orchestration
 - **[AWS](docs/technology/aws.html)** - Amazon Web Services cloud platform
 - **[Networking](docs/technology/networking.html)** - Network fundamentals and protocols
 
 ### Development & Tools
 
-- **[Git](docs/technology/git.html)** - Version control system
+- **[Git Command Reference](docs/technology/git-reference.html)** - Comprehensive Git commands and workflows
+- **[Git](docs/technology/git.html)** - Version control system overview
 - **[Branching Strategies](docs/technology/branching.html)** - Git workflow patterns
 - **[Database Design](docs/technology/database-design.html)** - Database architecture and best practices
 - **[Unreal Engine](docs/technology/unreal.html)** - Game engine development
@@ -49,6 +51,6 @@ Welcome to my technical documentation. This is a collection of notes, guides, an
 
 ## Additional Resources
 
-- **[Getting Started](getting-started.html)** - Navigation guide and overview
-- **[Tutorials](tutorials/index.html)** - Hands-on guides and examples
-- **[Reference Sheets](docs/reference/index.html)** - Quick reference materials
+- **[Topic Map](docs/topic-map.html)** - Visual organization of documentation topics
+- **[Reference Index](docs/reference/index.html)** - Quick reference materials and cheat sheets
+- **[AI/ML Hub](docs/ai-ml/index.html)** - Machine learning and generative AI resources

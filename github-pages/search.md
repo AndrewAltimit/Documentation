@@ -40,10 +40,10 @@ async function loadSearchIndex() {
       { title: "ComfyUI Guide", url: "/Documentation/docs/ai-ml/comfyui-guide.html", category: "AI/ML", content: "Nodes, workflows, custom nodes, API" },
       { title: "LoRA Training", url: "/Documentation/docs/ai-ml/lora-training.html", category: "AI/ML", content: "Fine-tuning, datasets, training parameters" },
       
-      // Tutorials
-      { title: "Git Crash Course", url: "/Documentation/docs/technology/git-crash-course.html", category: "Tutorial", content: "Quick start guide for Git" },
-      { title: "Docker Crash Course", url: "/Documentation/docs/technology/docker-crash-course.html", category: "Tutorial", content: "Learn Docker from scratch" },
-      { title: "Database Crash Course", url: "/Documentation/docs/technology/database-crash-course.html", category: "Tutorial", content: "SQL and database fundamentals" }
+      // Reference Pages
+      { title: "Git Command Reference", url: "/Documentation/docs/technology/git-reference.html", category: "Reference", content: "Comprehensive Git commands, workflows, branching, rebasing" },
+      { title: "Docker Essentials", url: "/Documentation/docs/technology/docker-essentials.html", category: "Reference", content: "Docker commands, Dockerfile reference, compose, networking" },
+      { title: "Database Design", url: "/Documentation/docs/technology/database-design.html", category: "Technology", content: "Database architecture, normalization, SQL, NoSQL" }
     ];
     
     searchIndex.push(...pages);
