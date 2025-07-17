@@ -51,4 +51,4 @@ Welcome to my technical documentation. This is a collection of notes, guides, an
 
 - **[Getting Started](getting-started.html)** - Navigation guide and overview
 - **[Tutorials](tutorials/index.html)** - Hands-on guides and examples
-- **[Reference Sheets](reference/index.html)** - Quick reference materials
+- **[Reference Sheets](docs/reference/index.html)** - Quick reference materials

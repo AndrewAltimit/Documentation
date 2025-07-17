@@ -2383,6 +2383,6 @@ Computational physics has transformed our ability to understand and predict phys
 Remember: computational physics is not just about writing code—it's about understanding the physics deeply enough to translate it into efficient, accurate algorithms. The computer is a tool for exploration, but physical intuition guides the journey.
 
 For more physics topics, explore our guides on:
-- [Classical Mechanics](/home/miku/Documents/repos/Documentation/github-pages/docs/physics/classical-mechanics.md) - Where computational methods bring complex systems to life
-- [Quantum Mechanics](/home/miku/Documents/repos/Documentation/github-pages/docs/physics/quantum-mechanics.md) - Numerical solutions to the Schrödinger equation
-- [Statistical Mechanics](/home/miku/Documents/repos/Documentation/github-pages/docs/physics/statistical-mechanics.md) - Monte Carlo and molecular dynamics applications
+- [Classical Mechanics](classical-mechanics.md) - Where computational methods bring complex systems to life
+- [Quantum Mechanics](quantum-mechanics.md) - Numerical solutions to the Schrödinger equation
+- [Statistical Mechanics](statistical-mechanics.md) - Monte Carlo and molecular dynamics applications
