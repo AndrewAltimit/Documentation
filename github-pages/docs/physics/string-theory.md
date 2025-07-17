@@ -51,10 +51,39 @@ toc_icon: "cog"
         <h4><i class="fas fa-ring"></i> Closed Strings</h4>
         <p>Form loops with no endpoints</p>
         <svg viewBox="0 0 150 150" class="string-visual">
-          <circle cx="75" cy="75" r="40" fill="none" stroke="#3498db" stroke-width="3" />
-          <!-- Vibrational pattern -->
-          <path d="M 35 75 Q 55 55, 75 75 T 115 75" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.7" />
-          <text x="75" y="130" text-anchor="middle" font-size="12">Closed String</text>
+          <!-- Define gradients for vibrating string -->
+          <defs>
+            <linearGradient id="stringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#3498db;stop-opacity:0.8" />
+              <stop offset="50%" style="stop-color:#e74c3c;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#3498db;stop-opacity:0.8" />
+            </linearGradient>
+          </defs>
+          <!-- Fundamental mode (n=0) - the circle -->
+          <circle cx="75" cy="75" r="40" fill="none" stroke="#2c3e50" stroke-width="1" stroke-dasharray="2,2" opacity="0.5" />
+          <!-- First harmonic (n=1) -->
+          <path d="M 35 75 Q 55 65, 75 75 Q 95 85, 115 75 Q 95 65, 75 75 Q 55 85, 35 75" 
+                fill="none" stroke="#3498db" stroke-width="2.5" opacity="0.8" />
+          <!-- Second harmonic (n=2) -->
+          <path d="M 40 70 Q 50 65, 60 70 Q 70 75, 80 70 Q 90 65, 100 70 Q 110 75, 120 70 Q 110 80, 100 75 Q 90 70, 80 75 Q 70 80, 60 75 Q 50 70, 40 75" 
+                fill="none" stroke="#e74c3c" stroke-width="1.5" opacity="0.6" />
+          <!-- Third harmonic (n=3) - subtle -->
+          <path d="M 38 72 Q 43 70, 48 72 Q 53 74, 58 72 Q 63 70, 68 72 Q 73 74, 78 72 Q 83 70, 88 72 Q 93 74, 98 72 Q 103 70, 108 72 Q 113 74, 118 72" 
+                fill="none" stroke="#f39c12" stroke-width="1" opacity="0.4" />
+          <!-- Arrows showing vibration direction -->
+          <path d="M 55 60 L 55 55" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrowUp)" opacity="0.7" />
+          <path d="M 95 90 L 95 95" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrowDown)" opacity="0.7" />
+          <!-- Define arrow markers -->
+          <defs>
+            <marker id="arrowUp" markerWidth="10" markerHeight="10" refX="5" refY="0" orient="auto">
+              <path d="M 0 5 L 5 0 L 10 5" stroke="#95a5a6" fill="none" />
+            </marker>
+            <marker id="arrowDown" markerWidth="10" markerHeight="10" refX="5" refY="10" orient="auto">
+              <path d="M 0 5 L 5 10 L 10 5" stroke="#95a5a6" fill="none" />
+            </marker>
+          </defs>
+          <text x="75" y="130" text-anchor="middle" font-size="11" fill="#2c3e50">Vibrating Closed String</text>
+          <text x="75" y="142" text-anchor="middle" font-size="9" fill="#7f8c8d">Multiple modes (n=0,1,2,...)</text>
         </svg>
       </div>
       
@@ -62,10 +91,33 @@ toc_icon: "cog"
         <h4><i class="fas fa-wave-square"></i> Open Strings</h4>
         <p>Have two distinct endpoints</p>
         <svg viewBox="0 0 150 150" class="string-visual">
-          <path d="M 30 75 Q 50 55, 75 75 T 120 75" fill="none" stroke="#27ae60" stroke-width="3" />
-          <circle cx="30" cy="75" r="4" fill="#e74c3c" />
-          <circle cx="120" cy="75" r="4" fill="#e74c3c" />
-          <text x="75" y="130" text-anchor="middle" font-size="12">Open String</text>
+          <!-- Endpoints (enlarged and highlighted) -->
+          <circle cx="30" cy="75" r="6" fill="#e74c3c" stroke="#c0392b" stroke-width="2" />
+          <circle cx="120" cy="75" r="6" fill="#e74c3c" stroke="#c0392b" stroke-width="2" />
+          <!-- Fundamental mode -->
+          <path d="M 30 75 Q 75 45, 120 75" fill="none" stroke="#27ae60" stroke-width="3" opacity="0.9" />
+          <!-- First overtone -->
+          <path d="M 30 75 Q 52.5 60, 75 75 Q 97.5 90, 120 75" fill="none" stroke="#3498db" stroke-width="2" opacity="0.7" />
+          <!-- Second overtone -->
+          <path d="M 30 75 Q 45 68, 60 75 Q 75 82, 90 75 Q 105 68, 120 75" fill="none" stroke="#f39c12" stroke-width="1.5" opacity="0.5" />
+          <!-- Boundary condition indicators -->
+          <text x="30" y="60" text-anchor="middle" font-size="9" fill="#7f8c8d">Fixed</text>
+          <text x="120" y="60" text-anchor="middle" font-size="9" fill="#7f8c8d">Fixed</text>
+          <!-- Vibration arrows -->
+          <path d="M 75 50 L 75 45" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrowUp2)" opacity="0.7" />
+          <path d="M 52.5 85 L 52.5 90" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrowDown2)" opacity="0.7" />
+          <path d="M 97.5 85 L 97.5 90" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrowDown2)" opacity="0.7" />
+          <!-- Define arrow markers -->
+          <defs>
+            <marker id="arrowUp2" markerWidth="10" markerHeight="10" refX="5" refY="0" orient="auto">
+              <path d="M 0 5 L 5 0 L 10 5" stroke="#95a5a6" fill="none" />
+            </marker>
+            <marker id="arrowDown2" markerWidth="10" markerHeight="10" refX="5" refY="10" orient="auto">
+              <path d="M 0 5 L 5 10 L 10 5" stroke="#95a5a6" fill="none" />
+            </marker>
+          </defs>
+          <text x="75" y="130" text-anchor="middle" font-size="11" fill="#2c3e50">Vibrating Open String</text>
+          <text x="75" y="142" text-anchor="middle" font-size="9" fill="#7f8c8d">Standing wave modes</text>
         </svg>
       </div>
     </div>
@@ -73,16 +125,53 @@ toc_icon: "cog"
     <div class="vibrational-modes">
       <h4>Vibrational Modes = Particles</h4>
       <div class="mode-spectrum">
-        <div class="mode-item low-energy">
-          <span class="energy-level">Low energy modes</span>
-          <span class="arrow">→</span>
-          <span class="particles">Known particles</span>
-        </div>
-        <div class="mode-item high-energy">
-          <span class="energy-level">High energy modes</span>
-          <span class="arrow">→</span>
-          <span class="particles">New, heavy particles</span>
-        </div>
+        <svg viewBox="0 0 500 200">
+          <!-- Energy level axis -->
+          <line x1="50" y1="180" x2="50" y2="20" stroke="#2c3e50" stroke-width="2" marker-end="url(#energyArrow)" />
+          <text x="40" y="15" font-size="10" text-anchor="end">E/M_s</text>
+          
+          <!-- Define arrow -->
+          <defs>
+            <marker id="energyArrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+              <path d="M 0 10 L 5 0 L 10 10" fill="none" stroke="#2c3e50" />
+            </marker>
+          </defs>
+          
+          <!-- Ground state (tachyon for bosonic string) -->
+          <line x1="60" y1="160" x2="150" y2="160" stroke="#e74c3c" stroke-width="3" />
+          <text x="155" y="163" font-size="9">n=0: Tachyon (m²<0)</text>
+          <circle cx="55" cy="160" r="2" fill="#e74c3c" />
+          
+          <!-- First excited state -->
+          <line x1="60" y1="130" x2="150" y2="130" stroke="#3498db" stroke-width="3" />
+          <text x="155" y="133" font-size="9">n=1: Massless (graviton, photon)</text>
+          <circle cx="55" cy="130" r="2" fill="#3498db" />
+          <!-- Show mode shape -->
+          <path d="M 70 125 Q 80 120, 90 125 Q 100 130, 110 125 Q 120 120, 130 125" 
+                fill="none" stroke="#3498db" stroke-width="1" opacity="0.6" />
+          
+          <!-- Second excited state -->
+          <line x1="60" y1="100" x2="150" y2="100" stroke="#27ae60" stroke-width="3" />
+          <text x="155" y="103" font-size="9">n=2: Massive particles</text>
+          <circle cx="55" cy="100" r="2" fill="#27ae60" />
+          <!-- Show mode shape -->
+          <path d="M 70 95 Q 75 92, 80 95 Q 85 98, 90 95 Q 95 92, 100 95 Q 105 98, 110 95 Q 115 92, 120 95 Q 125 98, 130 95" 
+                fill="none" stroke="#27ae60" stroke-width="1" opacity="0.6" />
+          
+          <!-- Higher states -->
+          <line x1="60" y1="70" x2="150" y2="70" stroke="#f39c12" stroke-width="2" opacity="0.7" />
+          <line x1="60" y1="50" x2="150" y2="50" stroke="#9b59b6" stroke-width="2" opacity="0.5" />
+          <line x1="60" y1="30" x2="150" y2="30" stroke="#95a5a6" stroke-width="2" opacity="0.3" />
+          <text x="155" y="50" font-size="9" fill="#7f8c8d">n≥3: Heavy particles</text>
+          
+          <!-- Mass formula -->
+          <rect x="280" y="40" width="200" height="120" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1" rx="5" />
+          <text x="380" y="60" text-anchor="middle" font-size="10" font-weight="bold">Mass Formula</text>
+          <text x="380" y="85" text-anchor="middle" font-size="9">Bosonic: M² = (n-1)/ℓ_s²</text>
+          <text x="380" y="105" text-anchor="middle" font-size="9">Superstring: M² = n/ℓ_s²</text>
+          <text x="380" y="130" text-anchor="middle" font-size="8" fill="#7f8c8d">n = oscillator number</text>
+          <text x="380" y="145" text-anchor="middle" font-size="8" fill="#7f8c8d">ℓ_s = string length</text>
+        </svg>
       </div>
     </div>
   </div>
@@ -131,27 +220,68 @@ toc_icon: "cog"
     <div class="worldsheet-comparison">
       <div class="trace-item">
         <svg viewBox="0 0 150 200">
-          <!-- Point particle worldline -->
-          <line x1="75" y1="180" x2="75" y2="20" stroke="#3498db" stroke-width="3" />
-          <circle cx="75" cy="180" r="5" fill="#e74c3c" />
+          <!-- Define arrow marker -->
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+              <path d="M 0 0 L 8 3 L 0 6" fill="#95a5a6" />
+            </marker>
+          </defs>
+          <!-- Point particle at different times -->
+          <circle cx="75" cy="180" r="5" fill="#e74c3c" opacity="1" />
+          <circle cx="75" cy="150" r="5" fill="#e74c3c" opacity="0.7" />
+          <circle cx="75" cy="120" r="5" fill="#e74c3c" opacity="0.5" />
+          <circle cx="75" cy="90" r="5" fill="#e74c3c" opacity="0.3" />
+          <circle cx="75" cy="60" r="5" fill="#e74c3c" opacity="0.2" />
+          <circle cx="75" cy="30" r="5" fill="#e74c3c" opacity="0.1" />
+          <!-- Worldline -->
+          <line x1="75" y1="180" x2="75" y2="30" stroke="#3498db" stroke-width="2" stroke-dasharray="none" />
           <text x="75" y="195" text-anchor="middle" font-size="11">Point particle</text>
-          <text x="120" y="100" font-size="10">Worldline (1D)</text>
+          <text x="110" y="100" font-size="9">Worldline</text>
+          <text x="110" y="112" font-size="8">(1D trajectory)</text>
           <!-- Time axis -->
-          <path d="M 20 170 L 20 30" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrow)" />
-          <text x="10" y="25" font-size="9">t</text>
+          <path d="M 20 180 L 20 30" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrow)" />
+          <text x="10" y="25" font-size="9">time</text>
+          <!-- Space axis -->
+          <path d="M 20 180 L 130 180" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrow)" />
+          <text x="135" y="185" font-size="9">space</text>
         </svg>
       </div>
       
       <div class="trace-item">
         <svg viewBox="0 0 200 200">
-          <!-- String worldsheet -->
-          <path d="M 50 180 L 50 20 L 150 20 L 150 180 Z" fill="#3498db" opacity="0.3" stroke="#3498db" stroke-width="2" />
-          <ellipse cx="100" cy="180" rx="50" ry="10" fill="none" stroke="#e74c3c" stroke-width="3" />
+          <!-- String at initial time -->
+          <ellipse cx="100" cy="180" rx="40" ry="8" fill="none" stroke="#e74c3c" stroke-width="3" />
+          <!-- String at intermediate times (showing evolution) -->
+          <ellipse cx="100" cy="150" rx="35" ry="7" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.6" />
+          <ellipse cx="100" cy="120" rx="30" ry="6" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.4" />
+          <ellipse cx="100" cy="90" rx="25" ry="5" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.3" />
+          <ellipse cx="100" cy="60" rx="20" ry="4" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.2" />
+          <ellipse cx="100" cy="30" rx="15" ry="3" fill="none" stroke="#e74c3c" stroke-width="2" opacity="0.1" />
+          <!-- Worldsheet surface (with gradient for depth) -->
+          <defs>
+            <linearGradient id="sheetGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#3498db;stop-opacity:0.1" />
+              <stop offset="100%" style="stop-color:#3498db;stop-opacity:0.4" />
+            </linearGradient>
+          </defs>
+          <path d="M 60 180 L 85 30 L 115 30 L 140 180 Z" fill="url(#sheetGradient)" stroke="#3498db" stroke-width="2" />
+          <!-- Grid lines on worldsheet to show 2D nature -->
+          <path d="M 70 150 L 130 150" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <path d="M 75 120 L 125 120" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <path d="M 80 90 L 120 90" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <path d="M 85 60 L 115 60" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <!-- Vertical lines -->
+          <path d="M 80 180 L 95 30" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <path d="M 100 180 L 100 30" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+          <path d="M 120 180 L 105 30" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
           <text x="100" y="195" text-anchor="middle" font-size="11">String</text>
-          <text x="160" y="100" font-size="10">Worldsheet (2D)</text>
+          <text x="155" y="100" font-size="9">Worldsheet</text>
+          <text x="155" y="112" font-size="8">(2D surface)</text>
           <!-- Time axis -->
-          <path d="M 20 170 L 20 30" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrow)" />
-          <text x="10" y="25" font-size="9">t</text>
+          <path d="M 20 180 L 20 30" stroke="#95a5a6" stroke-width="1" marker-end="url(#arrow)" />
+          <text x="10" y="25" font-size="9">time</text>
+          <!-- Space axes indicators -->
+          <text x="30" y="190" font-size="8" fill="#7f8c8d">σ parameter</text>
         </svg>
       </div>
     </div>
@@ -175,10 +305,23 @@ toc_icon: "cog"
         
         <div class="geometric-interpretation">
           <svg viewBox="0 0 200 150">
-            <!-- Worldsheet area -->
-            <path d="M 40 120 Q 60 80, 100 60 Q 140 80, 160 120" fill="#3498db" opacity="0.3" stroke="#3498db" stroke-width="2" />
-            <text x="100" y="90" text-anchor="middle" font-size="10" fill="white">Area</text>
-            <text x="100" y="140" text-anchor="middle" font-size="10">Minimize area</text>
+            <!-- Initial string positions -->
+            <ellipse cx="100" cy="120" rx="30" ry="6" fill="none" stroke="#e74c3c" stroke-width="2" />
+            <ellipse cx="100" cy="40" rx="20" ry="4" fill="none" stroke="#e74c3c" stroke-width="2" />
+            <!-- Minimal area worldsheet -->
+            <path d="M 70 120 Q 80 80, 80 40 M 130 120 Q 120 80, 120 40" 
+                  fill="none" stroke="#3498db" stroke-width="1" opacity="0.5" />
+            <path d="M 70 120 Q 70 80, 80 40 L 120 40 Q 130 80, 130 120 Z" 
+                  fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2" />
+            <!-- Grid lines to show surface -->
+            <path d="M 75 100 L 125 100" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+            <path d="M 77 80 L 123 80" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+            <path d="M 79 60 L 121 60" stroke="#2980b9" stroke-width="0.5" opacity="0.5" />
+            <!-- Comparison with non-minimal surface -->
+            <path d="M 70 120 Q 50 80, 80 40" fill="none" stroke="#95a5a6" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" />
+            <path d="M 130 120 Q 150 80, 120 40" fill="none" stroke="#95a5a6" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" />
+            <text x="100" y="135" text-anchor="middle" font-size="9">Minimal area = extremal action</text>
+            <text x="160" y="80" font-size="7" fill="#7f8c8d">Non-minimal</text>
           </svg>
         </div>
       </div>
@@ -210,13 +353,29 @@ toc_icon: "cog"
       
       <div class="wave-visualization">
         <svg viewBox="0 0 300 150">
-          <!-- Wave on string -->
-          <path d="M 30 75 Q 60 50, 90 75 T 150 75 T 210 75 T 270 75" 
-                fill="none" stroke="#e74c3c" stroke-width="3" />
+          <!-- Define arrow marker -->
+          <defs>
+            <marker id="waveArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+              <path d="M 0 0 L 8 3 L 0 6" fill="#2c3e50" />
+            </marker>
+          </defs>
+          <!-- Left-moving wave -->
+          <path d="M 30 75 Q 45 60, 60 75 Q 75 90, 90 75 Q 105 60, 120 75 Q 135 90, 150 75" 
+                fill="none" stroke="#3498db" stroke-width="2.5" opacity="0.8" />
+          <!-- Right-moving wave -->
+          <path d="M 150 75 Q 165 90, 180 75 Q 195 60, 210 75 Q 225 90, 240 75 Q 255 60, 270 75" 
+                fill="none" stroke="#e74c3c" stroke-width="2.5" opacity="0.8" />
+          <!-- Superposition in middle -->
+          <path d="M 120 75 Q 135 55, 150 75 Q 165 95, 180 75" 
+                fill="none" stroke="#9b59b6" stroke-width="3" />
           <!-- Direction arrows -->
-          <path d="M 150 60 L 170 60" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-          <path d="M 150 90 L 130 90" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="150" y="120" text-anchor="middle" font-size="10">Wave propagation</text>
+          <path d="M 90 60 L 110 60" stroke="#3498db" stroke-width="2" marker-end="url(#waveArrow)" />
+          <path d="M 210 90 L 190 90" stroke="#e74c3c" stroke-width="2" marker-end="url(#waveArrow)" />
+          <!-- Labels -->
+          <text x="75" y="50" text-anchor="middle" font-size="9" fill="#3498db">X(τ+σ)</text>
+          <text x="225" y="50" text-anchor="middle" font-size="9" fill="#e74c3c">X(τ-σ)</text>
+          <text x="150" y="130" text-anchor="middle" font-size="10">General solution: X = X_L(τ+σ) + X_R(τ-σ)</text>
+          <text x="150" y="142" text-anchor="middle" font-size="8" fill="#7f8c8d">Left-moving + Right-moving waves</text>
         </svg>
       </div>
     </div>
@@ -234,8 +393,23 @@ toc_icon: "cog"
         <p>Periodic boundary condition</p>
         
         <svg viewBox="0 0 150 150">
-          <circle cx="75" cy="75" r="40" fill="none" stroke="#3498db" stroke-width="3" />
-          <text x="75" y="130" text-anchor="middle" font-size="10">σ = 0 = 2π</text>
+          <!-- Parametrized closed string -->
+          <circle cx="75" cy="75" r="40" fill="none" stroke="#2c3e50" stroke-width="1" stroke-dasharray="2,2" opacity="0.5" />
+          <!-- Show parametrization -->
+          <circle cx="115" cy="75" r="3" fill="#e74c3c" />
+          <text x="125" y="70" font-size="8" fill="#e74c3c">σ=0</text>
+          <text x="125" y="80" font-size="8" fill="#e74c3c">σ=2π</text>
+          <!-- Vibrating modes -->
+          <path d="M 35 75 Q 55 65, 75 75 Q 95 85, 115 75 Q 95 65, 75 75 Q 55 85, 35 75" 
+                fill="none" stroke="#3498db" stroke-width="2" />
+          <!-- Direction arrow showing parametrization -->
+          <path d="M 110 70 Q 115 60, 120 70" fill="none" stroke="#7f8c8d" stroke-width="1" marker-end="url(#arrowParam)" />
+          <defs>
+            <marker id="arrowParam" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M 0 0 L 6 3 L 0 6" fill="#7f8c8d" />
+            </marker>
+          </defs>
+          <text x="75" y="130" text-anchor="middle" font-size="10">Periodic: X(σ+2π) = X(σ)</text>
         </svg>
       </div>
       
@@ -250,11 +424,19 @@ toc_icon: "cog"
             </div>
             <p>Free endpoints</p>
             <svg viewBox="0 0 120 80">
+              <!-- String with free endpoints -->
               <path d="M 20 40 Q 60 20, 100 40" fill="none" stroke="#27ae60" stroke-width="2" />
-              <circle cx="20" cy="40" r="3" fill="#27ae60" />
-              <circle cx="100" cy="40" r="3" fill="#27ae60" />
+              <!-- Second mode to show standing wave -->
+              <path d="M 20 40 Q 40 50, 60 40 Q 80 30, 100 40" fill="none" stroke="#3498db" stroke-width="1.5" opacity="0.6" />
+              <!-- Endpoints -->
+              <circle cx="20" cy="40" r="4" fill="#27ae60" stroke="#229954" stroke-width="1" />
+              <circle cx="100" cy="40" r="4" fill="#27ae60" stroke="#229954" stroke-width="1" />
+              <!-- Tangent lines showing ∂X/∂σ = 0 -->
               <path d="M 10 40 L 30 40" stroke="#95a5a6" stroke-width="1" stroke-dasharray="2,2" />
               <path d="M 90 40 L 110 40" stroke="#95a5a6" stroke-width="1" stroke-dasharray="2,2" />
+              <!-- Annotations -->
+              <text x="20" y="30" text-anchor="middle" font-size="7" fill="#7f8c8d">∂X/∂σ=0</text>
+              <text x="100" y="30" text-anchor="middle" font-size="7" fill="#7f8c8d">∂X/∂σ=0</text>
             </svg>
           </div>
           
@@ -265,10 +447,20 @@ toc_icon: "cog"
             </div>
             <p>Fixed endpoints (D-branes)</p>
             <svg viewBox="0 0 120 80">
-              <rect x="15" y="35" width="10" height="10" fill="#e74c3c" />
-              <rect x="95" y="35" width="10" height="10" fill="#e74c3c" />
+              <!-- D-branes as surfaces -->
+              <rect x="10" y="30" width="15" height="20" fill="#e74c3c" opacity="0.3" stroke="#c0392b" stroke-width="2" />
+              <rect x="95" y="30" width="15" height="20" fill="#e74c3c" opacity="0.3" stroke="#c0392b" stroke-width="2" />
+              <!-- String attached to D-branes -->
               <path d="M 25 40 Q 60 20, 95 40" fill="none" stroke="#e74c3c" stroke-width="2" />
-              <text x="60" y="65" text-anchor="middle" font-size="8">D-brane</text>
+              <!-- Show multiple modes -->
+              <path d="M 25 40 Q 45 48, 60 40 Q 75 32, 95 40" fill="none" stroke="#f39c12" stroke-width="1.5" opacity="0.6" />
+              <!-- Fixed points highlighted -->
+              <circle cx="25" cy="40" r="3" fill="#fff" stroke="#e74c3c" stroke-width="2" />
+              <circle cx="95" cy="40" r="3" fill="#fff" stroke="#e74c3c" stroke-width="2" />
+              <!-- Labels -->
+              <text x="17.5" y="25" text-anchor="middle" font-size="7" fill="#c0392b">D-brane</text>
+              <text x="102.5" y="25" text-anchor="middle" font-size="7" fill="#c0392b">D-brane</text>
+              <text x="60" y="65" text-anchor="middle" font-size="8">X=const at ends</text>
             </svg>
           </div>
         </div>
@@ -352,36 +544,74 @@ This fixes the spacetime dimension!
     
     <div class="theory-web">
       <svg viewBox="0 0 600 400" class="theory-diagram">
-        <!-- Central node -->
-        <circle cx="300" cy="200" r="50" fill="#3498db" opacity="0.3" />
-        <text x="300" y="205" text-anchor="middle" font-size="12" font-weight="bold">10D SUSY</text>
+        <!-- M-theory at top -->
+        <ellipse cx="300" cy="50" rx="60" ry="30" fill="#34495e" opacity="0.7" />
+        <text x="300" y="55" text-anchor="middle" font-size="14" font-weight="bold" fill="white">M-Theory</text>
+        <text x="300" y="70" text-anchor="middle" font-size="10" fill="white">(11D)</text>
         
         <!-- Type I -->
-        <circle cx="150" cy="100" r="40" fill="#e74c3c" opacity="0.5" />
-        <text x="150" y="105" text-anchor="middle" font-size="11" fill="white">Type I</text>
-        <line x1="180" y1="120" x2="260" y2="170" stroke="#95a5a6" stroke-width="2" />
+        <circle cx="150" cy="150" r="40" fill="#e74c3c" opacity="0.6" />
+        <text x="150" y="155" text-anchor="middle" font-size="11" fill="white">Type I</text>
         
         <!-- Type IIA -->
-        <circle cx="450" cy="100" r="40" fill="#27ae60" opacity="0.5" />
-        <text x="450" y="105" text-anchor="middle" font-size="11" fill="white">Type IIA</text>
-        <line x1="420" y1="120" x2="340" y2="170" stroke="#95a5a6" stroke-width="2" />
+        <circle cx="250" cy="200" r="40" fill="#27ae60" opacity="0.6" />
+        <text x="250" y="205" text-anchor="middle" font-size="11" fill="white">Type IIA</text>
         
         <!-- Type IIB -->
-        <circle cx="500" cy="250" r="40" fill="#f39c12" opacity="0.5" />
-        <text x="500" y="255" text-anchor="middle" font-size="11" fill="white">Type IIB</text>
-        <line x1="460" y1="240" x2="350" y2="210" stroke="#95a5a6" stroke-width="2" />
+        <circle cx="350" cy="200" r="40" fill="#f39c12" opacity="0.6" />
+        <text x="350" y="205" text-anchor="middle" font-size="11" fill="white">Type IIB</text>
         
         <!-- Heterotic SO(32) -->
-        <circle cx="100" cy="250" r="40" fill="#9b59b6" opacity="0.5" />
-        <text x="100" y="250" text-anchor="middle" font-size="10" fill="white">Het</text>
-        <text x="100" y="262" text-anchor="middle" font-size="10" fill="white">SO(32)</text>
-        <line x1="140" y1="240" x2="250" y2="210" stroke="#95a5a6" stroke-width="2" />
+        <circle cx="450" cy="150" r="40" fill="#9b59b6" opacity="0.6" />
+        <text x="450" y="150" text-anchor="middle" font-size="10" fill="white">Het</text>
+        <text x="450" y="162" text-anchor="middle" font-size="10" fill="white">SO(32)</text>
         
         <!-- Heterotic E8xE8 -->
-        <circle cx="300" cy="350" r="40" fill="#1abc9c" opacity="0.5" />
-        <text x="300" y="350" text-anchor="middle" font-size="10" fill="white">Het</text>
-        <text x="300" y="362" text-anchor="middle" font-size="10" fill="white">E₈×E₈</text>
-        <line x1="300" y1="310" x2="300" y2="250" stroke="#95a5a6" stroke-width="2" />
+        <circle cx="300" cy="300" r="40" fill="#1abc9c" opacity="0.6" />
+        <text x="300" y="300" text-anchor="middle" font-size="10" fill="white">Het</text>
+        <text x="300" y="312" text-anchor="middle" font-size="10" fill="white">E₈×E₈</text>
+        
+        <!-- Duality connections with labels -->
+        <!-- M-theory to Type IIA -->
+        <path d="M 280 75 L 260 165" stroke="#2c3e50" stroke-width="2" stroke-dasharray="4,2" />
+        <text x="240" y="120" font-size="8" fill="#2c3e50" transform="rotate(-80, 240, 120)">S¹ reduction</text>
+        
+        <!-- Type IIA to Type IIB (T-duality) -->
+        <path d="M 290 200 L 310 200" stroke="#e67e22" stroke-width="3" />
+        <text x="300" y="195" text-anchor="middle" font-size="8" fill="#d35400">T-duality</text>
+        
+        <!-- Type I to Het SO(32) (S-duality) -->
+        <path d="M 190 150 L 410 150" stroke="#8e44ad" stroke-width="3" />
+        <text x="300" y="145" text-anchor="middle" font-size="8" fill="#8e44ad">S-duality</text>
+        
+        <!-- M-theory to Het E8xE8 -->
+        <path d="M 300 80 L 300 260" stroke="#2c3e50" stroke-width="2" stroke-dasharray="4,2" />
+        <text x="305" y="170" font-size="8" fill="#2c3e50">S¹/Z₂</text>
+        
+        <!-- Type IIB S-duality (self-dual) -->
+        <path d="M 380 180 Q 420 160, 420 200 Q 420 240, 380 220" 
+              fill="none" stroke="#e74c3c" stroke-width="2" marker-end="url(#arrowSelf)" />
+        <text x="430" y="200" font-size="8" fill="#e74c3c">S-dual</text>
+        
+        <!-- Het SO(32) to Het E8xE8 (T-duality) -->
+        <path d="M 425 180 Q 375 240, 325 270" stroke="#16a085" stroke-width="2" stroke-dasharray="3,3" />
+        <text x="380" y="230" font-size="8" fill="#16a085" transform="rotate(-45, 380, 230)">T-duality</text>
+        
+        <!-- Define arrow marker for self-duality -->
+        <defs>
+          <marker id="arrowSelf" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M 0 0 L 8 3 L 0 6" fill="#e74c3c" />
+          </marker>
+        </defs>
+        
+        <!-- Legend -->
+        <text x="20" y="380" font-size="10" fill="#2c3e50">Dualities:</text>
+        <line x1="80" y1="378" x2="100" y2="378" stroke="#e67e22" stroke-width="3" />
+        <text x="105" y="382" font-size="9" fill="#2c3e50">T-duality</text>
+        <line x1="170" y1="378" x2="190" y2="378" stroke="#8e44ad" stroke-width="3" />
+        <text x="195" y="382" font-size="9" fill="#2c3e50">S-duality</text>
+        <line x1="260" y1="378" x2="280" y2="378" stroke="#2c3e50" stroke-width="2" stroke-dasharray="4,2" />
+        <text x="285" y="382" font-size="9" fill="#2c3e50">Dimensional reduction</text>
       </svg>
     </div>
     
@@ -396,8 +626,13 @@ This fixes the spacetime dimension!
         </ul>
         <div class="visual-hint">
           <svg viewBox="0 0 100 50">
-            <circle cx="50" cy="25" r="15" fill="none" stroke="#e74c3c" stroke-width="2" />
-            <path d="M 20 25 L 80 25" stroke="#e74c3c" stroke-width="2" />
+            <!-- Closed string -->
+            <circle cx="50" cy="25" r="12" fill="none" stroke="#e74c3c" stroke-width="2" />
+            <!-- Open string with endpoints -->
+            <path d="M 15 25 Q 32.5 15, 50 25 Q 67.5 35, 85 25" stroke="#e74c3c" stroke-width="2" />
+            <circle cx="15" cy="25" r="3" fill="#e74c3c" />
+            <circle cx="85" cy="25" r="3" fill="#e74c3c" />
+            <text x="50" y="45" text-anchor="middle" font-size="8" fill="#7f8c8d">Open + Closed</text>
           </svg>
         </div>
       </div>
@@ -411,10 +646,25 @@ This fixes the spacetime dimension!
         </ul>
         <div class="visual-hint">
           <svg viewBox="0 0 100 50">
-            <circle cx="35" cy="25" r="15" fill="none" stroke="#27ae60" stroke-width="2" />
-            <circle cx="65" cy="25" r="15" fill="none" stroke="#27ae60" stroke-width="2" />
-            <text x="35" y="30" text-anchor="middle" font-size="10">L</text>
-            <text x="65" y="30" text-anchor="middle" font-size="10">R</text>
+            <!-- Left-moving modes -->
+            <circle cx="50" cy="25" r="15" fill="none" stroke="#27ae60" stroke-width="1" opacity="0.5" />
+            <path d="M 35 25 Q 42.5 20, 50 25 Q 57.5 30, 65 25" 
+                  fill="none" stroke="#27ae60" stroke-width="2" opacity="0.8" />
+            <!-- Right-moving modes -->
+            <path d="M 35 25 Q 42.5 30, 50 25 Q 57.5 20, 65 25" 
+                  fill="none" stroke="#2ecc71" stroke-width="2" opacity="0.8" />
+            <!-- Arrows showing chirality -->
+            <path d="M 30 20 Q 35 15, 40 20" stroke="#27ae60" stroke-width="1" marker-end="url(#arrowL)" />
+            <path d="M 70 30 Q 65 35, 60 30" stroke="#2ecc71" stroke-width="1" marker-end="url(#arrowR)" />
+            <defs>
+              <marker id="arrowL" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 5 3 L 0 6" fill="#27ae60" />
+              </marker>
+              <marker id="arrowR" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 5 3 L 0 6" fill="#2ecc71" />
+              </marker>
+            </defs>
+            <text x="50" y="45" text-anchor="middle" font-size="8" fill="#7f8c8d">Non-chiral</text>
           </svg>
         </div>
       </div>
@@ -428,8 +678,22 @@ This fixes the spacetime dimension!
         </ul>
         <div class="visual-hint">
           <svg viewBox="0 0 100 50">
-            <circle cx="50" cy="25" r="15" fill="none" stroke="#f39c12" stroke-width="2" />
-            <path d="M 50 10 Q 65 25, 50 40 Q 35 25, 50 10" fill="none" stroke="#f39c12" stroke-width="1" />
+            <!-- Closed string with chiral modes -->
+            <circle cx="50" cy="25" r="15" fill="none" stroke="#f39c12" stroke-width="1" opacity="0.5" />
+            <!-- Same chirality for both left and right movers -->
+            <path d="M 35 25 Q 42.5 18, 50 25 Q 57.5 32, 65 25" 
+                  fill="none" stroke="#f39c12" stroke-width="2" />
+            <path d="M 38 22 Q 45 15, 52 22" 
+                  fill="none" stroke="#e67e22" stroke-width="1.5" opacity="0.7" />
+            <!-- Chirality arrows (both same direction) -->
+            <path d="M 30 20 Q 35 15, 40 20" stroke="#f39c12" stroke-width="1" marker-end="url(#arrowCh)" />
+            <path d="M 60 20 Q 65 15, 70 20" stroke="#f39c12" stroke-width="1" marker-end="url(#arrowCh)" />
+            <defs>
+              <marker id="arrowCh" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M 0 0 L 5 3 L 0 6" fill="#f39c12" />
+              </marker>
+            </defs>
+            <text x="50" y="45" text-anchor="middle" font-size="8" fill="#7f8c8d">Chiral</text>
           </svg>
         </div>
       </div>
@@ -442,6 +706,21 @@ This fixes the spacetime dimension!
           <li>Left-moving: superstring</li>
           <li>Right-moving: bosonic string</li>
         </ul>
+        <div class="visual-hint">
+          <svg viewBox="0 0 100 50">
+            <!-- Heterotic = hybrid -->
+            <circle cx="50" cy="25" r="15" fill="none" stroke="#9b59b6" stroke-width="1" opacity="0.5" />
+            <!-- Left-moving: superstring (10D) -->
+            <path d="M 35 25 Q 42.5 20, 50 25 Q 57.5 30, 65 25" 
+                  fill="none" stroke="#9b59b6" stroke-width="2" />
+            <!-- Right-moving: bosonic (26D compactified) -->
+            <path d="M 35 25 Q 42.5 32, 50 25 Q 57.5 18, 65 25" 
+                  fill="none" stroke="#8e44ad" stroke-width="2" stroke-dasharray="3,1" />
+            <text x="20" y="15" font-size="7" fill="#9b59b6">10D</text>
+            <text x="80" y="15" font-size="7" fill="#8e44ad">26D→10D</text>
+            <text x="50" y="45" text-anchor="middle" font-size="8" fill="#7f8c8d">Hybrid</text>
+          </svg>
+        </div>
       </div>
       
       <div class="theory-card heterotic-e8">

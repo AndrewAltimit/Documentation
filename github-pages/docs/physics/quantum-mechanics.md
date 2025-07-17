@@ -50,8 +50,9 @@ Quantum mechanics describes nature at the smallest scales - atoms and subatomic 
 ### Essential Mathematics (Simplified)
 
 **The Wave Function** ψ(x,t) contains all information about a quantum system:
-- |ψ(x,t)|² = probability of finding particle at position x
-- Must be normalized: ∫|ψ|²dx = 1 (total probability = 100%)
+- |ψ(x,t)|² = probability density of finding particle at position x
+- P(a < x < b) = ∫ₐᵇ |ψ(x,t)|² dx (probability in region)
+- Must be normalized: ∫_{-∞}^{∞} |ψ|²dx = 1 (total probability = 100%)
 
 **The Schrödinger Equation** governs how quantum systems evolve:
 ```
@@ -158,12 +159,17 @@ Before diving into the mathematics, let's build intuition about how quantum syst
 Think of quantum states as **vectors in abstract space**:
 - Classical bit: North pole (0) OR South pole (1) 
 - Qubit: ANY point on the sphere (Bloch sphere)
+  - North pole: |0⟩
+  - South pole: |1⟩
+  - Equator: equal superpositions like (|0⟩ + |1⟩)/√2
 - Measurement: Projects onto allowed axis
 
 This geometric view helps understand:
 - Superposition = vector between basis states
 - Measurement = projection onto measurement basis
 - Entanglement = correlations between spheres
+- Pure states: on sphere surface (radius = 1)
+- Mixed states: inside sphere (radius < 1)
 
 ## Fundamental Concepts
 
@@ -218,6 +224,7 @@ Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowl
 ```
 ΔEΔt ≥ ℏ/2
 ```
+Note: Δt is the time scale for significant change in the system, not an uncertainty in clock time
 
 Where ℏ = h/2π (reduced Planck's constant)
 
@@ -306,8 +313,8 @@ P(aₙ) = |⟨ψₙ|ψ⟩|²
 One of the most profound mysteries in quantum mechanics is measurement. When we measure a quantum system:
 
 1. **Before measurement**: System in superposition |ψ⟩ = α|0⟩ + β|1⟩
-2. **During measurement**: Wave function "collapses" 
-3. **After measurement**: System in definite state |0⟩ OR |1⟩
+2. **During measurement**: Wave function "collapses" to eigenstate of measured observable
+3. **After measurement**: System in definite state |0⟩ with probability |α|² OR |1⟩ with probability |β|²
 
 **Key Questions:**
 - What constitutes a measurement?
@@ -387,7 +394,8 @@ For an infinite potential well of width L:
 
 **Wave functions:**
 ```
-ψₙ(x) = √(2/L) sin(nπx/L)
+ψₙ(x) = √(2/L) sin(nπx/L)  for 0 ≤ x ≤ L
+ψₙ(x) = 0                   for x < 0 or x > L
 ```
 
 **Energy levels:**
@@ -416,6 +424,7 @@ Where n = 0, 1, 2, ...
 ```
 ψ₀(x) = (mω/πℏ)^(1/4) exp(-mωx²/2ℏ)
 ```
+Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1
 
 ### Hydrogen Atom
 
@@ -443,10 +452,12 @@ Eₙ = -13.6 eV/n²
 
 **Ground state (1s):**
 ```
-ψ₁₀₀ = 1/√π (1/a₀)^(3/2) e^(-r/a₀)
+ψ₁₀₀(r,θ,φ) = 1/√π (1/a₀)^(3/2) e^(-r/a₀)
 ```
 
-Where a₀ = Bohr radius = 0.529 Å
+Where a₀ = Bohr radius = 0.529 Å = 5.29 × 10⁻¹¹ m
+
+Note: This is properly normalized: ∫∫∫ |ψ₁₀₀|² r² sin(θ) dr dθ dφ = 1
 
 ## Angular Momentum
 
@@ -512,8 +523,11 @@ Where κ = √(2m(V₀-E))/ℏ and a is barrier width.
 Non-local correlations between particles. Example - Bell state:
 
 ```
-|Ψ⟩ = 1/√2(|↑↓⟩ - |↓↑⟩)
+|Ψ⁻⟩ = 1/√2(|↑↓⟩ - |↓↑⟩)
 ```
+
+This is one of the four maximally entangled Bell states. Note that it's properly normalized:
+⟨Ψ⁻|Ψ⁻⟩ = 1/2(⟨↑↓| - ⟨↓↑|)(|↑↓⟩ - |↓↑⟩) = 1/2(1 + 1) = 1
 
 Measurement of one particle instantly determines the state of the other, regardless of distance.
 
@@ -525,7 +539,10 @@ A system can exist in multiple states simultaneously:
 |ψ⟩ = α|0⟩ + β|1⟩
 ```
 
-Where |α|² + |β|² = 1
+**Normalization requirement:** |α|² + |β|² = 1
+- |α|² = probability of measuring state |0⟩
+- |β|² = probability of measuring state |1⟩
+- α and β are complex numbers (amplitudes)
 
 ## Time Evolution
 
@@ -541,6 +558,7 @@ Where the time evolution operator is:
 ```
 Û(t) = e^(-iĤt/ℏ)
 ```
+Note: This form assumes a time-independent Hamiltonian Ĥ
 
 ### Heisenberg Picture
 
@@ -586,7 +604,10 @@ Quantum computing leverages quantum mechanics principles for computation. Here's
 
 **Classical vs Quantum Information:**
 - Classical bit: 0 or 1
-- Qubit: α|0⟩ + β|1⟩ where |α|² + |β|² = 1
+- Qubit: |ψ⟩ = α|0⟩ + β|1⟩ where |α|² + |β|² = 1
+  - α, β ∈ ℂ (complex numbers)
+  - |α|² = probability of measuring 0
+  - |β|² = probability of measuring 1
 
 **Physical Qubit Implementations:**
 1. **Superconducting qubits** (Google, IBM)
@@ -920,11 +941,13 @@ from scipy.special import hermite
 from scipy.misc import factorial
 
 def quantum_harmonic_oscillator(x, n, m=1, w=1, hbar=1):
-    """Calculate the wave function for quantum harmonic oscillator"""
+    """Calculate the wave function for quantum harmonic oscillator
+    Returns properly normalized wave function where ∫|ψ|²dx = 1
+    """
     # Length scale
     x0 = np.sqrt(hbar / (m * w))
     
-    # Normalization constant
+    # Normalization constant ensures ∫|ψ|²dx = 1
     C = 1 / np.sqrt(2**n * factorial(n)) * (m * w / (np.pi * hbar))**0.25
     
     # Hermite polynomial
@@ -1123,8 +1146,9 @@ K = lim_{N→∞} ∏_{j=1}^{N-1} ∫ dx_j √(m/2πiℏε) exp(iS_N/ℏ)
 
 **Definition for harmonic oscillator:**
 ```
-|α⟩ = e^{-|α|²/2} Σ_{n=0}^{∞} α^n/√n! |n⟩
+|α⟩ = e^{-|α|²/2} Σ_{n=0}^{∞} α^n/√(n!) |n⟩
 ```
+This ensures normalization: ⟨α|α⟩ = 1
 
 **Properties:**
 - â|α⟩ = α|α⟩ (eigenstate of annihilation operator)
@@ -1455,6 +1479,10 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 
 1. **Wave Function Normalization**
    Given ψ(x) = A·exp(-x²/2a²), find A such that ψ is normalized.
+   
+   Solution: Use ∫_{-∞}^{∞} |ψ(x)|² dx = 1
+   ∫_{-∞}^{∞} |A|² exp(-x²/a²) dx = |A|² √(πa²) = 1
+   Therefore: A = (πa²)^(-1/4)
    
 2. **Uncertainty Calculation**
    For the ground state of particle in a box, calculate Δx and Δp. Verify ΔxΔp ≥ ℏ/2.
