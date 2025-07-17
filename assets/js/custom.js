@@ -23,4 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+  
+  // Load progress tracker
+  const script = document.createElement('script');
+  script.src = '/assets/js/progress-tracker.js';
+  script.async = true;
+  document.body.appendChild(script);
 });
