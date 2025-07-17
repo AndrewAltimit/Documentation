@@ -4,7 +4,6 @@ title: "Monorepo Strategies and Management"
 description: "Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases"
 ---
 
-# Monorepo Strategies and Management
 
 ## Introduction
 

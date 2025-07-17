@@ -4,8 +4,6 @@ title: Distributed Systems
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Distributed Systems
-{: .no_toc }
 
 <div class="code-example" markdown="1">
 Comprehensive documentation for distributed systems architecture, design patterns, and implementation strategies. From consensus algorithms to microservices, from message queuing to service mesh.

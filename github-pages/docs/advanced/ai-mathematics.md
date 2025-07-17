@@ -5,7 +5,6 @@ permalink: /docs/advanced/ai-mathematics/
 parent: "Advanced Topics"
 ---
 
-# Advanced AI Mathematics: Theoretical Foundations
 
 **Prerequisites**: Graduate-level mathematics including measure theory, functional analysis, and probability theory.
 

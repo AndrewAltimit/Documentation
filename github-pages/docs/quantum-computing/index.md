@@ -7,8 +7,6 @@ permalink: /docs/quantum-computing/
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Quantum Computing Documentation
-{: .no_toc }
 
 <div class="code-example" markdown="1">
 Explore the revolutionary world of quantum computing - from fundamental concepts to cutting-edge algorithms and practical applications.

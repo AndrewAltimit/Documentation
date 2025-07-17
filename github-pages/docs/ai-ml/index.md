@@ -7,8 +7,6 @@ permalink: /docs/ai-ml/
 toc: false  # Index pages typically don't need TOC
 ---
 
-# AI/ML Documentation
-{: .no_toc }
 
 <div class="code-example" markdown="1">
 Comprehensive documentation for AI/ML technologies, including Stable Diffusion, ComfyUI, LoRA training, and various model architectures.

@@ -7,7 +7,6 @@ toc_label: "On This Page"
 toc_icon: "brain"
 ---
 
-# Artificial Intelligence Documentation Hub
 
 <div class="intro-card">
   <div class="hero-section">

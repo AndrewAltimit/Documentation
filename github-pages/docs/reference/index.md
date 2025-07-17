@@ -5,8 +5,6 @@ description: Comprehensive quick reference for commands, formulas, algorithms, a
 toc: true
 ---
 
-# Quick Reference Guide
-
 <div class="reference-intro">
 This reference guide provides quick access to commonly used commands, formulas, algorithms, and best practices. Use this page as your go-to resource for quick lookups and refreshers.
 </div>

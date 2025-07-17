@@ -4,8 +4,6 @@ title: Technology
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Technology
-
 ## Quick Start - 5 Minute Crash Courses
 Perfect for beginners or quick refreshers:
 - [Git in 5 Minutes](git-crash-course.html) - Version control using time travel analogies

@@ -5,7 +5,6 @@ permalink: /docs/advanced/
 has_children: true
 ---
 
-# Advanced Topics Research Hub
 
 Welcome to the research-oriented section of our documentation. This area contains rigorous mathematical treatments, formal proofs, and cutting-edge research topics.
 

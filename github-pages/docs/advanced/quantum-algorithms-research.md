@@ -5,7 +5,6 @@ permalink: /docs/advanced/quantum-algorithms-research/
 parent: "Advanced Topics"
 ---
 
-# Quantum Algorithms Research: Theoretical Foundations
 
 **Prerequisites**: Linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals.
 

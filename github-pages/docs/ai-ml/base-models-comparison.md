@@ -9,8 +9,6 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-# Base Models Comparison Guide
-{: .no_toc }
 
 <div class="code-example" markdown="1">
 Comprehensive comparison of popular diffusion models: SD 1.5, SD 2.x, SDXL, Pony, and FLUX, with their strengths, requirements, and use cases.

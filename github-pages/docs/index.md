@@ -4,7 +4,6 @@ title: Topics
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Topics
 
 ## Technology
 - [Terraform](technology/terraform.html)

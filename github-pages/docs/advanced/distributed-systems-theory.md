@@ -5,7 +5,6 @@ permalink: /docs/advanced/distributed-systems-theory/
 parent: "Advanced Topics"
 ---
 
-# Distributed Systems Theory: Formal Foundations
 
 **Prerequisites**: Formal methods, temporal logic, graph theory, probability theory, and complexity theory.
 
