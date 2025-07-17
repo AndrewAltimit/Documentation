@@ -1,0 +1,498 @@
+{% comment %}
+  Progressive Disclosure Links Component
+  Shows content progressively based on user's understanding level
+  
+  Usage: {% include progressive-disclosure.html %}
+  
+  Parameters:
+  - sections: Array of content sections with different depths
+  - initial_depth: Starting depth level (default: "overview")
+{% endcomment %}
+
+{% assign initial = include.initial_depth | default: "overview" %}
+
+<div class="progressive-disclosure" data-initial-depth="{{ initial }}">
+  <div class="disclosure-header">
+    <h4>Explore This Topic</h4>
+    <div class="depth-indicator">
+      <span class="current-depth">Current: <strong id="current-depth-label">{{ initial | capitalize }}</strong></span>
+    </div>
+  </div>
+  
+  <div class="disclosure-levels">
+    <div class="level-selector">
+      <button class="level-btn active" data-depth="overview" onclick="showDepth('overview')">
+        <span class="level-num">1</span>
+        <span class="level-name">Overview</span>
+      </button>
+      <button class="level-btn" data-depth="details" onclick="showDepth('details')">
+        <span class="level-num">2</span>
+        <span class="level-name">Details</span>
+      </button>
+      <button class="level-btn" data-depth="implementation" onclick="showDepth('implementation')">
+        <span class="level-num">3</span>
+        <span class="level-name">Implementation</span>
+      </button>
+      <button class="level-btn" data-depth="advanced" onclick="showDepth('advanced')">
+        <span class="level-num">4</span>
+        <span class="level-name">Advanced</span>
+      </button>
+    </div>
+    
+    <div class="depth-progress">
+      <div class="progress-bar" id="depth-progress-bar" style="width: 25%"></div>
+    </div>
+  </div>
+  
+  {% if include.sections %}
+    <div class="disclosure-content">
+      {% for section in include.sections %}
+        <div class="content-section depth-{{ section.depth }}" 
+             id="section-{{ section.depth }}"
+             style="{% unless section.depth == initial %}display: none;{% endunless %}">
+          
+          <div class="section-header">
+            <h5>{{ section.title }}</h5>
+            {% if section.time_estimate %}
+              <span class="time-estimate">⏱️ {{ section.time_estimate }}</span>
+            {% endif %}
+          </div>
+          
+          <div class="section-body">
+            {{ section.content }}
+          </div>
+          
+          {% if section.links %}
+            <div class="section-links">
+              <h6>Learn More:</h6>
+              <ul>
+                {% for link in section.links %}
+                  <li>
+                    <a href="{{ link.url }}" class="depth-link">
+                      {{ link.title }}
+                      {% if link.difficulty %}
+                        <span class="link-difficulty">{{ link.difficulty }}</span>
+                      {% endif %}
+                    </a>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          
+          <div class="section-navigation">
+            {% if section.depth != "overview" %}
+              <button class="nav-btn prev" onclick="navigateDepth('prev')">
+                ← Less Detail
+              </button>
+            {% endif %}
+            {% if section.depth != "advanced" %}
+              <button class="nav-btn next" onclick="navigateDepth('next')">
+                More Detail →
+              </button>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  
+  <div class="disclosure-footer">
+    <div class="understanding-check">
+      <p>How's your understanding?</p>
+      <div class="check-options">
+        <button class="check-btn" onclick="recordUnderstanding('lost')">😕 Lost</button>
+        <button class="check-btn" onclick="recordUnderstanding('following')">🤔 Following</button>
+        <button class="check-btn" onclick="recordUnderstanding('confident')">😊 Confident</button>
+        <button class="check-btn" onclick="recordUnderstanding('expert')">🎯 Got it!</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const depthLevels = ['overview', 'details', 'implementation', 'advanced'];
+let currentDepthIndex = 0;
+
+function showDepth(depth) {
+  // Hide all sections
+  document.querySelectorAll('.content-section').forEach(section => {
+    section.style.display = 'none';
+  });
+  
+  // Show selected section
+  const targetSection = document.getElementById(`section-${depth}`);
+  if (targetSection) {
+    targetSection.style.display = 'block';
+  }
+  
+  // Update UI
+  document.querySelectorAll('.level-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`[data-depth="${depth}"]`).classList.add('active');
+  
+  // Update current depth
+  currentDepthIndex = depthLevels.indexOf(depth);
+  document.getElementById('current-depth-label').textContent = depth.charAt(0).toUpperCase() + depth.slice(1);
+  
+  // Update progress bar
+  const progress = ((currentDepthIndex + 1) / depthLevels.length) * 100;
+  document.getElementById('depth-progress-bar').style.width = `${progress}%`;
+  
+  // Save preference
+  localStorage.setItem('preferredDepth', depth);
+  
+  // Track analytics
+  if (typeof gtag !== 'undefined') {
+    gtag('event', 'depth_change', {
+      'event_category': 'progressive_disclosure',
+      'event_label': depth,
+      'value': currentDepthIndex
+    });
+  }
+}
+
+function navigateDepth(direction) {
+  if (direction === 'prev' && currentDepthIndex > 0) {
+    showDepth(depthLevels[currentDepthIndex - 1]);
+  } else if (direction === 'next' && currentDepthIndex < depthLevels.length - 1) {
+    showDepth(depthLevels[currentDepthIndex + 1]);
+  }
+}
+
+function recordUnderstanding(level) {
+  // Store understanding level
+  const pageId = window.location.pathname;
+  const understandingData = JSON.parse(localStorage.getItem('understandingLevels') || '{}');
+  understandingData[pageId] = {
+    level: level,
+    depth: depthLevels[currentDepthIndex],
+    timestamp: new Date().toISOString()
+  };
+  localStorage.setItem('understandingLevels', JSON.stringify(understandingData));
+  
+  // Provide feedback
+  const feedbackMap = {
+    'lost': 'Try going back to a simpler explanation',
+    'following': 'Keep going! You\'re making progress',
+    'confident': 'Great! Ready for more details?',
+    'expert': 'Excellent! Check out the advanced topics'
+  };
+  
+  // Show toast or update UI with feedback
+  showFeedback(feedbackMap[level]);
+  
+  // Auto-suggest navigation
+  if (level === 'lost' && currentDepthIndex > 0) {
+    setTimeout(() => navigateDepth('prev'), 2000);
+  } else if (level === 'expert' && currentDepthIndex < depthLevels.length - 1) {
+    document.querySelector('.nav-btn.next')?.classList.add('pulse');
+  }
+}
+
+function showFeedback(message) {
+  // Create a toast notification
+  const toast = document.createElement('div');
+  toast.className = 'feedback-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 100);
+  
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Initialize with saved preference
+document.addEventListener('DOMContentLoaded', function() {
+  const savedDepth = localStorage.getItem('preferredDepth');
+  if (savedDepth && depthLevels.includes(savedDepth)) {
+    showDepth(savedDepth);
+  }
+});
+</script>
+
+<style>
+.progressive-disclosure {
+  margin: 2rem 0;
+  border: 1px solid var(--disclosure-border, #e0e0e0);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--disclosure-bg, #fff);
+}
+
+.disclosure-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: var(--header-bg, #f8f9fa);
+  border-bottom: 1px solid var(--disclosure-border, #e0e0e0);
+}
+
+.disclosure-header h4 {
+  margin: 0;
+  color: var(--heading-color, #333);
+}
+
+.depth-indicator {
+  font-size: 0.9rem;
+  color: var(--text-muted, #666);
+}
+
+.disclosure-levels {
+  padding: 1rem 1.5rem;
+  background: var(--levels-bg, #fafbfc);
+  border-bottom: 1px solid var(--disclosure-border, #e0e0e0);
+}
+
+.level-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.level-btn {
+  flex: 1;
+  padding: 0.75rem;
+  background: white;
+  border: 2px solid var(--btn-border, #e0e0e0);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.level-btn:hover {
+  border-color: var(--btn-hover, #0066cc);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.level-btn.active {
+  background: var(--btn-active-bg, #0066cc);
+  color: white;
+  border-color: var(--btn-active-bg, #0066cc);
+}
+
+.level-num {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.level-name {
+  font-size: 0.875rem;
+}
+
+.depth-progress {
+  height: 4px;
+  background: var(--progress-bg, #e0e0e0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--progress-fill, #0066cc);
+  transition: width 0.3s ease;
+}
+
+.disclosure-content {
+  padding: 2rem;
+}
+
+.content-section {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h5 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--heading-color, #333);
+}
+
+.time-estimate {
+  font-size: 0.875rem;
+  color: var(--text-muted, #666);
+}
+
+.section-links {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--links-bg, #f8f9fa);
+  border-radius: 8px;
+}
+
+.section-links h6 {
+  margin: 0 0 0.5rem 0;
+  color: var(--heading-color, #333);
+}
+
+.section-links ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.depth-link {
+  color: var(--link-color, #0066cc);
+  text-decoration: none;
+}
+
+.depth-link:hover {
+  text-decoration: underline;
+}
+
+.link-difficulty {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  margin-left: 0.5rem;
+  background: var(--badge-bg, #e0e0e0);
+  color: var(--badge-color, #666);
+  border-radius: 12px;
+}
+
+.section-navigation {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--disclosure-border, #e0e0e0);
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 2px solid var(--btn-border, #e0e0e0);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.nav-btn:hover {
+  border-color: var(--btn-hover, #0066cc);
+  background: var(--btn-hover-bg, #f0f7ff);
+}
+
+.nav-btn.pulse {
+  animation: pulse 2s infinite;
+}
+
+.disclosure-footer {
+  padding: 1.5rem;
+  background: var(--footer-bg, #f8f9fa);
+  border-top: 1px solid var(--disclosure-border, #e0e0e0);
+}
+
+.understanding-check p {
+  margin: 0 0 1rem 0;
+  text-align: center;
+  color: var(--text-secondary, #495057);
+}
+
+.check-options {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.check-btn {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid var(--btn-border, #e0e0e0);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.check-btn:hover {
+  border-color: var(--btn-hover, #0066cc);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Toast notification */
+.feedback-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  background: var(--toast-bg, #333);
+  color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.feedback-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .progressive-disclosure {
+    --disclosure-bg: #1a1a1a;
+    --disclosure-border: #333;
+    --header-bg: #2a2a2a;
+    --levels-bg: #252525;
+    --heading-color: #f0f0f0;
+    --text-muted: #999;
+    --text-secondary: #b0b0b0;
+    --links-bg: #2a2a2a;
+    --footer-bg: #2a2a2a;
+    --progress-bg: #333;
+    --btn-border: #444;
+    --btn-hover: #4d94ff;
+    --btn-hover-bg: #1a3d66;
+    --badge-bg: #333;
+    --badge-color: #ccc;
+  }
+  
+  .level-btn:not(.active),
+  .nav-btn,
+  .check-btn {
+    background: #2a2a2a;
+    color: #f0f0f0;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .level-selector {
+    flex-wrap: wrap;
+  }
+  
+  .check-options {
+    flex-wrap: wrap;
+  }
+  
+  .section-navigation {
+    flex-direction: column;
+  }
+}
+</style>

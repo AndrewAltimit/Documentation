@@ -1,0 +1,488 @@
+---
+layout: default
+---
+
+<div class="tutorial-container">
+  <!-- Progress indicator -->
+  <div class="progress-indicator">
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 0%"></div>
+    </div>
+    <span class="progress-text">0% Complete</span>
+  </div>
+
+  <!-- Tutorial header -->
+  <header class="tutorial-header">
+    <div class="tutorial-meta">
+      {% include difficulty-badge.html difficulty=page.difficulty %}
+      <span class="content-type-badge">
+        <i class="fas fa-{{ site.data.metadata.content_types.tutorial.icon }}"></i>
+        {{ site.data.metadata.content_types.tutorial.label }}
+      </span>
+      <span class="time-estimate">
+        <i class="far fa-clock"></i> {{ page.estimated_time }}
+      </span>
+    </div>
+    
+    <h1 class="tutorial-title">{{ page.title }}</h1>
+    <p class="tutorial-description">{{ page.description }}</p>
+  </header>
+
+  <!-- Prerequisites check -->
+  {% if page.prerequisites %}
+    {% include prerequisite-check.html prerequisites=page.prerequisites %}
+  {% endif %}
+
+  <!-- Learning objectives -->
+  {% if page.learning_objectives %}
+    {% include learning-objectives.html objectives=page.learning_objectives %}
+  {% endif %}
+
+  <!-- Main tutorial content -->
+  <main class="tutorial-content" data-track-progress="true">
+    <!-- Table of contents for longer tutorials -->
+    {% if page.toc %}
+    <nav class="tutorial-toc">
+      <h3>In This Tutorial</h3>
+      {{ content | toc_only }}
+    </nav>
+    {% endif %}
+    
+    <!-- Content with automatic section tracking -->
+    <div class="tutorial-sections">
+      {{ content }}
+    </div>
+  </main>
+
+  <!-- Interactive elements -->
+  {% if page.has_interactive %}
+  <section class="interactive-section">
+    <h2>
+      <i class="fas fa-laptop-code"></i>
+      Try It Yourself
+    </h2>
+    <div id="interactive-sandbox" class="sandbox-container">
+      <!-- Interactive sandbox would be loaded here -->
+      <div class="sandbox-placeholder">
+        <p>Interactive sandbox loading...</p>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Practice exercises -->
+  {% if page.has_exercises %}
+  <section class="exercises-section">
+    <h2>
+      <i class="fas fa-tasks"></i>
+      Practice Exercises
+    </h2>
+    <div class="exercises-container">
+      {% for exercise in page.exercises %}
+      <div class="exercise-item" data-difficulty="{{ exercise.difficulty }}">
+        <div class="exercise-header">
+          <h3>{{ exercise.title }}</h3>
+          <span class="exercise-difficulty {{ exercise.difficulty }}">
+            {{ exercise.difficulty | capitalize }}
+          </span>
+        </div>
+        <div class="exercise-content">
+          {{ exercise.description | markdownify }}
+        </div>
+        <details class="exercise-solution">
+          <summary>View Solution</summary>
+          <div class="solution-content">
+            {{ exercise.solution | markdownify }}
+          </div>
+        </details>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Skills gained summary -->
+  {% if page.skills_gained %}
+  <section class="skills-gained">
+    <h3>
+      <i class="fas fa-award"></i>
+      Skills You've Gained
+    </h3>
+    <div class="skill-tags">
+      {% for skill in page.skills_gained %}
+      <span class="skill-tag">{{ skill }}</span>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Next steps -->
+  <footer class="tutorial-footer">
+    <div class="completion-message" style="display: none;">
+      <i class="fas fa-check-circle"></i>
+      <h3>Congratulations!</h3>
+      <p>You've completed this tutorial. Great job!</p>
+    </div>
+    
+    <nav class="next-steps">
+      <h3>What's Next?</h3>
+      <div class="next-cards">
+        {% for item in page.related %}
+          {% if item.relationship == "next" %}
+          <a href="{{ item.path }}" class="next-card">
+            <div class="card-icon">
+              <i class="fas fa-{{ site.data.metadata.content_types[item.type].icon }}"></i>
+            </div>
+            <div class="card-content">
+              <h4>{{ item.title }}</h4>
+              <p>{{ item.description }}</p>
+            </div>
+            <div class="card-arrow">
+              <i class="fas fa-arrow-right"></i>
+            </div>
+          </a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </nav>
+  </footer>
+</div>
+
+<!-- Tutorial-specific styles -->
+<style>
+.tutorial-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Progress indicator */
+.progress-indicator {
+  position: sticky;
+  top: 0;
+  background: white;
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+  z-index: 100;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-bar {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: #718096;
+  font-weight: 500;
+}
+
+/* Tutorial header */
+.tutorial-header {
+  margin-bottom: 3rem;
+}
+
+.tutorial-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.content-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: #edf2f7;
+  color: #4a5568;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.time-estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.tutorial-title {
+  font-size: 2.5rem;
+  margin: 1rem 0;
+  color: #1a202c;
+}
+
+.tutorial-description {
+  font-size: 1.25rem;
+  color: #4a5568;
+  line-height: 1.6;
+}
+
+/* Tutorial content */
+.tutorial-content {
+  margin-bottom: 3rem;
+}
+
+.tutorial-toc {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.tutorial-toc h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  color: #2d3748;
+}
+
+/* Section tracking */
+.tutorial-sections h2 {
+  position: relative;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+}
+
+.tutorial-sections h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cbd5e0;
+  border-radius: 50%;
+  background: white;
+  transition: all 0.3s;
+}
+
+.tutorial-sections h2.completed::before {
+  background: #48bb78;
+  border-color: #48bb78;
+}
+
+/* Interactive section */
+.interactive-section {
+  background: #f7fafc;
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 3rem 0;
+}
+
+.sandbox-container {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-height: 400px;
+}
+
+/* Exercises */
+.exercises-section {
+  margin: 3rem 0;
+}
+
+.exercise-item {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.exercise-difficulty {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.exercise-difficulty.easy {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.exercise-difficulty.medium {
+  background: #feebc8;
+  color: #7b341e;
+}
+
+.exercise-difficulty.hard {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.exercise-solution {
+  margin-top: 1rem;
+}
+
+.exercise-solution summary {
+  cursor: pointer;
+  color: #4299e1;
+  font-weight: 500;
+}
+
+.solution-content {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+/* Skills gained */
+.skills-gained {
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 3rem 0;
+}
+
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.skill-tag {
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px solid #48bb78;
+  color: #22543d;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Next steps */
+.tutorial-footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.completion-message {
+  text-align: center;
+  padding: 2rem;
+  background: #f0fff4;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.completion-message i {
+  font-size: 3rem;
+  color: #48bb78;
+  margin-bottom: 1rem;
+}
+
+.next-cards {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.next-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+}
+
+.next-card:hover {
+  border-color: #4299e1;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.1);
+}
+
+.card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: #edf2f7;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #4a5568;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-content h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  color: #2d3748;
+}
+
+.card-content p {
+  margin: 0;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.card-arrow {
+  color: #cbd5e0;
+  transition: all 0.2s;
+}
+
+.next-card:hover .card-arrow {
+  color: #4299e1;
+  transform: translateX(4px);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .tutorial-container {
+    padding: 1rem;
+  }
+  
+  .tutorial-title {
+    font-size: 2rem;
+  }
+  
+  .tutorial-description {
+    font-size: 1.125rem;
+  }
+  
+  .tutorial-meta {
+    gap: 0.5rem;
+  }
+}
+</style>
+
+<!-- Tutorial progress tracking script -->
+<script src="{{ '/assets/js/tutorial-progress.js' | relative_url }}"></script>

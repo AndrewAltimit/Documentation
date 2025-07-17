@@ -58,6 +58,11 @@ This exponential scaling is why quantum computers promise to revolutionize certa
 
 Now that we understand the concept, let's look at the mathematical framework that makes quantum computing precise and predictable. Don't worry if you're not a mathematician - the key insights are actually quite intuitive.
 
+<div class="advanced-note">
+  <i class="fas fa-graduation-cap"></i>
+  <p><strong>Looking for rigorous quantum theory?</strong> See our <a href="/docs/advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> page for formal quantum mechanics, complexity theory, and cutting-edge algorithms.</p>
+</div>
+
 When we write |ψ⟩ = α|0⟩ + β|1⟩, we're using what physicists call "Dirac notation" or "bra-ket notation." The |0⟩ and |1⟩ are the two "basis states" - think of them as the quantum equivalent of 0 and 1. The coefficients α and β must satisfy one crucial rule:
 
 |α|² + |β|² = 1
@@ -264,9 +269,14 @@ The key insight is to encode one "logical" qubit into multiple "physical" qubits
 
 Now if one qubit flips, we can detect it (it's the odd one out) and correct it by majority vote. But this only works for bit flips. Quantum errors are more complex - qubits can also experience phase flips and combinations thereof.
 
-### Stabilizer Codes: The Mathematical Framework
+### Stabilizer Codes: A Systematic Approach
 
 The breakthrough came with "stabilizer codes," which provide a systematic way to protect against all types of quantum errors. The idea is to define a set of measurements ("stabilizers") that check for errors without revealing the encoded information.
+
+<div class="advanced-note">
+  <i class="fas fa-graduation-cap"></i>
+  <p><strong>Ready for group theory?</strong> Dive into the <a href="/docs/advanced/quantum-algorithms-research/#stabilizer-codes">mathematical framework of stabilizer codes</a>, including the stabilizer formalism, logical operators, and code construction techniques.</p>
+</div>
 
 Key examples that paved the way:
 - **Shor's 9-qubit code**: The first code to correct arbitrary single-qubit errors
@@ -287,6 +297,11 @@ The trade-off is overhead: protecting one logical qubit might require hundreds o
 ### The Threshold Theorem: Why Quantum Computing is Possible
 
 Here's the crucial result that makes scalable quantum computing possible: if you can reduce errors below a certain threshold (about 1%), you can compute arbitrarily long by using more error correction. This "threshold theorem" transformed quantum computing from a theoretical curiosity to an engineering challenge.
+
+<div class="advanced-note">
+  <i class="fas fa-graduation-cap"></i>
+  <p><strong>Want the formal proof?</strong> Explore the <a href="/docs/advanced/quantum-algorithms-research/#quantum-error-correction">rigorous treatment of quantum error correction</a>, including stabilizer codes, surface codes, and fault-tolerant computation theory.</p>
+</div>
 
 <div class="code-reference">
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_error_correction.py">quantum_error_correction.py</a>
@@ -553,6 +568,11 @@ print(f"Ground state energy: {result['ground_energy']}")
 ## The Mathematical Foundations: Why It All Works
 
 Now that we've built intuition, let's peek under the hood at the mathematical framework that makes quantum computing precise and powerful. Don't worry if you're not a mathematician - focus on the key insights.
+
+<div class="advanced-note">
+  <i class="fas fa-graduation-cap"></i>
+  <p><strong>Want the complete mathematical treatment?</strong> Our <a href="/docs/advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> page covers Hilbert spaces, density matrices, quantum channels, and the formal postulates of quantum mechanics.</p>
+</div>
 
 ### Quantum States as Vectors
 

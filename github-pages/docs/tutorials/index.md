@@ -1,0 +1,335 @@
+---
+layout: default
+title: "Tutorials - Start Learning"
+description: "Step-by-step tutorials to get you started with technology, physics, and AI/ML"
+---
+
+<div class="tutorials-landing">
+  <header class="landing-header">
+    <h1>
+      <i class="fas fa-graduation-cap"></i>
+      Start Your Learning Journey
+    </h1>
+    <p class="lead">
+      Our tutorials are designed to take you from zero to productive as quickly as possible. 
+      Each tutorial focuses on hands-on learning with clear objectives and immediate results.
+    </p>
+  </header>
+
+  <section class="tutorial-categories">
+    <h2>Choose Your Path</h2>
+    
+    <div class="category-grid">
+      <!-- Technology Tutorials -->
+      <div class="category-card">
+        <div class="card-icon">
+          <i class="fas fa-laptop-code"></i>
+        </div>
+        <h3>Technology</h3>
+        <p>Master modern development tools and practices</p>
+        
+        <div class="tutorial-list">
+          <a href="/docs/tutorials/git-quickstart" class="tutorial-item">
+            <span class="difficulty-indicator beginner"></span>
+            <div class="tutorial-info">
+              <h4>Git Quick Start</h4>
+              <p>Learn essential Git commands in 45 minutes</p>
+            </div>
+          </a>
+          
+          <a href="/docs/tutorials/docker-hello-world" class="tutorial-item">
+            <span class="difficulty-indicator beginner"></span>
+            <div class="tutorial-info">
+              <h4>Docker Hello World</h4>
+              <p>Create your first container in 30 minutes</p>
+            </div>
+          </a>
+          
+          <a href="/docs/tutorials/terraform-intro" class="tutorial-item">
+            <span class="difficulty-indicator intermediate"></span>
+            <div class="tutorial-info">
+              <h4>Terraform Basics</h4>
+              <p>Infrastructure as Code fundamentals</p>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Physics Tutorials -->
+      <div class="category-card">
+        <div class="card-icon">
+          <i class="fas fa-atom"></i>
+        </div>
+        <h3>Physics</h3>
+        <p>Understand the fundamental laws of nature</p>
+        
+        <div class="tutorial-list">
+          <a href="/docs/tutorials/classical-mechanics-intro" class="tutorial-item">
+            <span class="difficulty-indicator beginner"></span>
+            <div class="tutorial-info">
+              <h4>Classical Mechanics</h4>
+              <p>Newton's laws and basic motion</p>
+            </div>
+          </a>
+          
+          <a href="/docs/tutorials/quantum-basics" class="tutorial-item">
+            <span class="difficulty-indicator intermediate"></span>
+            <div class="tutorial-info">
+              <h4>Quantum Mechanics Primer</h4>
+              <p>Wave functions and uncertainty</p>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- AI/ML Tutorials -->
+      <div class="category-card">
+        <div class="card-icon">
+          <i class="fas fa-brain"></i>
+        </div>
+        <h3>AI & Machine Learning</h3>
+        <p>Build intelligent systems and generative models</p>
+        
+        <div class="tutorial-list">
+          <a href="/docs/tutorials/stable-diffusion-start" class="tutorial-item">
+            <span class="difficulty-indicator beginner"></span>
+            <div class="tutorial-info">
+              <h4>Stable Diffusion Basics</h4>
+              <p>Generate your first AI images</p>
+            </div>
+          </a>
+          
+          <a href="/docs/tutorials/comfyui-workflow" class="tutorial-item">
+            <span class="difficulty-indicator intermediate"></span>
+            <div class="tutorial-info">
+              <h4>ComfyUI Workflows</h4>
+              <p>Build custom AI pipelines</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="getting-started">
+    <h2>New to Our Docs?</h2>
+    <div class="start-cards">
+      <div class="start-card">
+        <i class="fas fa-map-signs"></i>
+        <h3>View Learning Paths</h3>
+        <p>Follow our curated roadmaps for structured learning</p>
+        <a href="/docs/roadmaps/" class="btn btn-primary">Explore Roadmaps</a>
+      </div>
+      
+      <div class="start-card">
+        <i class="fas fa-compass"></i>
+        <h3>Take a Tour</h3>
+        <p>Understand how our progressive documentation works</p>
+        <a href="/docs/tutorials/docs-tour" class="btn btn-secondary">Start Tour</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+.tutorials-landing {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.landing-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.landing-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.landing-header .lead {
+  font-size: 1.25rem;
+  color: #666;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.tutorial-categories {
+  margin-bottom: 4rem;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.category-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.category-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.card-icon {
+  width: 60px;
+  height: 60px;
+  background: #f0f4f8;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  color: #4a5568;
+  margin-bottom: 1rem;
+}
+
+.category-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+}
+
+.category-card > p {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.tutorial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tutorial-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.tutorial-item:hover {
+  background: #e9ecef;
+  transform: translateX(4px);
+}
+
+.difficulty-indicator {
+  width: 8px;
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.difficulty-indicator.beginner {
+  background: #28a745;
+}
+
+.difficulty-indicator.intermediate {
+  background: #ffc107;
+}
+
+.difficulty-indicator.advanced {
+  background: #dc3545;
+}
+
+.tutorial-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  color: #2d3748;
+}
+
+.tutorial-info p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #718096;
+}
+
+.getting-started {
+  text-align: center;
+  padding: 3rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.start-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.start-card {
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.start-card i {
+  font-size: 2.5rem;
+  color: #4a5568;
+  margin-bottom: 1rem;
+}
+
+.start-card h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0056b3;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+@media (max-width: 768px) {
+  .tutorials-landing {
+    padding: 1rem;
+  }
+  
+  .landing-header h1 {
+    font-size: 2rem;
+  }
+  
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

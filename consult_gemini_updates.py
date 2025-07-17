@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import subprocess
 import json
+import subprocess
 import time
 
 # Create the consultation request
@@ -38,14 +38,14 @@ Please review the github-pages directory thoroughly and provide your assessment.
 """
 
 # Save the request to a file
-with open('/tmp/gemini_request.txt', 'w') as f:
+with open("/tmp/gemini_request.txt", "w") as f:
     f.write(consultation_request)
 
 # Use the Gemini CLI script
 gemini_command = [
-    "bash", 
+    "bash",
     "/home/miku/Documents/repos/Documentation/tools/mcp/gemini_cli.sh",
-    "/tmp/gemini_request.txt"
+    "/tmp/gemini_request.txt",
 ]
 
 print("Consulting Gemini for documentation review...")
@@ -53,14 +53,14 @@ print("This may take a few moments...")
 
 try:
     result = subprocess.run(gemini_command, capture_output=True, text=True, timeout=300)
-    
+
     if result.returncode == 0:
         print("\nGemini's Response:")
         print("=" * 80)
         print(result.stdout)
     else:
         print(f"Error running Gemini consultation: {result.stderr}")
-        
+
 except subprocess.TimeoutExpired:
     print("Gemini consultation timed out after 5 minutes")
 except Exception as e:

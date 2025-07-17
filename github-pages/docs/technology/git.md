@@ -5,8 +5,22 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+difficulty_level: advanced
+section: technology
 ---
 
+{% include learning-breadcrumb.html 
+   path=site.data.breadcrumbs.technology 
+   current="Git Version Control"
+   alternatives=site.data.alternatives.git_advanced 
+%}
+
+{% include skill-level-navigation.html 
+   current_level="advanced"
+   topic="Git"
+   beginner_link="/docs/technology/git-crash-course/"
+   intermediate_link="/docs/technology/branching/"
+%}
 
 <!-- Custom styles are now loaded via main.scss -->
 
@@ -17,7 +31,19 @@ toc_icon: "cog"
   </div>
 </div>
 
+{% include difficulty-helper.html 
+   current_level="advanced"
+   easier_link="/docs/technology/branching/"
+   prerequisites=site.data.prerequisites.git_advanced
+   related_topics=site.data.related_topics.git_advanced
+%}
+
 <div class="intro-card">
+  <div class="notice--warning">
+    <h4>⚠️ Advanced Content</h4>
+    <p>This page covers Git internals and advanced concepts. If you're new to Git, start with our <a href="/docs/technology/git-crash-course/">Git in 5 Minutes</a> guide. For branching and collaboration, see our <a href="/docs/technology/branching/">Branching Strategy</a> guide.</p>
+  </div>
+  
   <p class="lead-text">Git represents a paradigm shift in version control systems, implementing a content-addressable filesystem with a distributed architecture based on cryptographic principles. Built on directed acyclic graphs (DAGs), Merkle trees, and SHA-1 hashing, Git provides mathematical guarantees about data integrity while enabling sophisticated workflows through its elegant object model.</p>
   
   <div class="key-insights">

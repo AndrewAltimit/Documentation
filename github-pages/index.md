@@ -8,7 +8,93 @@ toc: false  # Index pages typically don't need TOC
 
 **[🔍 Search Documentation](search.html)**
 
+<div class="start-here-section">
+  <h2><i class="fas fa-rocket"></i> Start Here</h2>
+  <p class="welcome-text">Welcome to Andrew's Notebook! Whether you're just beginning your journey in technology and physics or looking to deepen your expertise, this documentation is designed to meet you where you are.</p>
+  
+  <div class="quick-start-cards">
+    <div class="quick-start-card beginner">
+      <i class="fas fa-user-graduate"></i>
+      <h3>New to Tech?</h3>
+      <p>Start with our beginner-friendly guides</p>
+      <a href="getting-started.html" class="btn-primary">Getting Started Hub</a>
+    </div>
+    
+    <div class="quick-start-card intermediate">
+      <i class="fas fa-code"></i>
+      <h3>Some Experience?</h3>
+      <p>Dive into specific topics</p>
+      <a href="#technology" class="btn-primary">Browse Topics</a>
+    </div>
+    
+    <div class="quick-start-card advanced">
+      <i class="fas fa-brain"></i>
+      <h3>Advanced User?</h3>
+      <p>Explore in-depth technical content</p>
+      <a href="#deep-dives" class="btn-primary">Deep Dives</a>
+    </div>
+  </div>
+</div>
+
+<div class="learning-paths">
+  <h2><i class="fas fa-road"></i> Recommended Learning Paths</h2>
+  
+  <div class="path-grid">
+    <div class="learning-path web-dev">
+      <h4><i class="fas fa-globe"></i> Web Development</h4>
+      <ol>
+        <li><a href="docs/technology/git.html">Git Basics</a></li>
+        <li><a href="docs/technology/docker.html">Docker Fundamentals</a></li>
+        <li><a href="docs/technology/aws.html">Cloud with AWS</a></li>
+        <li><a href="docs/technology/kubernetes.html">Container Orchestration</a></li>
+      </ol>
+    </div>
+    
+    <div class="learning-path ai-ml">
+      <h4><i class="fas fa-robot"></i> AI/ML Journey</h4>
+      <ol>
+        <li><a href="getting-started.html#ai-fundamentals">AI in 5 Minutes</a></li>
+        <li><a href="docs/technology/ai-fundamentals-simple.html">AI Fundamentals (Simple)</a></li>
+        <li><a href="docs/technology/ai.html">AI Fundamentals (Complete)</a></li>
+        <li><a href="docs/technology/ai-lecture-2023.html">Deep Dive</a></li>
+        <li><a href="docs/technology/quantumcomputing.html">Quantum ML</a></li>
+      </ol>
+    </div>
+    
+    <div class="learning-path devops">
+      <h4><i class="fas fa-server"></i> DevOps Path</h4>
+      <ol>
+        <li><a href="docs/technology/git.html">Version Control</a></li>
+        <li><a href="docs/technology/terraform.html">Infrastructure as Code</a></li>
+        <li><a href="docs/technology/docker.html">Containerization</a></li>
+        <li><a href="docs/technology/kubernetes.html">Orchestration</a></li>
+      </ol>
+    </div>
+    
+    <div class="learning-path physics">
+      <h4><i class="fas fa-atom"></i> Physics Foundation</h4>
+      <ol>
+        <li><a href="docs/physics/classical-mechanics.html">Classical Mechanics</a></li>
+        <li><a href="docs/physics/quantum-mechanics.html">Quantum Basics</a></li>
+        <li><a href="docs/physics/relativity.html">Relativity</a></li>
+        <li><a href="docs/physics/quantum-field-theory.html">Advanced QFT</a></li>
+      </ol>
+    </div>
+  </div>
+</div>
+
 ## Table of Contents
+
+<div id="deep-dives" class="deep-dives-section">
+  <h3><i class="fas fa-microscope"></i> Deep Dives</h3>
+  <p>For those ready to explore advanced topics in depth:</p>
+  <ul>
+    <li><a href="docs/technology/ai-lecture-2023.html">Advanced AI/ML Theory & Implementation</a></li>
+    <li><a href="docs/physics/quantum-field-theory.html">Quantum Field Theory</a></li>
+    <li><a href="docs/physics/string-theory.html">String Theory & M-Theory</a></li>
+    <li><a href="docs/technology/kubernetes.html#advanced-patterns">Advanced Kubernetes Patterns</a></li>
+  </ul>
+</div>
 
 **Technology**
 - [Terraform](#terraform)

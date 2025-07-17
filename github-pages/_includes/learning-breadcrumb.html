@@ -1,0 +1,521 @@
+{% comment %}
+  Learning Breadcrumb Navigation
+  Shows current position in learning path with difficulty levels
+  
+  Usage: {% include learning-breadcrumb.html %}
+  
+  Parameters:
+  - path: Array of breadcrumb items with title, url, and level
+  - current: Current page title
+  - alternatives: Alternative paths at different levels
+{% endcomment %}
+
+<nav class="learning-breadcrumb" aria-label="Learning path navigation">
+  <div class="breadcrumb-container">
+    <ol class="breadcrumb-list">
+      <li class="breadcrumb-item">
+        <a href="/" class="breadcrumb-link home">
+          <svg class="breadcrumb-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
+          </svg>
+          <span class="breadcrumb-text">Home</span>
+        </a>
+      </li>
+      
+      {% if include.path %}
+        {% for item in include.path %}
+          <li class="breadcrumb-item">
+            <span class="breadcrumb-separator">›</span>
+            <a href="{{ item.url }}" class="breadcrumb-link level-{{ item.level | default: 'intermediate' }}">
+              <span class="breadcrumb-text">{{ item.title }}</span>
+              {% if item.level %}
+                <span class="level-indicator">{{ item.level | slice: 0 }}</span>
+              {% endif %}
+            </a>
+          </li>
+        {% endfor %}
+      {% endif %}
+      
+      <li class="breadcrumb-item current">
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-current">
+          {{ include.current | default: page.title }}
+          {% if page.difficulty_level %}
+            <span class="current-level">{{ page.difficulty_level }}</span>
+          {% endif %}
+        </span>
+      </li>
+    </ol>
+    
+    {% if include.alternatives %}
+      <div class="breadcrumb-alternatives">
+        <button class="alternatives-toggle" onclick="toggleAlternatives()" aria-label="Show alternative paths">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+          </svg>
+        </button>
+        
+        <div class="alternatives-dropdown" id="alternatives-dropdown" style="display: none;">
+          <div class="dropdown-header">Alternative Learning Paths</div>
+          {% for alt in include.alternatives %}
+            <a href="{{ alt.url }}" class="alternative-path level-{{ alt.level }}">
+              <span class="path-icon">
+                {% if alt.level == 'beginner' %}🌱
+                {% elsif alt.level == 'intermediate' %}🌿
+                {% elsif alt.level == 'advanced' %}🌳
+                {% else %}📚
+                {% endif %}
+              </span>
+              <div class="path-info">
+                <span class="path-title">{{ alt.title }}</span>
+                <span class="path-description">{{ alt.description }}</span>
+              </div>
+              <span class="path-arrow">→</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+  
+  <div class="learning-progress">
+    <div class="progress-info">
+      <span class="progress-label">Your Progress</span>
+      <span class="progress-percentage" id="progress-percentage">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+  </div>
+</nav>
+
+<script>
+// Toggle alternative paths dropdown
+function toggleAlternatives() {
+  const dropdown = document.getElementById('alternatives-dropdown');
+  const isVisible = dropdown.style.display !== 'none';
+  
+  dropdown.style.display = isVisible ? 'none' : 'block';
+  
+  // Close on outside click
+  if (!isVisible) {
+    document.addEventListener('click', function closeDropdown(e) {
+      if (!e.target.closest('.breadcrumb-alternatives')) {
+        dropdown.style.display = 'none';
+        document.removeEventListener('click', closeDropdown);
+      }
+    });
+  }
+}
+
+// Track learning progress
+function updateLearningProgress() {
+  const currentPath = window.location.pathname;
+  const viewedPages = JSON.parse(localStorage.getItem('viewedPages') || '[]');
+  
+  if (!viewedPages.includes(currentPath)) {
+    viewedPages.push(currentPath);
+    localStorage.setItem('viewedPages', JSON.stringify(viewedPages));
+  }
+  
+  // Calculate progress based on current section
+  const totalPagesInSection = {{ site.pages | where: 'section', page.section | size | default: 10 }};
+  const viewedInSection = viewedPages.filter(path => path.includes('{{ page.section }}')).length;
+  const progress = Math.min(100, Math.round((viewedInSection / totalPagesInSection) * 100));
+  
+  // Update UI
+  document.getElementById('progress-percentage').textContent = `${progress}%`;
+  document.getElementById('progress-fill').style.width = `${progress}%`;
+  
+  // Add milestone celebration
+  if (progress === 100 && !sessionStorage.getItem('sectionCompleted')) {
+    sessionStorage.setItem('sectionCompleted', 'true');
+    celebrateCompletion();
+  }
+}
+
+// Celebrate section completion
+function celebrateCompletion() {
+  const celebration = document.createElement('div');
+  celebration.className = 'completion-celebration';
+  celebration.innerHTML = `
+    <div class="celebration-content">
+      <span class="celebration-icon">🎉</span>
+      <h3>Section Complete!</h3>
+      <p>Great job! You've completed this learning path.</p>
+      <button onclick="this.parentElement.parentElement.remove()">Continue Learning</button>
+    </div>
+  `;
+  document.body.appendChild(celebration);
+  
+  setTimeout(() => {
+    celebration.classList.add('show');
+  }, 100);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', updateLearningProgress);
+</script>
+
+<style>
+.learning-breadcrumb {
+  margin: 0 0 2rem 0;
+  padding: 1rem;
+  background: var(--breadcrumb-bg, #f8f9fa);
+  border-radius: 8px;
+  border: 1px solid var(--breadcrumb-border, #e0e0e0);
+}
+
+.breadcrumb-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-separator {
+  margin: 0 0.5rem;
+  color: var(--separator-color, #6c757d);
+}
+
+.breadcrumb-link {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--link-color, #0066cc);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  background: var(--link-hover-bg, rgba(0, 102, 204, 0.1));
+  color: var(--link-hover-color, #0052a3);
+}
+
+.breadcrumb-icon {
+  flex-shrink: 0;
+}
+
+.level-indicator {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--level-bg, #e0e0e0);
+  color: var(--level-color, #666);
+  border-radius: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.breadcrumb-link.level-beginner .level-indicator {
+  background: #d4edda;
+  color: #155724;
+}
+
+.breadcrumb-link.level-intermediate .level-indicator {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.breadcrumb-link.level-advanced .level-indicator {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.breadcrumb-current {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--current-color, #212529);
+}
+
+.current-level {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  background: var(--current-level-bg, #0066cc);
+  color: white;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+/* Alternative paths dropdown */
+.breadcrumb-alternatives {
+  position: relative;
+}
+
+.alternatives-toggle {
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--toggle-border, #dee2e6);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alternatives-toggle:hover {
+  background: var(--toggle-hover-bg, #e9ecef);
+  border-color: var(--toggle-hover-border, #adb5bd);
+}
+
+.alternatives-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  min-width: 300px;
+  background: white;
+  border: 1px solid var(--dropdown-border, #dee2e6);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+}
+
+.dropdown-header {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--header-color, #495057);
+  border-bottom: 1px solid var(--dropdown-border, #dee2e6);
+}
+
+.alternative-path {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.alternative-path:hover {
+  background: var(--path-hover-bg, #f8f9fa);
+}
+
+.alternative-path.level-beginner {
+  border-left: 3px solid #28a745;
+}
+
+.alternative-path.level-intermediate {
+  border-left: 3px solid #17a2b8;
+}
+
+.alternative-path.level-advanced {
+  border-left: 3px solid #dc3545;
+}
+
+.path-icon {
+  font-size: 1.5rem;
+}
+
+.path-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.path-title {
+  font-weight: 500;
+  color: var(--title-color, #212529);
+}
+
+.path-description {
+  font-size: 0.875rem;
+  color: var(--description-color, #6c757d);
+}
+
+.path-arrow {
+  color: var(--arrow-color, #adb5bd);
+}
+
+/* Learning progress */
+.learning-progress {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--progress-border, #e0e0e0);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.progress-label {
+  color: var(--label-color, #6c757d);
+}
+
+.progress-percentage {
+  font-weight: 600;
+  color: var(--percentage-color, #0066cc);
+}
+
+.progress-track {
+  height: 6px;
+  background: var(--track-bg, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--fill-bg, #0066cc);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255,255,255,.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255,255,255,.15) 50%,
+    rgba(255,255,255,.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-animation 1s linear infinite;
+}
+
+@keyframes progress-animation {
+  0% { background-position: 0 0; }
+  100% { background-position: 1rem 1rem; }
+}
+
+/* Completion celebration */
+.completion-celebration {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.completion-celebration.show {
+  opacity: 1;
+}
+
+.celebration-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.completion-celebration.show .celebration-content {
+  transform: scale(1);
+}
+
+.celebration-icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.celebration-content h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+}
+
+.celebration-content p {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-muted, #6c757d);
+}
+
+.celebration-content button {
+  padding: 0.75rem 1.5rem;
+  background: var(--btn-bg, #0066cc);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.celebration-content button:hover {
+  background: var(--btn-hover-bg, #0052a3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .learning-breadcrumb {
+    --breadcrumb-bg: #1a1a1a;
+    --breadcrumb-border: #333;
+    --separator-color: #999;
+    --link-color: #4d94ff;
+    --link-hover-bg: rgba(77, 148, 255, 0.1);
+    --link-hover-color: #66a3ff;
+    --current-color: #f0f0f0;
+    --toggle-border: #444;
+    --toggle-hover-bg: #2a2a2a;
+    --toggle-hover-border: #555;
+    --header-color: #b0b0b0;
+    --title-color: #f0f0f0;
+    --description-color: #999;
+    --arrow-color: #666;
+    --progress-border: #333;
+    --label-color: #999;
+    --track-bg: #333;
+    --level-bg: #333;
+    --level-color: #ccc;
+  }
+  
+  .alternatives-dropdown {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+  
+  .celebration-content {
+    background: #2a2a2a;
+    color: #f0f0f0;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .breadcrumb-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .breadcrumb-list {
+    font-size: 0.875rem;
+  }
+  
+  .alternatives-dropdown {
+    left: auto;
+    right: -1rem;
+    min-width: calc(100vw - 2rem);
+  }
+}
+</style>

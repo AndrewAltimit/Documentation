@@ -1,0 +1,337 @@
+{% comment %}
+  Difficulty Helper Component - "Too Easy?" and "Too Hard?" navigation
+  Usage: {% include difficulty-helper.html %}
+  
+  Parameters:
+  - current_level: current difficulty level
+  - easier_link: URL to easier content
+  - harder_link: URL to harder content
+  - related_topics: Array of related topics at different levels
+{% endcomment %}
+
+{% assign current = include.current_level | default: page.difficulty_level | default: "intermediate" %}
+
+<div class="difficulty-helper" id="difficulty-helper">
+  <div class="difficulty-feedback">
+    {% if include.easier_link or include.harder_link %}
+      <div class="feedback-options">
+        {% if include.easier_link %}
+          <div class="feedback-option too-hard">
+            <button class="feedback-btn" onclick="showEasierOptions()">
+              <span class="feedback-icon">😅</span>
+              <span class="feedback-text">Too Complex?</span>
+            </button>
+            <div class="feedback-content" id="easier-options" style="display: none;">
+              <p>Let's try a simpler approach:</p>
+              <a href="{{ include.easier_link }}" class="difficulty-link easier">
+                <span class="link-icon">👉</span>
+                <span class="link-text">Switch to easier version</span>
+              </a>
+              {% if include.prerequisites %}
+                <div class="prerequisites-hint">
+                  <p>You might also want to review:</p>
+                  <ul>
+                    {% for prereq in include.prerequisites %}
+                      <li><a href="{{ prereq.link }}">{{ prereq.title }}</a></li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+        
+        {% if include.harder_link %}
+          <div class="feedback-option too-easy">
+            <button class="feedback-btn" onclick="showHarderOptions()">
+              <span class="feedback-icon">🚀</span>
+              <span class="feedback-text">Too Basic?</span>
+            </button>
+            <div class="feedback-content" id="harder-options" style="display: none;">
+              <p>Ready for a challenge:</p>
+              <a href="{{ include.harder_link }}" class="difficulty-link harder">
+                <span class="link-icon">🔥</span>
+                <span class="link-text">Level up to advanced content</span>
+              </a>
+              {% if include.advanced_topics %}
+                <div class="advanced-topics-hint">
+                  <p>You might enjoy:</p>
+                  <ul>
+                    {% for topic in include.advanced_topics %}
+                      <li><a href="{{ topic.link }}">{{ topic.title }}</a></li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  
+  {% if include.related_topics %}
+    <div class="related-topics-section">
+      <h4>Related Topics at Your Level</h4>
+      <div class="related-topics-grid">
+        {% for topic in include.related_topics %}
+          <a href="{{ topic.link }}" class="related-topic-card level-{{ topic.level | default: current }}">
+            <span class="topic-icon">{{ topic.icon | default: "📚" }}</span>
+            <span class="topic-title">{{ topic.title }}</span>
+            {% if topic.description %}
+              <span class="topic-description">{{ topic.description }}</span>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function showEasierOptions() {
+  const easierOptions = document.getElementById('easier-options');
+  const harderOptions = document.getElementById('harder-options');
+  
+  if (easierOptions.style.display === 'none') {
+    easierOptions.style.display = 'block';
+    if (harderOptions) harderOptions.style.display = 'none';
+    
+    // Track user preference
+    localStorage.setItem('preferredDifficulty', 'easier');
+  } else {
+    easierOptions.style.display = 'none';
+  }
+}
+
+function showHarderOptions() {
+  const harderOptions = document.getElementById('harder-options');
+  const easierOptions = document.getElementById('easier-options');
+  
+  if (harderOptions.style.display === 'none') {
+    harderOptions.style.display = 'block';
+    if (easierOptions) easierOptions.style.display = 'none';
+    
+    // Track user preference
+    localStorage.setItem('preferredDifficulty', 'harder');
+  } else {
+    harderOptions.style.display = 'none';
+  }
+}
+
+// Auto-suggest based on reading speed or interaction patterns
+document.addEventListener('DOMContentLoaded', function() {
+  const readingStartTime = Date.now();
+  
+  // Check if user scrolls too quickly (might indicate content is too easy)
+  let scrollCheckTimeout;
+  window.addEventListener('scroll', function() {
+    clearTimeout(scrollCheckTimeout);
+    scrollCheckTimeout = setTimeout(function() {
+      const timeSpent = (Date.now() - readingStartTime) / 1000; // seconds
+      const scrollPercentage = (window.scrollY / document.body.scrollHeight) * 100;
+      
+      if (scrollPercentage > 80 && timeSpent < 30) {
+        // User scrolled through quickly
+        const tooEasyBtn = document.querySelector('.too-easy .feedback-btn');
+        if (tooEasyBtn && !sessionStorage.getItem('difficultyPrompted')) {
+          tooEasyBtn.classList.add('pulse');
+          sessionStorage.setItem('difficultyPrompted', 'true');
+        }
+      }
+    }, 1000);
+  });
+});
+</script>
+
+<style>
+.difficulty-helper {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--helper-bg, #f0f7ff);
+  border-radius: 12px;
+  border: 1px solid var(--helper-border, #d0e3ff);
+}
+
+.feedback-options {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.feedback-option {
+  flex: 1;
+  min-width: 200px;
+}
+
+.feedback-btn {
+  width: 100%;
+  padding: 1rem;
+  background: white;
+  border: 2px solid var(--btn-border, #e0e0e0);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.feedback-btn:hover {
+  border-color: var(--btn-hover-border, #0066cc);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.feedback-btn.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 102, 204, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 102, 204, 0); }
+}
+
+.feedback-icon {
+  font-size: 1.5rem;
+}
+
+.feedback-content {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.difficulty-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  margin-top: 0.5rem;
+  background: var(--link-bg, #0066cc);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.difficulty-link:hover {
+  background: var(--link-hover-bg, #0052a3);
+  transform: translateX(4px);
+}
+
+.difficulty-link.easier {
+  background: var(--easier-bg, #28a745);
+}
+
+.difficulty-link.easier:hover {
+  background: var(--easier-hover-bg, #218838);
+}
+
+.difficulty-link.harder {
+  background: var(--harder-bg, #dc3545);
+}
+
+.difficulty-link.harder:hover {
+  background: var(--harder-hover-bg, #c82333);
+}
+
+.prerequisites-hint,
+.advanced-topics-hint {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light, #e0e0e0);
+}
+
+.related-topics-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--section-border, #e0e0e0);
+}
+
+.related-topics-section h4 {
+  margin-bottom: 1rem;
+  color: var(--heading-color, #333);
+}
+
+.related-topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.related-topic-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  background: white;
+  border: 1px solid var(--card-border, #e0e0e0);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.related-topic-card:hover {
+  border-color: var(--card-hover-border, #0066cc);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.topic-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.topic-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.topic-description {
+  font-size: 0.875rem;
+  color: var(--text-muted, #666);
+}
+
+/* Level-specific styling */
+.related-topic-card.level-beginner {
+  border-left: 4px solid #28a745;
+}
+
+.related-topic-card.level-intermediate {
+  border-left: 4px solid #17a2b8;
+}
+
+.related-topic-card.level-advanced {
+  border-left: 4px solid #dc3545;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .difficulty-helper {
+    --helper-bg: #1a1a1a;
+    --helper-border: #333;
+    --btn-border: #444;
+    --btn-hover-border: #0066cc;
+    --text-muted: #999;
+    --heading-color: #f0f0f0;
+    --card-border: #333;
+    --border-light: #444;
+    --section-border: #444;
+  }
+  
+  .feedback-btn,
+  .feedback-content,
+  .related-topic-card {
+    background: #2a2a2a;
+    color: #f0f0f0;
+  }
+}
+</style>
