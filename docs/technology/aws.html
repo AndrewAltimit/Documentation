@@ -679,6 +679,322 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>Why does this matter? Because it transforms how we build applications. You can launch a startup from your laptop, scale to millions of users, and only pay for the resources you actually use. No more guessing how many servers you’ll need or waiting weeks for hardware to arrive.</p>
 
+<h2 id="aws-crash-course-from-zero-to-cloud-in-30-minutes">AWS Crash Course: From Zero to Cloud in 30 Minutes</h2>
+
+<p>If you’re completely new to AWS, this crash course will get you up and running quickly. We’ll build something real while learning the essentials.</p>
+
+<h3 id="what-youll-build">What You’ll Build</h3>
+<p>In the next 30 minutes, you’ll deploy a simple web application that demonstrates core AWS concepts. By the end, you’ll have:</p>
+<ul>
+  <li>A virtual server running in the cloud (EC2)</li>
+  <li>A globally accessible website (S3 + CloudFront)</li>
+  <li>A managed database (RDS)</li>
+  <li>Monitoring and alerts (CloudWatch)</li>
+  <li>All connected securely</li>
+</ul>
+
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+  <li>An AWS account (sign up at aws.amazon.com - credit card required but we’ll stay in free tier)</li>
+  <li>Basic command line knowledge</li>
+  <li>A web browser</li>
+  <li>30 minutes of focused time</li>
+</ul>
+
+<h3 id="step-1-secure-your-account-5-minutes">Step 1: Secure Your Account (5 minutes)</h3>
+<p><strong>Never skip this step.</strong> AWS gives you powerful tools that can cost money if misused.</p>
+
+<ol>
+  <li>
+<strong>Enable MFA on Root Account</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>AWS Console → Your Account → Security Credentials → MFA
+</code></pre></div>    </div>
+    <p>Use Google Authenticator or similar. This prevents unauthorized access even if your password leaks.</p>
+  </li>
+  <li>
+<strong>Create Your First IAM User</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>IAM → Users → Add User
+Username: your-name-admin
+Access: AWS Management Console access
+Permissions: AdministratorAccess (for learning only!)
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Set Up Billing Alerts</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>Billing → Billing Preferences → Receive Billing Alerts
+CloudWatch → Alarms → Create Alarm
+Metric: EstimatedCharges
+Threshold: $5
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Common Pitfall</strong>: Using root account for daily work. This is like using admin/sudo for everything - dangerous and unnecessary.</p>
+
+<h3 id="step-2-launch-your-first-server-10-minutes">Step 2: Launch Your First Server (10 minutes)</h3>
+
+<p>Let’s create a virtual server (EC2 instance) - your computer in the cloud.</p>
+
+<ol>
+  <li>
+<strong>Navigate to EC2</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>Services → EC2 → Launch Instance
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Configure Your Instance</strong>
+    <ul>
+      <li>
+<strong>Name</strong>: MyFirstServer</li>
+      <li>
+<strong>OS</strong>: Amazon Linux 2023 (free tier eligible)</li>
+      <li>
+<strong>Instance Type</strong>: t2.micro (1 CPU, 1GB RAM - free tier)</li>
+      <li>
+<strong>Key Pair</strong>: Create new → Download .pem file (guard this carefully!)</li>
+      <li>
+<strong>Network</strong>: Allow SSH (22) and HTTP (80)</li>
+    </ul>
+  </li>
+  <li>
+<strong>Connect to Your Server</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Mac/Linux</span>
+<span class="nb">chmod </span>400 your-key.pem
+ssh <span class="nt">-i</span> your-key.pem ec2-user@your-instance-ip
+
+<span class="c"># Windows (use PuTTY or WSL)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Install a Web Server</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>yum update <span class="nt">-y</span>
+<span class="nb">sudo </span>yum <span class="nb">install </span>httpd <span class="nt">-y</span>
+<span class="nb">sudo </span>systemctl start httpd
+<span class="nb">sudo </span>systemctl <span class="nb">enable </span>httpd
+<span class="nb">echo</span> <span class="s2">"&lt;h1&gt;Hello from AWS!&lt;/h1&gt;"</span> | <span class="nb">sudo tee</span> /var/www/html/index.html
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>Visit your instance’s public IP in a browser - you have a website!</p>
+
+<p><strong>What Just Happened?</strong></p>
+<ul>
+  <li>You rented a computer in AWS’s data center</li>
+  <li>You connected to it over the internet</li>
+  <li>You installed software just like on any Linux machine</li>
+  <li>Your website is now globally accessible</li>
+</ul>
+
+<p><strong>Common Pitfalls</strong>:</p>
+<ul>
+  <li>Forgetting to allow HTTP in security group (your firewall rules)</li>
+  <li>Losing your key pair (no key = no access)</li>
+  <li>Leaving instances running (they cost money outside free tier hours)</li>
+</ul>
+
+<h3 id="step-3-create-scalable-storage-5-minutes">Step 3: Create Scalable Storage (5 minutes)</h3>
+
+<p>EC2 storage disappears when instances terminate. Let’s use S3 for permanent storage.</p>
+
+<ol>
+  <li>
+<strong>Create an S3 Bucket</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>S3 → Create Bucket
+Name: my-first-bucket-[random-numbers]
+Region: Same as your EC2
+Block all public access: OFF (for learning only!)
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Upload a File</strong>
+Create a simple HTML file locally:
+    <div class="language-html highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;&lt;title&gt;</span>My S3 Site<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+  <span class="nt">&lt;h1&gt;</span>This website runs from S3!<span class="nt">&lt;/h1&gt;</span>
+  <span class="nt">&lt;p&gt;</span>No servers needed.<span class="nt">&lt;/p&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>    </div>
+    <p>Upload via console → Make public</p>
+  </li>
+  <li>
+<strong>Enable Static Website Hosting</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>Bucket → Properties → Static website hosting → Enable
+Index document: index.html
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>Your website now runs without any servers! Access via the S3 website endpoint.</p>
+
+<p><strong>Why This Matters</strong>: S3 is virtually unlimited storage that’s always available. It’s perfect for images, videos, backups, and static websites.</p>
+
+<h3 id="step-4-add-a-database-5-minutes">Step 4: Add a Database (5 minutes)</h3>
+
+<p>Most applications need to store data. Let’s add a managed database.</p>
+
+<ol>
+  <li>
+<strong>Create an RDS Instance</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>RDS → Create Database
+Engine: MySQL
+Template: Free tier
+DB Instance: db.t3.micro
+Username: admin
+Password: [choose-strong-password]
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Configure Access</strong>
+    <ul>
+      <li>Same VPC as your EC2</li>
+      <li>Security group: Allow MySQL port (3306) from your EC2 security group</li>
+    </ul>
+  </li>
+  <li>
+<strong>Connect from EC2</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>yum <span class="nb">install </span>mysql <span class="nt">-y</span>
+mysql <span class="nt">-h</span> your-rds-endpoint <span class="nt">-u</span> admin <span class="nt">-p</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>What’s Happening</strong>: AWS manages backups, updates, and availability. You just use the database.</p>
+
+<h3 id="step-5-monitor-everything-5-minutes">Step 5: Monitor Everything (5 minutes)</h3>
+
+<p>You can’t improve what you don’t measure. CloudWatch monitors everything.</p>
+
+<ol>
+  <li>
+<strong>View EC2 Metrics</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>EC2 → Your Instance → Monitoring Tab
+</code></pre></div>    </div>
+    <p>See CPU, network, disk usage</p>
+  </li>
+  <li>
+<strong>Create an Alarm</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>CloudWatch → Alarms → Create Alarm
+Select Metric: EC2 → Per-Instance Metrics
+CPU Utilization &gt; 80% for 5 minutes
+Send notification to your email
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>View Logs</strong>
+Install CloudWatch agent on EC2:
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>yum <span class="nb">install </span>amazon-cloudwatch-agent <span class="nt">-y</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Real Impact</strong>: You’ll know about problems before your users do.</p>
+
+<h3 id="your-first-cloud-architecture">Your First Cloud Architecture</h3>
+
+<p>Congratulations! You’ve built a real cloud architecture:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Internet → EC2 (Web Server) → RDS (Database)
+    ↓
+S3 (Static Assets) → CloudFront (CDN)
+    ↓
+CloudWatch (Monitoring Everything)
+</code></pre></div></div>
+
+<h3 id="next-steps-after-the-crash-course">Next Steps After the Crash Course</h3>
+
+<ol>
+  <li>
+<strong>Clean Up</strong> (Important!):
+    <ul>
+      <li>Terminate EC2 instance</li>
+      <li>Delete RDS instance</li>
+      <li>Empty and delete S3 bucket</li>
+      <li>This prevents charges</li>
+    </ul>
+  </li>
+  <li>
+<strong>What to Learn Next</strong>:
+    <ul>
+      <li>
+<strong>IAM Roles</strong>: Give EC2 permission to access S3 without keys</li>
+      <li>
+<strong>Auto Scaling</strong>: Automatically add/remove servers based on load</li>
+      <li>
+<strong>Load Balancers</strong>: Distribute traffic across multiple servers</li>
+      <li>
+<strong>VPC</strong>: Create private networks for security</li>
+    </ul>
+  </li>
+  <li>
+<strong>Practice Projects</strong>:
+    <ul>
+      <li>Deploy a WordPress blog (EC2 + RDS)</li>
+      <li>Create a serverless API (Lambda + API Gateway)</li>
+      <li>Build a data pipeline (S3 + Lambda + DynamoDB)</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="common-beginner-mistakes-to-avoid">Common Beginner Mistakes to Avoid</h3>
+
+<ol>
+  <li>
+<strong>The “It Works on My Machine” Trap</strong>
+    <ul>
+      <li>Always test in an AWS environment</li>
+      <li>Local and cloud environments differ</li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Infinite Scale” Misconception</strong>
+    <ul>
+      <li>Everything has limits (even in cloud)</li>
+      <li>Plan for growth, but start small</li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Set and Forget” Danger</strong>
+    <ul>
+      <li>Cloud resources need maintenance</li>
+      <li>Automate everything possible</li>
+    </ul>
+  </li>
+  <li>
+<strong>The “All Public” Security Hole</strong>
+    <ul>
+      <li>Start with least privilege</li>
+      <li>Only expose what’s necessary</li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Bill Shock” Surprise</strong>
+    <ul>
+      <li>Set up billing alerts immediately</li>
+      <li>Understand pricing before using services</li>
+      <li>Use AWS Cost Explorer weekly</li>
+    </ul>
+  </li>
+</ol>
+
+<p>This crash course gives you hands-on experience with core AWS services. You’ve deployed real infrastructure and learned by doing. The rest of this guide builds on these foundations with deeper knowledge and advanced patterns.</p>
+
 <h2 id="core-concepts-to-master-first">Core Concepts to Master First</h2>
 
 <p>Before diving into specific services, let’s understand the fundamental concepts that make cloud computing powerful:</p>
@@ -738,10 +1054,356 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p><strong>Real-world example</strong>: A startup begins with one EC2 instance running their web application. As traffic grows, they add more instances behind a load balancer. During Black Friday, they scale to 50 instances, then scale back down afterward.</p>
 
+<p><strong>Practical EC2 Patterns</strong>:</p>
+
+<ol>
+  <li>
+<strong>Right-Sizing Instances</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Check current utilization</span>
+aws cloudwatch get-metric-statistics <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
+  <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
+  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>InstanceId,Value<span class="o">=</span>i-1234567890abcdef0 <span class="se">\</span>
+  <span class="nt">--statistics</span> Average <span class="se">\</span>
+  <span class="nt">--start-time</span> 2024-01-01T00:00:00Z <span class="se">\</span>
+  <span class="nt">--end-time</span> 2024-01-02T00:00:00Z <span class="se">\</span>
+  <span class="nt">--period</span> 3600
+</code></pre></div>    </div>
+
+    <p>If CPU &lt; 20% consistently, you’re overpaying. Consider:</p>
+    <ul>
+      <li>t3.micro → t3.nano (save 50%)</li>
+      <li>m5.large → t3.medium (save 60% for variable workloads)</li>
+    </ul>
+  </li>
+  <li>
+<strong>Spot Instances for Batch Processing</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Processing logs with 90% cost savings
+</span><span class="kn">import</span> <span class="n">boto3</span>
+   
+<span class="n">ec2</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">ec2</span><span class="sh">'</span><span class="p">)</span>
+   
+<span class="c1"># Request Spot instance
+</span><span class="n">response</span> <span class="o">=</span> <span class="n">ec2</span><span class="p">.</span><span class="nf">request_spot_instances</span><span class="p">(</span>
+    <span class="n">SpotPrice</span><span class="o">=</span><span class="sh">'</span><span class="s">0.10</span><span class="sh">'</span><span class="p">,</span>  <span class="c1"># Max price you'll pay
+</span>    <span class="n">InstanceCount</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">LaunchSpecification</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">'</span><span class="s">ImageId</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">ami-12345678</span><span class="sh">'</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">InstanceType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">c5.large</span><span class="sh">'</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">UserData</span><span class="sh">'</span><span class="p">:</span> <span class="n">base64</span><span class="p">.</span><span class="nf">b64encode</span><span class="p">(</span><span class="sh">'''</span><span class="s">#!/bin/bash
+            aws s3 cp s3://my-logs/raw/ /tmp/logs/ --recursive
+            /opt/process-logs.sh
+            aws s3 cp /tmp/results/ s3://my-logs/processed/ --recursive
+            shutdown -h now  # Self-terminate to save money
+        </span><span class="sh">'''</span><span class="p">.</span><span class="nf">encode</span><span class="p">()).</span><span class="nf">decode</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Auto-Recovery for Critical Instances</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Create CloudWatch alarm for auto-recovery</span>
+aws cloudwatch put-metric-alarm <span class="se">\</span>
+  <span class="nt">--alarm-name</span> ec2-recovery-i-1234567890abcdef0 <span class="se">\</span>
+  <span class="nt">--alarm-description</span> <span class="s2">"Recover instance when it fails"</span> <span class="se">\</span>
+  <span class="nt">--metric-name</span> StatusCheckFailed_System <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
+  <span class="nt">--statistic</span> Maximum <span class="se">\</span>
+  <span class="nt">--period</span> 60 <span class="se">\</span>
+  <span class="nt">--evaluation-periods</span> 2 <span class="se">\</span>
+  <span class="nt">--threshold</span> 0 <span class="se">\</span>
+  <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
+  <span class="nt">--alarm-actions</span> arn:aws:automate:region:ec2:recover
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Common EC2 Pitfalls and Solutions</strong>:</p>
+
+<ol>
+  <li>
+<strong>The “Zombie Instance” Problem</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Instances running but not doing anything useful</li>
+      <li>
+<strong>Solution</strong>: Tag instances with purpose and owner, run weekly audits
+        <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Find instances without Owner tag</span>
+aws ec2 describe-instances <span class="se">\</span>
+<span class="nt">--query</span> <span class="s1">'Reservations[].Instances[?!Tags[?Key==`Owner`]].[InstanceId,State.Name]'</span> <span class="se">\</span>
+<span class="nt">--output</span> table
+</code></pre></div>        </div>
+      </li>
+    </ul>
+  </li>
+  <li>
+<strong>The “SSH Key Lost Forever” Disaster</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Can’t access instance after losing private key</li>
+      <li>
+<strong>Prevention</strong>: Use Systems Manager Session Manager
+        <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Connect without SSH keys</span>
+aws ssm start-session <span class="nt">--target</span> i-1234567890abcdef0
+</code></pre></div>        </div>
+      </li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Wrong Instance Family” Performance Issue</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Application runs slower than expected</li>
+      <li>
+<strong>Solution</strong>: Match instance to workload</li>
+      <li>CPU-intensive → C5 (compute optimized)</li>
+      <li>Memory-intensive → R5 (memory optimized)</li>
+      <li>Balanced → M5 (general purpose)</li>
+      <li>Bursty → T3 (burstable performance)</li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Public IP Changed” Confusion</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: IP address changes after stop/start</li>
+      <li>
+<strong>Solution</strong>: Use Elastic IPs for static addresses
+        <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Allocate and associate Elastic IP</span>
+<span class="nv">ALLOC_ID</span><span class="o">=</span><span class="si">$(</span>aws ec2 allocate-address <span class="nt">--query</span> <span class="s1">'AllocationId'</span> <span class="nt">--output</span> text<span class="si">)</span>
+aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcdef0 <span class="nt">--allocation-id</span> <span class="nv">$ALLOC_ID</span>
+</code></pre></div>        </div>
+      </li>
+    </ul>
+  </li>
+</ol>
+
 <h4 id="aws-lambda---serverless-computing">AWS Lambda - Serverless Computing</h4>
 <p>Lambda represents a paradigm shift. Instead of managing servers, you upload your code and AWS runs it in response to events. You pay only for the milliseconds your code executes.</p>
 
 <p><strong>Real-world example</strong>: An e-commerce site uses Lambda to resize product images. When a seller uploads a photo, Lambda automatically creates multiple sizes for different devices. No servers to manage, automatic scaling, and you only pay when images are processed.</p>
+
+<p><strong>Practical Lambda Patterns</strong>:</p>
+
+<ol>
+  <li>
+<strong>Event-Driven Image Processing</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">from</span> <span class="n">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">import</span> <span class="n">io</span>
+   
+<span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">)</span>
+   
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="c1"># Triggered by S3 upload
+</span>    <span class="n">bucket</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">bucket</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">name</span><span class="sh">'</span><span class="p">]</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">object</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">key</span><span class="sh">'</span><span class="p">]</span>
+       
+    <span class="c1"># Download image
+</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">s3</span><span class="p">.</span><span class="nf">get_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">].</span><span class="nf">read</span><span class="p">()))</span>
+       
+    <span class="c1"># Create thumbnails
+</span>    <span class="n">sizes</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">sizes</span><span class="p">:</span>
+        <span class="n">resized</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="nf">resize</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">Image</span><span class="p">.</span><span class="n">LANCZOS</span><span class="p">)</span>
+           
+        <span class="c1"># Save to S3
+</span>        <span class="nb">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">()</span>
+        <span class="n">resized</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nb">buffer</span><span class="p">,</span> <span class="sh">'</span><span class="s">JPEG</span><span class="sh">'</span><span class="p">)</span>
+        <span class="nb">buffer</span><span class="p">.</span><span class="nf">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+           
+        <span class="n">new_key</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">thumbnails/</span><span class="si">{</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s">x</span><span class="si">{</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="sh">"</span>
+        <span class="n">s3</span><span class="p">.</span><span class="nf">put_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">new_key</span><span class="p">,</span> <span class="n">Body</span><span class="o">=</span><span class="nb">buffer</span><span class="p">.</span><span class="nf">getvalue</span><span class="p">())</span>
+       
+    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="sh">'</span><span class="s">Thumbnails created</span><span class="sh">'</span><span class="p">)}</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>API Backend Without Servers</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Lambda function for REST API
+</span><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">from</span> <span class="n">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
+   
+<span class="n">dynamodb</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">resource</span><span class="p">(</span><span class="sh">'</span><span class="s">dynamodb</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">table</span> <span class="o">=</span> <span class="n">dynamodb</span><span class="p">.</span><span class="nc">Table</span><span class="p">(</span><span class="sh">'</span><span class="s">Users</span><span class="sh">'</span><span class="p">)</span>
+   
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">http_method</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span>
+       
+    <span class="k">if</span> <span class="n">http_method</span> <span class="o">==</span> <span class="sh">'</span><span class="s">GET</span><span class="sh">'</span><span class="p">:</span>
+        <span class="c1"># Get user by ID
+</span>        <span class="n">user_id</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">pathParameters</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">id</span><span class="sh">'</span><span class="p">]</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">table</span><span class="p">.</span><span class="nf">get_item</span><span class="p">(</span><span class="n">Key</span><span class="o">=</span><span class="p">{</span><span class="sh">'</span><span class="s">userId</span><span class="sh">'</span><span class="p">:</span> <span class="n">user_id</span><span class="p">})</span>
+           
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">headers</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">Content-Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">application/json</span><span class="sh">'</span><span class="p">},</span>
+            <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Item</span><span class="sh">'</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+        <span class="p">}</span>
+       
+    <span class="k">elif</span> <span class="n">http_method</span> <span class="o">==</span> <span class="sh">'</span><span class="s">POST</span><span class="sh">'</span><span class="p">:</span>
+        <span class="c1"># Create new user
+</span>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">])</span>
+        <span class="n">table</span><span class="p">.</span><span class="nf">put_item</span><span class="p">(</span><span class="n">Item</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+           
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">headers</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">Content-Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">application/json</span><span class="sh">'</span><span class="p">},</span>
+            <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">message</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">User created</span><span class="sh">'</span><span class="p">})</span>
+        <span class="p">}</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Scheduled Data Processing</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># CloudWatch Events triggers this daily
+</span><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="c1"># Clean up old data
+</span>    <span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">)</span>
+       
+    <span class="c1"># List objects older than 30 days
+</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">s3</span><span class="p">.</span><span class="nf">list_objects_v2</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="sh">'</span><span class="s">my-temp-bucket</span><span class="sh">'</span><span class="p">)</span>
+       
+    <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Contents</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]):</span>
+        <span class="nf">if </span><span class="p">(</span><span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">LastModified</span><span class="sh">'</span><span class="p">]).</span><span class="n">days</span> <span class="o">&gt;</span> <span class="mi">30</span><span class="p">:</span>
+            <span class="n">s3</span><span class="p">.</span><span class="nf">delete_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="sh">'</span><span class="s">my-temp-bucket</span><span class="sh">'</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">])</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Deleted: </span><span class="si">{</span><span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Common Lambda Pitfalls and Solutions</strong>:</p>
+
+<ol>
+  <li>
+<strong>The “Cold Start” Surprise</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: First invocation takes 3-5 seconds</li>
+      <li>
+<strong>Solutions</strong>:
+        <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># 1. Provisioned Concurrency (costs money)
+# 2. Keep Lambda warm with scheduled pings
+# 3. Optimize package size
+</span>     
+<span class="c1"># Bad: Large deployment package
+# requirements.txt
+</span><span class="n">pandas</span><span class="o">==</span><span class="mf">1.5</span><span class="p">.</span><span class="mi">0</span>  <span class="c1"># 40MB
+</span><span class="n">numpy</span><span class="o">==</span><span class="mf">1.23</span><span class="p">.</span><span class="mi">0</span>  <span class="c1"># 20MB
+</span>     
+<span class="c1"># Good: Use Lambda Layers or lighter alternatives
+# Use AWS SDK (boto3) - pre-installed
+# Use json instead of pandas for simple data
+</span></code></pre></div>        </div>
+      </li>
+    </ul>
+  </li>
+  <li>
+<strong>The “15-Minute Timeout” Wall</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Function times out for long processes</li>
+      <li>
+<strong>Solution</strong>: Break into smaller functions or use Step Functions
+        <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Step Functions state machine for long workflows
+</span><span class="p">{</span>
+<span class="sh">"</span><span class="s">Comment</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Process large dataset</span><span class="sh">"</span><span class="p">,</span>
+<span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">SplitData</span><span class="sh">"</span><span class="p">,</span>
+<span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+  <span class="sh">"</span><span class="s">SplitData</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:region:account:function:split-data</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">Next</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ProcessInParallel</span><span class="sh">"</span>
+  <span class="p">},</span>
+  <span class="sh">"</span><span class="s">ProcessInParallel</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Map</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">ItemsPath</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">$.chunks</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">MaxConcurrency</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">Iterator</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ProcessChunk</span><span class="sh">"</span><span class="p">,</span>
+      <span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">ProcessChunk</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+          <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
+          <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:region:account:function:process-chunk</span><span class="sh">"</span><span class="p">,</span>
+          <span class="sh">"</span><span class="s">End</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="sh">"</span><span class="s">Next</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">MergeResults</span><span class="sh">"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>        </div>
+      </li>
+    </ul>
+  </li>
+  <li>
+<strong>The “Out of Memory” Crisis</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Function fails with memory errors</li>
+      <li>
+<strong>Solution</strong>: Stream data instead of loading all at once
+```python
+        <h1 id="bad-loading-entire-file">Bad: Loading entire file</h1>
+        <p>def lambda_handler(event, context):
+  s3 = boto3.client(‘s3’)
+  obj = s3.get_object(Bucket=’bucket’, Key=’huge-file.csv’)
+  data = obj[‘Body’].read()  # Boom! Out of memory</p>
+      </li>
+    </ul>
+
+    <h1 id="good-stream-processing">Good: Stream processing</h1>
+    <p>def lambda_handler(event, context):
+    s3 = boto3.client(‘s3’)
+    obj = s3.get_object(Bucket=’bucket’, Key=’huge-file.csv’)</p>
+
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>for line in obj['Body'].iter_lines():
+    process_line(line)  # Process one line at a time ```
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>The “Deployment Package Too Large” Block</strong>
+    <ul>
+      <li>
+<strong>Symptom</strong>: Cannot upload function (&gt;50MB zipped)</li>
+      <li>
+<strong>Solution</strong>: Use Layers and container images
+```bash
+        <h1 id="create-a-lambda-layer-for-dependencies">Create a Lambda Layer for dependencies</h1>
+        <p>pip install -r requirements.txt -t python/
+zip -r layer.zip python/</p>
+      </li>
+    </ul>
+
+    <p>aws lambda publish-layer-version <br>
+  –layer-name my-dependencies <br>
+  –zip-file fileb://layer.zip <br>
+  –compatible-runtimes python3.9</p>
+
+    <h1 id="or-use-container-images-up-to-10gb">Or use container images (up to 10GB)</h1>
+    <p>FROM public.ecr.aws/lambda/python:3.9
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY app.py .
+CMD [“app.lambda_handler”]
+```</p>
+  </li>
+</ol>
 
 <h3 id="storage-services-your-applications-memory">Storage Services: Your Application’s Memory</h3>
 
@@ -786,6 +1448,304 @@ document.addEventListener('DOMContentLoaded', function() {
 </ol>
 
 <p><strong>Real-world example</strong>: An enterprise application runs web servers in public subnets (accessible from internet) and databases in private subnets (only accessible from web servers). This layered security approach protects sensitive data while serving public traffic.</p>
+
+<h3 id="monitoring-and-management-your-cloud-operations-center">Monitoring and Management: Your Cloud Operations Center</h3>
+
+<h4 id="amazon-cloudwatch---your-eyes-in-the-cloud">Amazon CloudWatch - Your Eyes in the Cloud</h4>
+<p>CloudWatch is AWS’s monitoring service that collects and tracks metrics, logs, and events from every part of your infrastructure. Think of it as your 24/7 operations center.</p>
+
+<p><strong>Key CloudWatch Features</strong>:</p>
+
+<ol>
+  <li>
+<strong>Metrics and Alarms</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Create billing alarm to avoid surprises</span>
+aws cloudwatch put-metric-alarm <span class="se">\</span>
+  <span class="nt">--alarm-name</span> billing-alarm <span class="se">\</span>
+  <span class="nt">--alarm-description</span> <span class="s2">"Alert when AWS charges exceed </span><span class="nv">$100</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--metric-name</span> EstimatedCharges <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/Billing <span class="se">\</span>
+  <span class="nt">--statistic</span> Maximum <span class="se">\</span>
+  <span class="nt">--period</span> 86400 <span class="se">\</span>
+  <span class="nt">--threshold</span> 100 <span class="se">\</span>
+  <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
+  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>Currency,Value<span class="o">=</span>USD
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Custom Metrics for Application Monitoring</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">import</span> <span class="n">time</span>
+   
+<span class="n">cloudwatch</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">cloudwatch</span><span class="sh">'</span><span class="p">)</span>
+   
+<span class="c1"># Send custom metric
+</span><span class="k">def</span> <span class="nf">track_user_login</span><span class="p">(</span><span class="n">user_id</span><span class="p">):</span>
+    <span class="n">cloudwatch</span><span class="p">.</span><span class="nf">put_metric_data</span><span class="p">(</span>
+        <span class="n">Namespace</span><span class="o">=</span><span class="sh">'</span><span class="s">MyApp</span><span class="sh">'</span><span class="p">,</span>
+        <span class="n">MetricData</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">{</span>
+                <span class="sh">'</span><span class="s">MetricName</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">UserLogins</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Dimensions</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="sh">'</span><span class="s">Name</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Environment</span><span class="sh">'</span><span class="p">,</span>
+                        <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Production</span><span class="sh">'</span>
+                    <span class="p">}</span>
+                <span class="p">],</span>
+                <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Unit</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Count</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">Timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Log Insights for Troubleshooting</strong>
+    <div class="language-sql highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1">-- Find slowest API endpoints</span>
+<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">path</span>
+<span class="o">|</span> <span class="n">filter</span> <span class="n">duration</span> <span class="o">&gt;</span> <span class="mi">1000</span>
+<span class="o">|</span> <span class="n">sort</span> <span class="n">duration</span> <span class="k">desc</span>
+<span class="o">|</span> <span class="k">limit</span> <span class="mi">20</span>
+   
+<span class="c1">-- Count errors by type</span>
+<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">error_type</span>
+<span class="o">|</span> <span class="n">filter</span> <span class="o">@</span><span class="n">message</span> <span class="k">like</span> <span class="o">/</span><span class="n">ERROR</span><span class="o">/</span>
+<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">()</span> <span class="k">by</span> <span class="n">error_type</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Common CloudWatch Pitfall</strong>: Not setting up log retention, leading to unexpected costs. Always set retention policies:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws logs put-retention-policy <span class="se">\</span>
+  <span class="nt">--log-group-name</span> /aws/lambda/my-function <span class="se">\</span>
+  <span class="nt">--retention-in-days</span> 30
+</code></pre></div></div>
+
+<h4 id="aws-cloudformation---infrastructure-as-code">AWS CloudFormation - Infrastructure as Code</h4>
+<p>CloudFormation lets you define your entire infrastructure in JSON or YAML templates. Instead of clicking through the console, you describe what you want and CloudFormation builds it.</p>
+
+<p><strong>Why CloudFormation Matters</strong>:</p>
+<ul>
+  <li>Version control your infrastructure</li>
+  <li>Replicate environments exactly</li>
+  <li>Roll back changes if something breaks</li>
+  <li>Share templates with your team</li>
+</ul>
+
+<p><strong>Practical CloudFormation Example</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># template.yml - Complete web application stack</span>
+<span class="na">AWSTemplateFormatVersion</span><span class="pi">:</span> <span class="s1">'</span><span class="s">2010-09-09'</span>
+<span class="na">Description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Web</span><span class="nv"> </span><span class="s">application</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">auto-scaling'</span>
+
+<span class="na">Parameters</span><span class="pi">:</span>
+  <span class="na">KeyName</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::EC2::KeyPair::KeyName</span>
+    <span class="na">Description</span><span class="pi">:</span> <span class="s">EC2 Key Pair for SSH access</span>
+
+<span class="na">Resources</span><span class="pi">:</span>
+  <span class="c1"># Application Load Balancer</span>
+  <span class="na">LoadBalancer</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::ElasticLoadBalancingV2::LoadBalancer</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">Subnets</span><span class="pi">:</span> 
+        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">PublicSubnet1</span>
+        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">PublicSubnet2</span>
+      <span class="na">SecurityGroups</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">LoadBalancerSecurityGroup</span>
+
+  <span class="c1"># Auto Scaling Group</span>
+  <span class="na">AutoScalingGroup</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::AutoScaling::AutoScalingGroup</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">MinSize</span><span class="pi">:</span> <span class="m">2</span>
+      <span class="na">MaxSize</span><span class="pi">:</span> <span class="m">10</span>
+      <span class="na">DesiredCapacity</span><span class="pi">:</span> <span class="m">4</span>
+      <span class="na">LaunchTemplate</span><span class="pi">:</span>
+        <span class="na">LaunchTemplateId</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">LaunchTemplate</span>
+        <span class="na">Version</span><span class="pi">:</span> <span class="kt">!GetAtt</span> <span class="s">LaunchTemplate.LatestVersionNumber</span>
+      <span class="na">TargetGroupARNs</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">TargetGroup</span>
+      <span class="na">HealthCheckType</span><span class="pi">:</span> <span class="s">ELB</span>
+      <span class="na">HealthCheckGracePeriod</span><span class="pi">:</span> <span class="m">300</span>
+
+  <span class="c1"># Scaling Policy</span>
+  <span class="na">ScaleUpPolicy</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::AutoScaling::ScalingPolicy</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">AutoScalingGroupName</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">AutoScalingGroup</span>
+      <span class="na">PolicyType</span><span class="pi">:</span> <span class="s">TargetTrackingScaling</span>
+      <span class="na">TargetTrackingConfiguration</span><span class="pi">:</span>
+        <span class="na">PredefinedMetricSpecification</span><span class="pi">:</span>
+          <span class="na">PredefinedMetricType</span><span class="pi">:</span> <span class="s">ASGAverageCPUUtilization</span>
+        <span class="na">TargetValue</span><span class="pi">:</span> <span class="m">70</span>
+
+<span class="na">Outputs</span><span class="pi">:</span>
+  <span class="na">LoadBalancerDNS</span><span class="pi">:</span>
+    <span class="na">Description</span><span class="pi">:</span> <span class="s">DNS name of load balancer</span>
+    <span class="na">Value</span><span class="pi">:</span> <span class="kt">!GetAtt</span> <span class="s">LoadBalancer.DNSName</span>
+    <span class="na">Export</span><span class="pi">:</span>
+      <span class="na">Name</span><span class="pi">:</span> <span class="kt">!Sub</span> <span class="s">${AWS::StackName}-LoadBalancer-DNS</span>
+</code></pre></div></div>
+
+<p><strong>Deploy with</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws cloudformation create-stack <span class="se">\</span>
+  <span class="nt">--stack-name</span> my-web-app <span class="se">\</span>
+  <span class="nt">--template-body</span> file://template.yml <span class="se">\</span>
+  <span class="nt">--parameters</span> <span class="nv">ParameterKey</span><span class="o">=</span>KeyName,ParameterValue<span class="o">=</span>my-key
+</code></pre></div></div>
+
+<h3 id="messaging-and-integration-connecting-your-services">Messaging and Integration: Connecting Your Services</h3>
+
+<h4 id="amazon-sns---simple-notification-service">Amazon SNS - Simple Notification Service</h4>
+<p>SNS is a pub/sub messaging service that lets you send messages to multiple subscribers. Think of it as a broadcasting system for your applications.</p>
+
+<p><strong>Real-world SNS Patterns</strong>:</p>
+
+<ol>
+  <li>
+<strong>Multi-Channel Notifications</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
+   
+<span class="n">sns</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">sns</span><span class="sh">'</span><span class="p">)</span>
+   
+<span class="c1"># Create topic
+</span><span class="n">topic</span> <span class="o">=</span> <span class="n">sns</span><span class="p">.</span><span class="nf">create_topic</span><span class="p">(</span><span class="n">Name</span><span class="o">=</span><span class="sh">'</span><span class="s">order-updates</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">topic_arn</span> <span class="o">=</span> <span class="n">topic</span><span class="p">[</span><span class="sh">'</span><span class="s">TopicArn</span><span class="sh">'</span><span class="p">]</span>
+   
+<span class="c1"># Subscribe email
+</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
+    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">email</span><span class="sh">'</span><span class="p">,</span>
+    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">customer@example.com</span><span class="sh">'</span>
+<span class="p">)</span>
+   
+<span class="c1"># Subscribe SMS
+</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
+    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">sms</span><span class="sh">'</span><span class="p">,</span>
+    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">+1234567890</span><span class="sh">'</span>
+<span class="p">)</span>
+   
+<span class="c1"># Subscribe Lambda for processing
+</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
+    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">lambda</span><span class="sh">'</span><span class="p">,</span>
+    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">arn:aws:lambda:region:account:function:process-order</span><span class="sh">'</span>
+<span class="p">)</span>
+   
+<span class="c1"># Send notification to all subscribers
+</span><span class="n">sns</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
+    <span class="n">Message</span><span class="o">=</span><span class="sh">'</span><span class="s">Order #12345 has been shipped!</span><span class="sh">'</span><span class="p">,</span>
+    <span class="n">Subject</span><span class="o">=</span><span class="sh">'</span><span class="s">Order Update</span><span class="sh">'</span>
+<span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Fan-out Pattern for Microservices</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Order service publishes once
+</span><span class="k">def</span> <span class="nf">complete_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">):</span>
+    <span class="n">sns</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span>
+        <span class="n">TopicArn</span><span class="o">=</span><span class="sh">'</span><span class="s">arn:aws:sns:region:account:order-completed</span><span class="sh">'</span><span class="p">,</span>
+        <span class="n">Message</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span>
+            <span class="sh">'</span><span class="s">orderId</span><span class="sh">'</span><span class="p">:</span> <span class="n">order_id</span><span class="p">,</span>
+            <span class="sh">'</span><span class="s">timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">isoformat</span><span class="p">(),</span>
+            <span class="sh">'</span><span class="s">amount</span><span class="sh">'</span><span class="p">:</span> <span class="mf">99.99</span>
+        <span class="p">})</span>
+    <span class="p">)</span>
+   
+<span class="c1"># Multiple services subscribe and react
+# - Inventory service updates stock
+# - Email service sends confirmation
+# - Analytics service records sale
+# - Shipping service creates label
+</span></code></pre></div>    </div>
+  </li>
+</ol>
+
+<h4 id="amazon-sqs---simple-queue-service">Amazon SQS - Simple Queue Service</h4>
+<p>SQS provides reliable, scalable message queues. Unlike SNS (push), SQS is pull-based - consumers request messages when ready to process them.</p>
+
+<p><strong>SQS Best Practices</strong>:</p>
+
+<ol>
+  <li>
+<strong>Decoupling with Standard Queues</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">import</span> <span class="n">json</span>
+   
+<span class="n">sqs</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">sqs</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">queue_url</span> <span class="o">=</span> <span class="sh">'</span><span class="s">https://sqs.region.amazonaws.com/account/my-queue</span><span class="sh">'</span>
+   
+<span class="c1"># Producer: Send messages
+</span><span class="k">def</span> <span class="nf">send_task</span><span class="p">(</span><span class="n">task_data</span><span class="p">):</span>
+    <span class="n">sqs</span><span class="p">.</span><span class="nf">send_message</span><span class="p">(</span>
+        <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
+        <span class="n">MessageBody</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">task_data</span><span class="p">),</span>
+        <span class="n">MessageAttributes</span><span class="o">=</span><span class="p">{</span>
+            <span class="sh">'</span><span class="s">Priority</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
+                <span class="sh">'</span><span class="s">StringValue</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">High</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">DataType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">String</span><span class="sh">'</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+   
+<span class="c1"># Consumer: Process messages
+</span><span class="k">def</span> <span class="nf">process_messages</span><span class="p">():</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">sqs</span><span class="p">.</span><span class="nf">receive_message</span><span class="p">(</span>
+            <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
+            <span class="n">MaxNumberOfMessages</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+            <span class="n">WaitTimeSeconds</span><span class="o">=</span><span class="mi">20</span>  <span class="c1"># Long polling
+</span>        <span class="p">)</span>
+           
+        <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Messages</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="c1"># Process message
+</span>            <span class="nf">process_task</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">]))</span>
+               
+            <span class="c1"># Delete after successful processing
+</span>            <span class="n">sqs</span><span class="p">.</span><span class="nf">delete_message</span><span class="p">(</span>
+                <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
+                <span class="n">ReceiptHandle</span><span class="o">=</span><span class="n">message</span><span class="p">[</span><span class="sh">'</span><span class="s">ReceiptHandle</span><span class="sh">'</span><span class="p">]</span>
+            <span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>FIFO Queues for Order Guarantees</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Create FIFO queue for ordered processing
+</span><span class="n">fifo_queue</span> <span class="o">=</span> <span class="n">sqs</span><span class="p">.</span><span class="nf">create_queue</span><span class="p">(</span>
+    <span class="n">QueueName</span><span class="o">=</span><span class="sh">'</span><span class="s">payment-processing.fifo</span><span class="sh">'</span><span class="p">,</span>
+    <span class="n">Attributes</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">'</span><span class="s">FifoQueue</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">true</span><span class="sh">'</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">ContentBasedDeduplication</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">true</span><span class="sh">'</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+   
+<span class="c1"># Send with message group ID for ordering
+</span><span class="n">sqs</span><span class="p">.</span><span class="nf">send_message</span><span class="p">(</span>
+    <span class="n">QueueUrl</span><span class="o">=</span><span class="n">fifo_queue</span><span class="p">[</span><span class="sh">'</span><span class="s">QueueUrl</span><span class="sh">'</span><span class="p">],</span>
+    <span class="n">MessageBody</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">payment_data</span><span class="p">),</span>
+    <span class="n">MessageGroupId</span><span class="o">=</span><span class="n">user_id</span>  <span class="c1"># All messages for user processed in order
+</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Common SQS + SNS Pattern</strong>: Fan-out with buffering</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SNS Topic → SQS Queue 1 → Lambda/EC2 processors
+          → SQS Queue 2 → Different processors
+          → SQS Queue 3 → Analytics pipeline
+</code></pre></div></div>
+
+<p>This pattern combines SNS’s broadcasting with SQS’s reliable delivery and buffering.</p>
 
 <h3 id="essential-resources-for-your-journey">Essential Resources for Your Journey</h3>
 
@@ -958,6 +1918,617 @@ document.addEventListener('DOMContentLoaded', function() {
 <p><strong>Why this architecture?</strong> Users get low latency regardless of location. The application survives entire region failures. Data replicates globally in seconds.</p>
 
 <p><strong>Real-world example</strong>: A social media platform serves users across continents. Route 53 directs users to the nearest region. DynamoDB Global Tables replicate user posts worldwide in under a second. If the US-East region fails, traffic automatically routes to US-West with minimal disruption.</p>
+
+<h2 id="real-world-aws-case-studies-learning-from-production">Real-World AWS Case Studies: Learning from Production</h2>
+
+<p>These detailed case studies show how real companies solved complex problems with AWS. Each includes architecture decisions, challenges faced, and lessons learned.</p>
+
+<h3 id="case-study-1-netflix---streaming-at-planetary-scale">Case Study 1: Netflix - Streaming at Planetary Scale</h3>
+
+<p><strong>The Challenge</strong>: Stream video to 200+ million subscribers worldwide with perfect reliability and quality.</p>
+
+<p><strong>Architecture Overview</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Users → Route 53 → CloudFront (CDN) → Application Load Balancers
+                                     ↓
+                        EC2 Auto Scaling Groups (Microservices)
+                                     ↓
+                        DynamoDB (User Data) + S3 (Video Files)
+                                     ↓
+                        Kinesis (Real-time Analytics) → EMR (Big Data)
+</code></pre></div></div>
+
+<p><strong>Key AWS Services</strong>:</p>
+<ul>
+  <li>
+<strong>EC2</strong>: Thousands of instances running microservices</li>
+  <li>
+<strong>S3</strong>: Stores the entire video catalog (petabytes)</li>
+  <li>
+<strong>DynamoDB</strong>: Handles billions of reads/writes for user data</li>
+  <li>
+<strong>CloudFront</strong>: Delivers video content globally</li>
+  <li>
+<strong>Kinesis</strong>: Processes billions of events for recommendations</li>
+</ul>
+
+<p><strong>Technical Decisions</strong>:</p>
+
+<ol>
+  <li>
+<strong>Chaos Engineering with Chaos Monkey</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Randomly terminate instances to test resilience
+</span><span class="k">def</span> <span class="nf">chaos_monkey</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">random</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>  <span class="c1"># 10% chance
+</span>        <span class="n">instance</span> <span class="o">=</span> <span class="nf">select_random_instance</span><span class="p">()</span>
+        <span class="nf">terminate_instance</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+        <span class="nf">log_termination</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Multi-Region Active-Active</strong>
+    <ul>
+      <li>Every region can serve any user</li>
+      <li>Data replicates globally in seconds</li>
+      <li>Automatic failover between regions</li>
+    </ul>
+  </li>
+  <li>
+<strong>Microservices Architecture</strong>
+    <ul>
+      <li>700+ microservices</li>
+      <li>Each team owns their service completely</li>
+      <li>Deploy hundreds of times per day</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Challenges and Solutions</strong>:</p>
+
+<p><strong>Challenge</strong>: Thundering herd when popular shows release
+<strong>Solution</strong>: Pre-scaling based on ML predictions</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">predict_and_scale</span><span class="p">(</span><span class="n">show_id</span><span class="p">):</span>
+    <span class="n">predicted_viewers</span> <span class="o">=</span> <span class="n">ml_model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">show_id</span><span class="p">)</span>
+    <span class="n">required_capacity</span> <span class="o">=</span> <span class="nf">calculate_capacity</span><span class="p">(</span><span class="n">predicted_viewers</span><span class="p">)</span>
+    
+    <span class="c1"># Pre-scale 30 minutes before release
+</span>    <span class="nf">schedule_scaling</span><span class="p">(</span>
+        <span class="n">time</span><span class="o">=</span><span class="n">release_time</span> <span class="o">-</span> <span class="nf">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+        <span class="n">capacity</span><span class="o">=</span><span class="n">required_capacity</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Challenge</strong>: Cost optimization at scale
+<strong>Solution</strong>: Reserved Instances + Spot for batch processing</p>
+<ul>
+  <li>75% Reserved Instances for baseline</li>
+  <li>20% On-Demand for peaks</li>
+  <li>5% Spot for analytics workloads</li>
+</ul>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ol>
+  <li>Design for failure - everything will fail eventually</li>
+  <li>Automate everything - manual processes don’t scale</li>
+  <li>Data-driven decisions - measure everything</li>
+  <li>Small teams with full ownership work best</li>
+</ol>
+
+<h3 id="case-study-2-airbnb---global-marketplace-platform">Case Study 2: Airbnb - Global Marketplace Platform</h3>
+
+<p><strong>The Challenge</strong>: Match millions of guests with hosts worldwide, handling payments, messaging, and trust.</p>
+
+<p><strong>Architecture Evolution</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2008: Monolithic Ruby on Rails → Single MySQL database
+2012: Added caching layer → Memcached
+2015: Service-oriented architecture → Multiple databases
+2020: Kubernetes on AWS → Microservices
+</code></pre></div></div>
+
+<p><strong>Current Architecture</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Mobile/Web → API Gateway → ALB → EKS (Kubernetes)
+                                    ↓
+            Service Mesh (Envoy) → Microservices
+                                    ↓
+    RDS (Transactions) + DynamoDB (Sessions) + S3 (Images)
+                                    ↓
+            Kinesis → Data Lake (S3) → Athena/Spark
+</code></pre></div></div>
+
+<p><strong>Key Technical Innovations</strong>:</p>
+
+<ol>
+  <li>
+<strong>Smart Pricing Algorithm</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Lambda function for dynamic pricing
+</span><span class="k">def</span> <span class="nf">calculate_optimal_price</span><span class="p">(</span><span class="n">listing_id</span><span class="p">,</span> <span class="n">date</span><span class="p">):</span>
+    <span class="n">factors</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sh">'</span><span class="s">seasonality</span><span class="sh">'</span><span class="p">:</span> <span class="nf">get_seasonal_demand</span><span class="p">(</span><span class="n">date</span><span class="p">),</span>
+        <span class="sh">'</span><span class="s">local_events</span><span class="sh">'</span><span class="p">:</span> <span class="nf">check_events_api</span><span class="p">(</span><span class="n">listing</span><span class="p">.</span><span class="n">location</span><span class="p">,</span> <span class="n">date</span><span class="p">),</span>
+        <span class="sh">'</span><span class="s">competitor_prices</span><span class="sh">'</span><span class="p">:</span> <span class="nf">analyze_nearby_listings</span><span class="p">(</span><span class="n">listing_id</span><span class="p">),</span>
+        <span class="sh">'</span><span class="s">historical_booking</span><span class="sh">'</span><span class="p">:</span> <span class="nf">get_booking_patterns</span><span class="p">(</span><span class="n">listing_id</span><span class="p">)</span>
+    <span class="p">}</span>
+       
+    <span class="n">base_price</span> <span class="o">=</span> <span class="n">listing</span><span class="p">.</span><span class="n">base_price</span>
+    <span class="n">optimal_price</span> <span class="o">=</span> <span class="n">ml_model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">base_price</span><span class="p">,</span> <span class="n">factors</span><span class="p">)</span>
+       
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">'</span><span class="s">price</span><span class="sh">'</span><span class="p">:</span> <span class="n">optimal_price</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">confidence</span><span class="sh">'</span><span class="p">:</span> <span class="n">ml_model</span><span class="p">.</span><span class="n">confidence</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">factors</span><span class="sh">'</span><span class="p">:</span> <span class="n">factors</span>
+    <span class="p">}</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Fraud Detection System</strong>
+    <ul>
+      <li>Real-time analysis with Kinesis Analytics</li>
+      <li>Graph database for relationship mapping</li>
+      <li>ML models retrained daily on EMR</li>
+    </ul>
+  </li>
+  <li>
+<strong>Image Processing Pipeline</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Step Functions workflow for image processing
+</span><span class="p">{</span>
+    <span class="sh">"</span><span class="s">ProcessListingImages</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Parallel</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">Branches</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">GenerateThumbnails</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="sh">"</span><span class="s">GenerateThumbnails</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:function:resize-images</span><span class="sh">"</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">DetectInappropriateContent</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="sh">"</span><span class="s">DetectInappropriateContent</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:function:content-moderation</span><span class="sh">"</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ExtractMetadata</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="sh">"</span><span class="s">ExtractMetadata</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:function:image-analysis</span><span class="sh">"</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Scaling Challenges</strong>:</p>
+
+<ol>
+  <li>
+<strong>Search Performance</strong>
+    <ul>
+      <li>Solution: ElasticSearch with custom ranking</li>
+      <li>Geographical sharding for faster queries</li>
+      <li>Cache warming for popular destinations</li>
+    </ul>
+  </li>
+  <li>
+<strong>Payment Processing</strong>
+    <ul>
+      <li>Challenge: Handle payments in 190+ countries</li>
+      <li>Solution: Step Functions for complex workflows</li>
+      <li>SQS for reliable payment retry logic</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Key Metrics</strong>:</p>
+<ul>
+  <li>4 million listings worldwide</li>
+  <li>1 billion+ searches per day</li>
+  <li>99.99% uptime SLA</li>
+</ul>
+
+<h3 id="case-study-3-slack---real-time-messaging-at-scale">Case Study 3: Slack - Real-Time Messaging at Scale</h3>
+
+<p><strong>The Challenge</strong>: Deliver messages instantly to millions of concurrent users with perfect reliability.</p>
+
+<p><strong>Architecture Highlights</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>WebSocket Connections → ELB → EC2 Fleet (Connection Servers)
+                                        ↓
+                    Message Queue (Kafka on EC2) 
+                                        ↓
+        Worker Fleet (Process messages, send notifications)
+                                        ↓
+            DynamoDB (Message history) + S3 (File uploads)
+</code></pre></div></div>
+
+<p><strong>Real-Time Architecture</strong>:</p>
+
+<ol>
+  <li>
+<strong>WebSocket Management</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ConnectionManager</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">connections</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># In Redis
+</span>           
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">handle_connection</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">websocket</span><span class="p">,</span> <span class="n">user_id</span><span class="p">):</span>
+        <span class="c1"># Register connection
+</span>        <span class="n">connection_id</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">())</span>
+        <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">register</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">connection_id</span><span class="p">,</span> <span class="n">websocket</span><span class="p">)</span>
+           
+        <span class="c1"># Handle messages
+</span>        <span class="k">try</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">websocket</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">route_message</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">unregister</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">connection_id</span><span class="p">)</span>
+       
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">broadcast_to_channel</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">channel_id</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="c1"># Get all users in channel
+</span>        <span class="n">users</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_channel_users</span><span class="p">(</span><span class="n">channel_id</span><span class="p">)</span>
+           
+        <span class="c1"># Send to all connected clients
+</span>        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">user_id</span> <span class="ow">in</span> <span class="n">users</span><span class="p">:</span>
+            <span class="n">connections</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_user_connections</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="n">connections</span><span class="p">:</span>
+                <span class="n">tasks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">message</span><span class="p">))</span>
+           
+        <span class="k">await</span> <span class="n">asyncio</span><span class="p">.</span><span class="nf">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">,</span> <span class="n">return_exceptions</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Message Delivery Guarantees</strong>
+    <ul>
+      <li>At-least-once delivery with idempotency</li>
+      <li>Message ordering per channel</li>
+      <li>Offline queue for disconnected users</li>
+    </ul>
+  </li>
+  <li>
+<strong>Search Infrastructure</strong>
+    <ul>
+      <li>Every message indexed in near real-time</li>
+      <li>Elasticsearch cluster per workspace</li>
+      <li>Query optimization for emoji and reactions</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Scaling Milestones</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Daily Active Users</th>
+      <th>Messages/Day</th>
+      <th>Architecture Change</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2014</td>
+      <td>100K</td>
+      <td>10M</td>
+      <td>Single database</td>
+    </tr>
+    <tr>
+      <td>2016</td>
+      <td>4M</td>
+      <td>100M</td>
+      <td>Sharded MySQL</td>
+    </tr>
+    <tr>
+      <td>2018</td>
+      <td>8M</td>
+      <td>1B</td>
+      <td>DynamoDB migration</td>
+    </tr>
+    <tr>
+      <td>2020</td>
+      <td>12M</td>
+      <td>5B</td>
+      <td>Multi-region active</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Performance Optimizations</strong>:</p>
+
+<ol>
+  <li>
+<strong>Connection Pooling</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Efficient database connection management
+</span><span class="k">class</span> <span class="nc">ShardedConnectionPool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">shard_map</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pools</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">shard_id</span><span class="p">:</span> <span class="nc">ConnectionPool</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">shard_id</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="n">shard_map</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
+        <span class="p">}</span>
+       
+    <span class="k">def</span> <span class="nf">get_connection</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">workspace_id</span><span class="p">):</span>
+        <span class="n">shard_id</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_shard</span><span class="p">(</span><span class="n">workspace_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">pools</span><span class="p">[</span><span class="n">shard_id</span><span class="p">].</span><span class="nf">get_connection</span><span class="p">()</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Caching Strategy</strong>
+    <ul>
+      <li>User presence in Redis (15-second TTL)</li>
+      <li>Channel membership in ElastiCache</li>
+      <li>Recent messages in memory</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Lessons for Real-Time Apps</strong>:</p>
+<ol>
+  <li>Design for connection drops - mobile networks are unreliable</li>
+  <li>Batch operations where possible</li>
+  <li>Use backpressure to prevent overload</li>
+  <li>Monitor everything - latency matters</li>
+</ol>
+
+<h3 id="case-study-4-robinhood---financial-services-platform">Case Study 4: Robinhood - Financial Services Platform</h3>
+
+<p><strong>The Challenge</strong>: Process millions of stock trades with zero downtime and SEC compliance.</p>
+
+<p><strong>Regulatory Requirements</strong>:</p>
+<ul>
+  <li>Every transaction must be logged</li>
+  <li>Data retention for 7 years</li>
+  <li>Disaster recovery with &lt; 1-hour RPO</li>
+  <li>Encryption at rest and in transit</li>
+</ul>
+
+<p><strong>Architecture</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Mobile Apps → API Gateway → WAF → ALB
+                                   ↓
+            ECS Fargate (Microservices)
+                                   ↓
+    Aurora (Transactions) + DynamoDB (Market Data)
+                                   ↓
+        Kinesis Data Firehose → S3 (Compliance Archive)
+                                   ↓
+                    Redshift (Analytics)
+</code></pre></div></div>
+
+<p><strong>Critical Components</strong>:</p>
+
+<ol>
+  <li>
+<strong>Order Execution Engine</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">OrderExecutor</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">market_connection</span> <span class="o">=</span> <span class="nc">MarketConnection</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">risk_checker</span> <span class="o">=</span> <span class="nc">RiskChecker</span><span class="p">()</span>
+           
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">execute_order</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">order</span><span class="p">):</span>
+        <span class="c1"># Pre-trade compliance checks
+</span>        <span class="n">compliance_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">check_compliance</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">compliance_result</span><span class="p">.</span><span class="n">passed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nc">OrderResult</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="sh">'</span><span class="s">rejected</span><span class="sh">'</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">compliance_result</span><span class="p">.</span><span class="n">reason</span><span class="p">)</span>
+           
+        <span class="c1"># Risk checks
+</span>        <span class="n">risk_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">risk_checker</span><span class="p">.</span><span class="nf">check</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">risk_result</span><span class="p">.</span><span class="n">score</span> <span class="o">&gt;</span> <span class="n">RISK_THRESHOLD</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nc">OrderResult</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="sh">'</span><span class="s">rejected</span><span class="sh">'</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="sh">'</span><span class="s">risk_limit</span><span class="sh">'</span><span class="p">)</span>
+           
+        <span class="c1"># Execute with retry logic
+</span>        <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">market_connection</span><span class="p">.</span><span class="nf">submit</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+                <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">log_execution</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">result</span>
+            <span class="k">except</span> <span class="n">MarketUnavailable</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mf">0.1</span> <span class="o">*</span> <span class="p">(</span><span class="n">attempt</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+           
+        <span class="k">return</span> <span class="nc">OrderResult</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="sh">'</span><span class="s">failed</span><span class="sh">'</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="sh">'</span><span class="s">market_unavailable</span><span class="sh">'</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Real-Time Market Data Pipeline</strong>
+    <ul>
+      <li>100,000+ price updates per second</li>
+      <li>Sub-millisecond latency requirements</li>
+      <li>DynamoDB with DAX for caching</li>
+    </ul>
+  </li>
+  <li>
+<strong>Compliance and Audit System</strong>
+    <ul>
+      <li>Every API call logged to Kinesis</li>
+      <li>Immutable audit trail in S3</li>
+      <li>Daily reports generated with Athena</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Scaling for Market Events</strong>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Auto-scaling based on market volatility
+</span><span class="k">def</span> <span class="nf">calculate_required_capacity</span><span class="p">():</span>
+    <span class="n">volatility</span> <span class="o">=</span> <span class="nf">get_market_volatility</span><span class="p">()</span>
+    <span class="n">normal_capacity</span> <span class="o">=</span> <span class="mi">100</span>
+    
+    <span class="k">if</span> <span class="n">volatility</span> <span class="o">&gt;</span> <span class="n">HIGH_VOLATILITY_THRESHOLD</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">normal_capacity</span> <span class="o">*</span> <span class="mi">5</span>  <span class="c1"># 5x during high volatility
+</span>    <span class="k">elif</span> <span class="n">volatility</span> <span class="o">&gt;</span> <span class="n">MEDIUM_VOLATILITY_THRESHOLD</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">normal_capacity</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">normal_capacity</span>
+
+<span class="c1"># Pre-scale before market open
+</span><span class="n">schedule</span><span class="p">.</span><span class="nf">every</span><span class="p">().</span><span class="n">day</span><span class="p">.</span><span class="nf">at</span><span class="p">(</span><span class="sh">"</span><span class="s">09:00</span><span class="sh">"</span><span class="p">).</span><span class="nf">do</span><span class="p">(</span>
+    <span class="k">lambda</span><span class="p">:</span> <span class="nf">scale_to_capacity</span><span class="p">(</span><span class="nf">calculate_required_capacity</span><span class="p">())</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Security Architecture</strong>:</p>
+<ul>
+  <li>All data encrypted with KMS</li>
+  <li>Network isolation with PrivateLink</li>
+  <li>API Gateway with rate limiting</li>
+  <li>WAF rules for common attacks</li>
+</ul>
+
+<h3 id="case-study-5-pinterest---visual-discovery-engine">Case Study 5: Pinterest - Visual Discovery Engine</h3>
+
+<p><strong>The Challenge</strong>: Serve billions of images with personalized recommendations to 400+ million users.</p>
+
+<p><strong>Data Scale</strong>:</p>
+<ul>
+  <li>300+ billion Pins</li>
+  <li>5 billion boards</li>
+  <li>600 million searches per month</li>
+  <li>2 billion recommendations per day</li>
+</ul>
+
+<p><strong>Architecture</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CDN (CloudFront) → Image Servers (EC2 + S3)
+        ↓
+API Gateway → Service Mesh → Microservices (EKS)
+        ↓
+Graph Database (Neptune) + Feature Store (DynamoDB)
+        ↓
+ML Pipeline (SageMaker) → Recommendation Service
+</code></pre></div></div>
+
+<p><strong>Key Innovations</strong>:</p>
+
+<ol>
+  <li>
+<strong>Visual Search System</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">VisualSearchEngine</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">feature_extractor</span> <span class="o">=</span> <span class="nf">load_model</span><span class="p">(</span><span class="sh">'</span><span class="s">resnet50</span><span class="sh">'</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">index</span> <span class="o">=</span> <span class="nc">FaissIndex</span><span class="p">()</span>  <span class="c1"># Billion-scale similarity search
+</span>           
+    <span class="k">def</span> <span class="nf">process_image</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">image_url</span><span class="p">):</span>
+        <span class="c1"># Extract visual features
+</span>        <span class="n">image</span> <span class="o">=</span> <span class="nf">download_image</span><span class="p">(</span><span class="n">image_url</span><span class="p">)</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">feature_extractor</span><span class="p">.</span><span class="nf">extract</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+           
+        <span class="c1"># Store in feature database
+</span>        <span class="n">image_id</span> <span class="o">=</span> <span class="nf">generate_id</span><span class="p">(</span><span class="n">image_url</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">store_features</span><span class="p">(</span><span class="n">image_id</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span>
+           
+        <span class="c1"># Find similar images
+</span>        <span class="n">similar</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">rank_results</span><span class="p">(</span><span class="n">similar</span><span class="p">)</span>
+       
+    <span class="k">def</span> <span class="nf">build_index_shard</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">shard_id</span><span class="p">):</span>
+        <span class="c1"># Build index for billions of images
+</span>        <span class="n">features</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_features_for_shard</span><span class="p">(</span><span class="n">shard_id</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="nc">FaissIndex</span><span class="p">()</span>
+           
+        <span class="c1"># Add in batches for efficiency
+</span>        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nf">chunks</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="mi">10000</span><span class="p">):</span>
+            <span class="n">index</span><span class="p">.</span><span class="nf">add_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+           
+        <span class="c1"># Save to S3
+</span>        <span class="n">index</span><span class="p">.</span><span class="nf">save_to_s3</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">index/shard_</span><span class="si">{</span><span class="n">shard_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Personalization Pipeline</strong>
+    <ul>
+      <li>User signals processed in real-time</li>
+      <li>Graph neural networks for recommendations</li>
+      <li>A/B testing framework for algorithms</li>
+    </ul>
+  </li>
+  <li>
+<strong>Content Moderation</strong>
+    <ul>
+      <li>ML models detect inappropriate content</li>
+      <li>Human review queue with SQS</li>
+      <li>Feedback loop to improve models</li>
+    </ul>
+  </li>
+</ol>
+
+<p><strong>Performance Optimizations</strong>:</p>
+<ul>
+  <li>Image serving through CloudFront</li>
+  <li>Aggressive caching at every layer</li>
+  <li>Progressive image loading</li>
+  <li>WebP format for modern browsers</li>
+</ul>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ol>
+  <li>
+<strong>Cache Everything</strong>: 99% cache hit rate saves millions</li>
+  <li>
+<strong>Precompute When Possible</strong>: Recommendations generated offline</li>
+  <li>
+<strong>Shard by User</strong>: Better cache locality</li>
+  <li>
+<strong>Monitor User Experience</strong>: Not just system metrics</li>
+</ol>
+
+<h3 id="key-takeaways-from-all-case-studies">Key Takeaways from All Case Studies</h3>
+
+<ol>
+  <li>
+<strong>Start Simple, Evolve Gradually</strong>
+    <ul>
+      <li>Every company started with basic architecture</li>
+      <li>Complexity added only when needed</li>
+      <li>Technical debt managed actively</li>
+    </ul>
+  </li>
+  <li>
+<strong>Data is Everything</strong>
+    <ul>
+      <li>Instrument everything from day one</li>
+      <li>Use data to drive decisions</li>
+      <li>Build data pipelines early</li>
+    </ul>
+  </li>
+  <li>
+<strong>Failure is Normal</strong>
+    <ul>
+      <li>Design for failure at every level</li>
+      <li>Practice failure scenarios</li>
+      <li>Automate recovery procedures</li>
+    </ul>
+  </li>
+  <li>
+<strong>Scale Horizontally</strong>
+    <ul>
+      <li>Vertical scaling hits limits quickly</li>
+      <li>Design for distributed systems</li>
+      <li>Embrace eventual consistency</li>
+    </ul>
+  </li>
+  <li>
+<strong>Security Cannot Be an Afterthought</strong>
+    <ul>
+      <li>Build security into architecture</li>
+      <li>Automate security scanning</li>
+      <li>Regular security audits</li>
+    </ul>
+  </li>
+</ol>
+
+<p>These case studies demonstrate that successful AWS architectures share common patterns: they start simple, measure everything, automate aggressively, and evolve based on real needs rather than predicted ones.</p>
 
 <h2 id="progressive-learning-path-from-zero-to-cloud-architect">Progressive Learning Path: From Zero to Cloud Architect</h2>
 
@@ -6184,6 +7755,431 @@ scale_out_cooldown = 0   } } ```
             ]
         )
 </span></code></pre></div></div>
+
+<h2 id="aws-troubleshooting-guide-when-things-go-wrong">AWS Troubleshooting Guide: When Things Go Wrong</h2>
+
+<p>Even experienced cloud architects encounter issues. This guide helps you diagnose and fix common AWS problems quickly.</p>
+
+<h3 id="the-troubleshooting-mindset">The Troubleshooting Mindset</h3>
+
+<p>Before diving into specific issues, adopt this systematic approach:</p>
+<ol>
+  <li>
+<strong>Check the obvious first</strong> - Is it plugged in? (Is the service running?)</li>
+  <li>
+<strong>Isolate the problem</strong> - What changed recently?</li>
+  <li>
+<strong>Use AWS tools</strong> - CloudWatch Logs, X-Ray, Systems Manager</li>
+  <li>
+<strong>Document everything</strong> - Future you will thank present you</li>
+</ol>
+
+<h3 id="common-issues-and-solutions">Common Issues and Solutions</h3>
+
+<h4 id="1-access-denied---the-most-common-aws-error">1. “Access Denied” - The Most Common AWS Error</h4>
+
+<p><strong>Symptoms</strong>:</p>
+<ul>
+  <li>API calls fail with “Access Denied”</li>
+  <li>Console shows “You don’t have permissions”</li>
+  <li>Lambda functions can’t access resources</li>
+</ul>
+
+<p><strong>Diagnosis Checklist</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check who you are</span>
+aws sts get-caller-identity
+
+<span class="c"># Check attached policies</span>
+aws iam list-attached-user-policies <span class="nt">--user-name</span> <span class="si">$(</span>aws sts get-caller-identity <span class="nt">--query</span> UserId <span class="nt">--output</span> text<span class="si">)</span>
+
+<span class="c"># Test specific permissions</span>
+aws iam simulate-principal-policy <span class="se">\</span>
+  <span class="nt">--policy-source-arn</span> <span class="si">$(</span>aws sts get-caller-identity <span class="nt">--query</span> Arn <span class="nt">--output</span> text<span class="si">)</span> <span class="se">\</span>
+  <span class="nt">--action-names</span> s3:GetObject <span class="se">\</span>
+  <span class="nt">--resource-arns</span> arn:aws:s3:::my-bucket/<span class="k">*</span>
+</code></pre></div></div>
+
+<p><strong>Common Fixes</strong>:</p>
+
+<ol>
+  <li>
+<strong>Wrong Region</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Check current region</span>
+aws configure get region
+   
+<span class="c"># Set correct region</span>
+<span class="nb">export </span><span class="nv">AWS_DEFAULT_REGION</span><span class="o">=</span>us-east-1
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Missing Resource Permissions</strong>
+    <div class="language-json highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
+    </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:GetObject"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-bucket/*"</span><span class="w">  </span><span class="err">//</span><span class="w"> </span><span class="err">Don't</span><span class="w"> </span><span class="err">forget</span><span class="w"> </span><span class="err">the</span><span class="w"> </span><span class="err">/*</span><span class="w">
+  </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Service-Linked Roles</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># For Lambda accessing VPC</span>
+aws iam create-service-linked-role <span class="nt">--aws-service-name</span> lambda.amazonaws.com
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h4 id="2-instance-connection-timeout---cant-ssh-to-ec2">2. “Instance Connection Timeout” - Can’t SSH to EC2</h4>
+
+<p><strong>Symptoms</strong>:</p>
+<ul>
+  <li>SSH hangs or times out</li>
+  <li>Can’t reach web server on instance</li>
+  <li>Instance is running but unreachable</li>
+</ul>
+
+<p><strong>Systematic Diagnosis</strong>:</p>
+
+<ol>
+  <li>
+<strong>Check Security Group</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># List security group rules</span>
+aws ec2 describe-security-groups <span class="nt">--group-ids</span> sg-xxxxxx
+   
+<span class="c"># Fix: Allow SSH</span>
+aws ec2 authorize-security-group-ingress <span class="se">\</span>
+  <span class="nt">--group-id</span> sg-xxxxxx <span class="se">\</span>
+  <span class="nt">--protocol</span> tcp <span class="se">\</span>
+  <span class="nt">--port</span> 22 <span class="se">\</span>
+  <span class="nt">--cidr</span> 0.0.0.0/0  <span class="c"># Use your IP for security</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Check Network ACLs</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Default NACLs allow all - custom ones might not</span>
+aws ec2 describe-network-acls <span class="nt">--filters</span> <span class="s2">"Name=association.subnet-id,Values=subnet-xxxxx"</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Check Route Table</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Ensure route to Internet Gateway exists</span>
+aws ec2 describe-route-tables <span class="nt">--filters</span> <span class="s2">"Name=association.subnet-id,Values=subnet-xxxxx"</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Check Instance Status</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Both checks should pass</span>
+aws ec2 describe-instance-status <span class="nt">--instance-id</span> i-xxxxx
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p><strong>Quick Fix Script</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/bash</span>
+<span class="nv">INSTANCE_ID</span><span class="o">=</span><span class="s2">"i-xxxxx"</span>
+<span class="nv">SG_ID</span><span class="o">=</span><span class="si">$(</span>aws ec2 describe-instances <span class="nt">--instance-ids</span> <span class="nv">$INSTANCE_ID</span> <span class="nt">--query</span> <span class="s1">'Reservations[0].Instances[0].SecurityGroups[0].GroupId'</span> <span class="nt">--output</span> text<span class="si">)</span>
+
+<span class="c"># Allow SSH from your IP</span>
+<span class="nv">MY_IP</span><span class="o">=</span><span class="si">$(</span>curl <span class="nt">-s</span> checkip.amazonaws.com<span class="si">)</span>
+aws ec2 authorize-security-group-ingress <span class="se">\</span>
+  <span class="nt">--group-id</span> <span class="nv">$SG_ID</span> <span class="se">\</span>
+  <span class="nt">--protocol</span> tcp <span class="se">\</span>
+  <span class="nt">--port</span> 22 <span class="se">\</span>
+  <span class="nt">--cidr</span> <span class="nv">$MY_IP</span>/32
+
+<span class="nb">echo</span> <span class="s2">"SSH access enabled from </span><span class="nv">$MY_IP</span><span class="s2">"</span>
+</code></pre></div></div>
+
+<h4 id="3-throttling-errors---rate-limit-exceeded">3. “Throttling Errors” - Rate Limit Exceeded</h4>
+
+<p><strong>Symptoms</strong>:</p>
+<ul>
+  <li>“Rate exceeded” errors</li>
+  <li>Intermittent API failures</li>
+  <li>Bulk operations failing</li>
+</ul>
+
+<p><strong>Solutions</strong>:</p>
+
+<ol>
+  <li>
+<strong>Implement Exponential Backoff</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="n">random</span>
+<span class="kn">from</span> <span class="n">botocore.exceptions</span> <span class="kn">import</span> <span class="n">ClientError</span>
+   
+<span class="k">def</span> <span class="nf">retry_with_backoff</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">max_retries</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nf">func</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">ClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Error</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">Code</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">Throttling</span><span class="sh">'</span><span class="p">:</span>
+                <span class="c1"># Exponential backoff with jitter
+</span>                <span class="n">wait_time</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">attempt</span><span class="p">)</span> <span class="o">+</span> <span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="n">wait_time</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span>
+    <span class="k">raise</span> <span class="nc">Exception</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Max retries (</span><span class="si">{</span><span class="n">max_retries</span><span class="si">}</span><span class="s">) exceeded</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Use Service Quotas</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Check current limits</span>
+aws service-quotas get-service-quota <span class="se">\</span>
+  <span class="nt">--service-code</span> ec2 <span class="se">\</span>
+  <span class="nt">--quota-code</span> L-1216C47A  <span class="c"># Running On-Demand instances</span>
+   
+<span class="c"># Request increase</span>
+aws service-quotas request-service-quota-increase <span class="se">\</span>
+  <span class="nt">--service-code</span> ec2 <span class="se">\</span>
+  <span class="nt">--quota-code</span> L-1216C47A <span class="se">\</span>
+  <span class="nt">--desired-value</span> 100
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h4 id="4-out-of-memory---lambdacontainer-crashes">4. “Out of Memory” - Lambda/Container Crashes</h4>
+
+<p><strong>Symptoms</strong>:</p>
+<ul>
+  <li>Lambda function fails with no clear error</li>
+  <li>ECS tasks stopping unexpectedly</li>
+  <li>Application becomes unresponsive</li>
+</ul>
+
+<p><strong>Diagnosis</strong>:</p>
+
+<ol>
+  <li>
+<strong>Check Lambda Logs</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Find memory usage</span>
+aws logs filter-log-events <span class="se">\</span>
+  <span class="nt">--log-group-name</span> /aws/lambda/my-function <span class="se">\</span>
+  <span class="nt">--filter-pattern</span> <span class="s2">"[REPORT]"</span> <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'events[*].message'</span> <span class="se">\</span>
+  <span class="nt">--output</span> text | <span class="nb">grep</span> <span class="s2">"Memory"</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Monitor with CloudWatch</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Add memory tracking to Lambda
+</span><span class="kn">import</span> <span class="n">resource</span>
+   
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="c1"># Track memory usage
+</span>    <span class="n">memory_usage</span> <span class="o">=</span> <span class="n">resource</span><span class="p">.</span><span class="nf">getrusage</span><span class="p">(</span><span class="n">resource</span><span class="p">.</span><span class="n">RUSAGE_SELF</span><span class="p">).</span><span class="n">ru_maxrss</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Memory used: </span><span class="si">{</span><span class="n">memory_usage</span> <span class="o">/</span> <span class="mi">1024</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> MB</span><span class="sh">"</span><span class="p">)</span>
+       
+    <span class="c1"># Your code here
+</span></code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Fix: Increase Memory or Optimize</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Update Lambda memory</span>
+aws lambda update-function-configuration <span class="se">\</span>
+  <span class="nt">--function-name</span> my-function <span class="se">\</span>
+  <span class="nt">--memory-size</span> 1024
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h4 id="5-slow-application-performance">5. “Slow Application Performance”</h4>
+
+<p><strong>Symptoms</strong>:</p>
+<ul>
+  <li>API responses taking seconds</li>
+  <li>Database queries timing out</li>
+  <li>Users complaining about speed</li>
+</ul>
+
+<p><strong>Performance Troubleshooting Toolkit</strong>:</p>
+
+<ol>
+  <li>
+<strong>Enable X-Ray Tracing</strong>
+    <div class="language-python highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">aws_xray_sdk.core</span> <span class="kn">import</span> <span class="n">xray_recorder</span>
+<span class="kn">from</span> <span class="n">aws_xray_sdk.core</span> <span class="kn">import</span> <span class="n">patch_all</span>
+   
+<span class="nf">patch_all</span><span class="p">()</span>  <span class="c1"># Automatically trace AWS SDK calls
+</span>   
+<span class="nd">@xray_recorder.capture</span><span class="p">(</span><span class="sh">'</span><span class="s">process_order</span><span class="sh">'</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">):</span>
+    <span class="c1"># X-Ray will show time spent in each service
+</span>    <span class="nf">validate_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+    <span class="nf">charge_payment</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+    <span class="nf">update_inventory</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Analyze RDS Performance</strong>
+    <div class="language-sql highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1">-- Enable Performance Insights</span>
+<span class="c1">-- Then query slow operations</span>
+<span class="k">SELECT</span> 
+    <span class="n">query</span><span class="p">,</span>
+    <span class="n">calls</span><span class="p">,</span>
+    <span class="n">total_time</span><span class="p">,</span>
+    <span class="n">mean_time</span><span class="p">,</span>
+    <span class="n">max_time</span>
+<span class="k">FROM</span> <span class="n">pg_stat_statements</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">mean_time</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Check CloudFront Cache Hit Ratio</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Low cache hit = slow performance</span>
+aws cloudwatch get-metric-statistics <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/CloudFront <span class="se">\</span>
+  <span class="nt">--metric-name</span> CacheHitRate <span class="se">\</span>
+  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>DistributionId,Value<span class="o">=</span>XXXXX <span class="se">\</span>
+  <span class="nt">--statistics</span> Average <span class="se">\</span>
+  <span class="nt">--start-time</span> 2024-01-01T00:00:00Z <span class="se">\</span>
+  <span class="nt">--end-time</span> 2024-01-02T00:00:00Z <span class="se">\</span>
+  <span class="nt">--period</span> 3600
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h3 id="emergency-response-playbook">Emergency Response Playbook</h3>
+
+<p>When production is down, follow this checklist:</p>
+
+<h4 id="1-immediate-actions-first-5-minutes">1. Immediate Actions (First 5 Minutes)</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check service health</span>
+aws health describe-events <span class="nt">--filter</span> <span class="nv">eventTypeCategories</span><span class="o">=</span>issue
+
+<span class="c"># Check CloudWatch alarms</span>
+aws cloudwatch describe-alarms <span class="nt">--state-value</span> ALARM
+
+<span class="c"># Recent changes?</span>
+aws cloudtrail lookup-events <span class="se">\</span>
+  <span class="nt">--lookup-attributes</span> <span class="nv">AttributeKey</span><span class="o">=</span>EventName,AttributeValue<span class="o">=</span>UpdateStack <span class="se">\</span>
+  <span class="nt">--max-items</span> 10
+</code></pre></div></div>
+
+<h4 id="2-common-quick-fixes">2. Common Quick Fixes</h4>
+
+<p><strong>“Everything is Down!”</strong></p>
+<ul>
+  <li>Check Route 53 health checks</li>
+  <li>Verify load balancer target health</li>
+  <li>Check Auto Scaling group size</li>
+</ul>
+
+<p><strong>“Database Connection Errors”</strong></p>
+<ul>
+  <li>Check RDS security groups</li>
+  <li>Verify connection limits not exceeded</li>
+  <li>Check if automated backup is running</li>
+</ul>
+
+<p><strong>“API Gateway 5XX Errors”</strong></p>
+<ul>
+  <li>Check Lambda function errors</li>
+  <li>Verify integration timeout settings</li>
+  <li>Check concurrent execution limits</li>
+</ul>
+
+<h3 id="proactive-monitoring-setup">Proactive Monitoring Setup</h3>
+
+<p>Prevent issues before they happen:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create comprehensive CloudWatch dashboard</span>
+aws cloudwatch put-dashboard <span class="se">\</span>
+  <span class="nt">--dashboard-name</span> ProductionHealth <span class="se">\</span>
+  <span class="nt">--dashboard-body</span> file://dashboard.json
+
+<span class="c"># Set up alerts for common issues</span>
+<span class="c"># High error rate</span>
+aws cloudwatch put-metric-alarm <span class="se">\</span>
+  <span class="nt">--alarm-name</span> high-error-rate <span class="se">\</span>
+  <span class="nt">--alarm-description</span> <span class="s2">"Alert when error rate exceeds 1%"</span> <span class="se">\</span>
+  <span class="nt">--metric-name</span> 4XXError <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/ApiGateway <span class="se">\</span>
+  <span class="nt">--statistic</span> Sum <span class="se">\</span>
+  <span class="nt">--period</span> 300 <span class="se">\</span>
+  <span class="nt">--threshold</span> 50 <span class="se">\</span>
+  <span class="nt">--comparison-operator</span> GreaterThanThreshold
+
+<span class="c"># Database CPU</span>
+aws cloudwatch put-metric-alarm <span class="se">\</span>
+  <span class="nt">--alarm-name</span> rds-high-cpu <span class="se">\</span>
+  <span class="nt">--alarm-description</span> <span class="s2">"RDS CPU above 80%"</span> <span class="se">\</span>
+  <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/RDS <span class="se">\</span>
+  <span class="nt">--statistic</span> Average <span class="se">\</span>
+  <span class="nt">--period</span> 300 <span class="se">\</span>
+  <span class="nt">--threshold</span> 80 <span class="se">\</span>
+  <span class="nt">--comparison-operator</span> GreaterThanThreshold
+</code></pre></div></div>
+
+<h3 id="tools-every-aws-developer-should-know">Tools Every AWS Developer Should Know</h3>
+
+<ol>
+  <li>
+<strong>AWS CLI with Query Powers</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Find specific resources quickly</span>
+aws ec2 describe-instances <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'Reservations[*].Instances[?State.Name==`running`].[InstanceId,Tags[?Key==`Name`].Value|[0]]'</span> <span class="se">\</span>
+  <span class="nt">--output</span> table
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Systems Manager Session Manager</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Connect without SSH keys or bastion hosts</span>
+aws ssm start-session <span class="nt">--target</span> i-xxxxx
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>CloudWatch Logs Insights</strong>
+    <div class="language-sql highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1">-- Find errors across all Lambda functions</span>
+<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="o">@</span><span class="n">message</span>
+<span class="o">|</span> <span class="n">filter</span> <span class="o">@</span><span class="n">message</span> <span class="k">like</span> <span class="o">/</span><span class="n">ERROR</span><span class="o">/</span>
+<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">()</span> <span class="k">by</span> <span class="n">bin</span><span class="p">(</span><span class="mi">5</span><span class="n">m</span><span class="p">)</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>AWS Personal Health Dashboard</strong>
+    <ul>
+      <li>Check for AWS service issues affecting you</li>
+      <li>Get advance notice of maintenance</li>
+    </ul>
+  </li>
+</ol>
+
+<p>Remember: Most AWS issues fall into these categories:</p>
+<ul>
+  <li>
+<strong>Permissions</strong> (IAM)</li>
+  <li>
+<strong>Networking</strong> (Security Groups, NACLs)</li>
+  <li>
+<strong>Limits</strong> (Service Quotas)</li>
+  <li>
+<strong>Configuration</strong> (Wrong region, missing parameters)</li>
+</ul>
+
+<p>Master troubleshooting these four areas and you’ll solve 90% of AWS problems.</p>
 
 <h2 id="your-cloud-journey-from-here-to-mastery">Your Cloud Journey: From Here to Mastery</h2>
 

@@ -704,9 +704,115 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+<h2 id="learning-path">Learning Path</h2>
+
+<p>This comprehensive guide is structured to take you from beginner to expert:</p>
+
+<ol>
+  <li>
+<strong>Quick Start</strong> - Get running in 10 minutes</li>
+  <li>
+<strong>Core Concepts</strong> - Understand the fundamentals</li>
+  <li>
+<strong>Kubernetes Objects</strong> - Learn the building blocks</li>
+  <li>
+<strong>Workload Resources</strong> - Deploy applications effectively</li>
+  <li>
+<strong>Networking &amp; Storage</strong> - Connect and persist your apps</li>
+  <li>
+<strong>Configuration &amp; Security</strong> - Production-ready deployments</li>
+  <li>
+<strong>Advanced Topics</strong> - Master complex scenarios</li>
+  <li>
+<strong>Real-World Applications</strong> - Learn from case studies</li>
+</ol>
+
+<p>Choose your path based on your experience level, or follow along sequentially for a complete understanding.</p>
+
+<h2 id="quick-start-kubernetes-in-10-minutes">Quick Start: Kubernetes in 10 Minutes</h2>
+
+<p>If you’re completely new to Kubernetes, this crash course will get you up and running with the essential concepts. Think of Kubernetes as an operating system for your data center - it manages applications (containers) across multiple computers (nodes) just like your OS manages programs on a single computer.</p>
+
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+  <li>Basic understanding of containers (Docker)</li>
+  <li>Access to a Kubernetes cluster (minikube, kind, or cloud provider)</li>
+  <li>kubectl CLI installed</li>
+</ul>
+
+<h3 id="your-first-deployment">Your First Deployment</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Check your cluster is running</span>
+kubectl cluster-info
+
+<span class="c"># 2. Deploy a simple application</span>
+kubectl create deployment hello-world <span class="nt">--image</span><span class="o">=</span>nginx:alpine
+
+<span class="c"># 3. Expose it to the internet</span>
+kubectl expose deployment hello-world <span class="nt">--type</span><span class="o">=</span>LoadBalancer <span class="nt">--port</span><span class="o">=</span>80
+
+<span class="c"># 4. Check it's running</span>
+kubectl get pods
+kubectl get services
+
+<span class="c"># 5. Scale it up</span>
+kubectl scale deployment hello-world <span class="nt">--replicas</span><span class="o">=</span>3
+
+<span class="c"># 6. See the magic - kill a pod and watch it resurrect</span>
+kubectl get pods
+kubectl delete pod &lt;pod-name&gt;
+kubectl get pods  <span class="c"># Notice a new pod replaced the deleted one!</span>
+</code></pre></div></div>
+
+<h3 id="core-concepts-in-plain-english">Core Concepts in Plain English</h3>
+
+<p><strong>Pods</strong>: The smallest unit in Kubernetes. Like a wrapper around your container(s) that provides shared storage and network.</p>
+
+<p><strong>Deployments</strong>: Manages your pods. Tells Kubernetes “I want 3 copies of my app running at all times” and Kubernetes makes it happen.</p>
+
+<p><strong>Services</strong>: Provides a stable address for your pods. Even as pods die and restart with new IPs, the service address stays the same.</p>
+
+<p><strong>Nodes</strong>: The physical or virtual machines that run your containers.</p>
+
+<p><strong>Cluster</strong>: A group of nodes managed by Kubernetes.</p>
+
+<p>That’s it! You now understand the basics. The rest of this guide will take you deep into each concept and show you how to build production-ready systems.</p>
+
 <h2 id="understanding-kubernetes-from-containers-to-orchestration">Understanding Kubernetes: From Containers to Orchestration</h2>
 
 <p>Before diving into Kubernetes architecture, let’s understand why we need container orchestration. When you run a single container on your laptop, Docker is perfectly adequate. But what happens when you need to run hundreds or thousands of containers across multiple servers? How do you ensure they’re always running, properly networked, and efficiently using resources? This is where Kubernetes comes in.</p>
+
+<h3 id="the-evolution-from-bare-metal-to-kubernetes">The Evolution: From Bare Metal to Kubernetes</h3>
+
+<ol>
+  <li>
+<strong>Bare Metal Era</strong>: One application per server, massive waste of resources</li>
+  <li>
+<strong>Virtualization Era</strong>: Multiple VMs per server, better resource usage but heavy overhead</li>
+  <li>
+<strong>Container Era</strong>: Lightweight isolation, but manual management becomes complex at scale</li>
+  <li>
+<strong>Orchestration Era</strong>: Kubernetes automates container management, enabling true cloud-native applications</li>
+</ol>
+
+<h3 id="why-kubernetes-wins">Why Kubernetes Wins</h3>
+
+<ul>
+  <li>
+<strong>Declarative Configuration</strong>: You describe the desired state, Kubernetes makes it happen</li>
+  <li>
+<strong>Self-Healing</strong>: Automatically replaces failed containers</li>
+  <li>
+<strong>Service Discovery</strong>: Built-in DNS and load balancing</li>
+  <li>
+<strong>Storage Orchestration</strong>: Automatically mounts storage systems</li>
+  <li>
+<strong>Automated Rollouts</strong>: Deploy new versions without downtime</li>
+  <li>
+<strong>Secret Management</strong>: Secure handling of sensitive data</li>
+  <li>
+<strong>Horizontal Scaling</strong>: Scale with a simple command or automatically based on CPU/memory usage</li>
+</ul>
 
 <h2 id="core-concepts">Core Concepts</h2>
 
@@ -1368,6 +1474,23 @@ metadata:
 
 <p>The Container Storage Interface (CSI) is like a universal adapter that allows any storage system to work with Kubernetes. Before CSI, each storage vendor needed to maintain code within Kubernetes itself. Now, storage providers can develop independent plugins that follow the CSI specification, making the ecosystem more flexible and maintainable.</p>
 
+<h4 id="csi-components-and-workflow">CSI Components and Workflow</h4>
+
+<pre><code class="language-mermaid">graph TD
+    A[User creates PVC] --&gt; B[PV Controller]
+    B --&gt; C[CSI External Provisioner]
+    C --&gt; D[CSI Controller Plugin]
+    D --&gt; E[Storage System API]
+    E --&gt; F[Volume Created]
+    F --&gt; G[PV Bound to PVC]
+    G --&gt; H[Pod Scheduled]
+    H --&gt; I[Kubelet]
+    I --&gt; J[CSI Node Plugin]
+    J --&gt; K[Volume Mounted to Pod]
+</code></pre>
+
+<h4 id="implementing-a-csi-driver">Implementing a CSI Driver</h4>
+
 <div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// CSI Controller Service - Manages volumes at cluster level</span>
 <span class="k">type</span> <span class="n">ControllerServer</span> <span class="k">interface</span> <span class="p">{</span>
     <span class="c">// Volume lifecycle operations</span>
@@ -1400,6 +1523,102 @@ metadata:
     <span class="n">NodeGetInfo</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetInfoRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetInfoResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
     <span class="n">NodeGetCapabilities</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetCapabilitiesRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetCapabilitiesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
 <span class="p">}</span>
+
+<span class="c">// Example CSI Driver Implementation</span>
+<span class="k">type</span> <span class="n">MyCSIDriver</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">name</span>     <span class="kt">string</span>
+    <span class="n">nodeID</span>   <span class="kt">string</span>
+    <span class="n">version</span>  <span class="kt">string</span>
+    <span class="n">endpoint</span> <span class="kt">string</span>
+    
+    <span class="c">// Storage backend client</span>
+    <span class="n">storageClient</span> <span class="n">StorageClient</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">d</span> <span class="o">*</span><span class="n">MyCSIDriver</span><span class="p">)</span> <span class="n">CreateVolume</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="o">*</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Validate request</span>
+    <span class="k">if</span> <span class="n">req</span><span class="o">.</span><span class="n">Name</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">status</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">InvalidArgument</span><span class="p">,</span> <span class="s">"Volume name required"</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Check if volume already exists</span>
+    <span class="n">vol</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">d</span><span class="o">.</span><span class="n">storageClient</span><span class="o">.</span><span class="n">GetVolume</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">{</span><span class="n">Volume</span><span class="o">:</span> <span class="n">vol</span><span class="p">},</span> <span class="no">nil</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Create volume with requested capacity</span>
+    <span class="n">capacity</span> <span class="o">:=</span> <span class="n">req</span><span class="o">.</span><span class="n">CapacityRange</span><span class="o">.</span><span class="n">RequiredBytes</span>
+    <span class="n">vol</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">storageClient</span><span class="o">.</span><span class="n">CreateVolume</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="n">capacity</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">Parameters</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">status</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">Internal</span><span class="p">,</span> <span class="s">"Failed to create volume: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">{</span>
+        <span class="n">Volume</span><span class="o">:</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">Volume</span><span class="p">{</span>
+            <span class="n">VolumeId</span><span class="o">:</span>      <span class="n">vol</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span>
+            <span class="n">CapacityBytes</span><span class="o">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+            <span class="n">VolumeContext</span><span class="o">:</span> <span class="n">req</span><span class="o">.</span><span class="n">Parameters</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="csi-driver-deployment">CSI Driver Deployment</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CSI Driver DaemonSet</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">hostNetwork</span><span class="pi">:</span> <span class="kc">true</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">csi-driver</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/csi-driver:v1.0.0</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--endpoint=$(CSI_ENDPOINT)"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--nodeid=$(NODE_NAME)"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">CSI_ENDPOINT</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">unix:///csi/csi.sock</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NODE_NAME</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">fieldRef</span><span class="pi">:</span>
+              <span class="na">fieldPath</span><span class="pi">:</span> <span class="s">spec.nodeName</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">plugin-dir</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/csi</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pods-mount-dir</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/pods</span>
+          <span class="na">mountPropagation</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Bidirectional"</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">node-driver-registrar</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.5.0</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--csi-address=$(ADDRESS)"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ADDRESS</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">/csi/csi.sock</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DRIVER_REG_SOCK_PATH</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/plugins/csi-driver/csi.sock</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">plugin-dir</span>
+        <span class="na">hostPath</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/plugins/csi-driver</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">DirectoryOrCreate</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pods-mount-dir</span>
+        <span class="na">hostPath</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/pods</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">Directory</span>
 </code></pre></div></div>
 
 <h3 id="understanding-storage-orchestration">Understanding Storage Orchestration</h3>
@@ -1956,58 +2175,198 @@ metadata:
     <span class="na">path</span><span class="pi">:</span> <span class="s">/metrics</span>
 </code></pre></div></div>
 
-<h2 id="kubectl-commands-your-kubernetes-swiss-army-knife">kubectl Commands: Your Kubernetes Swiss Army Knife</h2>
+<h2 id="kubectl-mastery-command-line-kubernetes">kubectl Mastery: Command-Line Kubernetes</h2>
 
-<p>The kubectl command-line tool is your primary interface for interacting with Kubernetes clusters. Mastering kubectl is essential for effective Kubernetes administration. Let’s explore the commands you’ll use daily.</p>
+<p>The kubectl command-line tool is your primary interface for interacting with Kubernetes clusters. Mastering kubectl is essential for effective Kubernetes administration. Let’s explore everything from basic commands to advanced techniques.</p>
 
-<h3 id="basic-commands">Basic Commands</h3>
+<h3 id="kubectl-configuration-and-contexts">kubectl Configuration and Contexts</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Cluster info</span>
-kubectl cluster-info
-kubectl get nodes
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># View current config</span>
+kubectl config view
 
-<span class="c"># Working with resources</span>
-kubectl get pods
-kubectl get services
-kubectl get deployments
-kubectl describe pod &lt;pod-name&gt;
+<span class="c"># List contexts</span>
+kubectl config get-contexts
 
-<span class="c"># Creating resources</span>
-kubectl create <span class="nt">-f</span> manifest.yaml
-kubectl apply <span class="nt">-f</span> manifest.yaml
+<span class="c"># Switch context</span>
+kubectl config use-context production-cluster
 
-<span class="c"># Updating resources</span>
-kubectl edit deployment &lt;deployment-name&gt;
-kubectl scale deployment &lt;deployment-name&gt; <span class="nt">--replicas</span><span class="o">=</span>5
+<span class="c"># Set default namespace</span>
+kubectl config set-context <span class="nt">--current</span> <span class="nt">--namespace</span><span class="o">=</span>production
 
-<span class="c"># Deleting resources</span>
-kubectl delete pod &lt;pod-name&gt;
-kubectl delete <span class="nt">-f</span> manifest.yaml
+<span class="c"># Create a new context</span>
+kubectl config set-context dev <span class="nt">--cluster</span><span class="o">=</span>dev-cluster <span class="nt">--user</span><span class="o">=</span>dev-user <span class="nt">--namespace</span><span class="o">=</span>development
 </code></pre></div></div>
 
-<h3 id="advanced-commands">Advanced Commands</h3>
+<h3 id="essential-commands-with-examples">Essential Commands with Examples</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Port forwarding</span>
-kubectl port-forward pod/&lt;pod-name&gt; 8080:80
+<h4 id="resource-management">Resource Management</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Get resources with custom columns</span>
+kubectl get pods <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,STATUS:.status.phase,NODE:.spec.nodeName
 
-<span class="c"># Executing commands in pods</span>
-kubectl <span class="nb">exec</span> <span class="nt">-it</span> &lt;pod-name&gt; <span class="nt">--</span> /bin/bash
+<span class="c"># Get all resources in a namespace</span>
+kubectl get all <span class="nt">-n</span> production
 
-<span class="c"># Viewing logs</span>
-kubectl logs &lt;pod-name&gt;
-kubectl logs <span class="nt">-f</span> &lt;pod-name&gt;  <span class="c"># Follow logs</span>
+<span class="c"># Watch resources in real-time</span>
+kubectl get pods <span class="nt">-w</span>
 
-<span class="c"># Copying files</span>
-kubectl <span class="nb">cp</span> &lt;pod-name&gt;:/path/to/file ./local-file
-kubectl <span class="nb">cp</span> ./local-file &lt;pod-name&gt;:/path/to/file
+<span class="c"># Get resources across all namespaces</span>
+kubectl get pods <span class="nt">--all-namespaces</span>
 
-<span class="c"># Resource usage</span>
-kubectl top nodes
-kubectl top pods
+<span class="c"># Output in different formats</span>
+kubectl get pod mypod <span class="nt">-o</span> yaml
+kubectl get pod mypod <span class="nt">-o</span> json
+kubectl get pods <span class="nt">-o</span> wide
+</code></pre></div></div>
 
-<span class="c"># Debugging</span>
-kubectl describe pod &lt;pod-name&gt;
-kubectl get events <span class="nt">--sort-by</span><span class="o">=</span>.metadata.creationTimestamp
+<h4 id="creating-and-updating-resources">Creating and Updating Resources</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create from stdin</span>
+<span class="nb">cat</span> <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh"> | kubectl create -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+</span><span class="no">EOF
+
+</span><span class="c"># Apply with record for rollback</span>
+kubectl apply <span class="nt">-f</span> deployment.yaml <span class="nt">--record</span>
+
+<span class="c"># Patch a resource</span>
+kubectl patch deployment nginx <span class="nt">-p</span> <span class="s1">'{"spec":{"replicas":5}}'</span>
+
+<span class="c"># Replace a resource</span>
+kubectl replace <span class="nt">-f</span> deployment.yaml
+
+<span class="c"># Edit resource in editor</span>
+<span class="nv">KUBE_EDITOR</span><span class="o">=</span><span class="s2">"vim"</span> kubectl edit deployment/nginx
+</code></pre></div></div>
+
+<h4 id="advanced-selection-and-filtering">Advanced Selection and Filtering</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Label selectors</span>
+kubectl get pods <span class="nt">-l</span> <span class="nv">environment</span><span class="o">=</span>production,tier<span class="o">=</span>frontend
+kubectl get pods <span class="nt">-l</span> <span class="s1">'environment in (production, qa)'</span>
+kubectl get pods <span class="nt">-l</span> <span class="s1">'environment!=test'</span>
+
+<span class="c"># Field selectors</span>
+kubectl get pods <span class="nt">--field-selector</span> status.phase<span class="o">=</span>Running
+kubectl get pods <span class="nt">--field-selector</span> metadata.name<span class="o">=</span>nginx
+
+<span class="c"># Combine selectors</span>
+kubectl get pods <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>nginx <span class="nt">--field-selector</span> status.phase<span class="o">=</span>Running
+</code></pre></div></div>
+
+<h4 id="debugging-and-troubleshooting">Debugging and Troubleshooting</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Get pod logs with timestamps</span>
+kubectl logs mypod <span class="nt">--timestamps</span>
+
+<span class="c"># Get previous container logs</span>
+kubectl logs mypod <span class="nt">--previous</span>
+
+<span class="c"># Get logs from specific container</span>
+kubectl logs mypod <span class="nt">-c</span> mycontainer
+
+<span class="c"># Follow logs from all pods with label</span>
+kubectl logs <span class="nt">-f</span> <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>nginx <span class="nt">--all-containers</span>
+
+<span class="c"># Debug with ephemeral container (K8s 1.23+)</span>
+kubectl debug mypod <span class="nt">-it</span> <span class="nt">--image</span><span class="o">=</span>busybox <span class="nt">--share-processes</span> <span class="nt">--copy-to</span><span class="o">=</span>mypod-debug
+
+<span class="c"># Port forward to a service</span>
+kubectl port-forward service/myservice 8080:80
+
+<span class="c"># Run temporary pod for debugging</span>
+kubectl run debug <span class="nt">--image</span><span class="o">=</span>nicolaka/netshoot <span class="nt">-it</span> <span class="nt">--rm</span>
+
+<span class="c"># Get resource usage</span>
+kubectl top nodes <span class="nt">--sort-by</span><span class="o">=</span>cpu
+kubectl top pods <span class="nt">--sort-by</span><span class="o">=</span>memory <span class="nt">--all-namespaces</span>
+</code></pre></div></div>
+
+<h4 id="working-with-secrets-and-configmaps">Working with Secrets and ConfigMaps</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create secret from literal</span>
+kubectl create secret generic mysecret <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">password</span><span class="o">=</span>secretpass
+
+<span class="c"># Create secret from file</span>
+kubectl create secret generic ssh-key <span class="nt">--from-file</span><span class="o">=</span><span class="nv">id_rsa</span><span class="o">=</span>~/.ssh/id_rsa
+
+<span class="c"># Create configmap from directory</span>
+kubectl create configmap app-config <span class="nt">--from-file</span><span class="o">=</span>./config/
+
+<span class="c"># Extract secret value</span>
+kubectl get secret mysecret <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.data.password}"</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+
+<span class="c"># Edit secret (be careful!)</span>
+kubectl edit secret mysecret
+</code></pre></div></div>
+
+<h3 id="power-user-features">Power User Features</h3>
+
+<h4 id="jsonpath-queries">JSONPath Queries</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Get all pod names</span>
+kubectl get pods <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[*].metadata.name}'</span>
+
+<span class="c"># Get pod name and image</span>
+kubectl get pods <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'</span>
+
+<span class="c"># Complex queries</span>
+kubectl get nodes <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\t"}{.status.capacity.memory}{"\n"}{end}'</span>
+</code></pre></div></div>
+
+<h4 id="resource-management-with-kubectl">Resource Management with kubectl</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Drain node for maintenance</span>
+kubectl drain node1 <span class="nt">--ignore-daemonsets</span> <span class="nt">--delete-emptydir-data</span>
+
+<span class="c"># Cordon node (mark unschedulable)</span>
+kubectl cordon node1
+
+<span class="c"># Uncordon node</span>
+kubectl uncordon node1
+
+<span class="c"># Taint node</span>
+kubectl taint nodes node1 <span class="nv">key</span><span class="o">=</span>value:NoSchedule
+
+<span class="c"># Remove taint</span>
+kubectl taint nodes node1 key:NoSchedule-
+</code></pre></div></div>
+
+<h4 id="useful-aliases-and-shell-functions">Useful Aliases and Shell Functions</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add to ~/.bashrc or ~/.zshrc</span>
+<span class="nb">alias </span><span class="nv">k</span><span class="o">=</span><span class="s1">'kubectl'</span>
+<span class="nb">alias </span><span class="nv">kgp</span><span class="o">=</span><span class="s1">'kubectl get pods'</span>
+<span class="nb">alias </span><span class="nv">kgs</span><span class="o">=</span><span class="s1">'kubectl get svc'</span>
+<span class="nb">alias </span><span class="nv">kgd</span><span class="o">=</span><span class="s1">'kubectl get deployment'</span>
+<span class="nb">alias </span><span class="nv">kaf</span><span class="o">=</span><span class="s1">'kubectl apply -f'</span>
+<span class="nb">alias </span><span class="nv">kdel</span><span class="o">=</span><span class="s1">'kubectl delete'</span>
+<span class="nb">alias </span><span class="nv">klog</span><span class="o">=</span><span class="s1">'kubectl logs'</span>
+<span class="nb">alias </span><span class="nv">kexec</span><span class="o">=</span><span class="s1">'kubectl exec -it'</span>
+
+<span class="c"># Decode secret function</span>
+kubectl_decode_secret<span class="o">()</span> <span class="o">{</span>
+  kubectl get secret <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.data.</span><span class="nv">$2</span><span class="s2">}"</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+<span class="o">}</span>
+
+<span class="c"># Get pod by partial name</span>
+kubectl_get_pod<span class="o">()</span> <span class="o">{</span>
+  kubectl get pods | <span class="nb">grep</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> | <span class="nb">head</span> <span class="nt">-1</span> | <span class="nb">awk</span> <span class="s1">'{print $1}'</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="kubectl-plugins">kubectl Plugins</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install krew (plugin manager)</span>
+curl <span class="nt">-fsSLO</span> <span class="s2">"https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz"</span>
+<span class="nb">tar </span>zxvf krew-linux_amd64.tar.gz
+./krew-linux_amd64 <span class="nb">install </span>krew
+
+<span class="c"># Popular plugins</span>
+kubectl krew <span class="nb">install </span>ctx        <span class="c"># Switch contexts</span>
+kubectl krew <span class="nb">install </span>ns         <span class="c"># Switch namespaces  </span>
+kubectl krew <span class="nb">install </span>tree       <span class="c"># Show tree of resources</span>
+kubectl krew <span class="nb">install </span>neat       <span class="c"># Clean up yaml output</span>
+kubectl krew <span class="nb">install </span>exec-as    <span class="c"># Exec as specific user</span>
 </code></pre></div></div>
 
 <h2 id="best-practices-building-production-ready-clusters">Best Practices: Building Production-Ready Clusters</h2>
@@ -2047,36 +2406,140 @@ kubectl get events <span class="nt">--sort-by</span><span class="o">=</span>.met
   <li>Use distributed tracing</li>
 </ul>
 
-<h2 id="helm---kubernetes-package-manager">Helm - Kubernetes Package Manager</h2>
+<h2 id="helm-kubernetes-package-manager">Helm: Kubernetes Package Manager</h2>
 
 <p>As your Kubernetes applications grow more complex, managing dozens of YAML files becomes challenging. Helm acts as a package manager for Kubernetes, allowing you to define, install, and upgrade applications as cohesive units called charts. Think of it as apt or yum for Kubernetes.</p>
 
-<h3 id="chart-structure">Chart Structure</h3>
+<h3 id="understanding-helm-architecture">Understanding Helm Architecture</h3>
+
+<p>Helm uses a client-server architecture (in v2) or operates client-only (in v3). Charts are packages of pre-configured Kubernetes resources that can be customized through values files.</p>
+
+<h3 id="chart-structure-deep-dive">Chart Structure Deep Dive</h3>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mychart/
-├── Chart.yaml
-├── values.yaml
-├── templates/
+├── Chart.yaml          # Chart metadata
+├── values.yaml         # Default configuration values
+├── charts/            # Chart dependencies
+├── templates/         # Kubernetes manifest templates
 │   ├── deployment.yaml
 │   ├── service.yaml
-│   └── ingress.yaml
-└── charts/
+│   ├── ingress.yaml
+│   ├── configmap.yaml
+│   ├── secrets.yaml
+│   ├── NOTES.txt      # Post-install message
+│   └── _helpers.tpl   # Reusable template helpers
+├── .helmignore        # Patterns to ignore
+└── README.md          # Chart documentation
 </code></pre></div></div>
 
-<h3 id="basic-helm-commands">Basic Helm Commands</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install a chart</span>
-helm <span class="nb">install </span>myrelease ./mychart
+<h3 id="advanced-helm-patterns">Advanced Helm Patterns</h3>
 
-<span class="c"># Upgrade a release</span>
-helm upgrade myrelease ./mychart
+<h4 id="template-functions-and-pipelines">Template Functions and Pipelines</h4>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># templates/deployment.yaml</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> 
+  <span class="na">labels</span><span class="pi">:</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> 
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">annotations</span><span class="pi">:</span>
+        <span class="na">checksum/config</span><span class="pi">:</span> 
+      <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> 
+        <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">:"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> 
+          <span class="na">value</span><span class="pi">:</span> 
+</code></pre></div></div>
 
-<span class="c"># List releases</span>
-helm list
+<h4 id="helm-hooks-for-lifecycle-management">Helm Hooks for Lifecycle Management</h4>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># templates/job-db-migrate.yaml</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">-db-migrate</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s2">"</span><span class="s">helm.sh/hook"</span><span class="err">:</span> <span class="s">pre-upgrade,pre-install</span>
+    <span class="s">"helm.sh/hook-weight"</span><span class="err">:</span> <span class="s2">"</span><span class="s">-5"</span>
+    <span class="s2">"</span><span class="s">helm.sh/hook-delete-policy"</span><span class="err">:</span> <span class="s">before-hook-creation</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">db-migrate</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">migrate/migrate</span>
+        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/migrate"</span><span class="pi">]</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">-path=/migrations"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">-database="</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">up"</span>
+</code></pre></div></div>
 
-<span class="c"># Rollback</span>
-helm rollback myrelease 1
+<h4 id="managing-dependencies">Managing Dependencies</h4>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Chart.yaml</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v2</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">myapp</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">1.0.0</span>
+<span class="na">dependencies</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgresql</span>
+  <span class="na">version</span><span class="pi">:</span> <span class="s">11.6.12</span>
+  <span class="na">repository</span><span class="pi">:</span> <span class="s">https://charts.bitnami.com/bitnami</span>
+  <span class="na">condition</span><span class="pi">:</span> <span class="s">postgresql.enabled</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">redis</span>
+  <span class="na">version</span><span class="pi">:</span> <span class="s">16.13.1</span>
+  <span class="na">repository</span><span class="pi">:</span> <span class="s">https://charts.bitnami.com/bitnami</span>
+  <span class="na">condition</span><span class="pi">:</span> <span class="s">redis.enabled</span>
+</code></pre></div></div>
 
-<span class="c"># Uninstall</span>
-helm uninstall myrelease
+<h3 id="helm-best-practices">Helm Best Practices</h3>
+
+<ol>
+  <li>
+<strong>Use Semantic Versioning</strong>: Version your charts properly</li>
+  <li>
+<strong>Parameterize Everything</strong>: Make charts reusable across environments</li>
+  <li>
+<strong>Document Values</strong>: Provide comprehensive values.yaml documentation</li>
+  <li>
+<strong>Test Your Charts</strong>: Use helm lint and helm test</li>
+  <li>
+<strong>Sign Your Charts</strong>: Use GPG signing for production charts</li>
+</ol>
+
+<h3 id="advanced-helm-commands">Advanced Helm Commands</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Dry run to see what would be installed</span>
+helm <span class="nb">install </span>myrelease ./mychart <span class="nt">--dry-run</span> <span class="nt">--debug</span>
+
+<span class="c"># Install with custom values</span>
+helm <span class="nb">install </span>myrelease ./mychart <span class="nt">-f</span> production-values.yaml
+
+<span class="c"># Get values from a release</span>
+helm get values myrelease
+
+<span class="c"># See revision history</span>
+helm <span class="nb">history </span>myrelease
+
+<span class="c"># Package a chart</span>
+helm package ./mychart
+
+<span class="c"># Create a new chart</span>
+helm create mynewchart
+
+<span class="c"># Add a chart repository</span>
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+<span class="c"># Update repositories</span>
+helm repo update
+
+<span class="c"># Search for charts</span>
+helm search repo wordpress
 </code></pre></div></div>
 
 <h2 id="common-patterns-proven-architectural-approaches">Common Patterns: Proven Architectural Approaches</h2>
@@ -2086,21 +2549,98 @@ helm uninstall myrelease
 <h3 id="sidecar-pattern">Sidecar Pattern</h3>
 
 <p>The sidecar pattern deploys helper containers alongside your main application container in the same pod. Like a motorcycle sidecar, these containers augment the main container’s functionality without modifying it. Common uses include logging agents, proxies, and configuration watchers.</p>
+
+<h4 id="logging-sidecar">Logging Sidecar</h4>
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-sidecar</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-logging-sidecar</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">containers</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
     <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">sidecar</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">logging-agent:latest</span>
     <span class="na">volumeMounts</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shared-logs</span>
-      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-forwarder</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">fluentbit/fluent-bit:latest</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shared-logs</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">fluent-bit-config</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/fluent-bit/etc/</span>
   <span class="na">volumes</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shared-logs</span>
+    <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">fluent-bit-config</span>
+    <span class="na">configMap</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">fluent-bit-config</span>
+</code></pre></div></div>
+
+<h4 id="service-mesh-proxy-sidecar">Service Mesh Proxy Sidecar</h4>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-envoy</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">sidecar.istio.io/inject</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="c1"># Envoy proxy injected automatically by Istio</span>
+</code></pre></div></div>
+
+<h3 id="ambassador-pattern">Ambassador Pattern</h3>
+
+<p>The Ambassador pattern uses a helper container to proxy network connections from the main container. This pattern is useful for adapting heterogeneous services, implementing client-side load balancing, or adding authentication layers.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-ambassador</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">env</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DATABASE_HOST</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">localhost"</span>  <span class="c1"># Connect through ambassador</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DATABASE_PORT</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5432"</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">database-proxy</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">cloudsql-proxy:latest</span>
+    <span class="na">command</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s2">"</span><span class="s">/cloud_sql_proxy"</span>
+    <span class="pi">-</span> <span class="s2">"</span><span class="s">-instances=project:region:instance=tcp:5432"</span>
+</code></pre></div></div>
+
+<h3 id="adapter-pattern">Adapter Pattern</h3>
+
+<p>The Adapter pattern standardizes output from the main container. It’s particularly useful when integrating with monitoring systems that expect specific formats.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-adapter</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">legacy-app:latest</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app-logs</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-adapter</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">log-adapter:latest</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app-logs</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">9090</span>  <span class="c1"># Prometheus metrics</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app-logs</span>
     <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
 </code></pre></div></div>
 
@@ -2108,70 +2648,1196 @@ helm uninstall myrelease
 
 <p>Init containers run before your main application containers start, perfect for setup tasks like database schema migrations, waiting for dependencies, or fetching configuration. They ensure your application’s environment is ready before it begins serving traffic.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<h4 id="database-migration-init-container">Database Migration Init Container</h4>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-init</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">initContainers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">init-db</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:1.28</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db-service</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">1;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
-  <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">initContainers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">db-migrate</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">migrate/migrate</span>
+        <span class="na">command</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">migrate</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">-path"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/migrations"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">-database"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):5432/$(DB_NAME)?sslmode=disable"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">up"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DB_USER</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">secretKeyRef</span><span class="pi">:</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">db-secret</span>
+              <span class="na">key</span><span class="pi">:</span> <span class="s">username</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DB_PASS</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">secretKeyRef</span><span class="pi">:</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">db-secret</span>
+              <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">wait-for-db</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:1.28</span>
+        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db-service</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">waiting</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">db;</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">2;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+</code></pre></div></div>
+
+<h3 id="leader-election-pattern">Leader Election Pattern</h3>
+
+<p>For applications that need a single active instance, the leader election pattern ensures only one pod performs certain operations while others stand by.</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Leader election implementation</span>
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"context"</span>
+    <span class="s">"time"</span>
+    
+    <span class="s">"k8s.io/client-go/tools/leaderelection"</span>
+    <span class="s">"k8s.io/client-go/tools/leaderelection/resourcelock"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">runWithLeaderElection</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">id</span> <span class="kt">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">lock</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">resourcelock</span><span class="o">.</span><span class="n">LeaseLock</span><span class="p">{</span>
+        <span class="n">LeaseMeta</span><span class="o">:</span> <span class="n">metav1</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">{</span>
+            <span class="n">Name</span><span class="o">:</span>      <span class="s">"my-app-leader"</span><span class="p">,</span>
+            <span class="n">Namespace</span><span class="o">:</span> <span class="s">"default"</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">Client</span><span class="o">:</span> <span class="n">coordinationClient</span><span class="p">,</span>
+        <span class="n">LockConfig</span><span class="o">:</span> <span class="n">resourcelock</span><span class="o">.</span><span class="n">ResourceLockConfig</span><span class="p">{</span>
+            <span class="n">Identity</span><span class="o">:</span> <span class="n">id</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    
+    <span class="n">leaderelection</span><span class="o">.</span><span class="n">RunOrDie</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">leaderelection</span><span class="o">.</span><span class="n">LeaderElectionConfig</span><span class="p">{</span>
+        <span class="n">Lock</span><span class="o">:</span>            <span class="n">lock</span><span class="p">,</span>
+        <span class="n">ReleaseOnCancel</span><span class="o">:</span> <span class="no">true</span><span class="p">,</span>
+        <span class="n">LeaseDuration</span><span class="o">:</span>   <span class="m">15</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span>
+        <span class="n">RenewDeadline</span><span class="o">:</span>   <span class="m">10</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span>
+        <span class="n">RetryPeriod</span><span class="o">:</span>     <span class="m">2</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span>
+        <span class="n">Callbacks</span><span class="o">:</span> <span class="n">leaderelection</span><span class="o">.</span><span class="n">LeaderCallbacks</span><span class="p">{</span>
+            <span class="n">OnStartedLeading</span><span class="o">:</span> <span class="k">func</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">{</span>
+                <span class="c">// Start leader work</span>
+                <span class="n">runLeaderWork</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+            <span class="p">},</span>
+            <span class="n">OnStoppedLeading</span><span class="o">:</span> <span class="k">func</span><span class="p">()</span> <span class="p">{</span>
+                <span class="c">// Clean up</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"Lost leadership"</span><span class="p">)</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="batch-job-pattern">Batch Job Pattern</h3>
+
+<p>For processing large datasets or running periodic tasks, the batch job pattern with parallelism provides efficient resource utilization.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">parallel-processing</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parallelism</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">completions</span><span class="pi">:</span> <span class="m">100</span>
+  <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">batch-processor:latest</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">JOB_INDEX</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">fieldRef</span><span class="pi">:</span>
+              <span class="na">fieldPath</span><span class="pi">:</span> <span class="s">metadata.annotations['batch.kubernetes.io/job-completion-index']</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
 </code></pre></div></div>
 
 <h2 id="troubleshooting-when-things-go-wrong">Troubleshooting: When Things Go Wrong</h2>
 
 <p>Even well-designed systems encounter issues. Understanding common Kubernetes problems and their solutions helps you quickly restore service when problems arise. Let’s explore the most frequent issues and systematic approaches to resolve them.</p>
 
-<h3 id="common-issues">Common Issues</h3>
+<h3 id="systematic-debugging-approach">Systematic Debugging Approach</h3>
 
 <ol>
   <li>
-<strong>ImagePullBackOff</strong>
-    <ul>
-      <li>Check image name and tag</li>
-      <li>Verify registry credentials</li>
-      <li>Check network connectivity</li>
-    </ul>
+<strong>Identify the Problem</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Check overall cluster health</span>
+kubectl get nodes
+kubectl top nodes
+kubectl get pods <span class="nt">--all-namespaces</span> | <span class="nb">grep</span> <span class="nt">-v</span> Running
+   
+<span class="c"># Check events</span>
+kubectl get events <span class="nt">--sort-by</span><span class="o">=</span><span class="s1">'.lastTimestamp'</span> <span class="nt">-A</span>
+</code></pre></div>    </div>
   </li>
   <li>
-<strong>CrashLoopBackOff</strong>
-    <ul>
-      <li>Check application logs</li>
-      <li>Verify resource limits</li>
-      <li>Check liveness probe configuration</li>
-    </ul>
+<strong>Gather Information</strong>
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Describe problematic resources</span>
+kubectl describe pod &lt;pod-name&gt;
+kubectl describe node &lt;node-name&gt;
+   
+<span class="c"># Check logs</span>
+kubectl logs &lt;pod-name&gt; <span class="nt">--previous</span>
+kubectl logs &lt;pod-name&gt; <span class="nt">--all-containers</span>
+</code></pre></div>    </div>
   </li>
-  <li>
-<strong>Pending Pods</strong>
-    <ul>
-      <li>Check resource availability</li>
-      <li>Verify node selectors</li>
-      <li>Check persistent volume claims</li>
-    </ul>
-  </li>
-  <li>
-<strong>Service Connection Issues</strong>
-    <ul>
-      <li>Verify service selectors</li>
-      <li>Check network policies</li>
-      <li>Validate DNS resolution</li>
-    </ul>
-  </li>
+  <li><strong>Analyze and Fix</strong></li>
+  <li><strong>Verify Resolution</strong></li>
 </ol>
+
+<h3 id="common-issues-and-solutions">Common Issues and Solutions</h3>
+
+<h4 id="1-imagepullbackoff">1. ImagePullBackOff</h4>
+<p><strong>Symptoms</strong>: Pod stuck in <code class="language-plaintext highlighter-rouge">ImagePullBackOff</code> state</p>
+
+<p><strong>Diagnosis</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl describe pod &lt;pod-name&gt; | <span class="nb">grep</span> <span class="nt">-A</span> 10 Events
+</code></pre></div></div>
+
+<p><strong>Common Causes and Solutions</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Wrong image name/tag</span>
+kubectl <span class="nb">set </span>image deployment/&lt;name&gt; &lt;container&gt;<span class="o">=</span>&lt;correct-image&gt;
+
+<span class="c"># Missing registry credentials</span>
+kubectl create secret docker-registry regcred <span class="se">\</span>
+  <span class="nt">--docker-server</span><span class="o">=</span>&lt;registry&gt; <span class="se">\</span>
+  <span class="nt">--docker-username</span><span class="o">=</span>&lt;username&gt; <span class="se">\</span>
+  <span class="nt">--docker-password</span><span class="o">=</span>&lt;password&gt;
+
+<span class="c"># Add to pod spec</span>
+spec:
+  imagePullSecrets:
+  - name: regcred
+</code></pre></div></div>
+
+<h4 id="2-crashloopbackoff">2. CrashLoopBackOff</h4>
+<p><strong>Symptoms</strong>: Pod repeatedly crashes and restarts</p>
+
+<p><strong>Diagnosis</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check logs</span>
+kubectl logs &lt;pod-name&gt; <span class="nt">--previous</span>
+
+<span class="c"># Check resource consumption</span>
+kubectl top pod &lt;pod-name&gt;
+
+<span class="c"># Debug with ephemeral container</span>
+kubectl debug &lt;pod-name&gt; <span class="nt">-it</span> <span class="nt">--image</span><span class="o">=</span>busybox <span class="nt">--share-processes</span>
+</code></pre></div></div>
+
+<p><strong>Common Fixes</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Increase resource limits</span>
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="na">limits</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1Gi"</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
+
+<span class="c1"># Adjust probe timing</span>
+<span class="na">livenessProbe</span><span class="pi">:</span>
+  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">60</span>  <span class="c1"># Give app time to start</span>
+  <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
+</code></pre></div></div>
+
+<h4 id="3-pending-pods">3. Pending Pods</h4>
+<p><strong>Symptoms</strong>: Pods stuck in <code class="language-plaintext highlighter-rouge">Pending</code> state</p>
+
+<p><strong>Diagnosis</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check pod events</span>
+kubectl describe pod &lt;pod-name&gt;
+
+<span class="c"># Check node resources</span>
+kubectl describe nodes
+kubectl top nodes
+
+<span class="c"># Check PVC status</span>
+kubectl get pvc
+</code></pre></div></div>
+
+<p><strong>Solutions</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Insufficient resources</span>
+kubectl scale deployment &lt;name&gt; <span class="nt">--replicas</span><span class="o">=</span>&lt;lower-number&gt;
+
+<span class="c"># Node selector issues</span>
+kubectl label nodes &lt;node-name&gt; &lt;label-key&gt;<span class="o">=</span>&lt;label-value&gt;
+
+<span class="c"># Taint issues</span>
+kubectl taint nodes &lt;node-name&gt; &lt;key&gt;:&lt;effect&gt;-
+</code></pre></div></div>
+
+<h4 id="4-service-connection-issues">4. Service Connection Issues</h4>
+<p><strong>Symptoms</strong>: Cannot connect to service</p>
+
+<p><strong>Diagnosis</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Test DNS resolution</span>
+kubectl run <span class="nt">-it</span> <span class="nt">--rm</span> debug <span class="nt">--image</span><span class="o">=</span>nicolaka/netshoot <span class="nt">--</span> nslookup &lt;service-name&gt;
+
+<span class="c"># Check endpoints</span>
+kubectl get endpoints &lt;service-name&gt;
+
+<span class="c"># Test connectivity</span>
+kubectl run <span class="nt">-it</span> <span class="nt">--rm</span> debug <span class="nt">--image</span><span class="o">=</span>nicolaka/netshoot <span class="nt">--</span> curl &lt;service-name&gt;:&lt;port&gt;
+</code></pre></div></div>
+
+<p><strong>Common Fixes</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Fix service selector</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-service</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>  <span class="c1"># Must match pod labels</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>  <span class="c1"># Must match container port</span>
+</code></pre></div></div>
+
+<h4 id="5-node-notready">5. Node NotReady</h4>
+<p><strong>Symptoms</strong>: Node in <code class="language-plaintext highlighter-rouge">NotReady</code> state</p>
+
+<p><strong>Diagnosis</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check node conditions</span>
+kubectl describe node &lt;node-name&gt;
+
+<span class="c"># SSH to node and check:</span>
+systemctl status kubelet
+journalctl <span class="nt">-u</span> kubelet <span class="nt">-f</span>
+<span class="nb">df</span> <span class="nt">-h</span>  <span class="c"># Check disk space</span>
+free <span class="nt">-h</span>  <span class="c"># Check memory</span>
+</code></pre></div></div>
+
+<p><strong>Solutions</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Restart kubelet</span>
+systemctl restart kubelet
+
+<span class="c"># Clear disk space</span>
+find /var/lib/docker/containers/ <span class="nt">-name</span> <span class="s2">"*.log"</span> <span class="nt">-exec</span> <span class="nb">truncate</span> <span class="nt">-s</span> 0 <span class="o">{}</span> <span class="se">\;</span>
+
+<span class="c"># Evict pods if needed</span>
+kubectl drain &lt;node-name&gt; <span class="nt">--ignore-daemonsets</span> <span class="nt">--delete-emptydir-data</span>
+</code></pre></div></div>
+
+<h4 id="6-oomkilled">6. OOMKilled</h4>
+<p><strong>Symptoms</strong>: Container terminated with <code class="language-plaintext highlighter-rouge">OOMKilled</code></p>
+
+<p><strong>Prevention</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Set appropriate memory limits</span>
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="na">requests</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+  <span class="na">limits</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+
+<span class="c1"># Use vertical pod autoscaler</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">updatePolicy</span><span class="pi">:</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span>
+</code></pre></div></div>
+
+<h3 id="advanced-debugging-tools">Advanced Debugging Tools</h3>
+
+<h4 id="1-kubectl-debug-plugin">1. kubectl-debug Plugin</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install</span>
+kubectl krew <span class="nb">install </span>debug
+
+<span class="c"># Debug pod</span>
+kubectl debug &lt;pod-name&gt; <span class="nt">-it</span> <span class="nt">--image</span><span class="o">=</span>nicolaka/netshoot
+</code></pre></div></div>
+
+<h4 id="2-ephemeral-containers-k8s-123">2. Ephemeral Containers (K8s 1.23+)</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add debug container to running pod</span>
+kubectl debug <span class="nt">-it</span> &lt;pod-name&gt; <span class="nt">--image</span><span class="o">=</span>busybox <span class="nt">--target</span><span class="o">=</span>&lt;container-name&gt;
+</code></pre></div></div>
+
+<h4 id="3-resource-graph-analysis">3. Resource Graph Analysis</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Visualize resource relationships</span>
+kubectl graph pods,services,endpoints <span class="nt">-n</span> &lt;namespace&gt;
+</code></pre></div></div>
+
+<h3 id="performance-troubleshooting">Performance Troubleshooting</h3>
+
+<h4 id="api-server-latency">API Server Latency</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check API server metrics</span>
+kubectl get <span class="nt">--raw</span> /metrics | <span class="nb">grep </span>apiserver_request_duration_seconds
+
+<span class="c"># Identify slow queries</span>
+kubectl get <span class="nt">--raw</span> /debug/pprof/profile?seconds<span class="o">=</span>30 <span class="o">&gt;</span> profile.out
+go tool pprof profile.out
+</code></pre></div></div>
+
+<h4 id="etcd-performance">etcd Performance</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check etcd metrics</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl endpoint status <span class="nt">--write-out</span><span class="o">=</span>table
+
+<span class="c"># Check database size</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl endpoint status <span class="nt">--write-out</span><span class="o">=</span>json | jq <span class="s1">'.[] | .Status.dbSize'</span>
+</code></pre></div></div>
+
+<h3 id="emergency-recovery-procedures">Emergency Recovery Procedures</h3>
+
+<h4 id="1-cluster-recovery">1. Cluster Recovery</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Backup etcd</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl snapshot save backup.db
+
+<span class="c"># Restore etcd</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl snapshot restore backup.db
+</code></pre></div></div>
+
+<h4 id="2-node-recovery">2. Node Recovery</h4>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Force delete stuck pods</span>
+kubectl delete pod &lt;pod-name&gt; <span class="nt">--grace-period</span><span class="o">=</span>0 <span class="nt">--force</span>
+
+<span class="c"># Reset node</span>
+kubeadm reset
+kubeadm <span class="nb">join</span> &lt;cluster-endpoint&gt; <span class="nt">--token</span> &lt;token&gt;
+</code></pre></div></div>
+
+<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+
+<h3 id="case-study-1-e-commerce-platform-migration">Case Study 1: E-Commerce Platform Migration</h3>
+
+<p><strong>Challenge</strong>: Migrate monolithic e-commerce platform to microservices on Kubernetes</p>
+
+<p><strong>Solution Architecture</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Microservices deployment example</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">product-service</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">product-api</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">ecommerce/product-api:v2.1</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s">500m</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">512Mi</span>
+          <span class="na">limits</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s">1000m</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">1Gi</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">CACHE_REDIS_URL</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">redis://redis-cache:6379"</span>
+<span class="nn">---</span>
+<span class="c1"># HPA for auto-scaling during sales</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling/v2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HorizontalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">product-service-hpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">scaleTargetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">product-service</span>
+  <span class="na">minReplicas</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">50</span>
+  <span class="na">metrics</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
+    <span class="na">resource</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">70</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Pods</span>
+    <span class="na">pods</span><span class="pi">:</span>
+      <span class="na">metric</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">http_requests_per_second</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">AverageValue</span>
+        <span class="na">averageValue</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span>
+  <span class="na">behavior</span><span class="pi">:</span>
+    <span class="na">scaleUp</span><span class="pi">:</span>
+      <span class="na">stabilizationWindowSeconds</span><span class="pi">:</span> <span class="m">60</span>
+      <span class="na">policies</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Percent</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="m">100</span>
+        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">60</span>
+</code></pre></div></div>
+
+<p><strong>Results</strong>:</p>
+<ul>
+  <li>70% reduction in infrastructure costs</li>
+  <li>99.99% uptime achieved</li>
+  <li>Deployment time reduced from hours to minutes</li>
+  <li>Handled 10x traffic during Black Friday</li>
+</ul>
+
+<h3 id="case-study-2-financial-services-security-implementation">Case Study 2: Financial Services Security Implementation</h3>
+
+<p><strong>Challenge</strong>: Implement zero-trust security for banking microservices</p>
+
+<p><strong>Solution</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Network policy for service isolation</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">payment-service-policy</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">payment-service</span>
+  <span class="na">policyTypes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">Ingress</span>
+  <span class="pi">-</span> <span class="s">Egress</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">api-gateway</span>
+    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">app</span><span class="pi">:</span> <span class="s">fraud-detection</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">8443</span>
+  <span class="na">egress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">database</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
+<span class="nn">---</span>
+<span class="c1"># mTLS with Istio</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">security.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PeerAuthentication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">banking</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">mtls</span><span class="pi">:</span>
+    <span class="na">mode</span><span class="pi">:</span> <span class="s">STRICT</span>
+</code></pre></div></div>
+
+<h3 id="case-study-3-ml-platform-on-kubernetes">Case Study 3: ML Platform on Kubernetes</h3>
+
+<p><strong>Challenge</strong>: Build scalable ML training and inference platform</p>
+
+<p><strong>Solution</strong>: Implemented Kubeflow with custom operators for GPU scheduling</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GPU-enabled training job</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubeflow.org/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TFJob</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">model-training</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">tfReplicaSpecs</span><span class="pi">:</span>
+    <span class="na">PS</span><span class="pi">:</span>
+      <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
+      <span class="na">template</span><span class="pi">:</span>
+        <span class="na">spec</span><span class="pi">:</span>
+          <span class="na">containers</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">tensorflow</span>
+            <span class="na">image</span><span class="pi">:</span> <span class="s">tensorflow/tensorflow:2.10.0-gpu</span>
+    <span class="na">Worker</span><span class="pi">:</span>
+      <span class="na">replicas</span><span class="pi">:</span> <span class="m">4</span>
+      <span class="na">template</span><span class="pi">:</span>
+        <span class="na">spec</span><span class="pi">:</span>
+          <span class="na">containers</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">tensorflow</span>
+            <span class="na">image</span><span class="pi">:</span> <span class="s">tensorflow/tensorflow:2.10.0-gpu</span>
+            <span class="na">resources</span><span class="pi">:</span>
+              <span class="na">limits</span><span class="pi">:</span>
+                <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
+</code></pre></div></div>
+
+<h2 id="kubernetes-certification-path">Kubernetes Certification Path</h2>
+
+<h3 id="cka-certified-kubernetes-administrator">CKA (Certified Kubernetes Administrator)</h3>
+<p><strong>Focus</strong>: Cluster administration, networking, storage, security, troubleshooting</p>
+
+<p><strong>Key Topics</strong>:</p>
+<ul>
+  <li>Cluster architecture and installation</li>
+  <li>Workload and scheduling</li>
+  <li>Services and networking</li>
+  <li>Storage</li>
+  <li>Troubleshooting</li>
+</ul>
+
+<p><strong>Practice Resources</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># CKA practice exercises</span>
+git clone https://github.com/kubernetes/examples
+<span class="nb">cd </span>examples
+
+<span class="c"># Practice cluster setup</span>
+kubeadm init <span class="nt">--pod-network-cidr</span><span class="o">=</span>10.244.0.0/16
+</code></pre></div></div>
+
+<h3 id="ckad-certified-kubernetes-application-developer">CKAD (Certified Kubernetes Application Developer)</h3>
+<p><strong>Focus</strong>: Application deployment, configuration, observability</p>
+
+<p><strong>Key Topics</strong>:</p>
+<ul>
+  <li>Core concepts</li>
+  <li>Configuration</li>
+  <li>Multi-container pods</li>
+  <li>Observability</li>
+  <li>Pod design</li>
+  <li>Services and networking</li>
+</ul>
+
+<h3 id="cks-certified-kubernetes-security-specialist">CKS (Certified Kubernetes Security Specialist)</h3>
+<p><strong>Focus</strong>: Security best practices and implementation</p>
+
+<p><strong>Prerequisites</strong>: Must have CKA certification</p>
 
 <h2 id="bringing-it-all-together">Bringing It All Together</h2>
 
-<p>Throughout this guide, we’ve journeyed from basic container orchestration concepts to advanced storage patterns and troubleshooting techniques. Kubernetes transforms the complex task of running distributed systems into manageable, declarative configurations.</p>
+<p>Throughout this comprehensive guide, we’ve journeyed from basic container orchestration concepts to advanced production patterns, security implementations, and real-world case studies. Kubernetes transforms the complex task of running distributed systems into manageable, declarative configurations.</p>
 
 <p>The power of Kubernetes lies not just in its individual features, but in how they work together. Deployments ensure your applications run reliably, Services provide stable networking, Storage Classes abstract infrastructure complexity, and the entire system self-heals when things go wrong. This orchestration creates a platform where developers can focus on building applications rather than managing infrastructure.</p>
+
+<h3 id="your-learning-path-forward">Your Learning Path Forward</h3>
+
+<ol>
+  <li>
+<strong>Beginners</strong>: Start with the Quick Start section, then move to Core Concepts</li>
+  <li>
+<strong>Intermediate</strong>: Focus on Workload Resources, Networking, and Storage sections</li>
+  <li>
+<strong>Advanced</strong>: Dive into Custom Operators, Service Mesh, and Performance Tuning</li>
+  <li>
+<strong>Experts</strong>: Explore Multi-Tenancy, Cluster API, and contribute to the ecosystem</li>
+</ol>
+
+<h3 id="key-takeaways">Key Takeaways</h3>
+
+<ul>
+  <li>
+<strong>Declarative is King</strong>: Always define desired state, let Kubernetes handle the rest</li>
+  <li>
+<strong>Observability First</strong>: You can’t fix what you can’t see</li>
+  <li>
+<strong>Security by Design</strong>: Build security into your architecture from day one</li>
+  <li>
+<strong>Automate Everything</strong>: From deployments to scaling to recovery</li>
+  <li>
+<strong>Community Matters</strong>: The Kubernetes ecosystem is vast - leverage it</li>
+</ul>
 
 <p>As you continue your Kubernetes journey, remember that mastery comes from practice. Start with simple deployments, gradually add complexity as you understand each component, and always follow best practices around security and resource management. The declarative nature of Kubernetes means you can experiment safely - if something goes wrong, you can always reapply your desired state.</p>
 
 <p>Whether you’re running a small web application or orchestrating a complex microservices architecture, Kubernetes provides the foundation for reliable, scalable systems. Its extensive ecosystem and active community ensure that whatever challenge you face, there’s likely a solution or pattern already established.</p>
+
+<p>The future of infrastructure is declarative, scalable, and self-healing. With Kubernetes, you’re not just learning a technology - you’re mastering the operating system of the cloud-native world.</p>
+
+<h2 id="advanced-topics-taking-kubernetes-to-production">Advanced Topics: Taking Kubernetes to Production</h2>
+
+<h3 id="custom-resource-definitions-crds-and-operators">Custom Resource Definitions (CRDs) and Operators</h3>
+
+<p>Kubernetes is extensible by design. Custom Resource Definitions allow you to create new resource types, while Operators encode operational knowledge into software. Together, they enable Kubernetes to manage complex stateful applications as naturally as it manages stateless ones.</p>
+
+<h4 id="creating-a-custom-resource">Creating a Custom Resource</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apiextensions.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CustomResourceDefinition</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">databases.example.com</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">group</span><span class="pi">:</span> <span class="s">example.com</span>
+  <span class="na">versions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v1</span>
+    <span class="na">served</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">storage</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">schema</span><span class="pi">:</span>
+      <span class="na">openAPIV3Schema</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+        <span class="na">properties</span><span class="pi">:</span>
+          <span class="na">spec</span><span class="pi">:</span>
+            <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+            <span class="na">properties</span><span class="pi">:</span>
+              <span class="na">engine</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+                <span class="na">enum</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">postgres"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">mysql"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">mongodb"</span><span class="pi">]</span>
+              <span class="na">version</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+              <span class="na">replicas</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">integer</span>
+                <span class="na">minimum</span><span class="pi">:</span> <span class="m">1</span>
+              <span class="na">backup</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+                <span class="na">properties</span><span class="pi">:</span>
+                  <span class="na">enabled</span><span class="pi">:</span>
+                    <span class="na">type</span><span class="pi">:</span> <span class="s">boolean</span>
+                  <span class="na">schedule</span><span class="pi">:</span>
+                    <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+  <span class="na">scope</span><span class="pi">:</span> <span class="s">Namespaced</span>
+  <span class="na">names</span><span class="pi">:</span>
+    <span class="na">plural</span><span class="pi">:</span> <span class="s">databases</span>
+    <span class="na">singular</span><span class="pi">:</span> <span class="s">database</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Database</span>
+</code></pre></div></div>
+
+<h4 id="building-an-operator">Building an Operator</h4>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Simplified operator logic</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span><span class="n">DatabaseReconciler</span><span class="p">)</span> <span class="n">Reconcile</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="p">(</span><span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Fetch the Database instance</span>
+    <span class="n">database</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">examplev1</span><span class="o">.</span><span class="n">Database</span><span class="p">{}</span>
+    <span class="n">err</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">NamespacedName</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">client</span><span class="o">.</span><span class="n">IgnoreNotFound</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Ensure StatefulSet exists</span>
+    <span class="n">statefulSet</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">statefulSetForDatabase</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">statefulSet</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">errors</span><span class="o">.</span><span class="n">IsAlreadyExists</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Ensure backup CronJob exists if enabled</span>
+    <span class="k">if</span> <span class="n">database</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Backup</span><span class="o">.</span><span class="n">Enabled</span> <span class="p">{</span>
+        <span class="n">cronJob</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">backupCronJobForDatabase</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cronJob</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">errors</span><span class="o">.</span><span class="n">IsAlreadyExists</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">err</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="service-mesh-advanced-networking-with-istio">Service Mesh: Advanced Networking with Istio</h3>
+
+<p>As microservices architectures grow, managing service-to-service communication becomes complex. Service meshes like Istio provide a dedicated infrastructure layer for handling service communications, offering features like traffic management, security, and observability without changing application code.</p>
+
+<h4 id="istio-architecture">Istio Architecture</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Virtual Service for canary deployment</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualService</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reviews</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hosts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">reviews</span>
+  <span class="na">http</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">headers</span><span class="pi">:</span>
+        <span class="na">end-user</span><span class="pi">:</span>
+          <span class="na">exact</span><span class="pi">:</span> <span class="s">jason</span>
+    <span class="na">route</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v2</span>
+  <span class="pi">-</span> <span class="na">route</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v1</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">75</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v2</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">25</span>
+</code></pre></div></div>
+
+<h4 id="circuit-breaking-and-retry-logic">Circuit Breaking and Retry Logic</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DestinationRule</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reviews</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+  <span class="na">trafficPolicy</span><span class="pi">:</span>
+    <span class="na">connectionPool</span><span class="pi">:</span>
+      <span class="na">tcp</span><span class="pi">:</span>
+        <span class="na">maxConnections</span><span class="pi">:</span> <span class="m">100</span>
+      <span class="na">http</span><span class="pi">:</span>
+        <span class="na">http1MaxPendingRequests</span><span class="pi">:</span> <span class="m">50</span>
+        <span class="na">http2MaxRequests</span><span class="pi">:</span> <span class="m">100</span>
+    <span class="na">outlierDetection</span><span class="pi">:</span>
+      <span class="na">consecutiveErrors</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+      <span class="na">baseEjectionTime</span><span class="pi">:</span> <span class="s">30s</span>
+      <span class="na">minHealthPercent</span><span class="pi">:</span> <span class="m">50</span>
+  <span class="na">subsets</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v1</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">v1</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v2</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">v2</span>
+</code></pre></div></div>
+
+<h3 id="gitops-declarative-continuous-deployment">GitOps: Declarative Continuous Deployment</h3>
+
+<p>GitOps uses Git as the single source of truth for declarative infrastructure and applications. Tools like ArgoCD or Flux monitor Git repositories and automatically sync the cluster state with the desired state defined in Git.</p>
+
+<h4 id="argocd-application">ArgoCD Application</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Application</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">myapp</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">argocd</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">project</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">repoURL</span><span class="pi">:</span> <span class="s">https://github.com/myorg/myapp</span>
+    <span class="na">targetRevision</span><span class="pi">:</span> <span class="s">HEAD</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">k8s</span>
+  <span class="na">destination</span><span class="pi">:</span>
+    <span class="na">server</span><span class="pi">:</span> <span class="s">https://kubernetes.default.svc</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">syncPolicy</span><span class="pi">:</span>
+    <span class="na">automated</span><span class="pi">:</span>
+      <span class="na">prune</span><span class="pi">:</span> <span class="kc">true</span>
+      <span class="na">selfHeal</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">syncOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">CreateNamespace=true</span>
+</code></pre></div></div>
+
+<h3 id="multi-tenancy-sharing-clusters-safely">Multi-Tenancy: Sharing Clusters Safely</h3>
+
+<p>Running multiple teams or applications on the same cluster requires careful isolation. Kubernetes provides several mechanisms for multi-tenancy, from simple namespace isolation to virtual clusters.</p>
+
+<h4 id="hierarchical-namespaces">Hierarchical Namespaces</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hnc.x-k8s.io/v1alpha2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HierarchicalConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">hierarchy</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parent</span><span class="pi">:</span> <span class="s">organization-root</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hnc.x-k8s.io/v1alpha2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">SubnamespaceAnchor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-frontend</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceQuota</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-quota</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hard</span><span class="pi">:</span>
+    <span class="na">requests.cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span>
+    <span class="na">requests.memory</span><span class="pi">:</span> <span class="s">200Gi</span>
+    <span class="na">persistentvolumeclaims</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+</code></pre></div></div>
+
+<h3 id="advanced-scheduling-placing-pods-intelligently">Advanced Scheduling: Placing Pods Intelligently</h3>
+
+<p>Kubernetes’ scheduler is highly configurable, allowing you to influence pod placement based on various criteria. This becomes crucial for performance optimization, compliance requirements, and cost management.</p>
+
+<h4 id="custom-scheduler-configuration">Custom Scheduler Configuration</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubescheduler.config.k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KubeSchedulerConfiguration</span>
+<span class="na">profiles</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">schedulerName</span><span class="pi">:</span> <span class="s">custom-scheduler</span>
+  <span class="na">plugins</span><span class="pi">:</span>
+    <span class="na">score</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+        <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeAffinity</span>
+        <span class="na">weight</span><span class="pi">:</span> <span class="m">2</span>
+    <span class="na">filter</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeAffinity</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodePorts</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeVolumeLimits</span>
+  <span class="na">pluginConfig</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+    <span class="na">args</span><span class="pi">:</span>
+      <span class="na">scoringStrategy</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">MostAllocated</span>
+        <span class="na">resources</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+</code></pre></div></div>
+
+<h4 id="pod-topology-spread-constraints">Pod Topology Spread Constraints</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web-app</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">6</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">topologySpreadConstraints</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
+        <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s">DoNotSchedule</span>
+        <span class="na">labelSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">app</span><span class="pi">:</span> <span class="s">web-app</span>
+      <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">topology.kubernetes.io/zone</span>
+        <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s">DoNotSchedule</span>
+        <span class="na">labelSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">app</span><span class="pi">:</span> <span class="s">web-app</span>
+</code></pre></div></div>
+
+<h3 id="cluster-api-kubernetes-for-managing-kubernetes">Cluster API: Kubernetes for Managing Kubernetes</h3>
+
+<p>Cluster API brings declarative, Kubernetes-style APIs to cluster creation, configuration, and management. It’s like using Kubernetes to manage Kubernetes clusters themselves.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cluster.x-k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterNetwork</span><span class="pi">:</span>
+    <span class="na">pods</span><span class="pi">:</span>
+      <span class="na">cidrBlocks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">10.96.0.0/12</span>
+    <span class="na">services</span><span class="pi">:</span>
+      <span class="na">cidrBlocks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">10.244.0.0/16</span>
+  <span class="na">controlPlaneRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">controlplane.cluster.x-k8s.io/v1beta1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">KubeadmControlPlane</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster-control-plane</span>
+  <span class="na">infrastructureRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">infrastructure.cluster.x-k8s.io/v1beta1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">AWSCluster</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+</code></pre></div></div>
+
+<h2 id="production-best-practices-real-world-lessons">Production Best Practices: Real-World Lessons</h2>
+
+<h3 id="high-availability-patterns">High Availability Patterns</h3>
+
+<ol>
+  <li>
+<strong>Control Plane HA</strong>:
+    <ul>
+      <li>Run 3 or 5 master nodes (odd numbers for quorum)</li>
+      <li>Use external etcd cluster for large deployments</li>
+      <li>Place masters in different availability zones</li>
+    </ul>
+  </li>
+  <li>
+<strong>Application HA</strong>:
+    <ul>
+      <li>Use PodDisruptionBudgets to prevent accidental outages</li>
+      <li>Implement proper health checks</li>
+      <li>Use anti-affinity rules to spread pods across nodes</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="cost-optimization-strategies">Cost Optimization Strategies</h3>
+
+<ol>
+  <li>
+<strong>Resource Right-Sizing</strong>:
+    <div class="language-yaml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Use VPA recommendations</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">updatePolicy</span><span class="pi">:</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Off"</span>  <span class="c1"># Just recommendations</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Spot Instance Integration</strong>:
+```yaml
+    <h1 id="node-selector-for-spot-instances">Node selector for spot instances</h1>
+    <p>nodeSelector:
+  node.kubernetes.io/lifecycle: spot
+tolerations:</p>
+    <ul>
+      <li>key: spot
+operator: Equal
+value: “true”
+effect: NoSchedule
+```</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="security-hardening-checklist">Security Hardening Checklist</h3>
+
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Enable RBAC and remove default service account permissions</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement Pod Security Standards/Policies</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Use network policies for micro-segmentation</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Enable audit logging</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Scan images for vulnerabilities</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Rotate certificates regularly</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement admission webhooks for policy enforcement</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Use service mesh for mTLS between services</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement secrets management (Sealed Secrets, Vault)</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Regular security updates and patches</li>
+</ul>
+
+<h3 id="disaster-recovery-planning">Disaster Recovery Planning</h3>
+
+<ol>
+  <li>
+<strong>Backup Strategy</strong>:
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c"># Velero backup example</span>
+velero backup create production-backup <span class="se">\</span>
+  <span class="nt">--include-namespaces</span> production <span class="se">\</span>
+  <span class="nt">--snapshot-volumes</span> <span class="se">\</span>
+  <span class="nt">--ttl</span> 720h
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Multi-Region Failover</strong>:
+    <div class="language-yaml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c1"># Federation v2 example</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">types.kubefed.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">FederatedDeployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">placement</span><span class="pi">:</span>
+    <span class="na">clusters</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-east-1</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-west-2</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eu-west-1</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h2 id="common-pitfalls-and-how-to-avoid-them">Common Pitfalls and How to Avoid Them</h2>
+
+<h3 id="1-resource-limits-not-set">1. Resource Limits Not Set</h3>
+<p><strong>Problem</strong>: Pods consume all available resources
+<strong>Solution</strong>: Always set resource requests and limits</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">resources</span><span class="pi">:</span>
+  <span class="na">requests</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250m"</span>
+  <span class="na">limits</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
+</code></pre></div></div>
+
+<h3 id="2-using-latest-tag">2. Using Latest Tag</h3>
+<p><strong>Problem</strong>: Unpredictable deployments
+<strong>Solution</strong>: Use specific image tags</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+
+<span class="c1"># Good</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s">myapp:v1.2.3</span>
+</code></pre></div></div>
+
+<h3 id="3-not-using-health-checks">3. Not Using Health Checks</h3>
+<p><strong>Problem</strong>: Unhealthy pods receive traffic
+<strong>Solution</strong>: Implement proper probes</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">livenessProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/health</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">30</span>
+  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+<span class="na">readinessProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/ready</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<h3 id="4-ignoring-pod-disruption-budgets">4. Ignoring Pod Disruption Budgets</h3>
+<p><strong>Problem</strong>: All pods deleted during updates
+<strong>Solution</strong>: Define PDBs</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodDisruptionBudget</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-pdb</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">minAvailable</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>
+</code></pre></div></div>
+
+<h3 id="5-not-planning-for-node-failures">5. Not Planning for Node Failures</h3>
+<p><strong>Problem</strong>: Single point of failure
+<strong>Solution</strong>: Use node anti-affinity</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">affinity</span><span class="pi">:</span>
+  <span class="na">podAntiAffinity</span><span class="pi">:</span>
+    <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">labelSelector</span><span class="pi">:</span>
+        <span class="na">matchExpressions</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">app</span>
+          <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+          <span class="na">values</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">myapp</span>
+      <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
+</code></pre></div></div>
+
+<h2 id="kubernetes-ecosystem-essential-tools">Kubernetes Ecosystem: Essential Tools</h2>
+
+<h3 id="development-tools">Development Tools</h3>
+<ul>
+  <li>
+<strong>Skaffold</strong>: Continuous development for Kubernetes</li>
+  <li>
+<strong>Tilt</strong>: Multi-service dev environment</li>
+  <li>
+<strong>Telepresence</strong>: Local development with remote cluster</li>
+  <li>
+<strong>k9s</strong>: Terminal UI for Kubernetes</li>
+</ul>
+
+<h3 id="monitoring-and-observability">Monitoring and Observability</h3>
+<ul>
+  <li>
+<strong>Prometheus + Grafana</strong>: Metrics and visualization</li>
+  <li>
+<strong>Elastic Stack</strong>: Log aggregation</li>
+  <li>
+<strong>Jaeger</strong>: Distributed tracing</li>
+  <li>
+<strong>Kube-state-metrics</strong>: Cluster state metrics</li>
+</ul>
+
+<h3 id="security-tools">Security Tools</h3>
+<ul>
+  <li>
+<strong>Falco</strong>: Runtime security</li>
+  <li>
+<strong>OPA (Open Policy Agent)</strong>: Policy enforcement</li>
+  <li>
+<strong>Kubesec</strong>: Security risk analysis</li>
+  <li>
+<strong>kube-bench</strong>: CIS benchmark checks</li>
+</ul>
+
+<h3 id="cicd-integration">CI/CD Integration</h3>
+<ul>
+  <li>
+<strong>Tekton</strong>: Cloud-native CI/CD</li>
+  <li>
+<strong>Jenkins X</strong>: Kubernetes-native CI/CD</li>
+  <li>
+<strong>Spinnaker</strong>: Multi-cloud continuous delivery</li>
+</ul>
+
+<h2 id="performance-tuning-making-kubernetes-fly">Performance Tuning: Making Kubernetes Fly</h2>
+
+<h3 id="etcd-optimization">etcd Optimization</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Defragmentation</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl defrag <span class="nt">--endpoints</span><span class="o">=</span>https://127.0.0.1:2379
+
+<span class="c"># Compaction</span>
+<span class="nv">rev</span><span class="o">=</span><span class="si">$(</span><span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl endpoint status <span class="nt">--write-out</span><span class="o">=</span><span class="s2">"json"</span> | jq <span class="nt">-r</span> <span class="s1">'.[0].Status.header.revision'</span><span class="si">)</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl compact <span class="nv">$rev</span>
+</code></pre></div></div>
+
+<h3 id="api-server-tuning">API Server Tuning</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubeadm.k8s.io/v1beta3</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterConfiguration</span>
+<span class="na">apiServer</span><span class="pi">:</span>
+  <span class="na">extraArgs</span><span class="pi">:</span>
+    <span class="na">max-requests-inflight</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span>
+    <span class="na">max-mutating-requests-inflight</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500"</span>
+    <span class="na">default-watch-cache-size</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500"</span>
+    <span class="na">event-ttl</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1h"</span>
+</code></pre></div></div>
+
+<h3 id="network-performance">Network Performance</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable host networking for performance-critical pods</span>
+<span class="na">hostNetwork</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">dnsPolicy</span><span class="pi">:</span> <span class="s">ClusterFirstWithHostNet</span>
+</code></pre></div></div>
+
+<h2 id="future-of-kubernetes-whats-next">Future of Kubernetes: What’s Next?</h2>
+
+<h3 id="emerging-trends">Emerging Trends</h3>
+<ol>
+  <li>
+<strong>Serverless on Kubernetes</strong>: Knative, OpenFaaS</li>
+  <li>
+<strong>Edge Computing</strong>: K3s, KubeEdge</li>
+  <li>
+<strong>WebAssembly</strong>: Running Wasm workloads</li>
+  <li>
+<strong>AI/ML Workloads</strong>: Kubeflow, MLOps</li>
+  <li>
+<strong>eBPF Integration</strong>: Advanced networking and observability</li>
+</ol>
+
+<h3 id="kubernetes-alternatives-and-when-to-use-them">Kubernetes Alternatives and When to Use Them</h3>
+<ul>
+  <li>
+<strong>Docker Swarm</strong>: Simple container orchestration</li>
+  <li>
+<strong>Nomad</strong>: Simpler alternative for mixed workloads</li>
+  <li>
+<strong>Amazon ECS</strong>: AWS-native container orchestration</li>
+  <li>
+<strong>Cloud Run</strong>: Serverless containers</li>
+</ul>
+
+<p>Choose Kubernetes when you need:</p>
+<ul>
+  <li>Multi-cloud portability</li>
+  <li>Complex application architectures</li>
+  <li>Fine-grained control</li>
+  <li>Large ecosystem of tools</li>
+</ul>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Kubernetes has revolutionized how we deploy and manage applications, but mastery requires understanding both its power and complexity. This guide has taken you from basic concepts to advanced production patterns. Remember:</p>
+
+<ol>
+  <li>Start simple, add complexity gradually</li>
+  <li>Automate everything possible</li>
+  <li>Monitor and observe religiously</li>
+  <li>Security is not optional</li>
+  <li>Practice disaster recovery before you need it</li>
+</ol>
+
+<p>The Kubernetes ecosystem continues to evolve rapidly. Stay curious, keep learning, and remember that even experts were beginners once. Whether you’re deploying your first pod or architecting multi-region clusters, Kubernetes provides the foundation for modern cloud-native applications.</p>
 
 <h2 id="see-also">See Also</h2>
 <ul>
