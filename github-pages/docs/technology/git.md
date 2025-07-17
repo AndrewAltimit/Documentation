@@ -39,12 +39,12 @@ section: technology
 %}
 
 <div class="intro-card">
-  <div class="notice--warning">
-    <h4>⚠️ Advanced Content</h4>
-    <p>This page covers Git internals and advanced concepts. If you're new to Git, start with our <a href="/docs/technology/git-crash-course/">Git in 5 Minutes</a> guide. For branching and collaboration, see our <a href="/docs/technology/branching/">Branching Strategy</a> guide.</p>
+  <div class="notice--info">
+    <h4>📚 Comprehensive Git Guide</h4>
+    <p>This page provides a complete Git reference from basics to advanced internals. Whether you're just starting or looking to master Git's inner workings, you'll find valuable content here. Use the table of contents to jump to your level of expertise.</p>
   </div>
   
-  <p class="lead-text">Git represents a paradigm shift in version control systems, implementing a content-addressable filesystem with a distributed architecture based on cryptographic principles. Built on directed acyclic graphs (DAGs), Merkle trees, and SHA-1 hashing, Git provides mathematical guarantees about data integrity while enabling sophisticated workflows through its elegant object model.</p>
+  <p class="lead-text">Git is a distributed version control system that tracks changes in your code over time. Unlike traditional version control systems that rely on a central server, Git gives every developer a complete copy of the project history. This revolutionary approach, combined with its elegant design based on cryptographic principles, has made Git the de facto standard for modern software development.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -65,9 +65,473 @@ section: technology
   </div>
 </div>
 
-## Understanding the Theory Behind Git
+## What is Git?
 
-While Git can be used effectively with just basic commands, understanding its theoretical foundations transforms you from a Git user into a Git master. The mathematical and computer science concepts underlying Git aren't just academic curiosities—they directly explain why Git behaves the way it does, why certain operations are fast while others are slow, and how to recover from complex situations. This deeper understanding helps you troubleshoot problems, optimize workflows, and leverage Git's full power in ways that go beyond memorizing commands.
+Git is a **distributed version control system** created by Linus Torvalds in 2005 for Linux kernel development. Unlike centralized systems (SVN, Perforce), Git:
+
+- **Stores complete history locally**: Every clone is a full backup
+- **Works offline**: Most operations don't need network access
+- **Branches are lightweight**: Creating/merging branches is fast and easy
+- **Guarantees data integrity**: Uses SHA-1/SHA-256 checksums for all data
+- **Supports non-linear development**: Multiple parallel branches and complex merges
+
+### Why Use Version Control?
+
+Version control solves fundamental problems in software development:
+
+1. **Collaboration**: Multiple developers can work on the same project without conflicts
+2. **History**: Track who changed what, when, and why
+3. **Backup**: Distributed copies protect against data loss
+4. **Experimentation**: Try new ideas in branches without affecting stable code
+5. **Time Travel**: Revert to any previous state of the project
+6. **Blame/Annotation**: Understand why code was written a certain way
+
+## Git Crash Course: From Zero to Productive
+
+This section gets you productive with Git in minutes. We'll cover the essential commands you need for daily work, then gradually introduce more advanced concepts.
+
+### Installing Git
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install git
+
+# Or download from git-scm.com
+```
+
+**Linux:**
+```bash
+# Debian/Ubuntu
+sudo apt-get install git
+
+# Fedora
+sudo dnf install git
+
+# Arch
+sudo pacman -S git
+```
+
+**Windows:**
+- Download Git for Windows from [git-scm.com](https://git-scm.com)
+- Or use WSL2 with Linux instructions
+
+### First-Time Setup
+
+```bash
+# Configure your identity (required)
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# Set your preferred editor
+git config --global core.editor "code --wait"  # VS Code
+# or
+git config --global core.editor "vim"          # Vim
+# or  
+git config --global core.editor "nano"         # Nano
+
+# Improve command output
+git config --global color.ui auto
+
+# Set default branch name for new repos
+git config --global init.defaultBranch main
+
+# Helpful aliases
+git config --global alias.st status
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.unstage 'reset HEAD --'
+git config --global alias.last 'log -1 HEAD'
+git config --global alias.visual '!gitk'
+```
+
+### Your First Repository
+
+**Starting a New Project:**
+```bash
+# Create a new directory
+mkdir my-project
+cd my-project
+
+# Initialize Git repository
+git init
+
+# Create your first file
+echo "# My Project" > README.md
+
+# Check repository status
+git status
+# Output: Shows README.md as untracked
+
+# Add file to staging area
+git add README.md
+
+# Commit with a message
+git commit -m "Initial commit: Add README"
+
+# View commit history
+git log
+```
+
+**Cloning an Existing Project:**
+```bash
+# Clone via HTTPS
+git clone https://github.com/username/repository.git
+
+# Clone via SSH (requires SSH key setup)
+git clone git@github.com:username/repository.git
+
+# Clone into specific directory
+git clone https://github.com/username/repository.git my-local-name
+```
+
+### The Basic Workflow
+
+Git has three main states for your files:
+
+1. **Working Directory**: Where you edit files
+2. **Staging Area (Index)**: Where you prepare commits
+3. **Repository**: Where Git stores committed snapshots
+
+```bash
+# 1. Make changes to files
+echo "New feature" >> feature.txt
+
+# 2. Check what changed
+git status
+git diff              # Shows unstaged changes
+
+# 3. Stage changes
+git add feature.txt   # Stage specific file
+git add .            # Stage all changes
+git add -p           # Stage interactively (choose hunks)
+
+# 4. Review staged changes
+git diff --staged    # Shows what will be committed
+
+# 5. Commit
+git commit -m "Add new feature"
+
+# Or open editor for detailed message
+git commit
+```
+
+### Working with Branches
+
+Branches are Git's killer feature. They let you work on features in isolation:
+
+```bash
+# List branches
+git branch              # Local branches
+git branch -r          # Remote branches  
+git branch -a          # All branches
+
+# Create new branch
+git branch feature/login
+
+# Switch to branch
+git checkout feature/login
+# Or create and switch in one command
+git checkout -b feature/login
+
+# Make changes and commit
+echo "Login form" > login.html
+git add login.html
+git commit -m "Add login form"
+
+# Switch back to main
+git checkout main
+
+# Merge feature branch
+git merge feature/login
+
+# Delete merged branch
+git branch -d feature/login
+```
+
+### Remote Repositories
+
+Git is distributed - you collaborate by syncing with remote repositories:
+
+```bash
+# Add remote repository
+git remote add origin https://github.com/username/repo.git
+
+# View remotes
+git remote -v
+
+# Push to remote
+git push origin main
+# Or set upstream and just use 'git push'
+git push -u origin main
+
+# Fetch changes from remote
+git fetch origin
+
+# Pull (fetch + merge) changes
+git pull origin main
+
+# Push new branch
+git push -u origin feature/login
+```
+
+### Common Scenarios and Solutions
+
+**Scenario 1: Undo Changes**
+```bash
+# Discard changes in working directory
+git checkout -- file.txt           # Single file
+git checkout -- .                 # All files
+
+# Unstage files (keep changes)
+git reset HEAD file.txt
+
+# Undo last commit (keep changes)
+git reset --soft HEAD~1
+
+# Undo last commit (discard changes) 
+git reset --hard HEAD~1           # DANGEROUS!
+```
+
+**Scenario 2: Fix Commit Message**
+```bash
+# Change last commit message
+git commit --amend -m "Better message"
+
+# Add forgotten file to last commit
+git add forgotten.txt
+git commit --amend --no-edit
+```
+
+**Scenario 3: Save Work Temporarily**
+```bash
+# Stash current changes
+git stash
+
+# Do other work, then restore
+git stash pop
+
+# List all stashes
+git stash list
+
+# Apply specific stash
+git stash apply stash@{2}
+```
+
+**Scenario 4: Resolve Merge Conflicts**
+```bash
+# After merge conflict
+git status                    # See conflicted files
+
+# Edit files to resolve conflicts
+# Look for markers:
+# <<<<<<< HEAD
+# Your changes
+# =======  
+# Their changes
+# >>>>>>> branch-name
+
+# After resolving
+git add resolved-file.txt
+git commit                   # Completes the merge
+```
+
+### Quick Reference Card
+
+| Task | Command |
+|------|--------|
+| Initialize repo | `git init` |
+| Clone repo | `git clone <url>` |
+| Check status | `git status` |
+| View changes | `git diff` |
+| Stage files | `git add <file>` or `git add .` |
+| Commit | `git commit -m "message"` |
+| View history | `git log --oneline` |
+| Create branch | `git checkout -b <branch>` |
+| Switch branch | `git checkout <branch>` |
+| Merge branch | `git merge <branch>` |
+| Push changes | `git push` |
+| Pull changes | `git pull` |
+| Stash changes | `git stash` |
+| Undo changes | `git checkout -- <file>` |
+
+## Understanding Git's Architecture
+
+Now that you can use Git effectively, let's understand how it works under the hood. This knowledge helps you troubleshoot problems, optimize workflows, and truly master Git.
+
+## Common Pitfalls and How to Avoid Them
+
+### 1. Committing Large Binary Files
+
+**Problem**: Git stores complete copies of binary files, bloating repository size.
+
+**Solution**: 
+```bash
+# Use Git LFS for large files
+git lfs track "*.psd"
+git lfs track "*.zip" 
+git add .gitattributes
+git commit -m "Configure Git LFS"
+
+# Or add to .gitignore
+echo "*.psd" >> .gitignore
+echo "build/" >> .gitignore
+```
+
+### 2. Committing Sensitive Data
+
+**Problem**: Accidentally committed passwords, API keys, or secrets.
+
+**Solution**:
+```bash
+# If not pushed yet
+git reset --soft HEAD~1
+# Remove sensitive file
+git rm --cached sensitive.txt
+
+# If already pushed (requires rewriting history)
+# Use BFG Repo-Cleaner
+java -jar bfg.jar --delete-files passwords.txt
+git push --force
+
+# Prevention: Use .gitignore
+echo ".env" >> .gitignore
+echo "config/secrets.yml" >> .gitignore
+```
+
+### 3. Merge Conflicts from Outdated Branches
+
+**Problem**: Long-lived feature branches accumulate conflicts.
+
+**Solution**:
+```bash
+# Regularly sync with main branch
+git checkout feature/long-running
+git fetch origin
+git rebase origin/main  # Or merge if you prefer
+
+# Alternative: Merge main into feature periodically
+git merge origin/main
+```
+
+### 4. Lost Commits After Reset
+
+**Problem**: Accidentally reset --hard and lost commits.
+
+**Solution**:
+```bash
+# Git keeps a reflog of all HEAD movements
+git reflog
+# Find your lost commit SHA
+# Example output:
+# abc123 HEAD@{0}: reset: moving to HEAD~3
+# def456 HEAD@{1}: commit: Important work
+
+# Recover the commit
+git checkout def456
+# Or create branch from it
+git checkout -b recovered-work def456
+```
+
+### 5. Messy Commit History
+
+**Problem**: Many small, unclear commits make history hard to follow.
+
+**Solution**:
+```bash
+# Before merging, clean up with interactive rebase
+git rebase -i origin/main
+
+# In the editor:
+# pick abc123 WIP
+# squash def456 Fix typo
+# squash ghi789 More fixes
+# reword jkl012 Add login feature
+
+# Result: Clean, logical commits
+```
+
+### 6. Working on Wrong Branch
+
+**Problem**: Made commits on main instead of feature branch.
+
+**Solution**:
+```bash
+# Create new branch with current changes
+git branch feature/new-work
+
+# Reset main to origin
+git reset --hard origin/main
+
+# Switch to feature branch
+git checkout feature/new-work
+```
+
+### 7. Pushing to Wrong Remote
+
+**Problem**: Accidentally pushed to upstream instead of fork.
+
+**Solution**:
+```bash
+# Set up remotes clearly
+git remote add upstream https://github.com/original/repo.git
+git remote add origin https://github.com/yourfork/repo.git
+
+# Always verify before pushing
+git remote -v
+git push origin feature-branch  # Explicitly specify remote
+```
+
+### 8. File Permission Changes
+
+**Problem**: Git tracks file permissions, causing unnecessary diffs.
+
+**Solution**:
+```bash
+# Ignore file mode changes
+git config core.fileMode false
+
+# Or globally
+git config --global core.fileMode false
+```
+
+### 9. Line Ending Issues
+
+**Problem**: CRLF/LF differences between Windows and Unix systems.
+
+**Solution**:
+```bash
+# Configure line endings
+# Windows:
+git config --global core.autocrlf true
+
+# Mac/Linux:
+git config --global core.autocrlf input
+
+# Per-repository settings in .gitattributes:
+echo "* text=auto" >> .gitattributes
+echo "*.sh text eol=lf" >> .gitattributes
+echo "*.bat text eol=crlf" >> .gitattributes
+```
+
+### 10. Detached HEAD State
+
+**Problem**: Accidentally working in detached HEAD state.
+
+**Solution**:
+```bash
+# If you made commits in detached HEAD
+# Create a branch to save them
+git branch save-detached-work
+
+# Or if you want to discard
+git checkout main
+
+# To avoid: Always work on branches
+git checkout -b new-feature
+# Instead of
+git checkout <commit-sha>
+```
 
 ## Mathematical Foundations
 
@@ -1043,4 +1507,30 @@ The future of version control explores novel approaches beyond traditional DAG-b
 - **Fossil**: Distributed VCS with integrated wiki and issue tracking
 - **Mercurial**: Alternative DVCS with different design choices
 
-Git's elegant design, based on solid computer science principles, has revolutionized software development. Its content-addressable storage, distributed architecture, and powerful branching model provide a foundation for complex workflows while maintaining data integrity through cryptographic guarantees. Understanding Git at this deep level enables developers to leverage its full potential and contribute to the evolution of version control systems.
+## Conclusion
+
+Git has revolutionized software development by providing a distributed, efficient, and reliable version control system. From its elegant mathematical foundations to its practical everyday commands, Git offers tools for every level of developer.
+
+### Key Takeaways
+
+1. **Start Simple**: You don't need to understand everything to be productive. Master the basic workflow first.
+
+2. **Branches are Cheap**: Use branches liberally for features, experiments, and bug fixes.
+
+3. **Commit Often**: Small, focused commits are easier to understand and revert if needed.
+
+4. **Write Good Messages**: Your future self will thank you for clear commit messages.
+
+5. **Learn the Internals**: Understanding how Git works helps you recover from mistakes and optimize workflows.
+
+6. **Practice Recovery**: Knowing how to undo, reset, and recover gives confidence to experiment.
+
+### Next Steps
+
+- **Practice**: Create a test repository and try different commands
+- **Explore**: Read the Pro Git book for comprehensive coverage
+- **Contribute**: Join open source projects to experience collaborative workflows
+- **Customize**: Set up aliases and hooks for your workflow
+- **Stay Updated**: Git continues to evolve with new features and improvements
+
+Git's elegant design, based on solid computer science principles, provides a foundation for complex workflows while maintaining data integrity through cryptographic guarantees. Whether you're fixing a typo or architecting a complex feature across multiple branches, Git has the tools to support your development process. Understanding Git deeply transforms it from a necessary tool into a powerful ally in creating better software.
