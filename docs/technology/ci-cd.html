@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="{"name"=>"Andrew", "avatar"=>"/assets/images/avatar.png", "bio"=>"Technologist & Physics Enthusiast", "location"=>"Earth"}">
+
+<!-- Open Graph -->
+<meta property="og:title" content="CI/CD - Continuous Integration & Deployment">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ci-cd.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="CI/CD - Continuous Integration & Deployment">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>CI/CD - Continuous Integration & Deployment | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+  
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Tutorials Hub</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/tutorials/">
+                    <span class="nav__sub-title">📚 All Tutorials</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/tutorials/#learning-paths">
+                    <span class="nav__sub-title">🎯 Learning Paths</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/tutorials/">
+                    <span class="nav__sub-title">🚀 Quick Starts</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Getting Started</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/topic-map/">
+                    <span class="nav__sub-title">🗺️ Interactive Topic Map</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/git-crash-course.html">
+                    <span class="nav__sub-title">🌱 Git in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/docker-crash-course.html">
+                    <span class="nav__sub-title">🌱 Docker in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/database-crash-course.html">
+                    <span class="nav__sub-title">🌱 Databases in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai-fundamentals-simple.html">
+                    <span class="nav__sub-title">🌱 AI Fundamentals Simple</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/technology/index.html">
+                    <span class="nav__sub-title">Technology Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/terraform.html">
+                    <span class="nav__sub-title">Terraform</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/docker.html">
+                    <span class="nav__sub-title">Docker Containers</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/aws.html">
+                    <span class="nav__sub-title">AWS</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/kubernetes.html">
+                    <span class="nav__sub-title">Kubernetes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/database-design.html">
+                    <span class="nav__sub-title">Database Design</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/networking.html">
+                    <span class="nav__sub-title">Networking</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/cybersecurity.html">
+                    <span class="nav__sub-title">Cybersecurity</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/git.html">
+                    <span class="nav__sub-title">Git Version Control</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/branching.html">
+                    <span class="nav__sub-title">Branching Strategies</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/unreal.html">
+                    <span class="nav__sub-title">Unreal Engine</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/quantumcomputing.html">
+                    <span class="nav__sub-title">Quantum Computing</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai.html">
+                    <span class="nav__sub-title">Artificial Intelligence</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai-lecture-2023.html">
+                    <span class="nav__sub-title">AI Lecture 2023</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/please-build.html">
+                    <span class="nav__sub-title">Please Build</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/index.html">
+                    <span class="nav__sub-title">AI/ML Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                    <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/base-models-comparison.html">
+                    <span class="nav__sub-title">Base Models Comparison</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/model-types.html">
+                    <span class="nav__sub-title">Model Types</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/lora-training.html">
+                    <span class="nav__sub-title">LoRA Training</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/controlnet.html">
+                    <span class="nav__sub-title">ControlNet Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/comfyui-guide.html">
+                    <span class="nav__sub-title">ComfyUI Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/output-formats.html">
+                    <span class="nav__sub-title">Output Formats</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/advanced-techniques.html">
+                    <span class="nav__sub-title">Advanced Techniques</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/physics/index.html">
+                    <span class="nav__sub-title">Physics Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/classical-mechanics.html">
+                    <span class="nav__sub-title">Classical Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/thermodynamics.html">
+                    <span class="nav__sub-title">Thermodynamics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/statistical-mechanics.html">
+                    <span class="nav__sub-title">Statistical Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/relativity.html">
+                    <span class="nav__sub-title">Relativity</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/quantum-mechanics.html">
+                    <span class="nav__sub-title">Quantum Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/condensed-matter.html">
+                    <span class="nav__sub-title">Condensed Matter Physics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/quantum-field-theory.html">
+                    <span class="nav__sub-title">Quantum Field Theory</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/string-theory.html">
+                    <span class="nav__sub-title">String Theory</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/index.html">
+                    <span class="nav__sub-title">Research Hub</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/ai-mathematics/">
+                    <span class="nav__sub-title">AI Mathematics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/distributed-systems-theory/">
+                    <span class="nav__sub-title">Distributed Systems Theory</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/quantum-algorithms-research/">
+                    <span class="nav__sub-title">Quantum Algorithms Research</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html">
+                    <span class="nav__sub-title">📋 Reference Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#command-line-references">
+                    <span class="nav__sub-title">🔍 Command Cheat Sheets</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#physics-formulas--constants">
+                    <span class="nav__sub-title">🔬 Physics Formulas</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#algorithms--data-structures">
+                    <span class="nav__sub-title">💻 Algorithms &amp; Big O</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#api-reference-patterns">
+                    <span class="nav__sub-title">🌐 API Reference</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts">
+                    <span class="nav__sub-title">🔧 Troubleshooting</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#best-practices-checklists">
+                    <span class="nav__sub-title">✅ Best Practices</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#quick-links">
+                    <span class="nav__sub-title">🔗 Quick Links</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">CI/CD - Continuous Integration &amp; Deployment</h1>
+      </header>
+      
+      <section class="page__content">
+        <!-- Custom styles are now loaded via main.scss -->
+
+<div class="hero-section">
+  <div class="hero-content">
+    <h1 class="hero-title">CI/CD</h1>
+    <p class="hero-subtitle">Continuous Integration &amp; Continuous Deployment: From Code to Production</p>
+  </div>
+</div>
+
+<div class="intro-card">
+  <p class="lead-text">CI/CD transforms software delivery from a risky, manual process into an automated, reliable pipeline. By automatically building, testing, and deploying code changes, teams can release features faster, catch bugs earlier, and deliver value to users continuously. This automation isn't just about speed—it's about creating a safety net that gives developers confidence to innovate without fear of breaking production.</p>
+  
+  <div class="key-insights">
+    <div class="insight-card">
+      <i class="fas fa-rocket"></i>
+      <h4>Rapid Delivery</h4>
+      <p>Deploy changes multiple times per day with confidence</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-shield-alt"></i>
+      <h4>Early Bug Detection</h4>
+      <p>Catch issues in minutes, not days or weeks</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-users"></i>
+      <h4>Team Efficiency</h4>
+      <p>Free developers from manual deployment tasks</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="what-is-cicd">What is CI/CD?</h2>
+
+<h3 id="the-restaurant-kitchen-analogy">The Restaurant Kitchen Analogy</h3>
+
+<p>Imagine a busy restaurant kitchen:</p>
+
+<p><strong>Without CI/CD</strong> (Traditional Approach):</p>
+<ul>
+  <li>Chef prepares entire meal alone</li>
+  <li>No one tastes until it reaches the customer</li>
+  <li>If something’s wrong, the whole meal is remade</li>
+  <li>One chef = one meal at a time</li>
+</ul>
+
+<p><strong>With CI/CD</strong> (Modern Approach):</p>
+<ul>
+  <li>Multiple chefs work on different dishes</li>
+  <li>Each component is tasted immediately (CI)</li>
+  <li>Approved dishes go straight to customers (CD)</li>
+  <li>Kitchen runs continuously, serving many orders</li>
+</ul>
+
+<h3 id="breaking-it-down">Breaking It Down</h3>
+
+<p><strong>Continuous Integration (CI)</strong>: Developers merge code changes frequently (usually several times per day), with each merge triggering automated builds and tests.</p>
+
+<p><strong>Continuous Deployment (CD)</strong>: Code that passes all tests is automatically deployed to production without manual intervention.</p>
+
+<p><strong>Continuous Delivery</strong>: A variation where code is automatically prepared for release but requires manual approval to deploy.</p>
+
+<h2 id="cicd-crash-course-30-minutes">CI/CD Crash Course (30 Minutes)</h2>
+
+<h3 id="your-first-pipeline">Your First Pipeline</h3>
+
+<p>Let’s build a simple CI/CD pipeline for a Node.js application using GitHub Actions:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .github/workflows/ci-cd.yml</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">CI/CD Pipeline</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span> <span class="nv">main</span><span class="pi">,</span> <span class="nv">develop</span> <span class="pi">]</span>
+  <span class="na">pull_request</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span> <span class="nv">main</span> <span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="c1"># Job 1: Continuous Integration</span>
+  <span class="na">test</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    
+    <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Setup Node.js</span>
+      <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/setup-node@v3</span>
+      <span class="na">with</span><span class="pi">:</span>
+        <span class="na">node-version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">18'</span>
+        <span class="na">cache</span><span class="pi">:</span> <span class="s1">'</span><span class="s">npm'</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install dependencies</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">npm ci</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Run linter</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">npm run lint</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Run tests</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">npm test</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build application</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">npm run build</span>
+
+  <span class="c1"># Job 2: Continuous Deployment</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="s">test</span>  <span class="c1"># Only run if tests pass</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">if</span><span class="pi">:</span> <span class="s">github.ref == 'refs/heads/main'</span>
+    
+    <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to production</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s"># Your deployment commands here</span>
+        <span class="s">echo "Deploying to production..."</span>
+</code></pre></div></div>
+
+<h3 id="understanding-the-pipeline-flow">Understanding the Pipeline Flow</h3>
+
+<ol>
+  <li>
+<strong>Trigger</strong>: Code pushed to main/develop or PR opened</li>
+  <li>
+<strong>Checkout</strong>: Pipeline gets latest code</li>
+  <li>
+<strong>Setup</strong>: Install required tools (Node.js)</li>
+  <li>
+<strong>Dependencies</strong>: Install project dependencies</li>
+  <li>
+<strong>Quality Checks</strong>: Run linter for code standards</li>
+  <li>
+<strong>Tests</strong>: Execute automated tests</li>
+  <li>
+<strong>Build</strong>: Compile/bundle the application</li>
+  <li>
+<strong>Deploy</strong>: If on main branch and tests pass, deploy</li>
+</ol>
+
+<h3 id="quick-start-checklist">Quick Start Checklist</h3>
+
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Create <code class="language-plaintext highlighter-rouge">.github/workflows/</code> directory</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add workflow YAML file</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Define trigger events (push, PR, schedule)</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Set up build environment</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add test commands</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Configure deployment (if ready)</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Commit and push to see it run!</li>
+</ul>
+
+<h2 id="popular-cicd-platforms">Popular CI/CD Platforms</h2>
+
+<h3 id="github-actions">GitHub Actions</h3>
+<p><strong>Best for</strong>: GitHub-hosted projects, easy integration</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Python app with GitHub Actions</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">Python CI</span>
+<span class="na">on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">push</span><span class="pi">]</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">test</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/setup-python@v4</span>
+      <span class="na">with</span><span class="pi">:</span>
+        <span class="na">python-version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.11'</span>
+    <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">pip install -r requirements.txt</span>
+        <span class="s">pytest</span>
+</code></pre></div></div>
+
+<h3 id="gitlab-cicd">GitLab CI/CD</h3>
+<p><strong>Best for</strong>: GitLab users, built-in DevOps features</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .gitlab-ci.yml</span>
+<span class="na">stages</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">test</span>
+  <span class="pi">-</span> <span class="s">build</span>
+  <span class="pi">-</span> <span class="s">deploy</span>
+
+<span class="na">test</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">test</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">npm install</span>
+    <span class="pi">-</span> <span class="s">npm test</span>
+
+<span class="na">deploy</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">deploy</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">npm run build</span>
+    <span class="pi">-</span> <span class="s">npm run deploy</span>
+  <span class="na">only</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">main</span>
+</code></pre></div></div>
+
+<h3 id="jenkins">Jenkins</h3>
+<p><strong>Best for</strong>: Complex workflows, self-hosted, plugins</p>
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Jenkinsfile</span>
+<span class="n">pipeline</span> <span class="o">{</span>
+    <span class="n">agent</span> <span class="n">any</span>
+    
+    <span class="n">stages</span> <span class="o">{</span>
+        <span class="n">stage</span><span class="o">(</span><span class="s1">'Build'</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">steps</span> <span class="o">{</span>
+                <span class="n">sh</span> <span class="s1">'mvn clean package'</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="n">stage</span><span class="o">(</span><span class="s1">'Test'</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">steps</span> <span class="o">{</span>
+                <span class="n">sh</span> <span class="s1">'mvn test'</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="n">stage</span><span class="o">(</span><span class="s1">'Deploy'</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">steps</span> <span class="o">{</span>
+                <span class="n">sh</span> <span class="s1">'./deploy.sh'</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="circleci">CircleCI</h3>
+<p><strong>Best for</strong>: Fast builds, Docker support</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .circleci/config.yml</span>
+<span class="na">version</span><span class="pi">:</span> <span class="m">2.1</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">build-and-test</span><span class="pi">:</span>
+    <span class="na">docker</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s">cimg/node:18.0</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">checkout</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">npm install</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">npm test</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">npm run build</span>
+
+<span class="na">workflows</span><span class="pi">:</span>
+  <span class="na">main</span><span class="pi">:</span>
+    <span class="na">jobs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">build-and-test</span>
+</code></pre></div></div>
+
+<h3 id="platform-comparison">Platform Comparison</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Platform</th>
+      <th>Pros</th>
+      <th>Cons</th>
+      <th>Best Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GitHub Actions</td>
+      <td>Free for public repos, great integration</td>
+      <td>Limited free minutes for private</td>
+      <td>GitHub projects</td>
+    </tr>
+    <tr>
+      <td>GitLab CI</td>
+      <td>Complete DevOps platform</td>
+      <td>Can be complex</td>
+      <td>Full DevOps lifecycle</td>
+    </tr>
+    <tr>
+      <td>Jenkins</td>
+      <td>Highly customizable, mature</td>
+      <td>Requires maintenance</td>
+      <td>Enterprise, complex needs</td>
+    </tr>
+    <tr>
+      <td>CircleCI</td>
+      <td>Fast, good caching</td>
+      <td>Can get expensive</td>
+      <td>Speed-critical projects</td>
+    </tr>
+    <tr>
+      <td>Travis CI</td>
+      <td>Simple setup</td>
+      <td>Less popular now</td>
+      <td>Legacy projects</td>
+    </tr>
+    <tr>
+      <td>Azure DevOps</td>
+      <td>Great for .NET</td>
+      <td>Microsoft-centric</td>
+      <td>Windows/Azure shops</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="pipeline-design-patterns">Pipeline Design Patterns</h2>
+
+<h3 id="1-simple-linear-pipeline">1. Simple Linear Pipeline</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">stages</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">build</span>
+  <span class="pi">-</span> <span class="s">test</span>
+  <span class="pi">-</span> <span class="s">deploy</span>
+</code></pre></div></div>
+<p><strong>Use when</strong>: Starting out, simple projects</p>
+
+<h3 id="2-parallel-execution">2. Parallel Execution</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">test</span><span class="pi">:</span>
+  <span class="na">parallel</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">unit-tests</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span> <span class="s">npm run test:unit</span>
+    <span class="pi">-</span> <span class="na">integration-tests</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span> <span class="s">npm run test:integration</span>
+    <span class="pi">-</span> <span class="na">lint</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span> <span class="s">npm run lint</span>
+</code></pre></div></div>
+<p><strong>Use when</strong>: Tests are independent, need speed</p>
+
+<h3 id="3-matrix-builds">3. Matrix Builds</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">strategy</span><span class="pi">:</span>
+  <span class="na">matrix</span><span class="pi">:</span>
+    <span class="na">node-version</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">14</span><span class="pi">,</span> <span class="nv">16</span><span class="pi">,</span> <span class="nv">18</span><span class="pi">]</span>
+    <span class="na">os</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ubuntu-latest</span><span class="pi">,</span> <span class="nv">windows-latest</span><span class="pi">]</span>
+</code></pre></div></div>
+<p><strong>Use when</strong>: Testing across multiple environments</p>
+
+<h3 id="4-fan-outfan-in">4. Fan-out/Fan-in</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">stages</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">build</span>
+  <span class="pi">-</span> <span class="s">parallel-tests</span>  <span class="c1"># Fan-out: multiple parallel jobs</span>
+  <span class="pi">-</span> <span class="s">aggregate</span>       <span class="c1"># Fan-in: collect results</span>
+  <span class="pi">-</span> <span class="s">deploy</span>
+</code></pre></div></div>
+<p><strong>Use when</strong>: Complex test suites, need aggregated results</p>
+
+<h3 id="5-blue-green-pipeline">5. Blue-Green Pipeline</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy-blue</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span> <span class="s">deploy_to_blue_environment()</span>
+  
+<span class="na">smoke-test</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span> <span class="s">test_blue_environment()</span>
+  
+<span class="na">switch-traffic</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span> <span class="s">route_traffic_to_blue()</span>
+  
+<span class="na">cleanup-green</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span> <span class="s">teardown_green_environment()</span>
+</code></pre></div></div>
+<p><strong>Use when</strong>: Zero-downtime deployments critical</p>
+
+<h2 id="testing-strategies-in-cicd">Testing Strategies in CI/CD</h2>
+
+<h3 id="the-testing-pyramid">The Testing Pyramid</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        /\
+       /  \  E2E Tests (Slow, Few)
+      /    \
+     /------\ Integration Tests (Medium)
+    /        \
+   /----------\ Unit Tests (Fast, Many)
+</code></pre></div></div>
+
+<h3 id="unit-tests-in-ci">Unit Tests in CI</h3>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Fast, isolated tests</span>
+<span class="nf">describe</span><span class="p">(</span><span class="dl">'</span><span class="s1">Calculator</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">adds two numbers</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="nf">expect</span><span class="p">(</span><span class="nf">add</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)).</span><span class="nf">toBe</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</code></pre></div></div>
+<p><strong>Run on</strong>: Every commit
+<strong>Duration</strong>: &lt; 5 minutes</p>
+
+<h3 id="integration-tests">Integration Tests</h3>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Test component interactions</span>
+<span class="nf">describe</span><span class="p">(</span><span class="dl">'</span><span class="s1">API Integration</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">creates user and sends email</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">user</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">createUser</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+    <span class="nf">expect</span><span class="p">(</span><span class="nx">emailService</span><span class="p">.</span><span class="nx">sent</span><span class="p">).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</code></pre></div></div>
+<p><strong>Run on</strong>: Pull requests
+<strong>Duration</strong>: 5-15 minutes</p>
+
+<h3 id="end-to-end-tests">End-to-End Tests</h3>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Test complete user flows</span>
+<span class="nf">describe</span><span class="p">(</span><span class="dl">'</span><span class="s1">Checkout Flow</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">completes purchase</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="k">await</span> <span class="nf">login</span><span class="p">();</span>
+    <span class="k">await</span> <span class="nf">addToCart</span><span class="p">();</span>
+    <span class="k">await</span> <span class="nf">checkout</span><span class="p">();</span>
+    <span class="nf">expect</span><span class="p">(</span><span class="nx">orderConfirmation</span><span class="p">).</span><span class="nf">toBeVisible</span><span class="p">();</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+</code></pre></div></div>
+<p><strong>Run on</strong>: Pre-deployment
+<strong>Duration</strong>: 15-60 minutes</p>
+
+<h3 id="performance-tests">Performance Tests</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">performance-test</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">k6 run load-test.js</span>
+  <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">if</span><span class="pi">:</span> <span class="s">$CI_COMMIT_BRANCH == "main"</span>
+</code></pre></div></div>
+
+<h2 id="security-in-cicd">Security in CI/CD</h2>
+
+<h3 id="secrets-management">Secrets Management</h3>
+
+<p><strong>Bad Practice</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">API_KEY="sk-1234567890" npm run deploy</span>  <span class="c1"># Never do this!</span>
+</code></pre></div></div>
+
+<p><strong>Good Practice</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">npm run deploy</span>
+  <span class="na">environment</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">secrets</span><span class="pi">:</span>
+    <span class="na">API_KEY</span><span class="pi">:</span>
+      <span class="na">from_secret</span><span class="pi">:</span> <span class="s">api_key_production</span>
+</code></pre></div></div>
+
+<h3 id="security-scanning-pipeline">Security Scanning Pipeline</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">security-scan</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">security</span>
+  <span class="na">parallel</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">dependency-check</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span> 
+          <span class="pi">-</span> <span class="s">npm audit</span>
+          <span class="pi">-</span> <span class="s">safety check</span>  <span class="c1"># Python</span>
+          <span class="pi">-</span> <span class="s">bundle audit</span>  <span class="c1"># Ruby</span>
+    
+    <span class="pi">-</span> <span class="na">sast</span><span class="pi">:</span>  <span class="c1"># Static Application Security Testing</span>
+        <span class="na">script</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">semgrep --config=auto</span>
+          <span class="pi">-</span> <span class="s">bandit -r src/</span>  <span class="c1"># Python</span>
+    
+    <span class="pi">-</span> <span class="na">container-scan</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">trivy image myapp:latest</span>
+    
+    <span class="pi">-</span> <span class="na">secrets-scan</span><span class="pi">:</span>
+        <span class="na">script</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">gitleaks detect --source=.</span>
+</code></pre></div></div>
+
+<h3 id="security-best-practices">Security Best Practices</h3>
+
+<ol>
+  <li>
+<strong>Rotate Secrets Regularly</strong>
+```yaml
+    <ul>
+      <li>name: Check secret age
+run: |
+  if [ $(secret_age $SECRET_NAME) -gt 90 ]; then
+    echo “::error::Secret older than 90 days!”
+    exit 1
+  fi
+```</li>
+    </ul>
+  </li>
+  <li>
+<strong>Least Privilege Access</strong>
+    <div class="language-yaml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
+  <span class="na">permissions</span><span class="pi">:</span>
+    <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
+    <span class="na">deployments</span><span class="pi">:</span> <span class="s">write</span>
+    <span class="c1"># Only what's needed, nothing more</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Audit Logs</strong>
+```yaml
+after_script:
+    <ul>
+      <li>echo “Deployed by $CI_USER at $CI_TIMESTAMP” » audit.log
+```</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="deployment-strategies">Deployment Strategies</h2>
+
+<h3 id="1-blue-green-deployment">1. Blue-Green Deployment</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy-blue-green</span><span class="pi">:</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="c1"># Deploy to inactive environment</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to Blue</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">kubectl set image deployment/app app=myapp:$VERSION -n blue</span>
+        <span class="s">kubectl wait --for=condition=ready pod -l app=myapp -n blue</span>
+    
+    <span class="c1"># Test new version</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Smoke Test Blue</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">./smoke-test.sh https://blue.example.com</span>
+    
+    <span class="c1"># Switch traffic</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Switch to Blue</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl patch service app -p '{"spec":{"selector":{"env":"blue"}}}'</span>
+    
+    <span class="c1"># Keep green as rollback option</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Tag Green for Rollback</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl label deployment/app version=previous -n green</span>
+</code></pre></div></div>
+
+<h3 id="2-canary-deployment">2. Canary Deployment</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">canary-deploy</span><span class="pi">:</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="c1"># Deploy canary (10% traffic)</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy Canary</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">kubectl apply -f canary-deployment.yaml</span>
+        <span class="s">kubectl set image deployment/app-canary app=myapp:$VERSION</span>
+    
+    <span class="c1"># Monitor metrics</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Canary</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">for i in {1..10}; do</span>
+          <span class="s">ERROR_RATE=$(curl -s https://metrics.api/error-rate)</span>
+          <span class="s">if [ $ERROR_RATE -gt 5 ]; then</span>
+            <span class="s">echo "High error rate detected!"</span>
+            <span class="s">exit 1</span>
+          <span class="s">fi</span>
+          <span class="s">sleep 60</span>
+        <span class="s">done</span>
+    
+    <span class="c1"># Promote canary</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Promote Canary</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl set image deployment/app app=myapp:$VERSION</span>
+</code></pre></div></div>
+
+<h3 id="3-rolling-deployment">3. Rolling Deployment</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">rolling-deploy</span><span class="pi">:</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure Rolling Update</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">kubectl patch deployment app -p '{</span>
+          <span class="s">"spec": {</span>
+            <span class="s">"strategy": {</span>
+              <span class="s">"type": "RollingUpdate",</span>
+              <span class="s">"rollingUpdate": {</span>
+                <span class="s">"maxSurge": 1,</span>
+                <span class="s">"maxUnavailable": 0</span>
+              <span class="s">}</span>
+            <span class="s">}</span>
+          <span class="s">}</span>
+        <span class="s">}'</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Update Image</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl set image deployment/app app=myapp:$VERSION</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Rollout</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl rollout status deployment/app --timeout=10m</span>
+</code></pre></div></div>
+
+<h3 id="4-feature-flags-deployment">4. Feature Flags Deployment</h3>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Deploy code but control feature activation</span>
+<span class="k">if </span><span class="p">(</span><span class="nx">featureFlag</span><span class="p">.</span><span class="nf">isEnabled</span><span class="p">(</span><span class="dl">'</span><span class="s1">new-checkout-flow</span><span class="dl">'</span><span class="p">))</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nf">renderNewCheckout</span><span class="p">();</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nf">renderOldCheckout</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">feature-flag-deploy</span><span class="pi">:</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy with Feature Off</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">FEATURE_FLAGS='{"new-checkout-flow": false}' \</span>
+        <span class="s">npm run deploy</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Gradual Rollout</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">for percentage in 10 25 50 100; do</span>
+          <span class="s">./set-feature-flag.sh new-checkout-flow $percentage</span>
+          <span class="s">sleep 3600  # Monitor for 1 hour</span>
+        <span class="s">done</span>
+</code></pre></div></div>
+
+<h2 id="infrastructure-as-code-integration">Infrastructure as Code Integration</h2>
+
+<h3 id="terraform-in-cicd">Terraform in CI/CD</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">terraform-pipeline</span><span class="pi">:</span>
+  <span class="na">stages</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">validate</span>
+    <span class="pi">-</span> <span class="s">plan</span>
+    <span class="pi">-</span> <span class="s">apply</span>
+
+  <span class="na">validate</span><span class="pi">:</span>
+    <span class="na">script</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">terraform init</span>
+      <span class="pi">-</span> <span class="s">terraform validate</span>
+      <span class="pi">-</span> <span class="s">terraform fmt -check</span>
+
+  <span class="na">plan</span><span class="pi">:</span>
+    <span class="na">script</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">terraform plan -out=tfplan</span>
+    <span class="na">artifacts</span><span class="pi">:</span>
+      <span class="na">paths</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">tfplan</span>
+
+  <span class="na">apply</span><span class="pi">:</span>
+    <span class="na">script</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">terraform apply tfplan</span>
+    <span class="na">when</span><span class="pi">:</span> <span class="s">manual</span>
+    <span class="na">only</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">main</span>
+</code></pre></div></div>
+
+<h3 id="ansible-integration">Ansible Integration</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">ansible-deploy</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ansible-playbook -i inventory/production deploy.yml</span>
+  <span class="na">before_script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ansible-galaxy install -r requirements.yml</span>
+    <span class="pi">-</span> <span class="s">ansible-lint playbooks/</span>
+</code></pre></div></div>
+
+<h3 id="kubernetes-gitops">Kubernetes GitOps</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Using ArgoCD for GitOps</span>
+<span class="na">gitops-sync</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">|</span>
+      <span class="s"># Update manifest</span>
+      <span class="s">yq eval '.spec.template.spec.containers[0].image = "myapp:'$VERSION'"' \</span>
+        <span class="s">-i k8s/deployment.yaml</span>
+      
+      <span class="s"># Commit changes</span>
+      <span class="s">git add k8s/</span>
+      <span class="s">git commit -m "Update app to version $VERSION"</span>
+      <span class="s">git push origin main</span>
+      
+      <span class="s"># ArgoCD automatically syncs</span>
+</code></pre></div></div>
+
+<h2 id="monitoring-and-observability">Monitoring and Observability</h2>
+
+<h3 id="pipeline-metrics">Pipeline Metrics</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">collect-metrics</span><span class="pi">:</span>
+  <span class="na">after_script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">|</span>
+      <span class="s"># Send metrics to monitoring system</span>
+      <span class="s">curl -X POST https://metrics.api/pipeline \</span>
+        <span class="s">-d '{</span>
+          <span class="s">"pipeline": "$CI_PIPELINE_ID",</span>
+          <span class="s">"duration": "$CI_PIPELINE_DURATION",</span>
+          <span class="s">"status": "$CI_JOB_STATUS",</span>
+          <span class="s">"branch": "$CI_COMMIT_BRANCH"</span>
+        <span class="s">}'</span>
+</code></pre></div></div>
+
+<h3 id="key-metrics-to-track">Key Metrics to Track</h3>
+
+<ol>
+  <li>
+<strong>Lead Time</strong>: Commit to production</li>
+  <li>
+<strong>Deployment Frequency</strong>: Deploys per day/week</li>
+  <li>
+<strong>MTTR</strong>: Mean Time To Recovery</li>
+  <li>
+<strong>Change Failure Rate</strong>: Failed deploys percentage</li>
+</ol>
+
+<h3 id="observability-dashboard-example">Observability Dashboard Example</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Grafana dashboard query</span>
+<span class="na">deployment_frequency</span><span class="pi">:</span>
+  <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">count(</span>
+      <span class="s">ci_pipeline_status{status="success", branch="main"}</span>
+    <span class="s">) by (day)</span>
+
+<span class="na">lead_time_p95</span><span class="pi">:</span>
+  <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">histogram_quantile(0.95,</span>
+      <span class="s">ci_pipeline_duration_seconds_bucket</span>
+    <span class="s">)</span>
+</code></pre></div></div>
+
+<h2 id="gitops-practices">GitOps Practices</h2>
+
+<h3 id="the-gitops-workflow">The GitOps Workflow</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 1. Developer commits code</span>
+<span class="s">git add .</span>
+<span class="s">git commit -m "feat</span><span class="err">:</span> <span class="s">add payment processing"</span>
+<span class="s">git push origin feature/payments</span>
+
+<span class="c1"># 2. CI pipeline runs tests</span>
+<span class="na">ci-pipeline</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">test</span>
+  <span class="pi">-</span> <span class="s">build</span>
+  <span class="pi">-</span> <span class="s">push-image</span>
+
+<span class="c1"># 3. Update deployment manifest</span>
+<span class="na">update-manifest</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">git clone https://github.com/myorg/k8s-configs</span>
+    <span class="pi">-</span> <span class="s">cd k8s-configs</span>
+    <span class="pi">-</span> <span class="s">yq eval '.image.tag = "'$CI_COMMIT_SHA'"' -i app/values.yaml</span>
+    <span class="pi">-</span> <span class="s">git commit -am "Update app to $CI_COMMIT_SHA"</span>
+    <span class="pi">-</span> <span class="s">git push</span>
+
+<span class="c1"># 4. GitOps operator syncs</span>
+<span class="c1"># ArgoCD/Flux automatically deploys changes</span>
+</code></pre></div></div>
+
+<h3 id="gitops-best-practices">GitOps Best Practices</h3>
+
+<ol>
+  <li>
+<strong>Separate Config Repo</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>app-code/          # Application source
+app-config/        # Kubernetes manifests
+app-secrets/       # Encrypted secrets
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Environment Branches</strong>
+    <div class="language-plaintext highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>main     → production/
+staging  → staging/
+develop  → development/
+</code></pre></div>    </div>
+  </li>
+  <li>
+<strong>Automated Rollback</strong>
+    <div class="language-yaml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="na">on-failure</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">git revert HEAD</span>
+    <span class="pi">-</span> <span class="s">git push</span>
+    <span class="c1"># GitOps operator automatically rolls back</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h2 id="common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</h2>
+
+<h3 id="1-flaky-tests">1. Flaky Tests</h3>
+
+<p><strong>Problem</strong>: Tests pass locally but fail in CI</p>
+
+<p><strong>Solutions</strong>:</p>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Bad: Time-dependent test</span>
+<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="k">await</span> <span class="nf">sleep</span><span class="p">(</span><span class="mi">3600000</span><span class="p">);</span>  <span class="c1">// Don't do this!</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="c1">// Good: Mock time</span>
+<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">clock</span> <span class="o">=</span> <span class="nx">sinon</span><span class="p">.</span><span class="nf">useFakeTimers</span><span class="p">();</span>
+  <span class="nx">clock</span><span class="p">.</span><span class="nf">tick</span><span class="p">(</span><span class="mi">3600000</span><span class="p">);</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+  <span class="nx">clock</span><span class="p">.</span><span class="nf">restore</span><span class="p">();</span>
+<span class="p">});</span>
+</code></pre></div></div>
+
+<h3 id="2-secret-leaks">2. Secret Leaks</h3>
+
+<p><strong>Problem</strong>: Accidentally committed secrets</p>
+
+<p><strong>Prevention</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">pre-commit-check</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">gitleaks detect --source=. --verbose</span>
+    <span class="pi">-</span> <span class="s">detect-secrets scan --all-files</span>
+</code></pre></div></div>
+
+<h3 id="3-long-build-times">3. Long Build Times</h3>
+
+<p><strong>Problem</strong>: Pipeline takes hours</p>
+
+<p><strong>Solutions</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Cache dependencies</span>
+<span class="na">cache</span><span class="pi">:</span>
+  <span class="na">key</span><span class="pi">:</span> <span class="s">${CI_COMMIT_REF_SLUG}</span>
+  <span class="na">paths</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">node_modules/</span>
+    <span class="pi">-</span> <span class="s">.npm/</span>
+
+<span class="c1"># Parallel jobs</span>
+<span class="na">test</span><span class="pi">:</span>
+  <span class="na">parallel</span><span class="pi">:</span> <span class="m">4</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">npm run test:chunk:${CI_NODE_INDEX}</span>
+
+<span class="c1"># Incremental builds</span>
+<span class="na">build</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">npm run build --since=$CI_COMMIT_BEFORE_SHA</span>
+</code></pre></div></div>
+
+<h3 id="4-environment-drift">4. Environment Drift</h3>
+
+<p><strong>Problem</strong>: “Works in staging, breaks in production”</p>
+
+<p><strong>Solution</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use identical environments</span>
+<span class="na">.deploy_template</span><span class="pi">:</span> <span class="nl">&amp;deploy_template</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">deploy:v1.2.3</span>
+  <span class="na">variables</span><span class="pi">:</span>
+    <span class="na">TERRAFORM_VERSION</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.5.0"</span>
+    <span class="na">KUBECTL_VERSION</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.27.0"</span>
+
+<span class="na">deploy_staging</span><span class="pi">:</span>
+  <span class="na">&lt;&lt;</span><span class="pi">:</span> <span class="nv">*deploy_template</span>
+  <span class="na">environment</span><span class="pi">:</span> <span class="s">staging</span>
+
+<span class="na">deploy_production</span><span class="pi">:</span>
+  <span class="na">&lt;&lt;</span><span class="pi">:</span> <span class="nv">*deploy_template</span>
+  <span class="na">environment</span><span class="pi">:</span> <span class="s">production</span>
+</code></pre></div></div>
+
+<h2 id="real-world-examples">Real-World Examples</h2>
+
+<h3 id="example-1-e-commerce-platform">Example 1: E-commerce Platform</h3>
+
+<p><strong>Challenge</strong>: Deploy updates without affecting active shoppers</p>
+
+<p><strong>Solution</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">E-commerce Deployment</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="c1"># 1. Build and test</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">docker build -t shop:$GITHUB_SHA .</span>
+          <span class="s">docker run shop:$GITHUB_SHA npm test</span>
+      
+      <span class="c1"># 2. Deploy to canary (5% traffic)</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Canary Deploy</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">kubectl set image deployment/shop-canary \</span>
+            <span class="s">shop=shop:$GITHUB_SHA -n production</span>
+          
+      <span class="c1"># 3. Monitor metrics</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Canary</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">./scripts/monitor-canary.sh --duration=30m \</span>
+            <span class="s">--error-threshold=1% \</span>
+            <span class="s">--latency-p99=200ms</span>
+      
+      <span class="c1"># 4. Full rollout</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Production Deploy</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">kubectl set image deployment/shop \</span>
+            <span class="s">shop=shop:$GITHUB_SHA -n production</span>
+</code></pre></div></div>
+
+<h3 id="example-2-microservices-platform">Example 2: Microservices Platform</h3>
+
+<p><strong>Challenge</strong>: Coordinate deployment of 50+ services</p>
+
+<p><strong>Solution</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Monorepo CI/CD</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">Microservices Pipeline</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">detect-changes</span><span class="pi">:</span>
+    <span class="na">outputs</span><span class="pi">:</span>
+      <span class="na">services</span><span class="pi">:</span> <span class="s">$</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">dorny/paths-filter@v2</span>
+        <span class="na">id</span><span class="pi">:</span> <span class="s">filter</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">filters</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">auth: services/auth/**</span>
+            <span class="s">payment: services/payment/**</span>
+            <span class="s">inventory: services/inventory/**</span>
+            <span class="s"># ... 47 more services</span>
+
+  <span class="na">build-and-deploy</span><span class="pi">:</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="s">detect-changes</span>
+    <span class="na">strategy</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span>
+        <span class="na">service</span><span class="pi">:</span> <span class="s">$</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build Service</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">cd services/$</span>
+          <span class="s">docker build -t $:$GITHUB_SHA .</span>
+          
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy Service</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">helm upgrade --install $ \</span>
+            <span class="s">./charts/$ \</span>
+            <span class="s">--set image.tag=$GITHUB_SHA \</span>
+            <span class="s">--wait --timeout=5m</span>
+</code></pre></div></div>
+
+<h3 id="example-3-mobile-app-deployment">Example 3: Mobile App Deployment</h3>
+
+<p><strong>Challenge</strong>: Deploy to multiple app stores with different requirements</p>
+
+<p><strong>Solution</strong>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Mobile App Release</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">tags</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">v*'</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">build</span><span class="pi">:</span>
+    <span class="na">strategy</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span>
+        <span class="na">platform</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ios</span><span class="pi">,</span> <span class="nv">android</span><span class="pi">]</span>
+    
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build $</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">if [ "$" == "ios" ]; then</span>
+            <span class="s">fastlane ios build</span>
+          <span class="s">else</span>
+            <span class="s">fastlane android build</span>
+          <span class="s">fi</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Run Tests</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">if [ "$" == "ios" ]; then</span>
+            <span class="s">fastlane ios test</span>
+          <span class="s">else</span>
+            <span class="s">fastlane android test</span>
+          <span class="s">fi</span>
+
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="s">build</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to App Store</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">fastlane ios release</span>
+        
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to Play Store</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">fastlane android release</span>
+        
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Notify Team</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">curl -X POST $SLACK_WEBHOOK \</span>
+            <span class="s">-d '{"text":"Version $ released to app stores!"}'</span>
+</code></pre></div></div>
+
+<h2 id="advanced-topics">Advanced Topics</h2>
+
+<h3 id="self-hosted-runners">Self-Hosted Runners</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Setup for high-security environments</span>
+<span class="na">self-hosted-runner</span><span class="pi">:</span>
+  <span class="na">runs-on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">self-hosted</span><span class="pi">,</span> <span class="nv">linux</span><span class="pi">,</span> <span class="nv">x64</span><span class="pi">,</span> <span class="nv">gpu</span><span class="pi">]</span>
+  <span class="na">container</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">custom-runner:latest</span>
+    <span class="na">options</span><span class="pi">:</span> <span class="s">--gpus all</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ML Model Training</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">python train.py --gpu --distributed</span>
+</code></pre></div></div>
+
+<h3 id="pipeline-as-code-libraries">Pipeline as Code Libraries</h3>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Jenkins Shared Library</span>
+<span class="nd">@Library</span><span class="o">(</span><span class="s1">'company-pipeline-lib'</span><span class="o">)</span> <span class="n">_</span>
+
+<span class="n">companyPipeline</span> <span class="o">{</span>
+  <span class="n">language</span> <span class="o">=</span> <span class="s1">'java'</span>
+  <span class="n">type</span> <span class="o">=</span> <span class="s1">'microservice'</span>
+  <span class="n">deployEnvironments</span> <span class="o">=</span> <span class="o">[</span><span class="s1">'dev'</span><span class="o">,</span> <span class="s1">'staging'</span><span class="o">,</span> <span class="s1">'prod'</span><span class="o">]</span>
+  <span class="n">slackChannel</span> <span class="o">=</span> <span class="s1">'#deployments'</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="multi-cloud-deployments">Multi-Cloud Deployments</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">multi-cloud-deploy</span><span class="pi">:</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">matrix</span><span class="pi">:</span>
+      <span class="na">cloud</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">aws</span><span class="pi">,</span> <span class="nv">azure</span><span class="pi">,</span> <span class="nv">gcp</span><span class="pi">]</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to $</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">case "$" in</span>
+          <span class="s">aws)</span>
+            <span class="s">terraform apply -var-file=aws.tfvars</span>
+            <span class="s">;;</span>
+          <span class="s">azure)</span>
+            <span class="s">terraform apply -var-file=azure.tfvars</span>
+            <span class="s">;;</span>
+          <span class="s">gcp)</span>
+            <span class="s">terraform apply -var-file=gcp.tfvars</span>
+            <span class="s">;;</span>
+        <span class="s">esac</span>
+</code></pre></div></div>
+
+<h2 id="getting-started-checklist">Getting Started Checklist</h2>
+
+<h3 id="week-1-foundation">Week 1: Foundation</h3>
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Choose CI/CD platform</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Create first “Hello World” pipeline</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add basic tests</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Set up notifications</li>
+</ul>
+
+<h3 id="week-2-expansion">Week 2: Expansion</h3>
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add code quality checks (linting)</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement branch protection</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Create staging deployment</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add security scanning</li>
+</ul>
+
+<h3 id="week-3-optimization">Week 3: Optimization</h3>
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement caching</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Parallelize tests</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add performance tests</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Create deployment rollback</li>
+</ul>
+
+<h3 id="week-4-production-ready">Week 4: Production Ready</h3>
+<ul class="task-list">
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Set up monitoring</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Implement blue-green deployment</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Add compliance checks</li>
+  <li class="task-list-item">
+<input type="checkbox" class="task-list-item-checkbox" disabled>Document runbooks</li>
+</ul>
+
+<h2 id="resources-and-further-learning">Resources and Further Learning</h2>
+
+<h3 id="essential-tools">Essential Tools</h3>
+<ul>
+  <li>
+<strong>Pipeline Syntax Validators</strong>: YAML validators, GitHub Actions playground</li>
+  <li>
+<strong>Security Scanners</strong>: Snyk, SonarQube, OWASP ZAP</li>
+  <li>
+<strong>Monitoring</strong>: Datadog, New Relic, Prometheus/Grafana</li>
+  <li>
+<strong>GitOps Operators</strong>: ArgoCD, Flux, Jenkins X</li>
+</ul>
+
+<h3 id="books-and-courses">Books and Courses</h3>
+<ul>
+  <li>“Continuous Delivery” by Jez Humble</li>
+  <li>“The DevOps Handbook” by Gene Kim</li>
+  <li>“Accelerate” by Nicole Forsgren</li>
+</ul>
+
+<h3 id="community-resources">Community Resources</h3>
+<ul>
+  <li>CNCF CI/CD Landscape</li>
+  <li>DevOps Weekly Newsletter</li>
+  <li>CI/CD Collective Forum</li>
+</ul>
+
+<p>Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn’t perfection—it’s progress.</p>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

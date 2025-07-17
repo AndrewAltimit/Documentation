@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases">
+<meta name="author" content="{"name"=>"Andrew", "avatar"=>"/assets/images/avatar.png", "bio"=>"Technologist & Physics Enthusiast", "location"=>"Earth"}">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Monorepo Strategies and Management">
+<meta property="og:description" content="Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/monorepo.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Monorepo Strategies and Management">
+<meta name="twitter:description" content="Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases">
+
+<title>Monorepo Strategies and Management | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+  
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Tutorials Hub</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/tutorials/">
+                    <span class="nav__sub-title">📚 All Tutorials</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/tutorials/#learning-paths">
+                    <span class="nav__sub-title">🎯 Learning Paths</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/tutorials/">
+                    <span class="nav__sub-title">🚀 Quick Starts</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Getting Started</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/topic-map/">
+                    <span class="nav__sub-title">🗺️ Interactive Topic Map</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/git-crash-course.html">
+                    <span class="nav__sub-title">🌱 Git in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/docker-crash-course.html">
+                    <span class="nav__sub-title">🌱 Docker in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/database-crash-course.html">
+                    <span class="nav__sub-title">🌱 Databases in 5 Minutes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai-fundamentals-simple.html">
+                    <span class="nav__sub-title">🌱 AI Fundamentals Simple</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/technology/index.html">
+                    <span class="nav__sub-title">Technology Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/terraform.html">
+                    <span class="nav__sub-title">Terraform</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/docker.html">
+                    <span class="nav__sub-title">Docker Containers</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/aws.html">
+                    <span class="nav__sub-title">AWS</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/kubernetes.html">
+                    <span class="nav__sub-title">Kubernetes</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/database-design.html">
+                    <span class="nav__sub-title">Database Design</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/networking.html">
+                    <span class="nav__sub-title">Networking</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/cybersecurity.html">
+                    <span class="nav__sub-title">Cybersecurity</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/git.html">
+                    <span class="nav__sub-title">Git Version Control</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/branching.html">
+                    <span class="nav__sub-title">Branching Strategies</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/unreal.html">
+                    <span class="nav__sub-title">Unreal Engine</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/quantumcomputing.html">
+                    <span class="nav__sub-title">Quantum Computing</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai.html">
+                    <span class="nav__sub-title">Artificial Intelligence</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/ai-lecture-2023.html">
+                    <span class="nav__sub-title">AI Lecture 2023</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/technology/please-build.html">
+                    <span class="nav__sub-title">Please Build</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/index.html">
+                    <span class="nav__sub-title">AI/ML Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                    <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/base-models-comparison.html">
+                    <span class="nav__sub-title">Base Models Comparison</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/model-types.html">
+                    <span class="nav__sub-title">Model Types</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/lora-training.html">
+                    <span class="nav__sub-title">LoRA Training</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/controlnet.html">
+                    <span class="nav__sub-title">ControlNet Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/comfyui-guide.html">
+                    <span class="nav__sub-title">ComfyUI Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/output-formats.html">
+                    <span class="nav__sub-title">Output Formats</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/ai-ml/advanced-techniques.html">
+                    <span class="nav__sub-title">Advanced Techniques</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/physics/index.html">
+                    <span class="nav__sub-title">Physics Overview</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/classical-mechanics.html">
+                    <span class="nav__sub-title">Classical Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/thermodynamics.html">
+                    <span class="nav__sub-title">Thermodynamics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/statistical-mechanics.html">
+                    <span class="nav__sub-title">Statistical Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/relativity.html">
+                    <span class="nav__sub-title">Relativity</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/quantum-mechanics.html">
+                    <span class="nav__sub-title">Quantum Mechanics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/condensed-matter.html">
+                    <span class="nav__sub-title">Condensed Matter Physics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/quantum-field-theory.html">
+                    <span class="nav__sub-title">Quantum Field Theory</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/physics/string-theory.html">
+                    <span class="nav__sub-title">String Theory</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/index.html">
+                    <span class="nav__sub-title">Research Hub</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/ai-mathematics/">
+                    <span class="nav__sub-title">AI Mathematics</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/distributed-systems-theory/">
+                    <span class="nav__sub-title">Distributed Systems Theory</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/advanced/quantum-algorithms-research/">
+                    <span class="nav__sub-title">Quantum Algorithms Research</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html">
+                    <span class="nav__sub-title">📋 Reference Guide</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#command-line-references">
+                    <span class="nav__sub-title">🔍 Command Cheat Sheets</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#physics-formulas--constants">
+                    <span class="nav__sub-title">🔬 Physics Formulas</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#algorithms--data-structures">
+                    <span class="nav__sub-title">💻 Algorithms &amp; Big O</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#api-reference-patterns">
+                    <span class="nav__sub-title">🌐 API Reference</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts">
+                    <span class="nav__sub-title">🔧 Troubleshooting</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#best-practices-checklists">
+                    <span class="nav__sub-title">✅ Best Practices</span>
+                  </a>
+                </li>
+              
+                <li>
+                  <a href="/Documentation/docs/reference/index.html#quick-links">
+                    <span class="nav__sub-title">🔗 Quick Links</span>
+                  </a>
+                </li>
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Monorepo Strategies and Management</h1>
+      </header>
+      
+      <section class="page__content">
+        <h1 id="monorepo-strategies-and-management">Monorepo Strategies and Management</h1>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>A monorepo (monolithic repository) is a software development strategy where code for multiple projects is stored in a single repository. This approach has gained significant traction among large tech companies and is increasingly adopted by teams of all sizes.</p>
+
+<h2 id="what-is-a-monorepo">What is a Monorepo?</h2>
+
+<p>A monorepo contains multiple distinct projects with well-defined relationships and dependencies, all within a single repository. Unlike a monolithic application, projects in a monorepo can be deployed independently.</p>
+
+<h3 id="when-to-use-a-monorepo">When to Use a Monorepo</h3>
+
+<p><strong>Consider a monorepo when:</strong></p>
+<ul>
+  <li>You have multiple projects that share code</li>
+  <li>Teams frequently collaborate across projects</li>
+  <li>You need atomic commits across multiple projects</li>
+  <li>Consistent tooling and standards are important</li>
+  <li>You want simplified dependency management</li>
+</ul>
+
+<p><strong>Avoid a monorepo when:</strong></p>
+<ul>
+  <li>Projects have completely different tech stacks</li>
+  <li>Teams require strict access control separation</li>
+  <li>Projects have vastly different release cycles</li>
+  <li>Your VCS struggles with large repositories</li>
+</ul>
+
+<h2 id="monorepo-vs-polyrepo-comparison">Monorepo vs Polyrepo Comparison</h2>
+
+<h3 id="monorepo-advantages">Monorepo Advantages</h3>
+<ul>
+  <li>
+<strong>Atomic Changes</strong>: Refactor across multiple projects in one commit</li>
+  <li>
+<strong>Shared Code</strong>: Easy code reuse without package publishing</li>
+  <li>
+<strong>Consistent Tooling</strong>: Single set of build tools and configurations</li>
+  <li>
+<strong>Simplified Dependencies</strong>: No version conflicts between internal packages</li>
+  <li>
+<strong>Better Refactoring</strong>: IDEs can find and update all usages</li>
+</ul>
+
+<h3 id="polyrepo-advantages">Polyrepo Advantages</h3>
+<ul>
+  <li>
+<strong>Independent Versioning</strong>: Each project has its own release cycle</li>
+  <li>
+<strong>Smaller Repositories</strong>: Faster cloning and operations</li>
+  <li>
+<strong>Clear Boundaries</strong>: Enforced separation between projects</li>
+  <li>
+<strong>Flexible Tech Stacks</strong>: Each repo can use different tools</li>
+  <li>
+<strong>Granular Access Control</strong>: Per-repository permissions</li>
+</ul>
+
+<h3 id="comparison-table">Comparison Table</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th>Monorepo</th>
+      <th>Polyrepo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Code Sharing</td>
+      <td>Direct imports</td>
+      <td>Published packages</td>
+    </tr>
+    <tr>
+      <td>Atomic Changes</td>
+      <td>✅ Native</td>
+      <td>❌ Requires coordination</td>
+    </tr>
+    <tr>
+      <td>Build Complexity</td>
+      <td>Higher</td>
+      <td>Lower per repo</td>
+    </tr>
+    <tr>
+      <td>Repository Size</td>
+      <td>Large</td>
+      <td>Small</td>
+    </tr>
+    <tr>
+      <td>Team Autonomy</td>
+      <td>Lower</td>
+      <td>Higher</td>
+    </tr>
+    <tr>
+      <td>Tooling Investment</td>
+      <td>High upfront</td>
+      <td>Lower initial</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="popular-monorepo-tools">Popular Monorepo Tools</h2>
+
+<h3 id="nx">Nx</h3>
+
+<p>Nx is a smart, extensible build framework designed for monorepos.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">nx.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"npmScope"</span><span class="p">:</span><span class="w"> </span><span class="s2">"myorg"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"affected"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"defaultBase"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"tasksRunnerOptions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"runner"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@nrwl/nx-cloud"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"options"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"cacheableOperations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"build"</span><span class="p">,</span><span class="w"> </span><span class="s2">"test"</span><span class="p">,</span><span class="w"> </span><span class="s2">"lint"</span><span class="p">]</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li>Intelligent build system with computation caching</li>
+  <li>Affected commands run only on changed projects</li>
+  <li>Rich plugin ecosystem</li>
+  <li>Distributed task execution</li>
+</ul>
+
+<h3 id="lerna">Lerna</h3>
+
+<p>Lerna optimizes workflow around managing multi-package repositories.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">lerna.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"independent"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"npmClient"</span><span class="p">:</span><span class="w"> </span><span class="s2">"yarn"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"useWorkspaces"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"publish"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"conventionalCommits"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"chore(release): publish"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"bootstrap"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"hoist"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li>Independent or fixed versioning modes</li>
+  <li>Automated publishing to npm</li>
+  <li>Bootstrapping local dependencies</li>
+  <li>Conventional commits support</li>
+</ul>
+
+<h3 id="rush">Rush</h3>
+
+<p>Rush is a scalable monorepo manager for the web.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">rush.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"rushVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5.100.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"pnpmVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8.6.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"projects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/core"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libraries/core"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/app"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"apps/main-app"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li>Phantom dependencies detection</li>
+  <li>Incremental builds</li>
+  <li>Rush plugins for extensibility</li>
+  <li>Strict dependency validation</li>
+</ul>
+
+<h3 id="bazel">Bazel</h3>
+
+<p>Bazel is Google’s build tool, designed for large-scale monorepos.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># WORKSPACE
+</span><span class="nf">workspace</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">my_monorepo</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">@bazel_tools//tools/build_defs/repo:http.bzl</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">http_archive</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># BUILD file
+</span><span class="nf">js_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">core</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">src/**/*.js</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">//packages/utils</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">@npm//lodash</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li>Language-agnostic build system</li>
+  <li>Hermetic builds</li>
+  <li>Remote caching and execution</li>
+  <li>Proven at massive scale</li>
+</ul>
+
+<h3 id="turborepo">Turborepo</h3>
+
+<p>Turborepo is a high-performance build system for JavaScript and TypeScript monorepos.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">turbo.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"$schema"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://turbo.build/schema.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"build"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"^build"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"dist/**"</span><span class="p">]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"build"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"dev"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li>Incremental builds</li>
+  <li>Remote caching</li>
+  <li>Parallel execution</li>
+  <li>Zero-config setup</li>
+</ul>
+
+<h2 id="repository-structure-best-practices">Repository Structure Best Practices</h2>
+
+<h3 id="recommended-structure">Recommended Structure</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>monorepo/
+├── apps/                    # Application projects
+│   ├── web-app/
+│   ├── mobile-app/
+│   └── admin-dashboard/
+├── packages/               # Shared packages
+│   ├── ui-components/
+│   ├── utils/
+│   └── api-client/
+├── libs/                   # Internal libraries
+│   ├── auth/
+│   └── data-access/
+├── tools/                  # Build tools and scripts
+│   ├── eslint-config/
+│   └── webpack-config/
+├── docs/                   # Documentation
+├── .github/               # GitHub specific files
+├── package.json           # Root package.json
+└── turbo.json            # Monorepo tool config
+</code></pre></div></div>
+
+<h3 id="naming-conventions">Naming Conventions</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Package naming</span>
+<span class="p">@</span><span class="nd">myorg</span><span class="sr">/ui-component</span><span class="err">s
+</span><span class="p">@</span><span class="nd">myorg</span><span class="sr">/util</span><span class="err">s
+</span><span class="p">@</span><span class="nd">myorg</span><span class="sr">/api-clien</span><span class="err">t
+</span>
+<span class="c1">// Internal imports</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Button</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@myorg/ui-components</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">formatDate</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@myorg/utils</span><span class="dl">'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="workspace-configuration">Workspace Configuration</h3>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">package.json</span><span class="w"> </span><span class="err">(root)</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"my-monorepo"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"private"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"workspaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="s2">"apps/*"</span><span class="p">,</span><span class="w">
+    </span><span class="s2">"packages/*"</span><span class="p">,</span><span class="w">
+    </span><span class="s2">"libs/*"</span><span class="p">,</span><span class="w">
+    </span><span class="s2">"tools/*"</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+  </span><span class="nl">"scripts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"build"</span><span class="p">:</span><span class="w"> </span><span class="s2">"turbo run build"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="s2">"turbo run test"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"lint"</span><span class="p">:</span><span class="w"> </span><span class="s2">"turbo run lint"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="dependency-management-strategies">Dependency Management Strategies</h2>
+
+<h3 id="internal-dependencies">Internal Dependencies</h3>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">packages/app/package.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"@myorg/ui-components"</span><span class="p">:</span><span class="w"> </span><span class="s2">"workspace:*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"@myorg/utils"</span><span class="p">:</span><span class="w"> </span><span class="s2">"workspace:*"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="version-management">Version Management</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Version strategies</span>
+<span class="kr">enum</span> <span class="nx">VersionStrategy</span> <span class="p">{</span>
+  <span class="nx">FIXED</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">fixed</span><span class="dl">"</span><span class="p">,</span>           <span class="c1">// All packages same version</span>
+  <span class="nx">INDEPENDENT</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">independent</span><span class="dl">"</span><span class="p">,</span> <span class="c1">// Each package own version</span>
+  <span class="nx">GROUPED</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">grouped</span><span class="dl">"</span>        <span class="c1">// Groups of packages share versions</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="dependency-hoisting">Dependency Hoisting</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .npmrc or .yarnrc.yml</span>
+<span class="na">nodeLinker</span><span class="pi">:</span> <span class="s">node-modules</span>
+<span class="na">nmHoistingLimits</span><span class="pi">:</span> <span class="s">workspaces</span>
+</code></pre></div></div>
+
+<h3 id="lock-file-management">Lock File Management</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Single lock file at root</span>
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
+
+<span class="c"># Ensure deterministic installs</span>
+npm ci
+yarn <span class="nb">install</span> <span class="nt">--frozen-lockfile</span>
+pnpm <span class="nb">install</span> <span class="nt">--frozen-lockfile</span>
+</code></pre></div></div>
+
+<h2 id="build-optimization-and-caching">Build Optimization and Caching</h2>
+
+<h3 id="computation-caching">Computation Caching</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// nx.json</span>
+<span class="p">{</span>
+  <span class="dl">"</span><span class="s2">tasksRunnerOptions</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="dl">"</span><span class="s2">default</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="dl">"</span><span class="s2">runner</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">@nrwl/workspace/tasks-runners/default</span><span class="dl">"</span><span class="p">,</span>
+      <span class="dl">"</span><span class="s2">options</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="dl">"</span><span class="s2">cacheableOperations</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span>
+          <span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">,</span>
+          <span class="dl">"</span><span class="s2">test</span><span class="dl">"</span><span class="p">,</span>
+          <span class="dl">"</span><span class="s2">lint</span><span class="dl">"</span><span class="p">,</span>
+          <span class="dl">"</span><span class="s2">e2e</span><span class="dl">"</span>
+        <span class="p">],</span>
+        <span class="dl">"</span><span class="s2">cacheDirectory</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">.cache/nx</span><span class="dl">"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="remote-caching">Remote Caching</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Turborepo remote caching</span>
+turbo login
+turbo <span class="nb">link</span>
+
+<span class="c"># Nx Cloud</span>
+nx g @nrwl/nx-cloud:init
+</code></pre></div></div>
+
+<h3 id="incremental-builds">Incremental Builds</h3>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">tsconfig.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"compilerOptions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"incremental"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"tsBuildInfoFile"</span><span class="p">:</span><span class="w"> </span><span class="s2">".tsbuildinfo"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="build-pipeline-optimization">Build Pipeline Optimization</h3>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// turbo.json</span>
+<span class="p">{</span>
+  <span class="dl">"</span><span class="s2">pipeline</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+    <span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="dl">"</span><span class="s2">dependsOn</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">^build</span><span class="dl">"</span><span class="p">],</span>
+      <span class="dl">"</span><span class="s2">outputs</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">dist/**</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">.next/**</span><span class="dl">"</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="dl">"</span><span class="s2">test</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
+      <span class="dl">"</span><span class="s2">dependsOn</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">],</span>
+      <span class="dl">"</span><span class="s2">inputs</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">src/**</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">tests/**</span><span class="dl">"</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="testing-strategies-for-monorepos">Testing Strategies for Monorepos</h2>
+
+<h3 id="test-organization">Test Organization</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>monorepo/
+├── apps/web/__tests__/        # App-specific tests
+├── packages/ui/src/__tests__/ # Package tests
+├── e2e/                       # End-to-end tests
+└── integration/               # Integration tests
+</code></pre></div></div>
+
+<h3 id="affected-testing">Affected Testing</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run tests only for changed code</span>
+nx affected:test <span class="nt">--base</span><span class="o">=</span>main
+turbo run <span class="nb">test</span> <span class="nt">--filter</span><span class="o">=</span>...[origin/main]
+lerna run <span class="nb">test</span> <span class="nt">--since</span> origin/main
+</code></pre></div></div>
+
+<h3 id="test-configuration">Test Configuration</h3>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// jest.config.base.js</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">preset</span><span class="p">:</span> <span class="dl">'</span><span class="s1">../../jest.preset.js</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">coverageDirectory</span><span class="p">:</span> <span class="dl">'</span><span class="s1">../../coverage/packages/ui</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">transform</span><span class="p">:</span> <span class="p">{</span>
+    <span class="dl">'</span><span class="s1">^.+</span><span class="se">\\</span><span class="s1">.(ts|tsx)$</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">ts-jest</span><span class="dl">'</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h3 id="parallel-testing">Parallel Testing</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run tests in parallel</span>
+jest <span class="nt">--maxWorkers</span><span class="o">=</span>50%
+nx run-many <span class="nt">--target</span><span class="o">=</span><span class="nb">test</span> <span class="nt">--parallel</span><span class="o">=</span>3
+turbo run <span class="nb">test</span> <span class="nt">--concurrency</span><span class="o">=</span>4
+</code></pre></div></div>
+
+<h2 id="code-ownership-and-codeowners">Code Ownership and CODEOWNERS</h2>
+
+<h3 id="codeowners-file">CODEOWNERS File</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># .github/CODEOWNERS
+# Global owners
+* @monorepo-admins
+
+# App owners
+/apps/web/ @web-team
+/apps/mobile/ @mobile-team
+
+# Package owners
+/packages/ui-components/ @design-system-team
+/packages/api-client/ @api-team
+
+# Specific file patterns
+*.sql @database-team
+*.yml @devops-team
+</code></pre></div></div>
+
+<h3 id="ownership-strategies">Ownership Strategies</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// ownership.config.ts</span>
+<span class="k">export</span> <span class="kd">const</span> <span class="nx">ownership</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">rules</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="na">pattern</span><span class="p">:</span> <span class="dl">'</span><span class="s1">packages/core/**</span><span class="dl">'</span><span class="p">,</span>
+      <span class="na">owners</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">@core-team</span><span class="dl">'</span><span class="p">],</span>
+      <span class="na">minApprovals</span><span class="p">:</span> <span class="mi">2</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+      <span class="na">pattern</span><span class="p">:</span> <span class="dl">'</span><span class="s1">apps/**</span><span class="dl">'</span><span class="p">,</span>
+      <span class="na">owners</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">@app-team</span><span class="dl">'</span><span class="p">],</span>
+      <span class="na">minApprovals</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h2 id="git-strategies-for-large-repos">Git Strategies for Large Repos</h2>
+
+<h3 id="sparse-checkout">Sparse Checkout</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable sparse checkout</span>
+git sparse-checkout init <span class="nt">--cone</span>
+
+<span class="c"># Add specific paths</span>
+git sparse-checkout <span class="nb">set </span>apps/web packages/ui
+</code></pre></div></div>
+
+<h3 id="shallow-clone">Shallow Clone</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clone with limited history</span>
+git clone <span class="nt">--depth</span><span class="o">=</span>1 https://github.com/org/monorepo.git
+
+<span class="c"># Fetch more history as needed</span>
+git fetch <span class="nt">--deepen</span><span class="o">=</span>100
+</code></pre></div></div>
+
+<h3 id="git-lfs-for-large-files">Git LFS for Large Files</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Track large files</span>
+git lfs track <span class="s2">"*.psd"</span>
+git lfs track <span class="s2">"*.zip"</span>
+
+<span class="c"># .gitattributes</span>
+<span class="k">*</span>.psd <span class="nv">filter</span><span class="o">=</span>lfs <span class="nv">diff</span><span class="o">=</span>lfs <span class="nv">merge</span><span class="o">=</span>lfs <span class="nt">-text</span>
+<span class="k">*</span>.zip <span class="nv">filter</span><span class="o">=</span>lfs <span class="nv">diff</span><span class="o">=</span>lfs <span class="nv">merge</span><span class="o">=</span>lfs <span class="nt">-text</span>
+</code></pre></div></div>
+
+<h3 id="branch-strategies">Branch Strategies</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Feature branches</span>
+feature/APP-123-new-feature
+
+<span class="c"># Release branches</span>
+release/2023.10.0
+
+<span class="c"># Hotfix branches</span>
+hotfix/critical-bug-fix
+</code></pre></div></div>
+
+<h2 id="cicd-for-monorepos">CI/CD for Monorepos</h2>
+
+<h3 id="github-actions-example">GitHub Actions Example</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .github/workflows/ci.yml</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">CI</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
+  <span class="na">pull_request</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">build</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">strategy</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span>
+        <span class="na">package</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">web</span><span class="pi">,</span> <span class="nv">api</span><span class="pi">,</span> <span class="nv">mobile</span><span class="pi">]</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">fetch-depth</span><span class="pi">:</span> <span class="m">0</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Setup Node</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/setup-node@v3</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">node-version</span><span class="pi">:</span> <span class="m">18</span>
+          <span class="na">cache</span><span class="pi">:</span> <span class="s1">'</span><span class="s">yarn'</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install dependencies</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">yarn install --frozen-lockfile</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build affected</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">yarn nx affected:build --base=origin/main</span>
+      
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Test affected</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">yarn nx affected:test --base=origin/main</span>
+</code></pre></div></div>
+
+<h3 id="deployment-strategies">Deployment Strategies</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Selective deployment</span>
+<span class="na">deploy</span><span class="pi">:</span>
+  <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+  <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy changed apps</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">AFFECTED=$(yarn nx affected:apps --base=origin/main --plain)</span>
+        <span class="s">for app in $AFFECTED; do</span>
+          <span class="s">yarn deploy:$app</span>
+        <span class="s">done</span>
+</code></pre></div></div>
+
+<h3 id="build-matrix-optimization">Build Matrix Optimization</h3>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// scripts/generate-matrix.js</span>
+<span class="kd">const</span> <span class="p">{</span> <span class="nx">execSync</span> <span class="p">}</span> <span class="o">=</span> <span class="nf">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">child_process</span><span class="dl">'</span><span class="p">);</span>
+
+<span class="kd">const</span> <span class="nx">affected</span> <span class="o">=</span> <span class="nf">execSync</span><span class="p">(</span><span class="dl">'</span><span class="s1">nx affected:apps --plain</span><span class="dl">'</span><span class="p">)</span>
+  <span class="p">.</span><span class="nf">toString</span><span class="p">()</span>
+  <span class="p">.</span><span class="nf">trim</span><span class="p">()</span>
+  <span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="dl">'</span><span class="s1"> </span><span class="dl">'</span><span class="p">);</span>
+
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">({</span> <span class="na">app</span><span class="p">:</span> <span class="nx">affected</span> <span class="p">}));</span>
+</code></pre></div></div>
+
+<h2 id="migration-strategies">Migration Strategies</h2>
+
+<h3 id="polyrepo-to-monorepo">Polyrepo to Monorepo</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Step 1: Create monorepo structure</span>
+<span class="nb">mkdir </span>my-monorepo <span class="o">&amp;&amp;</span> <span class="nb">cd </span>my-monorepo
+git init
+
+<span class="c"># Step 2: Add repos as subdirectories</span>
+git subtree add <span class="nt">--prefix</span><span class="o">=</span>apps/web https://github.com/org/web-app.git main
+git subtree add <span class="nt">--prefix</span><span class="o">=</span>apps/api https://github.com/org/api.git main
+
+<span class="c"># Step 3: Update import paths</span>
+find <span class="nb">.</span> <span class="nt">-type</span> f <span class="nt">-name</span> <span class="s2">"*.js"</span> <span class="nt">-exec</span> <span class="nb">sed</span> <span class="nt">-i</span> <span class="s1">'s/from "shared"/from "@myorg\/shared"/g'</span> <span class="o">{}</span> +
+
+<span class="c"># Step 4: Setup workspace</span>
+yarn init <span class="nt">-y</span>
+yarn add <span class="nt">-D</span> lerna nx turbo
+</code></pre></div></div>
+
+<h3 id="monorepo-to-polyrepo">Monorepo to Polyrepo</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Extract package with history</span>
+git subtree push <span class="nt">--prefix</span><span class="o">=</span>packages/ui origin ui-package
+
+<span class="c"># Create new repo</span>
+git clone https://github.com/org/monorepo.git ui-components
+<span class="nb">cd </span>ui-components
+git filter-branch <span class="nt">--subdirectory-filter</span> packages/ui <span class="nt">--</span> <span class="nt">--all</span>
+
+<span class="c"># Update dependencies</span>
+npm init <span class="nt">-y</span>
+npm <span class="nb">install</span>
+</code></pre></div></div>
+
+<h3 id="gradual-migration">Gradual Migration</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// migration.config.ts</span>
+<span class="k">export</span> <span class="kd">const</span> <span class="nx">migrationPhases</span> <span class="o">=</span> <span class="p">[</span>
+  <span class="p">{</span>
+    <span class="na">phase</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="na">packages</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">shared-utils</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">ui-components</span><span class="dl">'</span><span class="p">],</span>
+    <span class="na">deadline</span><span class="p">:</span> <span class="dl">'</span><span class="s1">2024-Q1</span><span class="dl">'</span>
+  <span class="p">},</span>
+  <span class="p">{</span>
+    <span class="na">phase</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="na">packages</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">api-client</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">auth</span><span class="dl">'</span><span class="p">],</span>
+    <span class="na">deadline</span><span class="p">:</span> <span class="dl">'</span><span class="s1">2024-Q2</span><span class="dl">'</span>
+  <span class="p">}</span>
+<span class="p">];</span>
+</code></pre></div></div>
+
+<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+
+<h3 id="google">Google</h3>
+
+<ul>
+  <li>
+<strong>Size</strong>: 2+ billion lines of code</li>
+  <li>
+<strong>Tool</strong>: Bazel (originally Blaze)</li>
+  <li>
+<strong>Strategy</strong>: Single massive repository</li>
+  <li>
+<strong>Benefits</strong>: Unified tooling, atomic changes</li>
+  <li>
+<strong>Challenges</strong>: Custom VCS (Piper), specialized tools</li>
+</ul>
+
+<h3 id="facebook-meta">Facebook (Meta)</h3>
+
+<ul>
+  <li>
+<strong>Size</strong>: Hundreds of millions of lines</li>
+  <li>
+<strong>Tool</strong>: Buck (now open source)</li>
+  <li>
+<strong>Strategy</strong>: Mercurial-based monorepo</li>
+  <li>
+<strong>Benefits</strong>: Rapid iteration, code sharing</li>
+  <li>
+<strong>Challenges</strong>: Performance at scale</li>
+</ul>
+
+<h3 id="microsoft">Microsoft</h3>
+
+<ul>
+  <li>
+<strong>Project</strong>: Windows codebase</li>
+  <li>
+<strong>Tool</strong>: Git with VFS (Virtual File System)</li>
+  <li>
+<strong>Strategy</strong>: Git-based monorepo</li>
+  <li>
+<strong>Benefits</strong>: Unified Windows development</li>
+  <li>
+<strong>Challenges</strong>: 300GB+ repo size</li>
+</ul>
+
+<h3 id="uber">Uber</h3>
+
+<ul>
+  <li>
+<strong>Migration</strong>: Polyrepo to monorepo (2018)</li>
+  <li>
+<strong>Tool</strong>: Bazel</li>
+  <li>
+<strong>Languages</strong>: Go, Java, JavaScript</li>
+  <li>
+<strong>Benefits</strong>: 50% reduction in build times</li>
+  <li>
+<strong>Results</strong>: Improved developer productivity</li>
+</ul>
+
+<h2 id="common-challenges-and-solutions">Common Challenges and Solutions</h2>
+
+<h3 id="challenge-long-clone-times">Challenge: Long Clone Times</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Solution 1: Shallow clone</span>
+git clone <span class="nt">--depth</span><span class="o">=</span>1 <span class="nt">--single-branch</span>
+
+<span class="c"># Solution 2: Partial clone</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none
+
+<span class="c"># Solution 3: Sparse checkout</span>
+git sparse-checkout init <span class="nt">--cone</span>
+</code></pre></div></div>
+
+<h3 id="challenge-ide-performance">Challenge: IDE Performance</h3>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">Solution:</span><span class="w"> </span><span class="err">Scope</span><span class="w"> </span><span class="err">IDE</span><span class="w"> </span><span class="err">to</span><span class="w"> </span><span class="err">specific</span><span class="w"> </span><span class="err">packages</span><span class="w">
+</span><span class="err">//</span><span class="w"> </span><span class="err">.vscode/settings.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"files.exclude"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"**/node_modules"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"apps/!(web)/**"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"packages/!(ui)/**"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"search.exclude"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"**/dist"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"**/coverage"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="challenge-merge-conflicts">Challenge: Merge Conflicts</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Solution: Automated conflict resolution</span>
+<span class="c"># .gitattributes</span>
+<span class="k">*</span>.generated.ts <span class="nv">merge</span><span class="o">=</span>ours
+package-lock.json <span class="nv">merge</span><span class="o">=</span>ours
+</code></pre></div></div>
+
+<h3 id="challenge-ci-build-times">Challenge: CI Build Times</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Solution: Distributed builds</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Distribute builds</span>
+  <span class="na">uses</span><span class="pi">:</span> <span class="s">nrwl/nx-set-shas@v3</span>
+  
+<span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">npx nx affected --target=build \</span>
+      <span class="s">--parallel=3 \</span>
+      <span class="s">--configuration=production \</span>
+      <span class="s">--nx-cloud</span>
+</code></pre></div></div>
+
+<h2 id="performance-optimization-techniques">Performance Optimization Techniques</h2>
+
+<h3 id="file-system-optimization">File System Optimization</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use watchman for file watching</span>
+brew <span class="nb">install </span>watchman
+
+<span class="c"># Configure git</span>
+git config core.preloadindex <span class="nb">true
+</span>git config core.fscache <span class="nb">true
+</span>git config gc.auto 256
+</code></pre></div></div>
+
+<h3 id="build-performance">Build Performance</h3>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// webpack.config.js</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">cache</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">type</span><span class="p">:</span> <span class="dl">'</span><span class="s1">filesystem</span><span class="dl">'</span><span class="p">,</span>
+    <span class="na">buildDependencies</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">config</span><span class="p">:</span> <span class="p">[</span><span class="nx">__filename</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">},</span>
+  <span class="na">optimization</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">runtimeChunk</span><span class="p">:</span> <span class="dl">'</span><span class="s1">single</span><span class="dl">'</span><span class="p">,</span>
+    <span class="na">moduleIds</span><span class="p">:</span> <span class="dl">'</span><span class="s1">deterministic</span><span class="dl">'</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h3 id="memory-management">Memory Management</h3>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">.npmrc</span><span class="w">
+</span><span class="err">max-old-space-size=</span><span class="mi">4096</span><span class="w">
+
+</span><span class="err">//</span><span class="w"> </span><span class="err">package.json</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"scripts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"build"</span><span class="p">:</span><span class="w"> </span><span class="s2">"NODE_OPTIONS='--max-old-space-size=4096' nx build"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="parallel-processing">Parallel Processing</h3>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// parallel-tasks.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">cpus</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">os</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="nx">pLimit</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">p-limit</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">limit</span> <span class="o">=</span> <span class="nf">pLimit</span><span class="p">(</span><span class="nf">cpus</span><span class="p">().</span><span class="nx">length</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">tasks</span> <span class="o">=</span> <span class="nx">packages</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="nx">pkg</span> <span class="o">=&gt;</span> 
+  <span class="nf">limit</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="nf">buildPackage</span><span class="p">(</span><span class="nx">pkg</span><span class="p">))</span>
+<span class="p">);</span>
+
+<span class="k">await</span> <span class="nb">Promise</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="nx">tasks</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="best-practices-summary">Best Practices Summary</h2>
+
+<h3 id="dos">Do’s</h3>
+<ul>
+  <li>✅ Start with clear package boundaries</li>
+  <li>✅ Invest in tooling early</li>
+  <li>✅ Use computation caching</li>
+  <li>✅ Implement clear ownership rules</li>
+  <li>✅ Automate dependency updates</li>
+  <li>✅ Monitor repository metrics</li>
+</ul>
+
+<h3 id="donts">Don’ts</h3>
+<ul>
+  <li>❌ Mix unrelated projects</li>
+  <li>❌ Ignore tooling investment</li>
+  <li>❌ Allow circular dependencies</li>
+  <li>❌ Skip documentation</li>
+  <li>❌ Neglect CI/CD optimization</li>
+  <li>❌ Force monorepo on all projects</li>
+</ul>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Monorepos can significantly improve development workflow for teams working on related projects. Success requires careful planning, appropriate tooling, and ongoing optimization. Start small, measure constantly, and scale gradually.</p>
+
+<h2 id="additional-resources">Additional Resources</h2>
+
+<ul>
+  <li><a href="https://nx.dev">Nx Documentation</a></li>
+  <li><a href="https://turbo.build">Turborepo Documentation</a></li>
+  <li><a href="https://lerna.js.org">Lerna Documentation</a></li>
+  <li><a href="https://rushjs.io">Rush Documentation</a></li>
+  <li><a href="https://bazel.build">Bazel Documentation</a></li>
+  <li><a href="https://monorepo.tools">Monorepo.tools</a></li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>
