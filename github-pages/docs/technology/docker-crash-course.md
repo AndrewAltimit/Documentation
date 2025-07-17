@@ -1,228 +1,232 @@
 ---
 layout: docs
-title: Docker in 5 Minutes
-difficulty_level: beginner
+title: Docker Fundamentals
 section: technology
 ---
 
-# Docker: Your App's Shipping Container (5 Minute Read)
+# Docker Fundamentals
 
-{% include learning-breadcrumb.html 
-   path=site.data.breadcrumbs.technology 
-   current="Docker in 5 Minutes"
-   alternatives=site.data.alternatives.docker_beginner 
-%}
+## Overview
 
-{% include skill-level-navigation.html 
-   current_level="beginner"
-   topic="Docker"
-   intermediate_link="/docs/technology/docker/"
-   advanced_link="/docs/technology/kubernetes/"
-%}
+Docker is a platform for developing, shipping, and running applications using containerization technology. It packages applications and their dependencies into portable containers that can run consistently across different computing environments.
 
-## What is Docker?
+## Core Concepts
 
-Remember the frustration: "But it works on my computer!" 
+### Containers
+A container is a lightweight, standalone, executable package that includes everything needed to run an application: code, runtime, system tools, libraries, and settings. Containers are isolated from each other and the host system.
 
-**Docker is like a shipping container for software**. Just as shipping containers revolutionized cargo transport (same container works on ships, trains, and trucks), Docker ensures your app runs the same everywhere.
+### Images
+Docker images are read-only templates used to create containers. An image includes the application code, libraries, dependencies, tools, and other files needed for an application to run. Images are built from a set of instructions called a Dockerfile.
 
-### The Apartment Analogy
+### Docker Engine
+The Docker Engine is the core runtime that creates and manages containers. It consists of:
+- **Docker Daemon**: Background service managing Docker objects
+- **Docker Client**: Command-line interface for interacting with the daemon
+- **REST API**: Interface for programmatic access
 
-Imagine you're moving to a new city:
+### Registry
+A Docker registry stores Docker images. Docker Hub is the default public registry. Private registries can be hosted for proprietary images.
 
-- **Without Docker**: You ship your furniture piece by piece, hope it fits through the doors, pray the electricity works the same way
-- **With Docker**: You ship your entire apartment as-is, with furniture arranged, electricity pre-wired, everything exactly as you had it
+## Architecture
 
-Docker packages your app with everything it needs to run, creating a portable "apartment" for your code.
-
-## Why Should You Care?
-
-### The Pizza Delivery Problem
-
-You're opening a pizza restaurant:
-- Your pizza recipe works perfectly in YOUR kitchen
-- But in another kitchen? Different oven temps, ingredient brands, kitchen layouts...
-- Result: Inconsistent pizzas!
-
-**Docker gives every kitchen the EXACT same setup** - same oven, same ingredients, same everything. Perfect pizzas everywhere!
-
-## Containers vs Virtual Machines (The Hotel Analogy)
-
-### Virtual Machines = Entire Hotel Rooms
-- Each app gets a full room (operating system, furniture, bathroom)
-- Heavy and wasteful (why duplicate everything?)
-- Takes minutes to "check in" (boot up)
-
-### Containers = Efficient Capsule Hotels
-- Each app gets just what it needs (bed, light, outlet)
-- Shares common facilities (operating system kernel)
-- "Check in" in seconds
+Docker uses a client-server architecture:
 
 ```
-Virtual Machine:          Docker Container:
-┌─────────────────┐      ┌─────────────────┐
-│   Full OS       │      │   Just Your App │
-│   All Libraries │      │   + Dependencies│
-│   Your App      │      │                 │
-├─────────────────┤      ├─────────────────┤
-│   Full OS       │      │   Another App   │
-│   All Libraries │      │   + Dependencies│
-│   Another App   │      │                 │
-├─────────────────┤      ├─────────────────┤
-│   Hypervisor    │      │   Docker Engine │
-├─────────────────┤      ├─────────────────┤
-│   Host OS       │      │   Host OS       │
-└─────────────────┘      └─────────────────┘
+┌─────────────┐     ┌─────────────────┐     ┌──────────────┐
+│   Client    │────▶│  Docker Daemon  │────▶│   Registry   │
+│  (docker)   │     │    (dockerd)    │     │ (Docker Hub) │
+└─────────────┘     └─────────────────┘     └──────────────┘
+                            │
+                            ▼
+                    ┌───────────────┐
+                    │  Containers   │
+                    │    Images     │
+                    │   Networks    │
+                    │   Volumes     │
+                    └───────────────┘
 ```
 
-## The Magic Recipe: Images and Containers
+## Basic Commands
 
-### Docker Image = Recipe
-- Instructions for building your app's environment
-- Like a blueprint or cookie cutter
-- Shared and downloaded like app store apps
-
-### Docker Container = The Dish
-- A running instance created from the image
-- Can have many containers from one image
-- Like cookies made from the same cutter
-
-## Essential Commands (Your Docker Toolkit)
-
-### Running Apps
+### Container Management
 ```bash
-docker run hello-world         # Your first container!
-docker run -d -p 80:80 nginx  # Run a web server
+docker run <image>              # Create and start container
+docker ps                       # List running containers
+docker ps -a                    # List all containers
+docker stop <container>         # Stop running container
+docker start <container>        # Start stopped container
+docker rm <container>           # Remove container
+docker logs <container>         # View container logs
+docker exec -it <container> sh  # Execute command in container
 ```
 
-### Managing Containers
+### Image Management
 ```bash
-docker ps                      # What's running?
-docker ps -a                   # What ran before?
-docker stop [container]        # Stop a container
-docker rm [container]          # Delete a container
+docker images                   # List local images
+docker pull <image>             # Download image from registry
+docker build -t <tag> .         # Build image from Dockerfile
+docker push <image>             # Upload image to registry
+docker rmi <image>              # Remove local image
+docker tag <source> <target>    # Create image tag
 ```
 
-### Working with Images
+### Network and Volume Commands
 ```bash
-docker images                  # List your recipes
-docker pull ubuntu            # Download Ubuntu image
-docker rmi [image]            # Delete an image
+docker network ls               # List networks
+docker network create <name>    # Create network
+docker volume ls                # List volumes
+docker volume create <name>     # Create volume
 ```
 
-## Try This Now! (3 Minutes)
+## Dockerfile
 
-### Exercise 1: Run Your First Container
-```bash
-# Run a simple container
-docker run hello-world
-
-# Run an interactive Ubuntu container
-docker run -it ubuntu bash
-# Type 'exit' to leave
-```
-
-### Exercise 2: Run a Real App
-```bash
-# Run a web server
-docker run -d -p 8080:80 nginx
-
-# Visit http://localhost:8080 in your browser
-# You're running a web server with one command!
-
-# See it running
-docker ps
-
-# Stop it (use the CONTAINER ID from docker ps)
-docker stop [CONTAINER_ID]
-```
-
-### Exercise 3: Explore Inside
-```bash
-# Run an interactive container
-docker run -it python:3.9 bash
-
-# Inside the container:
-python --version
-echo "I'm inside a container!"
-exit
-```
-
-## The Dockerfile: Your App's Recipe Card
-
-A Dockerfile is like a recipe card for your app:
+A Dockerfile is a text file containing instructions for building a Docker image:
 
 ```dockerfile
-# Start with a base (like "preheat oven")
-FROM python:3.9
+# Base image
+FROM node:14-alpine
 
-# Set up the kitchen (working directory)
+# Set working directory
 WORKDIR /app
 
-# Gather ingredients (copy files)
+# Copy dependency files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy application code
 COPY . .
 
-# Prep work (install dependencies)
-RUN pip install -r requirements.txt
+# Expose port
+EXPOSE 3000
 
-# The main dish (run the app)
-CMD ["python", "app.py"]
+# Define startup command
+CMD ["node", "server.js"]
 ```
 
-## Common "Aha!" Moments
+### Common Dockerfile Instructions
+- `FROM`: Specify base image
+- `WORKDIR`: Set working directory
+- `COPY`/`ADD`: Copy files into image
+- `RUN`: Execute commands during build
+- `ENV`: Set environment variables
+- `EXPOSE`: Document exposed ports
+- `CMD`: Default command for container
+- `ENTRYPOINT`: Configure container executable
 
-- **"Containers aren't VMs"** - They're lighter, faster, share the host kernel
-- **"Images are blueprints"** - Containers are the actual running instances
-- **"Docker != Docker Hub"** - Docker is the tool, Docker Hub is like GitHub for images
-- **"Containers are disposable"** - Destroy and recreate them freely
+## Docker Compose
 
-## Real-World Examples
+Docker Compose is a tool for defining and running multi-container applications:
 
-### Development Environment
+```yaml
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - db
+      
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=secret
+
+volumes:
+  postgres_data:
+```
+
+### Compose Commands
 ```bash
-# Instead of: "Install Python, PostgreSQL, Redis, configure everything..."
-docker-compose up
-
-# Entire dev environment ready in seconds!
+docker-compose up              # Start services
+docker-compose down            # Stop and remove services
+docker-compose ps              # List services
+docker-compose logs            # View service logs
+docker-compose build           # Build service images
 ```
 
-### Testing Different Versions
+## Networking
+
+Docker provides several network drivers:
+
+### Bridge (default)
+- Containers connected to the same bridge network can communicate
+- Provides isolation between different bridge networks
+
+### Host
+- Container uses host's network directly
+- No network isolation between container and host
+
+### None
+- Container has no network access
+- Complete network isolation
+
+### Custom Networks
 ```bash
-# Test on Python 3.8
-docker run -v .:/app python:3.8 python /app/test.py
-
-# Test on Python 3.11
-docker run -v .:/app python:3.11 python /app/test.py
-
-# No installation needed!
+docker network create myapp-network
+docker run --network myapp-network myapp
 ```
 
-## What NOT to Do
+## Storage
 
-- ❌ Don't store data inside containers (it disappears!)
-- ❌ Don't run everything as root in production
-- ❌ Don't ignore the image size (nobody wants 5GB containers)
-- ❌ Don't put secrets in Dockerfiles (they're visible to everyone)
+### Volumes
+Managed by Docker, stored in Docker's storage directory:
+```bash
+docker run -v myvolume:/data myapp
+```
 
-## Ready for More?
+### Bind Mounts
+Map host directory to container:
+```bash
+docker run -v /host/path:/container/path myapp
+```
 
-You've containerized your first apps! Ready to dive deeper?
+### tmpfs Mounts
+Store data in host memory:
+```bash
+docker run --tmpfs /tmp myapp
+```
 
-- **[Full Docker Documentation →](docker.html)** - Volumes, networks, Docker Compose
-- **[Kubernetes →](kubernetes.html)** - Orchestrating many containers
-- **Practice Project**: Dockerize a simple web app you've built
+## Best Practices
 
-## Quick Reference Card
+### Image Building
+- Use specific base image tags
+- Minimize layers by combining RUN commands
+- Order Dockerfile instructions from least to most frequently changing
+- Use .dockerignore to exclude unnecessary files
+- Don't run containers as root when possible
 
-| Task | Command | Real-World Analogy |
-|------|---------|-------------------|
-| Run container | `docker run [image]` | Start the microwave |
-| List running | `docker ps` | Check what's cooking |
-| Stop container | `docker stop [id]` | Turn off the stove |
-| Remove container | `docker rm [id]` | Clean the dishes |
-| List images | `docker images` | Browse recipe book |
-| Build image | `docker build .` | Write new recipe |
+### Security
+- Scan images for vulnerabilities
+- Use minimal base images (alpine, distroless)
+- Don't store secrets in images
+- Keep Docker and base images updated
+- Use read-only containers when possible
 
----
+### Resource Management
+```bash
+docker run --memory="256m" --cpus="1.0" myapp
+```
 
-**Remember**: Docker is just a tool that packages your app with its environment. Start with simple examples, and soon you'll wonder how you ever lived without it. The best way to learn? Docker run something right now!
+## Container Orchestration
+
+For production deployments, container orchestration platforms manage multiple containers:
+
+- **Kubernetes**: Industry standard for container orchestration
+- **Docker Swarm**: Docker's native clustering solution
+- **Amazon ECS**: AWS container management service
+- **Google GKE**: Google's managed Kubernetes service
+
+## References
+
+- [Docker Documentation](https://docs.docker.com/)
+- [Docker Hub](https://hub.docker.com/)
+- [Dockerfile Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)

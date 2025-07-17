@@ -5,46 +5,17 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-difficulty_level: advanced
-section: technology
 ---
-
-{% include learning-breadcrumb.html 
-   path=site.data.breadcrumbs.technology 
-   current="Git Version Control"
-   alternatives=site.data.alternatives.git_advanced 
-%}
-
-{% include skill-level-navigation.html 
-   current_level="advanced"
-   topic="Git"
-   beginner_link="/docs/technology/git-crash-course/"
-   intermediate_link="/docs/technology/branching/"
-%}
-
-<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section">
   <div class="hero-content">
     <h1 class="hero-title">Git Version Control</h1>
-    <p class="hero-subtitle">A Comprehensive Guide to Distributed Version Control with Git</p>
+    <p class="hero-subtitle">Distributed Version Control System: Architecture, Algorithms, and Implementation</p>
   </div>
 </div>
 
-{% include difficulty-helper.html 
-   current_level="advanced"
-   easier_link="/docs/technology/branching/"
-   prerequisites=site.data.prerequisites.git_advanced
-   related_topics=site.data.related_topics.git_advanced
-%}
-
 <div class="intro-card">
-  <div class="notice--info">
-    <h4>📚 Comprehensive Git Guide</h4>
-    <p>This page provides a complete Git reference from basics to advanced internals. Whether you're just starting or looking to master Git's inner workings, you'll find valuable content here. Use the table of contents to jump to your level of expertise.</p>
-  </div>
-  
-  <p class="lead-text">Git is a distributed version control system that tracks changes in your code over time. Unlike traditional version control systems that rely on a central server, Git gives every developer a complete copy of the project history. This revolutionary approach, combined with its elegant design based on cryptographic principles, has made Git the de facto standard for modern software development.</p>
+  <p class="lead-text">Git is a distributed version control system designed by Linus Torvalds in 2005. Built on content-addressable storage and cryptographic principles, Git provides a robust framework for tracking changes, managing parallel development, and ensuring data integrity through SHA-1/SHA-256 hashing. Its distributed architecture enables every clone to function as a complete repository with full history.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -86,451 +57,140 @@ Version control solves fundamental problems in software development:
 5. **Time Travel**: Revert to any previous state of the project
 6. **Blame/Annotation**: Understand why code was written a certain way
 
-## Git Crash Course: From Zero to Productive
+## Core Architecture
 
-This section gets you productive with Git in minutes. We'll cover the essential commands you need for daily work, then gradually introduce more advanced concepts.
+### Object Model
 
-### Installing Git
+Git implements a content-addressable filesystem with four fundamental object types:
 
-**macOS:**
-```bash
-# Using Homebrew
-brew install git
+**Blob Objects**
+- Store file contents without metadata
+- Identified by SHA-1 hash of content
+- Immutable once created
+- Shared across identical files
 
-# Or download from git-scm.com
+**Tree Objects**
+- Represent directory structures
+- Contain references to blobs and other trees
+- Store file modes and names
+- Form hierarchical structure
+
+**Commit Objects**
+- Point to tree object (snapshot)
+- Reference parent commit(s)
+- Include author, committer, timestamp
+- Store commit message
+
+**Tag Objects**
+- Annotated tags with metadata
+- Point to any Git object
+- Include tagger information
+- Cryptographically signable
+
+### Storage Model
+
+```
+.git/
+├── objects/           # Content-addressable storage
+│   ├── 2d/           # First 2 chars of SHA-1
+│   │   └── 3f4a...  # Remaining 38 chars
+│   ├── info/
+│   └── pack/         # Packed objects
+├── refs/             # References
+│   ├── heads/        # Branch tips
+│   ├── tags/         # Tag references
+│   └── remotes/      # Remote tracking
+├── HEAD              # Current branch
+├── index             # Staging area
+└── config            # Repository configuration
 ```
 
-**Linux:**
+## Configuration Management
+
+### Configuration Hierarchy
+
+Git uses a three-level configuration system:
+
+**System Level** (`/etc/gitconfig`)
+- Applies to all users on the system
+- Modified with `git config --system`
+
+**Global Level** (`~/.gitconfig`)
+- User-specific settings
+- Modified with `git config --global`
+
+**Repository Level** (`.git/config`)
+- Repository-specific settings
+- Modified with `git config --local`
+
+### Essential Configuration
+
 ```bash
-# Debian/Ubuntu
-sudo apt-get install git
-
-# Fedora
-sudo dnf install git
-
-# Arch
-sudo pacman -S git
-```
-
-**Windows:**
-- Download Git for Windows from [git-scm.com](https://git-scm.com)
-- Or use WSL2 with Linux instructions
-
-### First-Time Setup
-
-```bash
-# Configure your identity (required)
+# Identity
 git config --global user.name "Your Name"
 git config --global user.email "your.email@example.com"
 
-# Set your preferred editor
-git config --global core.editor "code --wait"  # VS Code
-# or
-git config --global core.editor "vim"          # Vim
-# or  
-git config --global core.editor "nano"         # Nano
+# Editor
+git config --global core.editor "vim"
 
-# Improve command output
-git config --global color.ui auto
+# Line endings
+git config --global core.autocrlf input  # Unix/Mac
+git config --global core.autocrlf true   # Windows
 
-# Set default branch name for new repos
+# Default branch
 git config --global init.defaultBranch main
 
-# Helpful aliases
-git config --global alias.st status
-git config --global alias.co checkout
-git config --global alias.br branch
-git config --global alias.unstage 'reset HEAD --'
-git config --global alias.last 'log -1 HEAD'
-git config --global alias.visual '!gitk'
+# Aliases
+git config --global alias.lg "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 ```
 
-### Your First Repository
+## Common Operations
 
-**Starting a New Project:**
+### Repository Initialization
+
 ```bash
-# Create a new directory
-mkdir my-project
-cd my-project
-
-# Initialize Git repository
+# Initialize new repository
 git init
+git init --bare              # Bare repository (no working tree)
+git init --object-format=sha256  # SHA-256 (recommended)
 
-# Create your first file
-echo "# My Project" > README.md
-
-# Check repository status
-git status
-# Output: Shows README.md as untracked
-
-# Add file to staging area
-git add README.md
-
-# Commit with a message
-git commit -m "Initial commit: Add README"
-
-# View commit history
-git log
+# Clone existing repository
+git clone <url>
+git clone --depth 1 <url>    # Shallow clone
+git clone --filter=blob:none <url>  # Partial clone
 ```
 
-**Cloning an Existing Project:**
+### Staging and Committing
+
 ```bash
-# Clone via HTTPS
-git clone https://github.com/username/repository.git
+# Stage changes
+git add <file>               # Stage specific file
+git add .                    # Stage all changes
+git add -p                   # Interactive staging
+git add -u                   # Stage modified/deleted files
 
-# Clone via SSH (requires SSH key setup)
-git clone git@github.com:username/repository.git
-
-# Clone into specific directory
-git clone https://github.com/username/repository.git my-local-name
+# Commit
+git commit -m "message"
+git commit -am "message"     # Stage and commit tracked files
+git commit --amend          # Modify last commit
+git commit --fixup <sha>    # Create fixup commit
 ```
 
-### The Basic Workflow
-
-Git has three main states for your files:
-
-1. **Working Directory**: Where you edit files
-2. **Staging Area (Index)**: Where you prepare commits
-3. **Repository**: Where Git stores committed snapshots
+### Branch Operations
 
 ```bash
-# 1. Make changes to files
-echo "New feature" >> feature.txt
-
-# 2. Check what changed
-git status
-git diff              # Shows unstaged changes
-
-# 3. Stage changes
-git add feature.txt   # Stage specific file
-git add .            # Stage all changes
-git add -p           # Stage interactively (choose hunks)
-
-# 4. Review staged changes
-git diff --staged    # Shows what will be committed
-
-# 5. Commit
-git commit -m "Add new feature"
-
-# Or open editor for detailed message
-git commit
-```
-
-### Working with Branches
-
-Branches are Git's killer feature. They let you work on features in isolation:
-
-```bash
-# List branches
-git branch              # Local branches
-git branch -r          # Remote branches  
-git branch -a          # All branches
-
-# Create new branch
-git branch feature/login
-
-# Switch to branch
-git checkout feature/login
-# Or create and switch in one command
-git checkout -b feature/login
-
-# Make changes and commit
-echo "Login form" > login.html
-git add login.html
-git commit -m "Add login form"
-
-# Switch back to main
-git checkout main
-
-# Merge feature branch
-git merge feature/login
-
-# Delete merged branch
-git branch -d feature/login
-```
-
-### Remote Repositories
-
-Git is distributed - you collaborate by syncing with remote repositories:
-
-```bash
-# Add remote repository
-git remote add origin https://github.com/username/repo.git
-
-# View remotes
-git remote -v
-
-# Push to remote
-git push origin main
-# Or set upstream and just use 'git push'
-git push -u origin main
-
-# Fetch changes from remote
-git fetch origin
-
-# Pull (fetch + merge) changes
-git pull origin main
-
-# Push new branch
-git push -u origin feature/login
-```
-
-### Common Scenarios and Solutions
-
-**Scenario 1: Undo Changes**
-```bash
-# Discard changes in working directory
-git checkout -- file.txt           # Single file
-git checkout -- .                 # All files
-
-# Unstage files (keep changes)
-git reset HEAD file.txt
-
-# Undo last commit (keep changes)
-git reset --soft HEAD~1
-
-# Undo last commit (discard changes) 
-git reset --hard HEAD~1           # DANGEROUS!
-```
-
-**Scenario 2: Fix Commit Message**
-```bash
-# Change last commit message
-git commit --amend -m "Better message"
-
-# Add forgotten file to last commit
-git add forgotten.txt
-git commit --amend --no-edit
-```
-
-**Scenario 3: Save Work Temporarily**
-```bash
-# Stash current changes
-git stash
-
-# Do other work, then restore
-git stash pop
-
-# List all stashes
-git stash list
-
-# Apply specific stash
-git stash apply stash@{2}
-```
-
-**Scenario 4: Resolve Merge Conflicts**
-```bash
-# After merge conflict
-git status                    # See conflicted files
-
-# Edit files to resolve conflicts
-# Look for markers:
-# <<<<<<< HEAD
-# Your changes
-# =======  
-# Their changes
-# >>>>>>> branch-name
-
-# After resolving
-git add resolved-file.txt
-git commit                   # Completes the merge
-```
-
-### Quick Reference Card
-
-| Task | Command |
-|------|--------|
-| Initialize repo | `git init` |
-| Clone repo | `git clone <url>` |
-| Check status | `git status` |
-| View changes | `git diff` |
-| Stage files | `git add <file>` or `git add .` |
-| Commit | `git commit -m "message"` |
-| View history | `git log --oneline` |
-| Create branch | `git checkout -b <branch>` |
-| Switch branch | `git checkout <branch>` |
-| Merge branch | `git merge <branch>` |
-| Push changes | `git push` |
-| Pull changes | `git pull` |
-| Stash changes | `git stash` |
-| Undo changes | `git checkout -- <file>` |
-
-## Understanding Git's Architecture
-
-Now that you can use Git effectively, let's understand how it works under the hood. This knowledge helps you troubleshoot problems, optimize workflows, and truly master Git.
-
-## Common Pitfalls and How to Avoid Them
-
-### 1. Committing Large Binary Files
-
-**Problem**: Git stores complete copies of binary files, bloating repository size.
-
-**Solution**: 
-```bash
-# Use Git LFS for large files
-git lfs track "*.psd"
-git lfs track "*.zip" 
-git add .gitattributes
-git commit -m "Configure Git LFS"
-
-# Or add to .gitignore
-echo "*.psd" >> .gitignore
-echo "build/" >> .gitignore
-```
-
-### 2. Committing Sensitive Data
-
-**Problem**: Accidentally committed passwords, API keys, or secrets.
-
-**Solution**:
-```bash
-# If not pushed yet
-git reset --soft HEAD~1
-# Remove sensitive file
-git rm --cached sensitive.txt
-
-# If already pushed (requires rewriting history)
-# Use BFG Repo-Cleaner
-java -jar bfg.jar --delete-files passwords.txt
-git push --force
-
-# Prevention: Use .gitignore
-echo ".env" >> .gitignore
-echo "config/secrets.yml" >> .gitignore
-```
-
-### 3. Merge Conflicts from Outdated Branches
-
-**Problem**: Long-lived feature branches accumulate conflicts.
-
-**Solution**:
-```bash
-# Regularly sync with main branch
-git checkout feature/long-running
-git fetch origin
-git rebase origin/main  # Or merge if you prefer
-
-# Alternative: Merge main into feature periodically
-git merge origin/main
-```
-
-### 4. Lost Commits After Reset
-
-**Problem**: Accidentally reset --hard and lost commits.
-
-**Solution**:
-```bash
-# Git keeps a reflog of all HEAD movements
-git reflog
-# Find your lost commit SHA
-# Example output:
-# abc123 HEAD@{0}: reset: moving to HEAD~3
-# def456 HEAD@{1}: commit: Important work
-
-# Recover the commit
-git checkout def456
-# Or create branch from it
-git checkout -b recovered-work def456
-```
-
-### 5. Messy Commit History
-
-**Problem**: Many small, unclear commits make history hard to follow.
-
-**Solution**:
-```bash
-# Before merging, clean up with interactive rebase
-git rebase -i origin/main
-
-# In the editor:
-# pick abc123 WIP
-# squash def456 Fix typo
-# squash ghi789 More fixes
-# reword jkl012 Add login feature
-
-# Result: Clean, logical commits
-```
-
-### 6. Working on Wrong Branch
-
-**Problem**: Made commits on main instead of feature branch.
-
-**Solution**:
-```bash
-# Create new branch with current changes
-git branch feature/new-work
-
-# Reset main to origin
-git reset --hard origin/main
-
-# Switch to feature branch
-git checkout feature/new-work
-```
-
-### 7. Pushing to Wrong Remote
-
-**Problem**: Accidentally pushed to upstream instead of fork.
-
-**Solution**:
-```bash
-# Set up remotes clearly
-git remote add upstream https://github.com/original/repo.git
-git remote add origin https://github.com/yourfork/repo.git
-
-# Always verify before pushing
-git remote -v
-git push origin feature-branch  # Explicitly specify remote
-```
-
-### 8. File Permission Changes
-
-**Problem**: Git tracks file permissions, causing unnecessary diffs.
-
-**Solution**:
-```bash
-# Ignore file mode changes
-git config core.fileMode false
-
-# Or globally
-git config --global core.fileMode false
-```
-
-### 9. Line Ending Issues
-
-**Problem**: CRLF/LF differences between Windows and Unix systems.
-
-**Solution**:
-```bash
-# Configure line endings
-# Windows:
-git config --global core.autocrlf true
-
-# Mac/Linux:
-git config --global core.autocrlf input
-
-# Per-repository settings in .gitattributes:
-echo "* text=auto" >> .gitattributes
-echo "*.sh text eol=lf" >> .gitattributes
-echo "*.bat text eol=crlf" >> .gitattributes
-```
-
-### 10. Detached HEAD State
-
-**Problem**: Accidentally working in detached HEAD state.
-
-**Solution**:
-```bash
-# If you made commits in detached HEAD
-# Create a branch to save them
-git branch save-detached-work
-
-# Or if you want to discard
-git checkout main
-
-# To avoid: Always work on branches
-git checkout -b new-feature
-# Instead of
-git checkout <commit-sha>
+# Branch management
+git branch                   # List branches
+git branch <name>           # Create branch
+git checkout <branch>       # Switch branch
+git checkout -b <branch>    # Create and switch
+git branch -d <branch>      # Delete merged branch
+git branch -D <branch>      # Force delete
+
+# Remote branches
+git push -u origin <branch> # Push and track
+git push origin --delete <branch>  # Delete remote
+git fetch --prune           # Clean stale references
 ```
 
 ## Mathematical Foundations
@@ -686,48 +346,25 @@ Git's network protocol enables efficient distributed repository synchronization 
 
 > **Code Reference**: For complete Git protocol implementation including clone, fetch, and push operations, see [`repository_operations.py`](../../code-examples/technology/git/repository_operations.py)
 
-### Configuration
+### History and Inspection
 
 ```bash
-# Set user information
-git config --global user.name "Your Name"
-git config --global user.email "your.email@example.com"
-
-# Set default editor
-git config --global core.editor "vim"
-
-# Set default branch name
-git config --global init.defaultBranch main
-
-# List all configurations
-git config --list
-
-# Configure line endings
-git config --global core.autocrlf true  # Windows
-git config --global core.autocrlf input # Mac/Linux
-```
-
-### Basic Workflow
-
-```bash
-# Check status
-git status
-
-# Add files to staging
-git add file.txt                # Specific file
-git add .                       # All files
-git add -p                      # Interactive staging
-
-# Commit changes
-git commit -m "Add feature X"
-git commit -am "Update file"    # Add and commit tracked files
-git commit --amend             # Modify last commit
-
 # View history
-git log
-git log --oneline
-git log --graph --all --decorate
-git log --follow file.txt       # File history including renames
+git log --oneline --graph --all
+git log --follow <file>      # Track renames
+git log -p                   # Show patches
+git log --since="2 weeks ago"
+git log --author="pattern"
+
+# Examine changes
+git diff                     # Working vs staged
+git diff --staged           # Staged vs committed
+git diff HEAD~2 HEAD        # Between commits
+git diff branch1..branch2   # Between branches
+
+# Blame and annotation
+git blame <file>
+git blame -L 10,20 <file>   # Lines 10-20
 ```
 
 ## Advanced Branching and Merge Strategies
@@ -758,74 +395,54 @@ Git implements sophisticated merge algorithms to combine divergent development b
 
 > **Code Reference**: For complete merge strategy implementations including recursive, octopus, and subtree strategies, see [`merge_strategies.py`](../../code-examples/technology/git/merge_strategies.py)
 
-## Branching and Merging
+## Branching Strategies
 
-### Branch Management
+### Merge Operations
 
 ```bash
-# List branches
-git branch                      # Local branches
-git branch -r                   # Remote branches
-git branch -a                   # All branches
+# Fast-forward merge (default when possible)
+git merge <branch>
 
-# Create branch
-git branch feature/new-feature
-git checkout -b feature/new-feature  # Create and switch
+# No fast-forward (preserve branch history)
+git merge --no-ff <branch>
 
-# Switch branches
-git checkout develop
-git switch develop              # Newer syntax
+# Squash merge (single commit)
+git merge --squash <branch>
 
-# Delete branch
-git branch -d feature/completed  # Safe delete
-git branch -D feature/abandoned  # Force delete
-
-# Rename branch
-git branch -m old-name new-name
+# Merge strategies
+git merge -s recursive <branch>  # Default
+git merge -s ours <branch>       # Keep current content
+git merge -s octopus b1 b2 b3    # Multiple branches
 ```
 
-### Merging
+### Rebase Operations
 
 ```bash
-# Merge branch
-git checkout main
-git merge feature/new-feature
-
-# Merge with no fast-forward
-git merge --no-ff feature/new-feature
-
-# Abort merge
-git merge --abort
-
-# Resolve conflicts
-# 1. Edit conflicted files
-# 2. Mark as resolved
-git add resolved-file.txt
-# 3. Complete merge
-git commit
-```
-
-### Rebasing
-
-```bash
-# Rebase current branch onto main
-git rebase main
+# Basic rebase
+git rebase <base-branch>
 
 # Interactive rebase
-git rebase -i HEAD~3
+git rebase -i <base-commit>
+# Commands: pick, reword, edit, squash, fixup, drop
 
-# Common interactive commands:
-# pick   - use commit
-# reword - change commit message
-# squash - combine with previous
-# fixup  - combine, discard message
-# drop   - remove commit
+# Preserve merge commits
+git rebase --preserve-merges <base>
 
-# Abort rebase
-git rebase --abort
+# Autosquash fixup commits
+git rebase -i --autosquash
 
-# Continue after resolving conflicts
-git rebase --continue
+# Rebase with strategy
+git rebase -s recursive -X theirs <base>
+```
+
+### Cherry-Pick
+
+```bash
+# Apply specific commits
+git cherry-pick <sha>
+git cherry-pick <sha1>..<sha2>  # Range
+git cherry-pick -n <sha>        # No commit
+git cherry-pick -x <sha>        # Add source reference
 ```
 
 ## Distributed Repository Synchronization
@@ -861,60 +478,38 @@ Git's distributed nature relies on efficient protocols for synchronizing reposit
 
 > **Code Reference**: For complete remote protocol implementation with pack negotiation and delta compression, see [`remote_protocol.py`](../../code-examples/technology/git/remote_protocol.py)
 
-## Remote Repositories
+## Remote Operations
 
 ### Remote Management
 
 ```bash
-# List remotes
-git remote -v
+# Remote configuration
+git remote add <name> <url>
+git remote set-url <name> <url>
+git remote rename <old> <new>
+git remote remove <name>
+git remote show <name>
 
-# Add remote
-git remote add origin https://github.com/user/repo.git
-
-# Change remote URL
-git remote set-url origin git@github.com:user/repo.git
-
-# Remove remote
-git remote remove origin
-
-# Rename remote
-git remote rename origin upstream
+# Fetch operations
+git fetch <remote>
+git fetch --all --prune
+git fetch <remote> <branch>
 ```
 
-### Fetching and Pulling
+### Push and Pull
 
 ```bash
-# Fetch changes
-git fetch origin
-git fetch --all
+# Push operations
+git push <remote> <branch>
+git push -u <remote> <branch>    # Set upstream
+git push --force-with-lease      # Safe force push
+git push --tags                  # Push all tags
+git push <remote> :<branch>      # Delete remote branch
 
-# Pull changes
-git pull origin main
-git pull --rebase origin main
-
-# Set upstream branch
-git push -u origin feature/new-feature
-git branch --set-upstream-to=origin/main
-```
-
-### Pushing
-
-```bash
-# Push to remote
-git push origin main
-git push -u origin feature/new-feature  # Set upstream
-
-# Push all branches
-git push --all origin
-
-# Push tags
-git push origin v1.0.0          # Specific tag
-git push origin --tags          # All tags
-
-# Force push (use with caution)
-git push --force origin feature/rebased
-git push --force-with-lease     # Safer force push
+# Pull operations
+git pull --rebase <remote> <branch>
+git pull --no-rebase <remote> <branch>
+git pull --ff-only               # Fast-forward only
 ```
 
 ## Advanced Git Algorithms
@@ -959,88 +554,59 @@ Efficiently find commit that introduced a bug:
 
 > **Code Reference**: For complete rebase and bisect implementations with conflict handling, see [`rebase_bisect.py`](../../code-examples/technology/git/rebase_bisect.py)
 
-## Advanced Features
+## Advanced Operations
 
-### Stashing
+### Stash Management
 
 ```bash
-# Save changes temporarily
-git stash
-git stash save "Work in progress"
-
-# List stashes
-git stash list
+# Stash operations
+git stash push -m "description"
+git stash push -p               # Interactive
+git stash push -- <pathspec>   # Specific files
 
 # Apply stash
-git stash apply                 # Most recent
-git stash apply stash@{2}       # Specific stash
-git stash pop                   # Apply and remove
+git stash apply stash@{n}
+git stash pop                   # Apply and drop
+git stash branch <branch> stash@{n}
 
-# Show stash contents
-git stash show -p stash@{0}
-
-# Create branch from stash
-git stash branch new-feature stash@{0}
-
-# Clear stashes
-git stash drop stash@{0}        # Specific stash
-git stash clear                 # All stashes
-```
-
-### Cherry-picking
-
-```bash
-# Apply specific commit
-git cherry-pick abc123
-
-# Cherry-pick multiple commits
-git cherry-pick abc123 def456
-
-# Cherry-pick without committing
-git cherry-pick -n abc123
+# Manage stashes
+git stash list
+git stash show -p stash@{n}
+git stash drop stash@{n}
+git stash clear
 ```
 
 ### Reset and Revert
 
 ```bash
-# Soft reset (keep changes staged)
-git reset --soft HEAD~1
+# Reset modes
+git reset --soft <commit>       # Move HEAD only
+git reset --mixed <commit>      # Move HEAD and index
+git reset --hard <commit>       # Move HEAD, index, and working tree
 
-# Mixed reset (keep changes unstaged)
-git reset HEAD~1
-
-# Hard reset (discard changes)
-git reset --hard HEAD~1
-
-# Reset to specific commit
-git reset --hard abc123
-
-# Revert commit (creates new commit)
-git revert abc123
-
-# Revert merge commit
-git revert -m 1 merge-commit-hash
+# Revert operations
+git revert <commit>
+git revert -n <commit>          # No commit
+git revert -m 1 <merge-commit>  # Revert merge
 ```
 
-### Searching and Filtering
+### Binary Search (Bisect)
 
 ```bash
-# Search in files
-git grep "pattern"
-git grep -n "pattern"           # With line numbers
-
-# Find commits
-git log --grep="bug fix"
-git log --author="John"
-git log --since="2 weeks ago"
-git log --until="2023-01-01"
-
-# Find commit that introduced bug
+# Find regression
 git bisect start
-git bisect bad                  # Current commit is bad
-git bisect good abc123          # Known good commit
-# Test and mark commits as good/bad
-git bisect reset                # When done
+git bisect bad <bad-commit>
+git bisect good <good-commit>
+
+# Mark commits
+git bisect good/bad
+git bisect skip                 # Untestable
+
+# Automated bisect
+git bisect run <script>
+
+# Finish
+git bisect reset
 ```
 
 ## Advanced Workflow Patterns
@@ -1085,122 +651,135 @@ Git workflows can be formally modeled as state machines to enforce policies and 
 
 > **Code Reference**: For complete workflow modeling implementations with state machines and validation, see [`workflow_modeling.py`](../../code-examples/technology/git/workflow_modeling.py)
 
-## Git Workflows
+## Workflow Models
 
-### Git Flow
+### GitFlow
 
-```bash
-# Initialize git flow
-git flow init
+**Branch Structure:**
+- `main/master`: Production releases
+- `develop`: Integration branch
+- `feature/*`: Feature development
+- `release/*`: Release preparation
+- `hotfix/*`: Emergency fixes
 
-# Feature branches
-git flow feature start new-feature
-git flow feature finish new-feature
-
-# Release branches
-git flow release start 1.0.0
-git flow release finish 1.0.0
-
-# Hotfix branches
-git flow hotfix start critical-fix
-git flow hotfix finish critical-fix
-```
+**Characteristics:**
+- Explicit release process
+- Suitable for versioned releases
+- Complex but structured
 
 ### GitHub Flow
 
-Simple workflow:
-1. Create branch from main
-2. Add commits
+**Branch Structure:**
+- `main`: Always deployable
+- `feature-branches`: All changes
+
+**Process:**
+1. Branch from main
+2. Commit changes
 3. Open pull request
-4. Discuss and review
+4. Review and test
 5. Merge to main
-6. Deploy
+6. Deploy immediately
 
 ### GitLab Flow
 
-Environment branches:
-- `main` → `pre-production` → `production`
-- Feature branches merge to main
-- Cherry-pick to environment branches
+**Environment Branches:**
+- `main`: Development
+- `pre-production`: Staging
+- `production`: Live environment
 
-## Working with Large Files
+**Deployment:**
+- Merge/cherry-pick upstream
+- Environment-specific branches
+- Supports multiple environments
 
-### Git LFS (Large File Storage)
+## Large Files and Submodules
+
+### Git LFS
 
 ```bash
-# Install Git LFS
+# Setup
 git lfs install
-
-# Track file types
-git lfs track "*.psd"
-git lfs track "*.zip"
-
-# List tracked patterns
-git lfs track
-
-# Add .gitattributes
+git lfs track "*.psd" "*.zip" "*.dmg"
 git add .gitattributes
-git commit -m "Configure Git LFS"
 
-# View LFS files
-git lfs ls-files
+# Operations
+git lfs ls-files               # List LFS files
+git lfs fetch                  # Download LFS objects
+git lfs pull                   # Fetch and checkout
+git lfs prune                  # Remove old LFS files
+
+# Migration
+git lfs migrate import --include="*.zip"
+git lfs migrate export --include="*.zip"
 ```
 
-## Submodules
+### Submodules
 
 ```bash
 # Add submodule
-git submodule add https://github.com/user/library.git libs/library
+git submodule add <url> <path>
+git submodule add -b <branch> <url> <path>
 
-# Initialize submodules after clone
-git submodule init
-git submodule update
+# Initialize and update
+git submodule update --init --recursive
+git submodule update --remote --merge
 
-# Clone with submodules
-git clone --recursive https://github.com/user/repo.git
-
-# Update submodules
-git submodule update --remote
+# Foreach operations
+git submodule foreach 'git pull origin main'
+git submodule foreach 'git checkout <tag>'
 
 # Remove submodule
-git submodule deinit libs/library
-git rm libs/library
-rm -rf .git/modules/libs/library
+git submodule deinit -f <path>
+git rm -f <path>
+rm -rf .git/modules/<path>
 ```
 
-## Hooks
+## Git Hooks
 
-### Client-side Hooks
+### Hook Types
 
-Create executable scripts in `.git/hooks/`:
+**Client-side Hooks:**
+- `pre-commit`: Validate before commit
+- `prepare-commit-msg`: Modify commit message
+- `commit-msg`: Validate commit message
+- `post-commit`: Notification after commit
+- `pre-rebase`: Validate before rebase
+- `post-rewrite`: After commit rewriting
+- `pre-push`: Validate before push
 
-**pre-commit:**
+**Server-side Hooks:**
+- `pre-receive`: Validate entire push
+- `update`: Validate per-branch update
+- `post-receive`: Trigger after push
+- `post-update`: Legacy notification hook
+
+### Hook Implementation
+
 ```bash
 #!/bin/sh
-# Run tests before commit
-npm test
-```
+# Example: pre-commit hook
 
-**commit-msg:**
-```bash
-#!/bin/sh
-# Enforce commit message format
-grep -qE "^(feat|fix|docs|style|refactor|test|chore): " "$1" || {
-    echo "Commit message must start with type: feat|fix|docs|style|refactor|test|chore"
+# Run linting
+if ! npm run lint; then
+    echo "Linting failed. Please fix errors before committing."
     exit 1
-}
+fi
+
+# Check for debugging code
+if git diff --cached | grep -E "console\.(log|debug)" > /dev/null; then
+    echo "Remove console statements before committing."
+    exit 1
+fi
+
+exit 0
 ```
-
-### Server-side Hooks
-
-- **pre-receive:** Enforce policies
-- **update:** Validate branch updates
-- **post-receive:** Trigger deployments
 
 ## Best Practices
 
-### Commit Messages
+### Commit Guidelines
 
+**Commit Message Format:**
 ```
 <type>(<scope>): <subject>
 
@@ -1209,146 +788,170 @@ grep -qE "^(feat|fix|docs|style|refactor|test|chore): " "$1" || {
 <footer>
 ```
 
-Example:
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `style`: Formatting
+- `refactor`: Code restructuring
+- `perf`: Performance improvement
+- `test`: Testing
+- `build`: Build system
+- `ci`: CI configuration
+- `chore`: Maintenance
+
+**Rules:**
+- Subject line: 50 characters max
+- Body: 72 characters per line
+- Use imperative mood
+- Reference issues in footer
+
+### Branch Naming Conventions
+
 ```
-feat(auth): add OAuth2 integration
+<type>/<ticket>-<description>
 
-Implemented Google and GitHub OAuth2 providers
-with automatic token refresh capability.
-
-Closes #123
+feature/JIRA-123-user-authentication
+bugfix/GH-456-login-validation
+hotfix/PROD-789-security-patch
+release/v2.1.0
 ```
 
-### Branch Naming
-
-- `feature/user-authentication`
-- `bugfix/login-error`
-- `hotfix/security-patch`
-- `release/v2.0.0`
-- `chore/update-dependencies`
-
-### .gitignore
+### .gitignore Patterns
 
 ```gitignore
-# OS files
+# Operating System
 .DS_Store
 Thumbs.db
+*.swp
+*~
 
-# IDE
+# IDE/Editor
 .vscode/
 .idea/
-*.swp
+*.sublime-*
+.project
+.classpath
 
 # Dependencies
 node_modules/
 vendor/
+*.jar
+*.gem
 
-# Build outputs
+# Build artifacts
 dist/
 build/
+target/
+*.o
+*.so
 *.exe
-*.dll
 
-# Logs
+# Logs and databases
 *.log
 logs/
+*.sqlite
+*.db
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
-# Temporary files
+# Temporary
 *.tmp
+*.temp
 *.cache
-```
+.sass-cache/
 
-### Git Aliases
-
-```bash
-# Useful aliases
-git config --global alias.co checkout
-git config --global alias.br branch
-git config --global alias.ci commit
-git config --global alias.st status
-git config --global alias.unstage 'reset HEAD --'
-git config --global alias.last 'log -1 HEAD'
-git config --global alias.visual '!gitk'
-git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+# Security
+*.pem
+*.key
+*.cert
 ```
 
 ## Troubleshooting
+
+### Recovery Operations
+
+```bash
+# Reflog (reference log)
+git reflog
+git reflog <branch>
+git checkout HEAD@{n}
+
+# Recover deleted commits
+git fsck --lost-found
+git show <dangling-commit-sha>
+git merge <dangling-commit-sha>
+
+# Fix corrupted repository
+git fsck --full
+git gc --aggressive --prune=now
+
+# Emergency backup
+git bundle create backup.bundle --all
+git clone backup.bundle recovered-repo
+```
 
 ### Common Issues
 
 **Detached HEAD:**
 ```bash
-# Create branch from current position
-git checkout -b new-branch
-
-# Return to previous branch
-git checkout -
+git checkout -b <new-branch>    # Save current state
+git checkout <branch>           # Discard state
 ```
 
-**Undo operations:**
+**Merge Conflicts:**
 ```bash
-# Undo last commit (keep changes)
-git reset --soft HEAD~1
-
-# Undo git add
-git reset HEAD file.txt
-
-# Discard local changes
-git checkout -- file.txt
-
-# Recover deleted branch
-git reflog
-git checkout -b recovered-branch abc123
+git status                      # List conflicts
+git diff --name-only --diff-filter=U  # Conflict files
+git checkout --theirs <file>    # Accept their version
+git checkout --ours <file>      # Keep our version
 ```
 
-**Clean repository:**
+**Large Repository:**
 ```bash
-# Show what would be removed
-git clean -n
-
-# Remove untracked files
-git clean -f
-
-# Remove untracked files and directories
-git clean -fd
-
-# Remove ignored files too
-git clean -fdx
+git gc --aggressive
+git repack -a -d --depth=250 --window=250
+git prune-packed
 ```
 
 ## Security
 
-### Signing Commits
+### Commit Signing
 
 ```bash
-# Configure GPG
-git config --global user.signingkey YOUR_GPG_KEY_ID
-
-# Sign commits
-git commit -S -m "Signed commit"
-
-# Always sign commits
+# GPG setup
+gpg --list-secret-keys --keyid-format=long
+git config --global user.signingkey <key-id>
 git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
+# SSH signing (Git 2.34+)
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
 
 # Verify signatures
 git log --show-signature
+git verify-commit <commit>
+git verify-tag <tag>
 ```
 
-### Sensitive Data
+### Sensitive Data Removal
 
 ```bash
-# Remove file from all history (use BFG Repo-Cleaner)
-bfg --delete-files passwords.txt
+# Using git-filter-repo (recommended)
+pip install git-filter-repo
+git filter-repo --path <sensitive-file> --invert-paths
 
-# Alternative with filter-branch (slower)
-git filter-branch --tree-filter 'rm -f passwords.txt' HEAD
+# Using BFG Repo-Cleaner
+java -jar bfg.jar --delete-files <file>
+java -jar bfg.jar --replace-text passwords.txt
 
-# Force push to update remote
-git push --force --all
+# Clean up
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
 ```
 
 ## Performance Optimization Theory
@@ -1392,39 +995,45 @@ Git provides sophisticated tools and algorithms for optimizing repository perfor
 
 > **Code Reference**: For complete performance analysis and optimization implementations, see [`performance_optimization.py`](../../code-examples/technology/git/performance_optimization.py)
 
-## Performance
+## Performance Optimization
 
-### Optimization
+### Repository Maintenance
 
 ```bash
-# Garbage collection
-git gc
+# Regular maintenance
+git maintenance start          # Enable automatic maintenance
+git maintenance run           # Run maintenance tasks
+git maintenance stop          # Disable automatic maintenance
 
-# Aggressive garbage collection
-git gc --aggressive
+# Manual optimization
+git gc --aggressive --prune=now
+git repack -a -d -f --depth=50 --window=100
+git prune --expire=now
 
-# Verify repository integrity
-git fsck
-
-# Count objects
-git count-objects -v
-
-# Prune old objects
-git prune
+# Performance diagnostics
+git count-objects -vH
+git rev-list --all --objects | wc -l
+du -sh .git/objects/pack/
 ```
 
-### Large Repositories
+### Large Repository Strategies
 
 ```bash
-# Shallow clone
-git clone --depth 1 https://github.com/large/repo.git
-
-# Partial clone (Git 2.17+)
-git clone --filter=blob:none https://github.com/large/repo.git
+# Partial clone
+git clone --filter=blob:none <url>     # Omit blobs
+git clone --filter=tree:0 <url>        # Omit trees
+git clone --filter=blob:limit=1m <url> # Omit large blobs
 
 # Sparse checkout
-git sparse-checkout init
-git sparse-checkout set src/ docs/
+git sparse-checkout init --cone
+git sparse-checkout set <directory>
+git sparse-checkout add <pattern>
+git sparse-checkout list
+
+# Shallow operations
+git fetch --depth=1
+git pull --depth=1
+git fetch --unshallow              # Convert to full
 ```
 
 ## Research Frontiers in Version Control
@@ -1479,58 +1088,94 @@ The future of version control explores novel approaches beyond traditional DAG-b
 
 > **Code Reference**: For experimental implementations of quantum VCS, CRDT-based systems, blockchain VCS, and ML enhancements, see [`research_frontiers.py`](../../code-examples/technology/git/research_frontiers.py)
 
-## References and Further Reading
+## Additional Resources
 
-### Academic Papers
-- "A Formal Model of Git Version Control" - ICSE 2019
-- "Distributed Version Control as a Distributed Database" - VLDB 2018
-- "Merkle Trees and Content-Addressable Storage" - IEEE 2017
-- "Conflict-Free Replicated Data Types for Distributed Version Control" - PODC 2020
+### Official Documentation
+- [Git Documentation](https://git-scm.com/doc)
+- [Git Reference Manual](https://git-scm.com/docs)
+- [Git Protocol Documentation](https://github.com/git/git/blob/master/Documentation/technical/protocol-v2.txt)
 
-### Books
-- "Pro Git" - Scott Chacon and Ben Straub
-- "Version Control with Git" - Jon Loeliger and Matthew McCullough
-- "Git Internals" - Scott Chacon
-- "Building Git" - James Coglan
+### Implementations
+- **libgit2**: Portable C implementation
+- **JGit**: Java implementation (Eclipse)
+- **Dulwich**: Pure Python implementation
+- **go-git**: Pure Go implementation
+- **isomorphic-git**: JavaScript implementation
 
-### Advanced Topics
-- libgit2: Git core library implementation
-- JGit: Pure Java implementation of Git
-- Dulwich: Pure Python implementation of Git
-- Git wire protocol specification
-- Pack file format specification
-- Index file format specification
-
-### Research Projects
-- **Pijul**: Patch-based version control with formal theory
+### Alternative VCS
+- **Mercurial**: Similar distributed model
+- **Pijul**: Patch-based with category theory
 - **Darcs**: Patch theory and commutation
-- **Fossil**: Distributed VCS with integrated wiki and issue tracking
-- **Mercurial**: Alternative DVCS with different design choices
+- **Fossil**: Integrated wiki and tickets
+- **Bazaar**: Canonical's DVCS
 
-## Conclusion
+## Implementation Details
 
-Git has revolutionized software development by providing a distributed, efficient, and reliable version control system. From its elegant mathematical foundations to its practical everyday commands, Git offers tools for every level of developer.
+### Pack File Format
 
-### Key Takeaways
+**Structure:**
+```
+PACK Header (12 bytes)
+├── Signature: "PACK"
+├── Version: 2 or 3
+└── Object count: 32-bit
 
-1. **Start Simple**: You don't need to understand everything to be productive. Master the basic workflow first.
+Objects (variable)
+├── Type and size encoding
+├── Delta base (if delta)
+└── Compressed data
 
-2. **Branches are Cheap**: Use branches liberally for features, experiments, and bug fixes.
+Checksum (20 bytes)
+└── SHA-1 of entire pack
+```
 
-3. **Commit Often**: Small, focused commits are easier to understand and revert if needed.
+**Object Types:**
+- OBJ_COMMIT (1)
+- OBJ_TREE (2)
+- OBJ_BLOB (3)
+- OBJ_TAG (4)
+- OBJ_OFS_DELTA (6)
+- OBJ_REF_DELTA (7)
 
-4. **Write Good Messages**: Your future self will thank you for clear commit messages.
+### Index Format
 
-5. **Learn the Internals**: Understanding how Git works helps you recover from mistakes and optimize workflows.
+**Version 2 Structure:**
+```
+DIRC Header
+├── Signature: "DIRC"
+├── Version: 2
+└── Entry count
 
-6. **Practice Recovery**: Knowing how to undo, reset, and recover gives confidence to experiment.
+Index entries
+├── ctime, mtime
+├── dev, ino, mode
+├── uid, gid, size
+├── SHA-1
+├── Flags
+└── Path (null-terminated)
 
-### Next Steps
+Extensions (optional)
+├── Tree cache
+├── Resolve undo
+└── Split index
 
-- **Practice**: Create a test repository and try different commands
-- **Explore**: Read the Pro Git book for comprehensive coverage
-- **Contribute**: Join open source projects to experience collaborative workflows
-- **Customize**: Set up aliases and hooks for your workflow
-- **Stay Updated**: Git continues to evolve with new features and improvements
+Checksum
+```
 
-Git's elegant design, based on solid computer science principles, provides a foundation for complex workflows while maintaining data integrity through cryptographic guarantees. Whether you're fixing a typo or architecting a complex feature across multiple branches, Git has the tools to support your development process. Understanding Git deeply transforms it from a necessary tool into a powerful ally in creating better software.
+### Wire Protocol
+
+**Protocol Capabilities:**
+- `multi_ack_detailed`
+- `side-band-64k`
+- `ofs-delta`
+- `agent`
+- `shallow`
+- `filter`
+- `atomic`
+
+**Packfile Negotiation:**
+1. Reference discovery
+2. Capability negotiation
+3. Want/have exchange
+4. Pack transmission
+5. Reference update

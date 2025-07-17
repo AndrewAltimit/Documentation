@@ -1,229 +1,272 @@
 ---
 layout: docs
-title: Databases in 5 Minutes
-difficulty_level: beginner
+title: Database Fundamentals
 section: technology
 ---
 
-# Databases: Your Data's Library (5 Minute Read)
+# Database Fundamentals
 
-{% include learning-breadcrumb.html 
-   path=site.data.breadcrumbs.technology 
-   current="Databases in 5 Minutes"
-   alternatives=site.data.alternatives.database_beginner 
-%}
+## Overview
 
-{% include skill-level-navigation.html 
-   current_level="beginner"
-   topic="Database"
-   intermediate_link="/docs/technology/database-design/"
-   advanced_link="/docs/advanced/distributed-systems-theory/"
-%}
+A database is an organized collection of structured data stored electronically in a computer system. Database management systems (DBMS) provide interfaces for storing, retrieving, and managing data efficiently while ensuring data integrity, security, and concurrent access.
 
-## What is a Database?
+## Database Types
 
-Imagine a massive, perfectly organized library where:
-- Books never get lost
-- You can find any book in milliseconds
-- Multiple people can read the same book simultaneously
-- The librarian never forgets anything
+### Relational Databases (RDBMS)
+Relational databases organize data into tables with rows and columns, using structured query language (SQL) for data manipulation.
 
-**A database is that magical library for your data!**
+**Characteristics:**
+- Fixed schema with predefined structure
+- ACID compliance (Atomicity, Consistency, Isolation, Durability)
+- Strong consistency guarantees
+- Relationships between tables via foreign keys
 
-### The Library Analogy
+**Popular Systems:**
+- PostgreSQL
+- MySQL
+- Oracle Database
+- Microsoft SQL Server
+- SQLite
 
-- **Tables** = Different sections (Fiction, Non-fiction, Reference)
-- **Rows** = Individual books
-- **Columns** = Book details (Title, Author, ISBN)
-- **Queries** = Asking the librarian for specific books
-- **Indexes** = The card catalog system for fast lookups
+### NoSQL Databases
+NoSQL databases provide flexible schemas and are optimized for specific data models and access patterns.
 
-## Why Should You Care?
+**Document Stores:**
+- Store data as documents (usually JSON/BSON)
+- Examples: MongoDB, CouchDB, Amazon DocumentDB
 
-Without databases, apps would be like:
-- A library with books thrown in random piles
-- A phone that forgets your contacts when turned off
-- A bank that uses paper ledgers (scary!)
+**Key-Value Stores:**
+- Simple key-value pair storage
+- Examples: Redis, Amazon DynamoDB, etcd
 
-With databases, you get:
-- **Persistence** - Data survives even if the power goes out
-- **Speed** - Find one record among millions instantly
-- **Consistency** - Everyone sees the same data
-- **Safety** - Built-in backup and recovery
+**Column-Family Stores:**
+- Store data in column families
+- Examples: Apache Cassandra, HBase, Amazon Keyspaces
 
-## Types of Databases (Menu Styles)
+**Graph Databases:**
+- Optimize for relationships between data
+- Examples: Neo4j, Amazon Neptune, ArangoDB
 
-### 1. Relational (SQL) - The Formal Restaurant
-- Everything has its place (structured tables)
-- Strict rules (schemas)
-- Perfect for: Financial data, user accounts, inventory
+## Core Concepts
 
+### Tables and Relations
+In relational databases, data is organized into tables:
+- **Table**: Collection of related data entries
+- **Row (Record)**: Single data entry
+- **Column (Attribute)**: Property of data
+- **Primary Key**: Unique identifier for each row
+- **Foreign Key**: Reference to primary key in another table
+
+### ACID Properties
+- **Atomicity**: Transactions complete fully or not at all
+- **Consistency**: Data remains valid according to defined rules
+- **Isolation**: Concurrent transactions don't interfere
+- **Durability**: Committed data persists through system failures
+
+### CAP Theorem
+Distributed systems can guarantee only two of:
+- **Consistency**: All nodes see the same data
+- **Availability**: System remains operational
+- **Partition Tolerance**: System continues during network failures
+
+## SQL Fundamentals
+
+### Data Definition Language (DDL)
 ```sql
--- Like ordering from a menu
-SELECT name, price FROM menu WHERE category = 'dessert';
+-- Create table
+CREATE TABLE customers (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Alter table
+ALTER TABLE customers ADD COLUMN phone VARCHAR(20);
+
+-- Drop table
+DROP TABLE customers;
 ```
 
-### 2. NoSQL - The Food Truck
-- Flexible menu (schema-less)
-- Quick changes allowed
-- Perfect for: Social media posts, product catalogs, real-time data
+### Data Manipulation Language (DML)
+```sql
+-- Insert data
+INSERT INTO customers (name, email) 
+VALUES ('John Doe', 'john@example.com');
 
+-- Select data
+SELECT * FROM customers WHERE email LIKE '%@example.com';
+
+-- Update data
+UPDATE customers SET phone = '123-456-7890' WHERE id = 1;
+
+-- Delete data
+DELETE FROM customers WHERE created_at < '2023-01-01';
+```
+
+### Joins
+```sql
+-- Inner join
+SELECT orders.id, customers.name, orders.total
+FROM orders
+INNER JOIN customers ON orders.customer_id = customers.id;
+
+-- Left join
+SELECT customers.name, COUNT(orders.id) as order_count
+FROM customers
+LEFT JOIN orders ON customers.id = orders.customer_id
+GROUP BY customers.id;
+```
+
+## Indexing
+
+Indexes improve query performance by creating data structures for faster lookups.
+
+### Index Types
+- **B-Tree**: Default, good for range queries
+- **Hash**: Fast equality comparisons
+- **Bitmap**: Efficient for low-cardinality columns
+- **Full-text**: Text search optimization
+
+```sql
+-- Create index
+CREATE INDEX idx_email ON customers(email);
+
+-- Composite index
+CREATE INDEX idx_name_email ON customers(name, email);
+
+-- Unique index
+CREATE UNIQUE INDEX idx_unique_email ON customers(email);
+```
+
+## Transactions
+
+Transactions group multiple operations into atomic units:
+
+```sql
+BEGIN TRANSACTION;
+
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+
+-- Commit if successful
+COMMIT;
+
+-- Or rollback on error
+ROLLBACK;
+```
+
+## Normalization
+
+Database normalization reduces redundancy and improves data integrity:
+
+### Normal Forms
+- **1NF**: Atomic values, no repeating groups
+- **2NF**: 1NF + no partial dependencies
+- **3NF**: 2NF + no transitive dependencies
+- **BCNF**: 3NF + every determinant is a candidate key
+
+### Example Normalization
+```sql
+-- Denormalized
+CREATE TABLE orders (
+    id INTEGER,
+    customer_name VARCHAR(100),
+    customer_email VARCHAR(255),
+    product_name VARCHAR(100),
+    product_price DECIMAL(10,2)
+);
+
+-- Normalized
+CREATE TABLE customers (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(255)
+);
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY,
+    name VARCHAR(100),
+    price DECIMAL(10,2)
+);
+
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    customer_id INTEGER REFERENCES customers(id),
+    product_id INTEGER REFERENCES products(id),
+    quantity INTEGER
+);
+```
+
+## Query Optimization
+
+### Explain Plans
+```sql
+EXPLAIN SELECT * FROM orders WHERE customer_id = 123;
+```
+
+### Optimization Techniques
+- Use appropriate indexes
+- Avoid SELECT *
+- Limit result sets
+- Use prepared statements
+- Denormalize for read-heavy workloads
+- Partition large tables
+
+## NoSQL Data Modeling
+
+### Document Model (MongoDB)
 ```javascript
-// Like a customizable order
-db.posts.find({ author: "Alice", likes: { $gt: 100 } })
+{
+    "_id": ObjectId("..."),
+    "name": "John Doe",
+    "email": "john@example.com",
+    "orders": [
+        {
+            "id": 1,
+            "items": ["product1", "product2"],
+            "total": 99.99
+        }
+    ]
+}
 ```
 
-## Your First Database (Pizza Shop Example)
-
-Let's create a simple database for a pizza shop:
-
-### The Tables (Your Data Sections)
-
-```sql
--- Customers table
-Customers
-├── id (unique number)
-├── name
-├── phone
-└── email
-
--- Orders table  
-Orders
-├── id (unique number)
-├── customer_id (links to Customers)
-├── pizza_type
-├── price
-└── order_date
+### Key-Value Model (Redis)
+```
+SET user:1000:name "John Doe"
+SET user:1000:email "john@example.com"
+HSET user:1000:settings theme "dark" language "en"
 ```
 
-### Basic Operations (CRUD)
+## Best Practices
 
-**C**reate - Add new data
-```sql
-INSERT INTO Customers (name, phone) 
-VALUES ('John Doe', '555-0123');
-```
+### Schema Design
+- Define clear relationships
+- Use appropriate data types
+- Implement constraints
+- Plan for growth
 
-**R**ead - Find data
-```sql
-SELECT * FROM Orders 
-WHERE order_date = TODAY();
-```
+### Performance
+- Index frequently queried columns
+- Monitor query performance
+- Use connection pooling
+- Implement caching strategies
 
-**U**pdate - Change data
-```sql
-UPDATE Orders 
-SET pizza_type = 'Pepperoni' 
-WHERE id = 42;
-```
+### Security
+- Use parameterized queries
+- Implement access controls
+- Encrypt sensitive data
+- Regular backups
 
-**D**elete - Remove data
-```sql
-DELETE FROM Orders 
-WHERE order_date < '2023-01-01';
-```
+### Maintenance
+- Regular vacuuming/optimization
+- Monitor disk usage
+- Update statistics
+- Plan for scaling
 
-## Try This Now! (3 Minutes)
+## References
 
-### Mental Exercise: Design Your Database
-
-Think of your favorite app. What tables would it need?
-
-**Instagram Example:**
-- Users table (username, email, bio)
-- Posts table (image_url, caption, timestamp)
-- Likes table (user_id, post_id)
-- Comments table (user_id, post_id, text)
-
-### Practice SQL Queries
-
-```sql
--- Find all pizzas ordered today
-SELECT * FROM Orders WHERE order_date = TODAY();
-
--- Count total orders per customer
-SELECT customer_id, COUNT(*) as total_orders 
-FROM Orders 
-GROUP BY customer_id;
-
--- Find the most popular pizza
-SELECT pizza_type, COUNT(*) as times_ordered
-FROM Orders
-GROUP BY pizza_type
-ORDER BY times_ordered DESC
-LIMIT 1;
-```
-
-## Common "Aha!" Moments
-
-- **"Databases are everywhere!"** - Every app you use has one (or many)
-- **"SQL is like English"** - SELECT what you want FROM where it lives
-- **"Relationships matter"** - Tables connect like a social network
-- **"Indexes are magic"** - They make slow queries lightning fast
-
-## Database Design Tips (Avoid These Mistakes!)
-
-- ❌ Don't store lists in a single field (use separate tables)
-- ❌ Don't duplicate data (use relationships instead)
-- ❌ Don't forget to backup (disasters happen)
-- ❌ Don't ignore indexes (speed matters)
-
-## Real-World Examples
-
-### E-commerce Site
-```
-Products ←→ Orders ←→ Customers
-    ↓         ↓          ↓
-Inventory  Payments   Addresses
-```
-
-### Social Media
-```
-Users ←→ Posts ←→ Comments
-  ↓        ↓         ↓
-Friends   Likes    Replies
-```
-
-## Quick Comparison
-
-| Feature | SQL Database | NoSQL Database |
-|---------|--------------|----------------|
-| Structure | Tables with rows | Documents/Collections |
-| Schema | Fixed structure | Flexible |
-| Best for | Relationships | Fast & flexible |
-| Examples | PostgreSQL, MySQL | MongoDB, Redis |
-
-## What's Next?
-
-You've learned database basics! Ready to dive deeper?
-
-{% include difficulty-helper.html 
-   current_level="beginner"
-   harder_link="/docs/technology/database-design/"
-   prerequisites=site.data.prerequisites.database_beginner
-   advanced_topics=site.data.advanced_topics.database
-%}
-
-- **[Database Design →](/docs/technology/database-design/)** - Design patterns and normalization (Intermediate)
-- **[Distributed Systems →](/docs/advanced/distributed-systems-theory/)** - Scale to millions of users (Advanced)
-- **Practice Project**: Design a database for your favorite hobby
-
-{% include progressive-disclosure.html 
-   sections=site.data.database_topics.beginner_progression
-   initial_depth="overview"
-%}
-
-## Quick Reference Card
-
-| Task | SQL Command | Library Analogy |
-|------|-------------|-----------------|
-| Create table | `CREATE TABLE` | Add new bookshelf |
-| Add data | `INSERT INTO` | Put book on shelf |
-| Find data | `SELECT FROM` | Ask librarian |
-| Update data | `UPDATE SET` | Edit book info |
-| Delete data | `DELETE FROM` | Remove book |
-| Speed up | `CREATE INDEX` | Improve catalog |
-
----
-
-**Remember**: Every app you love is powered by databases. They're not scary—they're just very organized libraries for data. Start with simple tables, learn basic SQL, and soon you'll be designing databases like a pro!
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [MySQL Documentation](https://dev.mysql.com/doc/)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+- [Database Design Patterns](https://www.databasepatterns.com/)

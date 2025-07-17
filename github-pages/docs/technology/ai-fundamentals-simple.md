@@ -1,234 +1,173 @@
 ---
 layout: docs
-title: AI in 5 Minutes
-difficulty_level: beginner
+title: Artificial Intelligence Fundamentals
 section: technology
 ---
 
-# AI: Teaching Computers to Think (5 Minute Read)
+# Artificial Intelligence Fundamentals
 
-{% include learning-breadcrumb.html 
-   path=site.data.breadcrumbs.technology 
-   current="AI in 5 Minutes"
-   alternatives=site.data.alternatives.ai_beginner 
-%}
+## Overview
 
-{% include skill-level-navigation.html 
-   current_level="beginner"
-   topic="AI"
-   intermediate_link="/docs/technology/ai/"
-   advanced_link="/docs/technology/ai-lecture-2023/"
-%}
+Artificial Intelligence (AI) refers to computer systems capable of performing tasks that typically require human intelligence, including visual perception, speech recognition, decision-making, and language translation. AI encompasses various approaches and techniques for creating intelligent systems.
 
-## What is AI?
+## Core Concepts
 
-Remember when you learned to ride a bike? You fell a few times, but eventually your brain figured out the pattern of balance, pedaling, and steering.
+### Machine Learning
+Machine Learning (ML) is a subset of AI where systems learn from data without explicit programming. Instead of following predetermined rules, ML algorithms identify patterns in data and make decisions based on these patterns.
 
-**AI is teaching computers to learn patterns the same way!**
+**Types of Machine Learning:**
+- **Supervised Learning**: Learns from labeled training data
+- **Unsupervised Learning**: Finds patterns in unlabeled data
+- **Reinforcement Learning**: Learns through interaction and feedback
 
-### The Learning Analogy
+### Deep Learning
+Deep Learning uses artificial neural networks with multiple layers to progressively extract higher-level features from raw input. It has revolutionized fields like computer vision and natural language processing.
 
-Traditional Programming:
-```
-Human: "If you see a red light, stop"
-Computer: "OK, I'll stop at red lights"
-```
+**Neural Network Components:**
+- **Input Layer**: Receives raw data
+- **Hidden Layers**: Process and transform data
+- **Output Layer**: Produces final predictions
+- **Activation Functions**: Introduce non-linearity
+- **Weights and Biases**: Learnable parameters
 
-AI/Machine Learning:
-```
-Human: "Here are 1000 examples of when to stop"
-Computer: "I see the pattern! Red lights mean stop!"
-```
+## AI Categories
 
-## Why Should You Care?
+### Narrow AI (Weak AI)
+Systems designed for specific tasks:
+- Image recognition systems
+- Language translation services
+- Recommendation engines
+- Game-playing AI (chess, Go)
+- Virtual assistants
 
-AI is already everywhere:
-- **Phone** - Face unlock, autocorrect, photo organization
-- **Entertainment** - Netflix recommendations, Spotify playlists
-- **Shopping** - "You might also like" suggestions
-- **Navigation** - Traffic predictions, optimal routes
-- **Health** - Disease detection, drug discovery
+### General AI (Strong AI)
+Hypothetical systems with human-level intelligence across all domains. Currently theoretical and not yet achieved.
 
-## Types of AI (Restaurant Staff Analogy)
+### Artificial Superintelligence (ASI)
+Theoretical AI surpassing human intelligence in all aspects. Remains in the realm of speculation and research.
 
-### 1. Narrow AI - The Specialist Chef
-- Masters ONE thing (like making perfect sushi)
-- Most AI today is narrow AI
-- Examples: Chess AI, Image recognition, Language translation
+## Key Algorithms and Techniques
 
-### 2. General AI - The Head Chef
-- Can handle ANY kitchen task
-- Doesn't exist yet (despite sci-fi movies)
-- Would think and reason like humans
+### Classification Algorithms
+- **Decision Trees**: Tree-like model of decisions
+- **Random Forests**: Ensemble of decision trees
+- **Support Vector Machines (SVM)**: Finds optimal decision boundaries
+- **Naive Bayes**: Probabilistic classifier
+- **k-Nearest Neighbors (k-NN)**: Instance-based learning
 
-### 3. Machine Learning - The Apprentice
-- Learns by practicing
-- Gets better with more examples
-- The foundation of modern AI
+### Regression Algorithms
+- **Linear Regression**: Models linear relationships
+- **Polynomial Regression**: Captures non-linear patterns
+- **Ridge/Lasso Regression**: Regularized linear models
 
-## How AI Learns (Dog Training Example)
+### Neural Network Architectures
+- **Feedforward Networks**: Information flows in one direction
+- **Convolutional Neural Networks (CNN)**: Specialized for image processing
+- **Recurrent Neural Networks (RNN)**: Process sequential data
+- **Transformers**: State-of-the-art for natural language processing
+- **Generative Adversarial Networks (GAN)**: Generate new data samples
 
-### Step 1: Collect Examples
-Show many photos:
-- "This is a dog" (shows poodle)
-- "This is a dog" (shows bulldog)
-- "This is NOT a dog" (shows cat)
+## Common Applications
 
-### Step 2: Find Patterns
-AI notices:
-- Dogs have certain ear shapes
-- Dogs have specific nose types
-- Dogs move differently than cats
+### Computer Vision
+- **Object Detection**: Identify and locate objects in images
+- **Image Classification**: Categorize images
+- **Facial Recognition**: Identify individuals
+- **Medical Imaging**: Diagnose diseases from scans
+- **Autonomous Vehicles**: Interpret visual environment
 
-### Step 3: Make Predictions
-Show new photo → AI says "95% sure that's a dog!"
-
-### Step 4: Improve
-- Correct = AI reinforces that pattern
-- Wrong = AI adjusts its understanding
-
-## Real AI in Action
-
-### Image Recognition
-```python
-# Simplified example
-def is_hot_dog(image):
-    features = extract_features(image)
-    if features match hot_dog_pattern:
-        return "Hot dog!"
-    else:
-        return "Not hot dog!"
-```
-
-### Text Prediction
-Your phone keyboard:
-- You type: "How are..."
-- AI predicts: "you" (based on millions of text examples)
+### Natural Language Processing (NLP)
+- **Text Classification**: Spam detection, sentiment analysis
+- **Machine Translation**: Convert between languages
+- **Named Entity Recognition**: Extract entities from text
+- **Question Answering**: Understand and respond to queries
+- **Text Generation**: Create human-like text
 
 ### Recommendation Systems
-Netflix thinks:
-```
-User watched: Sci-fi + Action + 90s movies
-Similar users also liked: The Matrix
-Recommendation: The Matrix (98% match)
-```
+- **Collaborative Filtering**: Based on user behavior patterns
+- **Content-Based Filtering**: Based on item characteristics
+- **Hybrid Systems**: Combine multiple approaches
 
-## Common AI Terms (Decoded)
+## Training Process
 
-**Neural Network** = Brain-inspired computer program
-- Neurons = Tiny decision makers
-- Layers = Groups of neurons working together
-- Training = Teaching it with examples
+### Data Preparation
+1. **Data Collection**: Gather relevant datasets
+2. **Data Cleaning**: Handle missing values and outliers
+3. **Feature Engineering**: Create meaningful features
+4. **Data Splitting**: Separate training, validation, and test sets
 
-**Machine Learning** = Computers learning from data
-- Supervised = Learning with labeled examples
-- Unsupervised = Finding patterns without labels
-
-**Deep Learning** = Many-layered neural networks
-- More layers = Can learn more complex patterns
-
-## Try This Now! (3 Minutes)
-
-### See AI in Your Daily Life
-
-1. **Phone Keyboard**: Type a few words and watch predictions
-2. **Photo App**: Notice how it groups faces automatically
-3. **YouTube/TikTok**: Pay attention to recommendations
-4. **Email**: Check your spam folder (AI filtered those!)
-
-### Simple AI Concepts
-
-**Classification** (Sorting Hat from Harry Potter)
-```
-Input: Student characteristics
-Output: Gryffindor / Slytherin / etc.
+### Model Training
+```python
+# Conceptual example
+model = initialize_model()
+for epoch in range(num_epochs):
+    for batch in training_data:
+        predictions = model.forward(batch.inputs)
+        loss = calculate_loss(predictions, batch.targets)
+        gradients = calculate_gradients(loss)
+        model.update_weights(gradients)
 ```
 
-**Regression** (Predicting House Prices)
-```
-Input: Size, location, bedrooms
-Output: Predicted price ($XXX,XXX)
-```
+### Evaluation Metrics
+- **Accuracy**: Correct predictions / Total predictions
+- **Precision**: True positives / (True positives + False positives)
+- **Recall**: True positives / (True positives + False negatives)
+- **F1 Score**: Harmonic mean of precision and recall
+- **AUC-ROC**: Area under receiver operating characteristic curve
 
-**Clustering** (Organizing Your Closet)
-```
-Input: All your clothes
-Output: Groups (formal, casual, sports)
-```
+## Key Challenges
 
-## Common Misconceptions
+### Technical Challenges
+- **Overfitting**: Model performs well on training data but poorly on new data
+- **Underfitting**: Model fails to capture underlying patterns
+- **Computational Requirements**: Large models require significant resources
+- **Data Quality**: Performance depends on quality and quantity of data
 
-### Myth vs Reality
+### Ethical Considerations
+- **Bias**: AI systems can perpetuate or amplify existing biases
+- **Privacy**: Data collection and usage concerns
+- **Transparency**: Understanding how AI makes decisions
+- **Accountability**: Responsibility for AI decisions
+- **Job Displacement**: Impact on employment
 
-❌ **Myth**: AI will become conscious and take over
-✅ **Reality**: AI is very good at specific tasks, nothing more
+## Popular Frameworks and Tools
 
-❌ **Myth**: AI is always right
-✅ **Reality**: AI makes mistakes and has biases
+### Deep Learning Frameworks
+- **TensorFlow**: Google's open-source framework
+- **PyTorch**: Facebook's dynamic neural network library
+- **Keras**: High-level neural networks API
+- **JAX**: High-performance ML research framework
 
-❌ **Myth**: AI thinks like humans
-✅ **Reality**: AI finds patterns in data (very different from thinking)
+### Traditional ML Libraries
+- **scikit-learn**: Comprehensive machine learning library
+- **XGBoost**: Gradient boosting framework
+- **LightGBM**: Fast gradient boosting
+- **CatBoost**: Gradient boosting with categorical features
 
-❌ **Myth**: AI is too complex to understand
-✅ **Reality**: Basic concepts are simple (you just learned them!)
+### Development Tools
+- **Jupyter Notebooks**: Interactive development environment
+- **Google Colab**: Cloud-based notebook platform
+- **Weights & Biases**: Experiment tracking
+- **MLflow**: ML lifecycle management
 
-## AI's Strengths and Weaknesses
+## Future Directions
 
-### AI is GREAT at:
-- ✅ Finding patterns in huge datasets
-- ✅ Never getting tired or bored
-- ✅ Processing things faster than humans
-- ✅ Consistent performance
+### Emerging Trends
+- **Federated Learning**: Training on distributed data
+- **Edge AI**: Running AI on edge devices
+- **Explainable AI**: Making AI decisions interpretable
+- **Quantum Machine Learning**: Leveraging quantum computing
+- **Neuromorphic Computing**: Brain-inspired hardware
 
-### AI STRUGGLES with:
-- ❌ Common sense reasoning
-- ❌ Understanding context like humans
-- ❌ Handling completely new situations
-- ❌ Explaining its decisions
+### Research Areas
+- **Few-shot Learning**: Learning from limited examples
+- **Transfer Learning**: Applying knowledge across domains
+- **Multi-modal AI**: Processing multiple data types
+- **Causal Inference**: Understanding cause-effect relationships
 
-## The Building Blocks
+## References
 
-```
-Data → Algorithm → Model → Predictions
-(Ingredients) → (Recipe) → (Trained Chef) → (Dishes)
-```
-
-1. **Data**: Examples to learn from
-2. **Algorithm**: The learning method
-3. **Model**: The trained AI system
-4. **Predictions**: What the AI produces
-
-## What's Next?
-
-You now understand AI basics! Ready to explore more?
-
-{% include difficulty-helper.html 
-   current_level="beginner"
-   harder_link="/docs/technology/ai/"
-   prerequisites=site.data.prerequisites.ai_beginner
-   advanced_topics=site.data.advanced_topics.ai
-%}
-
-- **[AI Deep Dive →](/docs/technology/ai/)** - Neural networks and modern AI (Intermediate)
-- **[AI Lecture 2023 →](/docs/technology/ai-lecture-2023/)** - Comprehensive AI theory (Advanced)
-- **Practice Project**: Try Google's Teachable Machine (train AI in your browser!)
-
-{% include progressive-disclosure.html 
-   sections=site.data.ai_topics.beginner_progression
-   initial_depth="overview"
-%}
-
-## Quick Reference Card
-
-| Concept | Simple Explanation | Real Example |
-|---------|-------------------|--------------|
-| AI | Computers learning patterns | Face unlock |
-| ML | Learning from examples | Spam filter |
-| Neural Network | Brain-inspired program | Image recognition |
-| Training | Teaching with data | Showing dog photos |
-| Model | The trained system | "Dog detector" |
-| Prediction | AI's guess | "95% dog" |
-
----
-
-**Remember**: AI isn't magic—it's pattern recognition at scale. Just like you learned to recognize faces as a baby, AI learns to recognize patterns in data. The difference? AI can process millions of examples and never forgets what it learned!
+- [Deep Learning Book](https://www.deeplearningbook.org/) - Goodfellow, Bengio, and Courville
+- [Pattern Recognition and Machine Learning](https://www.microsoft.com/en-us/research/people/cmbishop/prml-book/) - Christopher Bishop
+- [The Elements of Statistical Learning](https://hastie.su.domains/ElemStatLearn/) - Hastie, Tibshirani, and Friedman
+- [Papers with Code](https://paperswithcode.com/) - ML papers with implementations

@@ -1,183 +1,186 @@
 ---
 layout: docs
-title: Git in 5 Minutes
-difficulty_level: beginner
+title: Git Fundamentals
 section: technology
 ---
 
-# Git: Your Time Machine for Code (5 Minute Read)
+# Git Fundamentals
 
-{% include learning-breadcrumb.html 
-   path=site.data.breadcrumbs.technology 
-   current="Git in 5 Minutes"
-   alternatives=site.data.alternatives.git_beginner 
-%}
+## Overview
 
-{% include skill-level-navigation.html 
-   current_level="beginner"
-   topic="Git"
-   intermediate_link="/docs/technology/branching/"
-   advanced_link="/docs/technology/git/"
-%}
+Git is a distributed version control system that tracks changes in source code during software development. It enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.
 
-## What is Git? 
+## Core Concepts
 
-Imagine you're writing a book. Every time you make major changes, you save a new copy: "MyBook_v1.docx", "MyBook_v2_final.docx", "MyBook_v2_FINAL_FINAL.docx" (we've all been there).
+### Repository
+A Git repository is a database containing all project files and the complete revision history. Repositories can be local (on a developer's machine) or remote (on a server).
 
-**Git is like having a magical filing cabinet** that:
-- Saves every version automatically
-- Shows you exactly what changed between versions
-- Lets multiple people work on the same book without chaos
-- Can teleport you back to any previous version instantly
+### Working Directory
+The working directory contains the actual files that developers modify. It represents the current state of the project on the local filesystem.
 
-## Why Should You Care?
+### Staging Area (Index)
+The staging area is an intermediate layer between the working directory and repository. Files must be explicitly added to the staging area before being committed to the repository.
 
-Without Git, coding is like:
-- Walking a tightrope without a safety net
-- Writing a novel with no way to undo mistakes
-- Trying to collaborate via email attachments (nightmare!)
+### Commit
+A commit represents a snapshot of the project at a specific point in time. Each commit contains:
+- A unique SHA-1 hash identifier
+- Author information
+- Timestamp
+- Commit message
+- Pointer to parent commit(s)
+- Reference to a tree object representing the project state
 
-With Git, you can:
-- **Experiment fearlessly** - Break things! You can always go back
-- **Collaborate smoothly** - No more "whose version is newest?"
-- **Track your progress** - See how your code evolved over time
+## Basic Commands
 
-## The Basic Workflow (Restaurant Kitchen Analogy)
-
-Think of Git like a restaurant kitchen:
-
-1. **Working Directory** = Your cutting board
-   - Where you actively prepare (edit) your files
-   
-2. **Staging Area** = The pass (where finished dishes wait)
-   - Where you place files that are ready to be saved
-   
-3. **Repository** = The recipe book
-   - Where all your saved versions live permanently
-
-### The Flow:
-```
-Edit files → Stage them → Commit (save) them
-(Prep food) → (Ready to serve) → (Add to menu)
-```
-
-## Essential Commands (Your Git Toolbox)
-
-### Setting Up
+### Repository Initialization
 ```bash
-git init                    # Create a new recipe book
-git clone [url]            # Copy someone else's recipe book
+git init                    # Initialize a new repository
+git clone <repository-url>  # Clone an existing repository
 ```
 
-### Daily Workflow
+### File Operations
 ```bash
-git status                 # What's on my cutting board?
-git add [file]            # Put this dish on the pass
-git add .                 # Put ALL dishes on the pass
-git commit -m "message"   # Save to the recipe book
+git status                  # Display working directory status
+git add <file>             # Stage specific file
+git add .                  # Stage all changes
+git commit -m "<message>"  # Create a commit with staged changes
 ```
 
-### Collaboration
+### History and Inspection
 ```bash
-git push                  # Share your recipes with others
-git pull                  # Get others' latest recipes
+git log                    # View commit history
+git log --oneline         # Condensed commit history
+git diff                  # Show unstaged changes
+git diff --staged         # Show staged changes
 ```
 
-### Time Travel
+### Remote Operations
 ```bash
-git log                   # See all saved versions
-git checkout [commit]     # Visit a past version
+git remote add origin <url>  # Add remote repository
+git push origin <branch>     # Push commits to remote
+git pull origin <branch>     # Fetch and merge remote changes
+git fetch origin            # Fetch remote changes without merging
 ```
 
-## Visual Guide: Your First Git Save
+## Workflow Patterns
 
-```
-1. You edit hello.py (cooking)
-   └─→ File is "modified" (red in git status)
+### Basic Workflow
+1. Modify files in the working directory
+2. Stage changes using `git add`
+3. Commit staged changes using `git commit`
+4. Push commits to remote repository using `git push`
 
-2. git add hello.py (plating)
-   └─→ File is "staged" (green in git status)
+### Feature Branch Workflow
+1. Create feature branch: `git checkout -b feature-name`
+2. Make changes and commit
+3. Push feature branch: `git push origin feature-name`
+4. Create pull request for code review
+5. Merge into main branch after approval
 
-3. git commit -m "Add greeting feature"
-   └─→ Version saved forever with your message
+## File States
 
-4. git push (if using GitHub/GitLab)
-   └─→ Backed up online for safety
-```
+Git tracks files in three states:
 
-## Try This Now! (3 Minutes)
+**Modified**: File has been changed but not staged
+**Staged**: File marked for inclusion in next commit  
+**Committed**: File safely stored in local repository
 
-### Exercise 1: Your First Repository
+## Configuration
+
+### User Configuration
 ```bash
-# In your terminal:
-mkdir my-first-repo
-cd my-first-repo
-git init
-echo "Hello Git!" > readme.txt
-git add readme.txt
-git commit -m "My first commit!"
+git config --global user.name "Your Name"
+git config --global user.email "email@example.com"
 ```
 
-### Exercise 2: See What Git Sees
+### Editor Configuration
 ```bash
-# Make a change:
-echo "Git is awesome!" >> readme.txt
-
-# Check status:
-git status
-# (See the red "modified" file?)
-
-# Stage and commit:
-git add readme.txt
-git commit -m "Add enthusiasm"
-
-# See your history:
-git log --oneline
+git config --global core.editor "vim"
 ```
 
-## Common "Aha!" Moments
+### View Configuration
+```bash
+git config --list          # Show all settings
+git config user.name       # Show specific setting
+```
 
-- **"Commits are snapshots, not just saves"** - Each commit captures your entire project state
-- **"Branches are parallel universes"** - Work on features without affecting the main code
-- **"Git and GitHub are different"** - Git is the tool, GitHub is one place to store repositories
+## Common Operations
 
-## What NOT to Do (Save Yourself Pain)
+### Undoing Changes
+```bash
+git checkout -- <file>     # Discard working directory changes
+git reset HEAD <file>      # Unstage file
+git reset --soft HEAD~1    # Undo last commit, keep changes
+git reset --hard HEAD~1    # Undo last commit, discard changes
+```
 
-- ❌ Don't commit passwords or API keys
-- ❌ Don't panic if you mess up (everything is fixable)
-- ❌ Don't commit giant files (videos, datasets)
-- ❌ Don't work directly on the main branch (create feature branches)
+### Branching
+```bash
+git branch                 # List branches
+git branch <name>         # Create branch
+git checkout <branch>     # Switch branches
+git checkout -b <branch>  # Create and switch branch
+git merge <branch>        # Merge branch into current
+git branch -d <branch>    # Delete branch
+```
 
-## Ready for More?
+### Stashing
+```bash
+git stash                 # Save uncommitted changes
+git stash pop            # Apply and remove latest stash
+git stash list           # List all stashes
+git stash apply          # Apply stash without removing
+```
 
-{% include difficulty-helper.html 
-   current_level="beginner"
-   harder_link="/docs/technology/branching/"
-   prerequisites=site.data.prerequisites.git_beginner
-   advanced_topics=site.data.advanced_topics.git
-%}
+## Best Practices
 
-You've learned the Git basics! When you're ready to level up:
+### Commit Messages
+- Use imperative mood ("Add feature" not "Added feature")
+- First line: concise summary (50 characters max)
+- Blank line between summary and body
+- Body: explain what and why (72 characters per line)
 
-- **[Branching & Collaboration →](/docs/technology/branching.html)** - Work with branches and teams (Intermediate)
-- **[Git Internals →](/docs/technology/git.html)** - How Git really works under the hood (Advanced)
-- **Practice Project**: Create a repository for your personal notes or a small project
+### Commit Frequency
+- Make atomic commits (one logical change per commit)
+- Commit working code
+- Write descriptive commit messages
 
-{% include progressive-disclosure.html 
-   sections=site.data.git_topics.beginner_progression
-   initial_depth="overview"
-%}
+### Branch Naming
+- Use descriptive names
+- Common prefixes: feature/, bugfix/, hotfix/
+- Use hyphens to separate words
 
-## Quick Reference Card
+## .gitignore
 
-| Task | Command | Kitchen Analogy |
-|------|---------|----------------|
-| Start new project | `git init` | Open new restaurant |
-| Save changes | `git add` + `git commit` | Prep + Add to menu |
-| See status | `git status` | Check your stations |
-| View history | `git log` | Browse recipe book |
-| Share work | `git push` | Publish cookbook |
+The `.gitignore` file specifies which files Git should ignore:
 
----
+```gitignore
+# Compiled files
+*.class
+*.o
+*.pyc
 
-**Remember**: Everyone makes Git mistakes. The beauty is that almost everything is reversible. Start small, practice often, and soon Git will feel as natural as saving a file!
+# Directories
+build/
+node_modules/
+.venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+```
+
+## References
+
+- [Official Git Documentation](https://git-scm.com/doc)
+- [Pro Git Book](https://git-scm.com/book)
+- [Git Reference Manual](https://git-scm.com/docs)
