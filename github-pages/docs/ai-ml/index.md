@@ -36,8 +36,8 @@ This section provides comprehensive documentation for working with AI/ML technol
 - [**LoRA Training**](lora-training.html) - Train custom styles and concepts
 - [**ControlNet**](controlnet.html) - Precise control over AI generation
 
-### Output Formats
-- [**Output Formats Guide**](output-formats.html) - Images, videos, audio, and text generation
+### Diffusion Model Outputs
+- [**Diffusion Model Outputs: From Text to 3D**](output-formats.html) - Comprehensive guide to outputs across all diffusion modalities - text (Gemini), images (Stable Diffusion), audio, video, and 3D
 - [**Advanced Techniques**](advanced-techniques.html) - Workflows, optimizations, and cutting-edge methods
 
 ## Getting Started
