@@ -1483,11 +1483,11 @@ def riemann(Gamma, coords):
 3. **Quantum gravity approaches** - Various review articles
 4. **Cosmological observations** - Planck, WMAP results
 
-## Learning Resources
+## References and Resources
 
-<div class="learning-section">
+<div class="resources-section">
   <div class="prerequisites">
-    <h3><i class="fas fa-graduation-cap"></i> Mathematical Prerequisites</h3>
+    <h3><i class="fas fa-calculator"></i> Mathematical Requirements</h3>
     <div class="prereq-grid">
       <div class="prereq-item">
         <i class="fas fa-th"></i>

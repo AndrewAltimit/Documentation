@@ -2339,11 +2339,11 @@ Special Cases:
 | ClickHouse | Column | Analytics, aggregations | OLTP workloads | Petabytes |
 | SQLite | Embedded | Mobile, desktop apps | Concurrent writes | ~100GB |
 
-## Learning Resources
+## References
 
-### Books for Different Levels
+### Essential Literature
 
-**Getting Started**:
+**Foundational Texts**:
 - Kleppmann, M. (2017). *Designing Data-Intensive Applications* - Best modern overview
 - Karwin, B. (2010). *SQL Antipatterns* - Learn from common mistakes
 

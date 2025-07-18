@@ -21,8 +21,8 @@ toc_icon: "brain"
   <div class="key-insights">
     <div class="insight-card">
       <i class="fas fa-graduation-cap"></i>
-      <h4>Learning Paths</h4>
-      <p>Structured progression from basics to expertise</p>
+      <h4>Documentation Hub</h4>
+      <p>Comprehensive AI resources and guides</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-tools"></i>
@@ -128,22 +128,22 @@ Generative AI creates new content including images, text, audio, and video.
 - [LoRA Training](../ai-ml/lora-training.html)
 - [Advanced Techniques](../ai-ml/advanced-techniques.html)
 
-## Learning Pathways
+## Resource Categories
 
-### 🌱 Beginner Path
-1. Start with [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html)
-2. Explore practical applications with [ComfyUI Guide](../ai-ml/comfyui-guide.html)
-3. Understand [Model Types](../ai-ml/model-types.html)
+### 📖 Foundational Resources
+- [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Core concepts without mathematics
+- [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical overview
+- [Model Types](../ai-ml/model-types.html) - Understanding different AI architectures
 
-### 📚 Intermediate Path
-1. Deep dive into [AI Fundamentals - Complete](../technology/ai.html)
-2. Learn about [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html)
-3. Try [LoRA Training](../ai-ml/lora-training.html)
+### 🔧 Implementation Guides
+- [ComfyUI Guide](../ai-ml/comfyui-guide.html) - Visual workflow interface
+- [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html) - Image generation technology
+- [LoRA Training](../ai-ml/lora-training.html) - Model fine-tuning techniques
 
-### 🚀 Advanced Path
-1. Study [AI Mathematics](../advanced/ai-mathematics.html)
-2. Explore [Advanced AI Lecture](../technology/ai-lecture-2023.html)
-3. Master [Advanced Techniques](../ai-ml/advanced-techniques.html)
+### 🎓 Advanced Topics
+- [AI Mathematics](../advanced/ai-mathematics.html) - Mathematical foundations
+- [Advanced AI Lecture](../technology/ai-lecture-2023.html) - Research-level content
+- [Advanced Techniques](../ai-ml/advanced-techniques.html) - State-of-the-art methods
 
 ## Related Topics
 

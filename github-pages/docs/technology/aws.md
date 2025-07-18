@@ -906,9 +906,9 @@ This pattern combines SNS's broadcasting with SQS's reliable delivery and buffer
 
 ### Essential Resources for Your Journey
 
-As you progress through your AWS learning journey, these resources will accelerate your growth:
+Key AWS resources and documentation:
 
-#### Learning Resources
+#### Official Resources
 - **[AWS Free Tier](https://aws.amazon.com/free/)**: Your risk-free playground with 12 months of free services
 - **[AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)**: Learn how AWS experts design systems
 - **[AWS Architecture Center](https://aws.amazon.com/architecture/)**: Real-world reference architectures and patterns

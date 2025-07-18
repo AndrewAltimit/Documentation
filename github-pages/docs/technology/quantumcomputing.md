@@ -819,11 +819,9 @@ result = task.result()
 print(f"Results from real quantum computer: {result.measurement_counts}")
 ```
 
-## Your Quantum Journey: Next Steps
+## Additional Resources
 
-### Learning Resources
-
-Start with these excellent resources:
+### Educational Materials
 
 **Online Courses**:
 - IBM Qiskit Textbook (free, comprehensive)

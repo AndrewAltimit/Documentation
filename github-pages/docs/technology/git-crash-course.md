@@ -8,7 +8,7 @@ section: technology
 
 ## Overview
 
-Git is a distributed version control system that tracks changes in source code during software development. Created by Linus Torvalds in 2005, it has become the de facto standard for version control, powering platforms like GitHub, GitLab, and Bitbucket. Git enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.
+Git is a distributed version control system designed for non-linear development workflows and efficient handling of large projects. Its architecture enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications. Git serves as the foundation for platforms including GitHub, GitLab, and Bitbucket.
 
 ## Core Concepts
 
@@ -64,18 +64,18 @@ git fetch origin            # Fetch remote changes without merging
 
 ## Workflow Patterns
 
-### Basic Workflow
-1. Modify files in the working directory
-2. Stage changes using `git add`
-3. Commit staged changes using `git commit`
-4. Push commits to remote repository using `git push`
+### Standard Git Operations Sequence
+The Git version control workflow consists of four primary operations:
+- **Modification**: Changes to working directory files
+- **Staging**: Addition of changes to the index via `git add`
+- **Committing**: Creation of immutable snapshots via `git commit`
+- **Synchronization**: Remote repository updates via `git push`
 
-### Feature Branch Workflow
-1. Create feature branch: `git checkout -b feature-name`
-2. Make changes and commit
-3. Push feature branch: `git push origin feature-name`
-4. Create pull request for code review
-5. Merge into main branch after approval
+### Feature Branch Operations
+- **Branch Creation**: `git checkout -b feature-name`
+- **Change Management**: Modifications followed by staging and committing
+- **Remote Synchronization**: `git push origin feature-name`
+- **Integration**: Pull request submission and merge after review
 
 ### Git Flow
 A branching model designed around project releases:
@@ -86,7 +86,7 @@ A branching model designed around project releases:
 - **hotfix/**: Emergency fixes for production
 
 ### GitHub Flow
-A simplified workflow perfect for continuous deployment:
+A workflow optimized for continuous deployment environments:
 1. Create branch from main
 2. Add commits
 3. Open pull request
@@ -149,13 +149,13 @@ git stash list           # List all stashes
 git stash apply          # Apply stash without removing
 ```
 
-## Best Practices
+## Standards and Conventions
 
-### Commit Messages
-- Use imperative mood ("Add feature" not "Added feature")
-- First line: concise summary (50 characters max)
-- Blank line between summary and body
-- Body: explain what and why (72 characters per line)
+### Commit Message Specification
+- **Mood**: Imperative ("Add feature" not "Added feature")
+- **Subject Line**: Maximum 50 characters
+- **Format**: Blank line between subject and body
+- **Body**: Maximum 72 characters per line, documenting rationale
 
 #### Conventional Commits (2023-2024 Standard)
 Many projects now follow the Conventional Commits specification:
@@ -186,15 +186,15 @@ proper token refresh and error handling.
 Closes #123
 ```
 
-### Commit Frequency
-- Make atomic commits (one logical change per commit)
-- Commit working code
-- Write descriptive commit messages
+### Commit Granularity
+- **Atomic Commits**: Single logical change per commit
+- **Build Integrity**: All commits must maintain build stability
+- **Documentation**: Each commit requires descriptive message
 
-### Branch Naming
-- Use descriptive names
-- Common prefixes: feature/, bugfix/, hotfix/
-- Use hyphens to separate words
+### Branch Naming Convention
+- **Format**: `<type>/<description>`
+- **Standard Prefixes**: feature/, bugfix/, hotfix/, release/
+- **Separator**: Hyphen for word separation
 
 ## .gitignore
 
@@ -348,9 +348,9 @@ Tools for managing large codebases:
 - **Bazel**: Google's build tool
 - **Rush**: Microsoft's monorepo manager
 
-## Troubleshooting Common Issues
+## Error Recovery Procedures
 
-### Recovering Lost Commits
+### Commit Recovery
 ```bash
 # Find lost commits
 git reflog
@@ -392,6 +392,6 @@ git checkout --ours path/to/file
 - [Official Git Documentation](https://git-scm.com/doc)
 - [Pro Git Book](https://git-scm.com/book) - Free comprehensive guide
 - [Git Reference Manual](https://git-scm.com/docs)
-- [GitHub Skills](https://skills.github.com/) - Interactive Git tutorials
+- [GitHub Skills](https://skills.github.com/) - Git practice environment
 - [Conventional Commits](https://www.conventionalcommits.org/) - Commit message standard
 - [Git Flow](https://nvie.com/posts/a-successful-git-branching-model/) - Original Git Flow model

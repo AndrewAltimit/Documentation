@@ -2514,7 +2514,7 @@ Remember: computational physics is not just about writing code—it's about unde
 - **PETSc**: Scalable solution of PDEs
 - **JAX**: Differentiable physics and machine learning
 
-### Learning Resources
+### References
 - **Books**: "Computational Physics" by Newman, "Numerical Recipes" series
 - **Courses**: MIT OCW Computational Physics, Coursera Scientific Computing
 - **Communities**: Stack Exchange Physics, GitHub Physics repositories

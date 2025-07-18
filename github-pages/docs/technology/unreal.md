@@ -510,7 +510,7 @@ Full PCG system for creating worlds:
 - Facial animation improvements
 - Sequencer timeline enhancements
 
-### Learning Resources and Community
+### Resources and Community
 
 #### Official Resources (2024)
 - **Unreal Learning Platform**: Free courses with certificates
