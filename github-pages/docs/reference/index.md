@@ -19,12 +19,12 @@ toc: true
 - **[Troubleshooting](#troubleshooting-flowcharts)** - Docker, Git, deployment issues
 - **[Best Practices](#best-practices-checklists)** - Code review, deployment, security
 
+---
+
 ## Command Line References
 
-### Git Commands
-
 <div class="reference-card">
-<h4>Essential Git Commands</h4>
+<h4>Git Commands</h4>
 
 ```bash
 # Repository Management
@@ -72,7 +72,9 @@ git reflog               # Show reference log
 ```
 </div>
 
-### Docker Commands
+---
+
+## Docker Commands
 
 <div class="reference-card">
 <h4>Docker Command Reference</h4>
@@ -115,7 +117,9 @@ docker stats                        # Show resource usage
 ```
 </div>
 
-### Kubernetes Commands
+---
+
+## Kubernetes Commands
 
 <div class="reference-card">
 <h4>kubectl Quick Reference</h4>
@@ -160,7 +164,9 @@ kubectl delete deployment <name> # Delete deployment
 ```
 </div>
 
-### AWS CLI Commands
+---
+
+## AWS CLI Commands
 
 <div class="reference-card">
 <h4>AWS CLI Essential Commands</h4>
