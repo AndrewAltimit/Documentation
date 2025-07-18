@@ -28,6 +28,12 @@ Understanding the core concepts and mathematics behind Stable Diffusion and diff
 
 Stable Diffusion is a latent text-to-image diffusion model capable of generating detailed images from text descriptions. Released in 2022 by Stability AI, it democratized AI image generation by being open source and efficient enough to run on consumer GPUs.
 
+The technology has evolved significantly:
+- **2022**: SD 1.x series (1.4, 1.5) established the foundation
+- **2023**: SDXL brought higher resolution and better quality
+- **2024**: SD3 introduced rectified flow and multimodal architecture
+- **Beyond**: FLUX and other models push boundaries further
+
 ### Key Innovation: Latent Space
 
 Unlike earlier diffusion models that worked directly in pixel space, Stable Diffusion operates in a compressed latent space. This innovation:
@@ -129,7 +135,8 @@ Features:
 
 2. **Initialize Noise**:
    ```python
-   Add scheduler noise scaling  # Random noise in latent space
+   latents = torch.randn((1, 4, 64, 64))  # Random noise in latent space
+   latents = latents * scheduler.init_noise_sigma  # Scale by scheduler
    ```
 
 3. **Denoising Loop**:
@@ -200,9 +207,12 @@ Standard training resolutions:
 - **SD 1.5**: 512×512
 - **SD 2.x**: 768×768
 - **SDXL**: 1024×1024
-- **FLUX**: 1024×1024+
+- **SD3**: 1024×1024 (up to 2048×2048)
+- **FLUX**: 1024×1024+ (flexible aspect ratios)
 
-Higher resolutions require more VRAM and computation time.
+Higher resolutions require more VRAM and computation time. Modern models support multiple aspect ratios natively:
+- **SDXL/SD3**: Trained on bucketed resolutions
+- **FLUX**: Continuous aspect ratio support via positional encoding
 
 ### Steps
 
@@ -261,6 +271,12 @@ Where:
 - K: Key (from text embeddings)
 - V: Value (from text embeddings)
 
+Modern optimizations:
+- **Flash Attention**: Fused kernels for 2-4x speedup
+- **Memory Efficient Attention**: xFormers implementation
+- **Sparse Attention**: Focus on relevant regions only
+- **Multi-Query Attention**: Shared K,V for efficiency
+
 ### Latent Space Manipulation
 
 Working in latent space enables:
@@ -281,18 +297,23 @@ Different schedules affect generation:
 
 Approximate VRAM usage for generation:
 
-| Resolution | SD 1.5 | SDXL | FLUX |
-|------------|--------|------|------|
-| 512×512    | 2.5GB  | -    | -    |
-| 768×768    | 3.5GB  | -    | -    |
-| 1024×1024  | 5GB    | 8GB  | 12GB |
+| Resolution | SD 1.5 | SDXL | SD3 | FLUX |
+|------------|--------|------|-----|------|
+| 512×512    | 2.5GB  | -    | -   | -    |
+| 768×768    | 3.5GB  | -    | -   | -    |
+| 1024×1024  | 5GB    | 8GB  | 10GB| 12GB |
+| 2048×2048  | -      | 16GB | 20GB| 24GB |
 
 ### Optimization Techniques
 
-1. **Float16 Precision**: Halve VRAM usage
-2. **Attention Slicing**: Process attention in chunks
-3. **VAE Tiling**: Decode large images in tiles
-4. **CPU Offloading**: Move unused components to RAM
+1. **Float16/BFloat16**: Halve VRAM usage with minimal quality loss
+2. **Int8 Quantization**: Further reduction for inference
+3. **Flash Attention**: Faster, memory-efficient attention
+4. **Torch Compile**: JIT compilation for speed
+5. **Attention Slicing**: Process attention in chunks
+6. **VAE Tiling**: Decode large images in tiles
+7. **CPU Offloading**: Move unused components to RAM
+8. **Sequential CPU Offload**: Extreme memory saving mode
 
 ## Common Issues and Solutions
 
@@ -336,18 +357,22 @@ Where `ε` is the actual noise added and `ε_θ` is the predicted noise.
 
 ### Emerging Techniques
 
-1. **Consistency Models**: Single-step generation
-2. **Flow Matching**: Alternative to diffusion
-3. **Rectified Flows**: Straighter generation paths
-4. **Latent Consistency Models**: 1-4 step generation
+1. **Consistency Models**: Single-step generation via direct mapping
+2. **Flow Matching**: More efficient than diffusion (used in FLUX/SD3)
+3. **Rectified Flows**: Straighter generation paths for faster sampling
+4. **Latent Consistency Models (LCM)**: 1-4 step generation while maintaining quality
+5. **Adversarial Diffusion Distillation (ADD)**: GAN-based acceleration
+6. **Distribution Matching Distillation (DMD)**: One-step generation
 
 ### Research Areas
 
-- Higher resolution without increased compute
-- Better text understanding and adherence
-- Video and 3D generation
-- Real-time generation
-- Improved control mechanisms
+- **Resolution Scaling**: Generate 4K+ images efficiently
+- **Language Understanding**: Better prompt interpretation with LLMs
+- **Multimodal Generation**: Unified image/video/3D/audio models
+- **Real-time Generation**: Sub-second high-quality results
+- **Precise Control**: Natural language editing and manipulation
+- **Efficiency**: Mobile and edge deployment
+- **Consistency**: Long-form content generation
 
 ## Practical Tips
 

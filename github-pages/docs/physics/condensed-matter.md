@@ -337,6 +337,12 @@ $$V_{bi} = \frac{k_BT}{e} \ln\left(\frac{N_A N_D}{n_i^2}\right)$$
 Depletion width:
 $$W = \sqrt{\frac{2\epsilon_s V_{bi}}{e}\left(\frac{N_A + N_D}{N_A N_D}\right)}$$
 
+### Recent Advances in 2D Semiconductors (2023-2024)
+- **Moiré Engineering**: Twisted bilayer TMDs showing correlated insulator states
+- **Valleytronics**: Valley-selective optical excitation in monolayer WSe₂
+- **Exciton Condensates**: Room-temperature exciton-polariton BEC in perovskites
+- **Quantum Emitters**: Single-photon sources in hBN defects
+
 ## Metals and Fermi Liquids
 
 ### Drude Model
@@ -553,12 +559,19 @@ Berry curvature:
 $$\Omega_n(\mathbf{k}) = \nabla_k \times \langle n|\nabla_k|n\rangle$$
 
 ### Topological Insulators
-Bulk insulator with conducting surface states.
+Bulk insulator with conducting surface states protected by time-reversal symmetry.
 
-Z₂ invariant distinguishes from ordinary insulators.
+Z₂ invariant distinguishes from ordinary insulators:
+$$(-1)^{\nu} = \prod_{i=1}^{4} \text{Pf}[w(\Gamma_i)]/\sqrt{\det[w(\Gamma_i)]}$$
 
 Effective Hamiltonian for surface:
 $$H = v_F(\sigma_x k_y - \sigma_y k_x)$$
+
+**3D Topological Insulator Surface States:**
+- Linear dispersion (Dirac cone)
+- Spin-momentum locking
+- Protected crossing at TRIM points
+- Absence of backscattering
 
 ### Chern Insulators
 Characterized by Chern number:
@@ -1139,7 +1152,15 @@ H_F = H_0 + V cos(ωt)
 4. **Khajetoorians et al.** - *Creating designer quantum states of matter atom-by-atom* (2019)
 
 ## See Also
-- [Quantum Mechanics](quantum-mechanics.html) - Quantum foundations
-- [Statistical Mechanics](statistical-mechanics.html) - Many-body theory
-- [Quantum Field Theory](quantum-field-theory.html) - Field theoretic methods
-- [String Theory](string-theory.html) - AdS/CMT correspondence
+
+### Core Physics Topics:
+- [Quantum Mechanics](quantum-mechanics.html) - Quantum foundations and wave functions
+- [Statistical Mechanics](statistical-mechanics.html) - Many-body theory and phase transitions
+- [Quantum Field Theory](quantum-field-theory.html) - Field theoretic methods in condensed matter
+- [Thermodynamics](thermodynamics.html) - Macroscopic properties and phase diagrams
+
+### Related Topics:
+- [Classical Mechanics](classical-mechanics.html) - Lattice dynamics and phonons
+- [Computational Physics](computational-physics.html) - DFT, Monte Carlo, and MD simulations
+- [String Theory](string-theory.html) - AdS/CMT correspondence and holographic duality
+- [Relativity](relativity.html) - Relativistic effects in graphene and Weyl semimetals

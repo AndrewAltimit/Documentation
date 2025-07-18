@@ -28,6 +28,8 @@ Comprehensive guide to different output formats in AI generation: images, videos
 
 Modern AI models can generate various types of content beyond static images. This guide covers the different output formats, their generation methods, and best practices for each medium.
 
+As of 2024, the ecosystem has expanded to include real-time video generation, high-quality audio synthesis, 3D model creation, and multi-modal outputs. New formats and compression methods enable better quality at smaller file sizes.
+
 ## Image Generation
 
 ### Standard Image Formats
@@ -56,6 +58,22 @@ Format: Modern compression
 Features: Lossy/lossless, animation
 File Size: 25-35% smaller than JPEG
 Best For: Web optimization
+```
+
+#### AVIF
+```yaml
+Format: Next-gen compression
+Features: Superior compression, HDR support
+File Size: 50% smaller than JPEG
+Best For: Modern web, HDR content
+```
+
+#### JXL (JPEG XL)
+```yaml
+Format: Future standard
+Features: Progressive decoding, lossless JPEG recompression
+File Size: 60% of JPEG size
+Best For: Future-proofing, archival
 ```
 
 ### Image Parameters
@@ -134,9 +152,19 @@ Resolution: Same as base model
 ```yaml
 Type: Dedicated video model
 Input: Single image
-Output: 14-25 frames
+Output: 14-25 frames  
 Resolution: 1024×576
 FPS: 6-30 fps configurable
+New: SVD-XT for longer sequences
+```
+
+#### SORA-style Models
+```yaml
+Type: Text-to-video transformers
+Length: Up to 60 seconds
+Resolution: Up to 1920×1080
+Quality: Near-professional
+Status: Emerging in 2024
 ```
 
 #### ModelScope/ZeroScope
@@ -197,12 +225,13 @@ Tools:
 
 ### Audio Diffusion Models
 
-#### AudioLDM
+#### AudioLDM 2
 ```yaml
-Type: Text-to-audio
-Duration: Up to 10 seconds
-Sample Rate: 16kHz-48kHz
-Quality: Good for effects
+Type: Text-to-audio/music
+Duration: Up to 45 seconds
+Sample Rate: 16kHz-48kHz  
+Quality: Professional grade
+Features: Speech, music, SFX
 ```
 
 #### MusicGen
@@ -219,6 +248,14 @@ Type: Text-to-speech
 Languages: Multiple
 Features: Emotion, singing
 Non-speech: Laughs, sighs
+```
+
+#### Stable Audio
+```yaml
+Type: Text-to-music/audio
+Duration: Up to 90 seconds
+Quality: 44.1kHz stereo
+Control: Genre, mood, instruments
 ```
 
 ### Audio Generation Pipeline
@@ -263,10 +300,16 @@ audio = audioldm_model.generate(
 ### Text in Images
 
 #### Native Text Rendering
-FLUX excels at text rendering:
+Modern models excel at text rendering:
 ```python
+# FLUX - Best text rendering
 prompt = 'A sign that says "HELLO WORLD" in bold letters'
-# FLUX can render this accurately
+
+# SD3 - Good text capability  
+prompt = 'A book cover with the title "AI Revolution"'
+
+# SDXL - Limited but improving with LoRAs
+prompt = 'Logo design with text "COMPANY NAME"'
 ```
 
 #### ControlNet Text
@@ -345,6 +388,15 @@ Format: .ply, .splat
 Time: 1-2 minutes
 ```
 
+#### TripoSR
+```yaml
+Input: Single image
+Output: 3D mesh
+Format: .obj, .gltf
+Time: Under 1 second
+Quality: Good geometry
+```
+
 #### One-2-3-45
 ```yaml
 Input: Single image
@@ -374,6 +426,16 @@ nerf_output/
 └── mesh/           # Extracted mesh
 ```
 
+### 3D Gaussian Splatting
+
+```python
+# Gaussian splatting advantages
+- Real-time rendering (100+ FPS)
+- Smaller file sizes
+- Better view synthesis
+- Direct editing capability
+```
+
 ## Optimization Strategies
 
 ### Batch Processing
@@ -395,10 +457,10 @@ batch_config = {
 
 | Priority | Image | Video | Audio | 3D |
 |----------|-------|-------|-------|-----|
-| Quality | PNG/EXR | ProRes | WAV/FLAC | FBX |
-| Size | JPEG/WebP | H.265 | MP3/AAC | GLTF |
-| Speed | JPEG | H.264 | MP3 | OBJ |
-| Compatibility | JPEG | H.264 | MP3 | OBJ |
+| Quality | PNG/EXR | ProRes/AV1 | WAV/FLAC | USD/FBX |
+| Size | AVIF/WebP | AV1/H.265 | Opus/AAC | GLTF/Splat |
+| Speed | JPEG/WebP | H.264 | MP3 | OBJ/PLY |
+| Compatibility | JPEG | H.264 | MP3 | GLTF |
 
 ### Compression Guidelines
 
@@ -521,10 +583,12 @@ def optimize_for_web(image):
 
 ### Emerging Standards
 
-1. **AVIF**: Next-gen image format
-2. **JXL**: JPEG XL for better compression
-3. **Gaussian Splatting**: .splat files
-4. **Neural Representations**: Model-based formats
+1. **AVIF**: Already supported in major browsers
+2. **JXL**: JPEG XL gaining adoption
+3. **Gaussian Splatting**: .splat/.ply becoming standard
+4. **Neural Representations**: NeRF variants
+5. **WebGPU Formats**: Browser-native 3D
+6. **Unified Scene Description**: OpenUSD adoption
 
 ### Integration Formats
 

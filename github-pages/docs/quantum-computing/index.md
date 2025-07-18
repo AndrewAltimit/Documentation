@@ -29,12 +29,12 @@ Quantum computing represents a fundamental shift in how we process information, 
 ## Quick Navigation
 
 ### Fundamentals
-- [**Introduction to Quantum Computing**](/docs/technology/quantumcomputing.html) - Comprehensive introduction covering all aspects
-- [**Quantum Mechanics Basics**](/docs/physics/quantum-mechanics.html) - Fundamental quantum principles
+- [**Introduction to Quantum Computing**](../technology/quantumcomputing.html) - Comprehensive introduction covering all aspects
+- [**Quantum Mechanics Basics**](../physics/quantum-mechanics.html) - Fundamental quantum principles
 - [**Quantum Information Theory**](#quantum-information-theory) - How quantum mechanics enables computation
 
 ### Quantum Algorithms
-- [**Advanced Quantum Algorithms Research**](/docs/advanced/quantum-algorithms-research.html) - Rigorous theoretical foundations
+- [**Advanced Quantum Algorithms Research**](../advanced/quantum-algorithms-research.html) - Rigorous theoretical foundations
 - [**Classical Quantum Algorithms**](#classical-quantum-algorithms) - Shor's, Grover's, and foundational algorithms
 - [**NISQ Era Algorithms**](#nisq-era-algorithms) - Variational algorithms for near-term devices
 
@@ -59,8 +59,8 @@ Quantum computing represents a fundamental shift in how we process information, 
 Start your quantum journey with these resources:
 
 1. **Understand the Basics**
-   - Read our [Introduction to Quantum Computing](/docs/technology/quantumcomputing.html)
-   - Learn essential [Quantum Mechanics](/docs/physics/quantum-mechanics.html) concepts
+   - Read our [Introduction to Quantum Computing](../technology/quantumcomputing.html)
+   - Learn essential [Quantum Mechanics](../physics/quantum-mechanics.html) concepts
    - Explore interactive demos and visualizations
 
 2. **First Quantum Programs**
@@ -95,7 +95,7 @@ Transition from classical to quantum programming:
 Advance the field with cutting-edge topics:
 
 1. **Theoretical Foundations**
-   - Explore our [Advanced Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research.html)
+   - Explore our [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research.html)
    - Quantum complexity theory
    - Quantum information theory
 
@@ -315,6 +315,7 @@ Protecting quantum information from decoherence and errors:
 ### Online Courses
 - [IBM Qiskit Textbook](https://qiskit.org/textbook/) - Comprehensive quantum computing course
 - [Microsoft Quantum Development Kit](https://azure.microsoft.com/en-us/products/quantum) - Learn Q# and quantum concepts
+- [Quantum Algorithm Zoo](https://quantumalgorithmzoo.org/) - Comprehensive list of quantum algorithms
 - [Quantum Computing Playground](http://www.quantumplayground.net/) - Visual quantum circuit simulator
 
 ### Books
@@ -331,10 +332,11 @@ Protecting quantum information from decoherence and errors:
 - [Quantum Computing Stack Exchange](https://quantumcomputing.stackexchange.com/)
 - [r/QuantumComputing](https://www.reddit.com/r/QuantumComputing/)
 - [Qiskit Community](https://qiskit.org/community)
+- [Quantum Computing Hub](.) - This documentation hub
 
 ## Future Directions
 
-### Near-Term Goals (2024-2030)
+### Near-Term Goals (2025-2030)
 - Demonstrate quantum advantage for practical problems
 - Scale to thousands of physical qubits
 - Develop better error mitigation techniques
@@ -357,4 +359,4 @@ Protecting quantum information from decoherence and errors:
 
 ---
 
-Ready to begin your quantum journey? Start with our [Introduction to Quantum Computing](/docs/technology/quantumcomputing.html) or dive into [hands-on programming](#quantum-programming-frameworks). The quantum future is being built today, and you can be part of it!
+Ready to begin your quantum journey? Start with our [Introduction to Quantum Computing](../technology/quantumcomputing.html) or dive into [hands-on programming](#quantum-programming-frameworks). The quantum future is being built today, and you can be part of it!

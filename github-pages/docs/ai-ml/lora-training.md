@@ -28,6 +28,8 @@ Learn how to train custom LoRA (Low-Rank Adaptation) models to add new styles, c
 
 LoRA (Low-Rank Adaptation) is a training technique that allows you to fine-tune large models like Stable Diffusion by training only a small number of parameters. Instead of modifying the entire model, LoRA adds trainable rank decomposition matrices to existing weights.
 
+In 2024, LoRA training has become significantly more accessible with tools like AI Toolkit, Kohya SS, and cloud-based solutions. New variants like LCM-LoRA and DoRA offer specialized capabilities beyond traditional style/character training.
+
 ### Key Benefits
 
 - **Efficient**: Requires 100-1000x less storage than full fine-tuning
@@ -71,8 +73,11 @@ docker-compose up -d
 | Model Type | Minimum VRAM | Recommended VRAM | Training Time (1k steps) |
 |------------|--------------|------------------|-------------------------|
 | SD 1.5     | 6GB          | 8GB              | 15-30 min              |
+| SD 2.x     | 8GB          | 12GB             | 20-40 min              |
 | SDXL       | 12GB         | 16GB             | 30-60 min              |
-| FLUX       | 16GB         | 24GB             | 60-120 min             |
+| SD3 Medium | 14GB         | 20GB             | 45-90 min              |
+| FLUX Dev   | 16GB         | 24GB             | 60-120 min             |
+| FLUX Schnell| N/A         | N/A              | (Distilled, no training)|
 
 ## Dataset Preparation
 
@@ -85,10 +90,11 @@ docker-compose up -d
    - Consistent quality across dataset
 
 2. **Dataset Size Guidelines**:
-   - **Style LoRA**: 10-50 images
-   - **Character/Person**: 20-100 images
-   - **Object/Concept**: 15-50 images
-   - **Complex Style**: 50-200 images
+   - **Style LoRA**: 10-50 images (quality > quantity)
+   - **Character/Person**: 20-100 images (varied poses/expressions)
+   - **Object/Concept**: 15-50 images (multiple angles)
+   - **Complex Style**: 50-200 images (diverse examples)
+   - **LCM-LoRA**: 100-500 images (for speed optimization)
 
 ### Captioning Best Practices
 
@@ -121,36 +127,55 @@ xyz_style digital painting of a landscape, vibrant colors, fantasy art style, hi
 xyz_object a red sports car, studio lighting, product photography, white background
 ```
 
-#### FLUX Caption Guidelines
+#### Model-Specific Caption Guidelines
 
-For FLUX models specifically, include these elements:
-
-1. **Trigger Word**: Always first (e.g., "xyz_style")
-2. **Subject**: Clear description (e.g., "a woman", "a building")
-3. **Camera Angle**: Perspective (e.g., "front view", "aerial shot")
-4. **Environment**: Setting (e.g., "in a forest", "studio background")
-5. **Lighting**: Conditions (e.g., "golden hour", "dramatic lighting")
-
-Example:
+**FLUX Captions**:
 ```
 xyz_style portrait of a knight, three-quarter view, in a medieval castle, torch lighting
 ```
+- Natural language preferred
+- Include camera angles and lighting
+- Detailed scene descriptions
+
+**SDXL Captions**:
+```
+xyz_style, digital artwork, fantasy knight, detailed armor, castle interior, dramatic lighting, masterpiece
+```
+- Mix of tags and natural language
+- Quality tags important
+- Booru-style tags work well
+
+**SD3 Captions**:
+```
+A knight in shining armor standing in a medieval castle, xyz_style artwork
+```
+- Very natural language
+- Trigger word can be mid-sentence
+- Detailed descriptions excel
 
 ### Automated Captioning
 
 Using AI Toolkit's caption generation:
 
 ```python
-# Using BLIP or WD14 taggers
-responses = [
-    "generate-captions",
-    {
+# Modern captioning options
+response = requests.post("http://localhost:8190/mcp/tool", json={
+    "tool": "generate-captions",
+    "arguments": {
         "dataset_path": "/ai-toolkit/datasets/my-dataset",
-        "caption_model": "blip2",
-        "trigger_word": "xyz_style"
+        "caption_model": "blip2",  # or "wd14", "cogvlm", "florence2"
+        "trigger_word": "xyz_style",
+        "caption_style": "natural",  # or "booru", "mixed"
+        "add_quality_tags": true
     }
-]
+})
 ```
+
+**Caption Models**:
+- **BLIP2**: Best for natural descriptions
+- **WD14**: Excellent for anime/booru tags
+- **CogVLM**: Advanced understanding
+- **Florence2**: Detailed region descriptions
 
 ## Training Configuration
 
@@ -189,8 +214,10 @@ response = requests.post("http://localhost:8190/mcp/tool", json={
 #### Learning Rate
 - **Default**: 2e-4 (0.0002) - Good for most cases
 - **Conservative**: 1e-4 (0.0001) - Slower but safer
-- **Aggressive**: 3e-4 (0.0003) - For stubborn concepts
+- **Aggressive**: 3e-4 (0.0003) - For stubborn concepts  
 - **Fine-tuning**: 5e-5 (0.00005) - For existing styles
+- **Prodigy Optimizer**: 1.0 - Self-adjusting (recommended)
+- **AdamW8bit**: 3e-4 - Memory efficient option
 
 #### Steps Calculation
 ```
@@ -216,7 +243,7 @@ Examples:
 ```python
 {
     "name": "advanced-lora",
-    "model_name": "ostris/Flex.1-alpha",  # FLUX model
+    "model_name": "black-forest-labs/FLUX.1-dev",  # FLUX model
     "dataset_path": "/ai-toolkit/datasets/my-dataset",
     
     # Training parameters
@@ -224,7 +251,7 @@ Examples:
     "batch_size": 1,
     "gradient_accumulation_steps": 4,
     "learning_rate": 0.0002,
-    "lr_scheduler": "cosine",
+    "lr_scheduler": "cosine_with_restarts",
     "lr_warmup_steps": 100,
     
     # LoRA parameters
@@ -250,7 +277,14 @@ Examples:
     "network_dim": 32,
     "network_alpha": 16,
     "clip_skip": 2,
-    "max_token_length": 225
+    "max_token_length": 225,
+    
+    # 2024 Features
+    "use_prodigy_optimizer": false,
+    "masked_loss": false,
+    "debiased_estimation": true,
+    "ip_noise_gamma": 0.1,
+    "min_snr_gamma": 5
 }
 ```
 
@@ -367,6 +401,47 @@ response = requests.post("http://localhost:8190/mcp/tool", json={
         "upload_id": upload_id
     }
 })
+```
+
+## Specialized LoRA Types (2024)
+
+### LCM-LoRA Training
+
+Train for fast generation:
+```python
+{
+    "name": "lcm-lora",
+    "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+    "teacher_model": "lcm-sdxl",
+    "distillation_mode": true,
+    "learning_rate": 1e-4,
+    "steps": 5000,
+    "guidance_scale_range": [1.0, 2.0]
+}
+```
+
+### DoRA (Weight-Decomposed LoRA)
+
+```python
+{
+    "name": "dora-style",
+    "use_dora": true,
+    "magnitude_learning_rate": 1e-4,
+    "direction_learning_rate": 2e-4,
+    "rank": 64  # Can use higher ranks effectively
+}
+```
+
+### Control-LoRA
+
+Combine LoRA with ControlNet:
+```python
+{
+    "name": "control-lora",
+    "control_type": "openpose",
+    "control_weight": 0.5,
+    "train_control_adapter": true
+}
 ```
 
 ## Common Training Scenarios
@@ -614,20 +689,24 @@ train_config(rank=32, steps=1000, lr=0.00005, resume_from="stage2")
 ## Best Practices Summary
 
 ### Do's
-✓ Use unique trigger words (xyz_style, not "style")
+✓ Use unique trigger words (xyz_style, not "style")  
 ✓ Include trigger word in all captions
 ✓ Vary descriptions while maintaining consistency
 ✓ Test with prompts during training
 ✓ Save checkpoints regularly
 ✓ Start with conservative settings
+✓ Use regularization images for better generalization
+✓ Monitor validation loss
 
 ### Don'ts
 ✗ Don't overtrain (watch for overfitting)
-✗ Don't use copyrighted content
-✗ Don't skip dataset curation
+✗ Don't use copyrighted content without permission
+✗ Don't skip dataset quality control
 ✗ Don't use generic trigger words
 ✗ Don't ignore sampling results
-✗ Don't train at full model resolution always
+✗ Don't train at full resolution if not needed
+✗ Don't mix incompatible model versions
+✗ Don't forget to backup successful LoRAs
 
 ## Conclusion
 

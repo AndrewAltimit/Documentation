@@ -1,9 +1,10 @@
 ---
 layout: docs
-title: Distributed Systems
+title: Distributed Systems Hub
 toc: false  # Index pages typically don't need TOC
 ---
 
+# Distributed Systems Documentation Hub
 
 <div class="code-example" markdown="1">
 Comprehensive documentation for distributed systems architecture, design patterns, and implementation strategies. From consensus algorithms to microservices, from message queuing to service mesh.
@@ -26,9 +27,10 @@ Whether you're building microservices, implementing consensus algorithms, or dep
 ## Quick Navigation
 
 ### Core Infrastructure
-- [**Kubernetes**](/docs/technology/kubernetes.html) - Container orchestration and cluster management
-- [**Docker**](/docs/technology/docker.html) - Containerization fundamentals and best practices
-- [**Distributed Systems Theory**](/docs/advanced/distributed-systems-theory.html) - Formal foundations and impossibility results
+- [**Kubernetes**](../technology/kubernetes.html) - Container orchestration and cluster management
+- [**Docker**](../technology/docker.html) - Containerization fundamentals and best practices
+- [**Docker Essentials**](../technology/docker-essentials.html) - Quick reference and commands
+- [**Distributed Systems Theory**](../advanced/distributed-systems-theory.html) - Formal foundations and impossibility results
 
 ### Key Concepts
 - **Consensus Algorithms** - Paxos, Raft, and Byzantine fault tolerance
@@ -985,9 +987,11 @@ class SecureClient:
 
 Ready to dive deeper? Explore these resources:
 
-1. **[Distributed Systems Theory](/docs/advanced/distributed-systems-theory.html)** - Formal foundations and proofs
-2. **[Kubernetes Guide](/docs/technology/kubernetes.html)** - Container orchestration in practice
-3. **[Docker Fundamentals](/docs/technology/docker.html)** - Containerization basics
+1. **[Distributed Systems Theory](../advanced/distributed-systems-theory.html)** - Formal foundations and proofs
+2. **[Kubernetes Guide](../technology/kubernetes.html)** - Container orchestration in practice
+3. **[Docker Fundamentals](../technology/docker.html)** - Containerization basics
+4. **[CI/CD Pipelines](../technology/ci-cd.html)** - Continuous integration and deployment
+5. **[AWS Cloud Services](../technology/aws.html)** - Cloud infrastructure at scale
 
 ### Advanced Topics
 
@@ -995,6 +999,7 @@ Ready to dive deeper? Explore these resources:
 - **Edge Computing**: Pushing computation to the network edge
 - **Serverless Architectures**: Function-as-a-Service patterns
 - **Multi-Region Deployments**: Global scale architectures
+- **[Quantum Distributed Systems](../quantum-computing/index.html#quantum-networking)**: Quantum networking and distributed quantum computing
 
 <div class="code-example bg-yellow-000" markdown="1">
 **Note**: Distributed systems are inherently complex. Start with simple patterns and gradually increase sophistication as you gain experience. Always prioritize reliability and maintainability over premature optimization.
@@ -1024,3 +1029,14 @@ Ready to dive deeper? Explore these resources:
 ---
 
 *Building distributed systems is a journey of continuous learning. Start with the fundamentals, practice with real implementations, and always be prepared for the unexpected failures that make distributed systems both challenging and fascinating.*
+
+## Updates and Contributions
+
+This documentation is actively maintained and updated with the latest distributed systems patterns and technologies. Recent additions include:
+
+- **2025 Updates**: Service mesh patterns with Istio 1.21+
+- **WASM Integration**: Edge computing with WebAssembly
+- **eBPF Observability**: Kernel-level monitoring without overhead
+- **Quantum-Safe Cryptography**: Preparing for post-quantum distributed systems
+
+For contributions or corrections, please visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation).

@@ -357,6 +357,10 @@ while Frontier ≠ ∅:
 - Lower bound for agreement: D rounds
 - Upper bound with f failures: min(f+1, D) rounds
 
+**Recent Results (2023-2024)**:
+- Expected O(1) latency for optimistic Byzantine consensus
+- Adaptive adversary bounds tightened to O(f·polylog(n))
+
 ### Message Complexity
 
 **Consensus Algorithms**:
@@ -399,3 +403,9 @@ where p = honest mining power, q = attacker power, z = confirmations
 ---
 
 *Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](/docs/distributed-systems/).*
+
+## Related Advanced Topics
+
+- [AI Mathematics](/docs/advanced/ai-mathematics/) - For distributed ML systems
+- [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/) - Quantum distributed computing
+- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing distributed system codebases

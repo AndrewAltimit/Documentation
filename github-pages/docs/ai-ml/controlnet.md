@@ -20,6 +20,8 @@ hide_title: true
 
 ControlNet is a neural network architecture that adds spatial control to diffusion models. It allows you to guide image generation using various types of conditioning inputs like human poses, edge maps, depth maps, and more, while maintaining the quality and capabilities of the base model.
 
+As of 2024, ControlNet has evolved significantly with new control types, better preprocessing, and support for newer models. The ecosystem now includes alternatives like T2I-Adapter, IP-Adapter, and InstantID that offer different trade-offs between control precision and flexibility.
+
 ### How ControlNet Works
 
 ```
@@ -62,9 +64,20 @@ More accurate pose estimation with better occlusion handling.
 
 ```yaml
 Advantages: Better accuracy, stable tracking
-Keypoints: More detailed skeleton
+Keypoints: More detailed skeleton  
 Performance: Slower but more reliable
 Use case: Complex poses, partial visibility
+New: Whole-body estimation including hands/face
+```
+
+#### RTMPose
+Real-time pose estimation with good accuracy.
+
+```yaml
+Speed: Fastest option available
+Accuracy: Good balance
+Use case: Real-time applications
+Platforms: Mobile-friendly
 ```
 
 ### Edge Detection
@@ -233,9 +246,16 @@ Best for: Object removal, editing
 # Install ControlNet models
 cd ComfyUI/models/controlnet
 
-# Download models (example)
+# Download models (example for SD 1.5)
 wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth
 wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1p_sd15_depth.pth
+
+# For SDXL ControlNet
+wget https://huggingface.co/diffusers/controlnet-canny-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors
+
+# Install preprocessor nodes
+cd ../../custom_nodes
+git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 ```
 
 ### Required Components
@@ -296,9 +316,14 @@ Vary ControlNet influence during generation:
 # Reduce control over time for more creativity
 strength_schedule = {
     0: 1.0,    # Full control at start
-    0.5: 0.7,  # Reduce midway
+    0.5: 0.7,  # Reduce midway  
     0.8: 0.3,  # Minimal at end
 }
+
+# Advanced scheduling with curves
+def cosine_schedule(step, total_steps):
+    progress = step / total_steps
+    return 0.5 * (1 + math.cos(math.pi * progress))
 ```
 
 ### Multiple Control Combinations
@@ -390,13 +415,27 @@ def custom_edge_detection(image):
 
 ## Model Compatibility
 
+### Recent Developments (2024)
+
+#### New Control Types
+- **QR Code Control**: Generate scannable QR codes in artistic styles
+- **Illumination Control**: Precise lighting direction control
+- **Recolor**: Change colors while preserving structure
+- **Blur Control**: Depth-of-field and focus control
+
+#### Model Support
+- **SDXL ControlNet**: Full support with higher quality
+- **SD3 ControlNet**: In development
+- **FLUX Support**: Coming soon with new architecture
+
 ### ControlNet Versions
 
 | Base Model | ControlNet Version | File Pattern |
 |------------|-------------------|--------------|
 | SD 1.5 | v1.1 | control_v11*_sd15_*.pth |
 | SD 2.1 | v1.1 SD2 | control_v11*_sd21_*.pth |
-| SDXL | SDXL | controlnet-*-sdxl-*.safetensors |
+| SDXL | SDXL v1 | controlnet-*-sdxl-1.0*.safetensors |
+| SD3 | In Development | controlnet-*-sd3-*.safetensors |
 | FLUX | Coming Soon | TBD |
 
 ### T2I-Adapter
@@ -408,10 +447,20 @@ Advantages:
 - Smaller model size (~80MB vs ~1.4GB)
 - Faster inference
 - Multiple adapters combinable
+- Lower VRAM usage
+- Better for real-time applications
 
 Disadvantages:
 - Sometimes less precise
 - Fewer available types
+- May require more prompt engineering
+```
+
+### IP-Adapter Integration
+
+Combine ControlNet with IP-Adapter:
+```python
+[ControlNet Depth] + [IP-Adapter Style] = Precise structure with reference style
 ```
 
 ## Common Workflows
@@ -563,18 +612,23 @@ class InteractiveControl:
 
 ### Emerging ControlNet Technologies
 
-1. **3D-Aware Control**: Full 3D scene understanding
-2. **Video ControlNet**: Temporal consistency
-3. **Semantic Editing**: Natural language control
-4. **Adaptive Control**: Self-adjusting strength
-5. **Neural Controls**: Learned control patterns
+1. **3D-Aware Control**: Full 3D scene understanding with depth and normals
+2. **Video ControlNet**: Temporal consistency across frames
+3. **Semantic Editing**: Natural language region control
+4. **Adaptive Control**: AI-driven strength adjustment
+5. **Neural Controls**: Learned control patterns from examples
+6. **Diffusion Illusions**: Optical illusion generation
+7. **Multi-Subject Control**: Individual control over multiple subjects
+8. **Mesh Control**: Direct 3D mesh conditioning
 
 ### Integration Trends
 
-- Real-time control preview
-- Mobile-optimized controls
-- Cloud-based preprocessing
-- AI-assisted control creation
+- **Real-time Preview**: See control effects instantly
+- **Mobile Optimization**: On-device control processing
+- **Cloud Preprocessing**: Offload heavy computation
+- **AI Control Generation**: Generate control maps from prompts
+- **Cross-Model Support**: Universal control formats
+- **Community Controls**: User-created control types
 
 ## Conclusion
 

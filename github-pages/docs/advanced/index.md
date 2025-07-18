@@ -123,6 +123,15 @@ When using these resources:
 - MIT OpenCourseWare: Advanced algorithms
 - Stanford Online: Statistical learning theory
 - IBM Qiskit Textbook: Quantum algorithms
+- Berkeley CS294: Foundations of Deep Learning
+- ETH Zurich: Distributed Computing Principles
+- Caltech/IBM: Quantum Computation
+
+### Recent Survey Papers (2023-2024)
+- "Mechanistic Interpretability: A Survey" - Comprehensive overview of neural network interpretability
+- "Byzantine Consensus in the Blockchain Era" - Modern Byzantine fault tolerance
+- "Quantum Machine Learning: Prospects and Challenges" - Current state of QML
+- "Theory of Grokking: Dynamic Phase Transitions in Neural Networks" - Understanding delayed generalization
 
 ---
 

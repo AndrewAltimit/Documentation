@@ -1,6 +1,6 @@
 # AI Agents Documentation
 
-This project utilizes three AI agents working in harmony to accelerate development while maintaining high code quality.
+This project utilizes three AI agents working in harmony to accelerate development while maintaining high code quality. This documentation reflects the latest updates and best practices as of 2024.
 
 ## The Three AI Agents
 
@@ -38,7 +38,7 @@ This project utilizes three AI agents working in harmony to accelerate developme
 - Validates adherence to project standards
 - Provides actionable feedback
 
-**Setup**: Runs on self-hosted runners via Node.js
+**Setup**: Runs on self-hosted runners via Node.js (v18+ required, v22.16.0 recommended)
 
 **Key Features**:
 
@@ -48,6 +48,7 @@ This project utilizes three AI agents working in harmony to accelerate developme
 - Focuses on project-specific concerns
 - Reviews containerization, security, and code quality
 - Provides actionable feedback within 3-5 minutes
+- Uses latest Gemini models (gemini-2.5-pro preferred)
 
 ### 3. GitHub Copilot (Code Review)
 
@@ -86,9 +87,10 @@ This project utilizes three AI agents working in harmony to accelerate developme
 
 3. **Review Phase**:
    - Gemini automatically reviews PR (history cleared first)
-   - Copilot provides additional review suggestions
+   - GitHub Copilot provides additional review suggestions
    - Claude Code addresses review comments
    - Two-layer review ensures quality
+   - All feedback consolidated within 5-10 minutes
 
 ### Real-World Example
 
@@ -103,11 +105,11 @@ git push origin feature-branch
 
 # Gemini reviews within 3-5 minutes
 # - Checks container security
-# - Validates Python 3.11 compatibility
+# - Validates Python 3.11+ compatibility
 # - Reviews async/await patterns
 # - Suggests improvements
 
-# Copilot adds inline suggestions
+# GitHub Copilot adds inline suggestions
 # Claude Code addresses all feedback
 ```
 
@@ -131,6 +133,7 @@ git push origin feature-branch
 - Use for complex, multi-file changes
 - Leverage for documentation and tests
 - Ask to follow container-first approach
+- Ensure all operations use Docker containers
 
 ### For Gemini Reviews
 
@@ -153,21 +156,24 @@ git push origin feature-branch
 - Follows CLAUDE.md guidelines
 - Has access to all project commands
 - Understands container-first philosophy
-- Uses Python 3.11 environment in containers
+- Uses Python 3.11+ environment in containers
 - Runs all CI/CD operations via `./scripts/run-ci.sh`
+- Integrates with MCP server for tool execution
 
 ### Gemini CLI Setup
 
 ```bash
+# Requires Node.js 18+ (recommended: 22.16.0)
 npm install -g @google/gemini-cli
-gemini  # Authenticate on first use
+gemini  # Authenticate on first use - opens browser for OAuth
 ```
 
-### Copilot Setup
+### GitHub Copilot Setup
 
-- Enable in repository settings
+- Enable in repository settings (Settings → GitHub Copilot)
 - Configure for pull request reviews
-- Set review preferences
+- Set review preferences (auto-review on PR open)
+- Ensure proper permissions for commenting
 
 ## Benefits of Multi-Agent Approach
 
@@ -178,15 +184,25 @@ gemini  # Authenticate on first use
 5. **Learning**: Agents provide different insights
 6. **Consistency**: Container-first approach ensures reproducible results
 7. **Zero Setup**: Self-hosted infrastructure with no external dependencies
+8. **Modern AI Models**: Access to latest Gemini (2.5-pro) and Claude (Opus 4) models
 
 ## Future Possibilities
 
-- Integration with more specialized agents
+- Integration with more specialized agents (Cursor, Codeium)
 - Custom training on project patterns
-- Automated issue resolution
-- AI-driven test generation
+- Automated issue resolution with AI
+- AI-driven test generation and coverage improvement
 - Performance optimization suggestions
+- Automated dependency updates with compatibility checks
+- AI-powered documentation generation from code
+
+## Related Documentation
+
+- [CLAUDE.md](CLAUDE.md) - Detailed Claude Code guidelines
+- [GEMINI_SETUP.md](GEMINI_SETUP.md) - Complete Gemini setup instructions
+- [MCP_TOOLS.md](MCP_TOOLS.md) - Available MCP tools and integrations
+- [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) - Context provided to AI agents
 
 ---
 
-This multi-agent approach enables a single developer to maintain professional-grade code quality and development velocity typically associated with larger teams.
+This multi-agent approach enables a single developer to maintain professional-grade code quality and development velocity typically associated with larger teams. The combination of Claude's deep reasoning, Gemini's fast reviews, and Copilot's inline suggestions creates a comprehensive AI-assisted development environment.

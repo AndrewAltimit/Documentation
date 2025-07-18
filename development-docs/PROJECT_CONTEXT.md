@@ -1,15 +1,17 @@
 # Project Context for AI Code Review
 
+_Last Updated: 2024_
+
 ## Project Overview
 
-This is a **container-first, self-hosted project template** maintained by a single developer (@AndrewAltimit). It uses Model Context Protocol (MCP) tools with zero-cost infrastructure.
+This is a **container-first, self-hosted project template** maintained by a single developer (@AndrewAltimit). It uses Model Context Protocol (MCP) tools with zero-cost infrastructure. All operations are containerized for maximum portability and consistency.
 
 ## AI Agent Ecosystem
 
 This project uses three AI agents:
 
-1. **Claude Code** - Primary development (architecture, implementation, docs)
-2. **Gemini CLI** - Automated PR reviews (you are reviewing as Gemini)
+1. **Claude Code** (Opus 4) - Primary development (architecture, implementation, docs)
+2. **Gemini CLI** (2.5-pro) - Automated PR reviews (you are reviewing as Gemini)
 3. **GitHub Copilot** - Code review suggestions in pull requests
 
 As the PR reviewer, focus on security, containers, and project standards.
@@ -31,11 +33,12 @@ As the PR reviewer, focus on security, containers, and project standards.
 
 ### 3. Architecture
 
-- **MCP Server** (FastAPI) runs on port 8005 in Docker container
-- **Python CI Container** includes all development tools (Python 3.11)
-- **Docker Compose** orchestrates all services
+- **MCP Server** (FastAPI 0.100+) runs on port 8005 in Docker container
+- **Python CI Container** includes all development tools (Python 3.11+)
+- **Docker Compose** (v2+) orchestrates all services
 - **No aggressive cleanup** - Python cache prevention via environment variables
 - **Multi-stage CI/CD** - format, lint-basic, lint-full, security, test stages
+- **BuildKit enabled** for faster Docker builds
 
 ## Review Focus Areas
 
@@ -45,8 +48,9 @@ As the PR reviewer, focus on security, containers, and project standards.
 2. **Security concerns** - No hardcoded secrets, no root containers, proper permissions
 3. **Docker Compose changes** - Service configs, port conflicts, volume mounts
 4. **Script correctness** - Shell scripts should use proper error handling (set -e)
-5. **Python imports** - Ensure compatibility with containerized environment
+5. **Python imports** - Ensure compatibility with containerized environment (3.11+)
 6. **MCP tool changes** - Verify tools follow async patterns and error handling
+7. **API versioning** - Check for breaking changes in tool interfaces
 
 ### IGNORE or deprioritize
 
@@ -60,24 +64,26 @@ As the PR reviewer, focus on security, containers, and project standards.
 ### Common Patterns to Check
 
 - Shell scripts should export `USER_ID` and `GROUP_ID` (not UID/GID)
-- Docker containers should run with user permissions
-- Python code should handle async/await properly
+- Docker containers should run with user permissions (non-root)
+- Python code should handle async/await properly (Python 3.11+)
 - No `chmod 777` or overly permissive operations
 - Helper scripts should be simple wrappers around docker-compose
 - Use `./scripts/run-ci.sh` for all CI operations
-- Mock external dependencies in tests (subprocess, requests)
-- Clear Gemini history before PR reviews
+- Mock external dependencies in tests (subprocess, requests) with pytest-mock
+- Clear Gemini history before PR reviews for unbiased analysis
+- Use type hints for all Python functions (mypy compatible)
 
 ## Technical Standards
 
-- Python 3.11 in all containers
-- Python code is auto-formatted with Black and isort
+- Python 3.11+ in all containers (3.12 compatible)
+- Python code is auto-formatted with Black (23.x) and isort (5.x)
 - All Python tools run in containers with user permissions (no root)
 - Environment variables: `PYTHONDONTWRITEBYTECODE=1`, `USER_ID/GROUP_ID`
-- Tests use pytest with mocking for external dependencies
+- Tests use pytest (7.x) with mocking for external dependencies
 - No `chmod 777` or aggressive cleanup steps
-- Coverage reporting with pytest-cov
-- Security scanning with bandit and safety
+- Coverage reporting with pytest-cov (branch coverage enabled)
+- Security scanning with bandit (1.7.x) and safety (3.x)
+- BuildKit enabled: `DOCKER_BUILDKIT=1`
 
 ## Project Structure
 
@@ -119,6 +125,12 @@ export GROUP_ID=$(id -g)
 
 # ✅ Container with user permissions
 docker-compose run --rm --user "${USER_ID}:${GROUP_ID}" python-ci command
+
+# ✅ Error handling in scripts
+set -euo pipefail
+
+# ✅ BuildKit for faster builds
+DOCKER_BUILDKIT=1 docker-compose build
 ```
 
 ### Bad Patterns
@@ -134,4 +146,17 @@ chmod 777 output/  # Never use 777
 
 # ❌ Direct tool invocation
 black .  # Should use containerized version
+
+# ❌ Missing error handling
+#!/bin/bash
+# No set -e
+
+# ❌ Hardcoded values
+API_KEY="sk-1234567890"  # Never hardcode secrets
 ```
+
+## Related Documentation
+
+- [AI_AGENTS.md](AI_AGENTS.md) - Details about the three-agent system
+- [CONTAINERIZED_CI.md](CONTAINERIZED_CI.md) - Container philosophy
+- [GEMINI_SETUP.md](GEMINI_SETUP.md) - Your setup instructions

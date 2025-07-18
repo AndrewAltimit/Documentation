@@ -1,6 +1,6 @@
 # Visual Enhancement Plan for Andrew's Notebook
 
-Based on Gemini's recommendations and analysis of ai-lecture-2023.md, this document outlines a comprehensive plan to enhance all documentation with visual elements and improved content structure.
+Based on Gemini's recommendations and analysis of ai-lecture-2023.md, this document outlines a comprehensive plan to enhance all documentation with visual elements and improved content structure (2025).
 
 ## Visual Elements to Replicate from ai-lecture-2023.md
 
@@ -255,3 +255,6 @@ Categories:
 3. Update each document systematically
 4. Test all visual elements
 5. Ensure mobile responsiveness
+
+---
+*Last updated: July 2025*

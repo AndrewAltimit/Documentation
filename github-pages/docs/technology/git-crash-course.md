@@ -8,7 +8,7 @@ section: technology
 
 ## Overview
 
-Git is a distributed version control system that tracks changes in source code during software development. It enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.
+Git is a distributed version control system that tracks changes in source code during software development. Created by Linus Torvalds in 2005, it has become the de facto standard for version control, powering platforms like GitHub, GitLab, and Bitbucket. Git enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.
 
 ## Core Concepts
 
@@ -77,6 +77,23 @@ git fetch origin            # Fetch remote changes without merging
 4. Create pull request for code review
 5. Merge into main branch after approval
 
+### Git Flow
+A branching model designed around project releases:
+- **main/master**: Production-ready code
+- **develop**: Integration branch for features
+- **feature/**: Individual feature branches
+- **release/**: Preparation for production release
+- **hotfix/**: Emergency fixes for production
+
+### GitHub Flow
+A simplified workflow perfect for continuous deployment:
+1. Create branch from main
+2. Add commits
+3. Open pull request
+4. Discuss and review
+5. Deploy for testing
+6. Merge to main
+
 ## File States
 
 Git tracks files in three states:
@@ -140,6 +157,35 @@ git stash apply          # Apply stash without removing
 - Blank line between summary and body
 - Body: explain what and why (72 characters per line)
 
+#### Conventional Commits (2023-2024 Standard)
+Many projects now follow the Conventional Commits specification:
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Types:
+- **feat**: New feature
+- **fix**: Bug fix
+- **docs**: Documentation changes
+- **style**: Code style changes (formatting, semicolons, etc.)
+- **refactor**: Code refactoring
+- **test**: Test additions or modifications
+- **chore**: Maintenance tasks
+
+Example:
+```
+feat(auth): add OAuth2 integration
+
+Implemented Google and GitHub OAuth2 providers with
+proper token refresh and error handling.
+
+Closes #123
+```
+
 ### Commit Frequency
 - Make atomic commits (one logical change per commit)
 - Commit working code
@@ -179,8 +225,173 @@ Thumbs.db
 .env.local
 ```
 
+## Advanced Git Features (2023-2024 Updates)
+
+### Git Worktree
+Manage multiple working trees attached to the same repository:
+```bash
+# Create a new worktree for a hotfix
+git worktree add ../hotfix-branch hotfix/critical-bug
+
+# List all worktrees
+git worktree list
+
+# Remove worktree
+git worktree remove ../hotfix-branch
+```
+
+### Partial Clone and Sparse Checkout
+Work with large repositories more efficiently:
+```bash
+# Clone with limited history
+git clone --filter=blob:none --sparse <url>
+
+# Enable sparse checkout
+git sparse-checkout init --cone
+
+# Add directories to checkout
+git sparse-checkout set src/frontend docs
+```
+
+### Git Maintenance (Git 2.31+)
+Automatic repository optimization:
+```bash
+# Enable automatic maintenance
+git maintenance start
+
+# Run maintenance tasks manually
+git maintenance run --auto
+```
+
+## Security Best Practices (2024)
+
+### Signing Commits
+Ensure commit authenticity with GPG or SSH signatures:
+```bash
+# Configure GPG signing
+git config --global user.signingkey YOUR_GPG_KEY_ID
+git config --global commit.gpgsign true
+
+# Sign a specific commit
+git commit -S -m "Signed commit"
+
+# Verify signatures
+git log --show-signature
+```
+
+### SSH Key Authentication (Recommended 2024)
+GitHub deprecated password authentication. Use SSH keys:
+```bash
+# Generate ED25519 key (recommended)
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# Add to SSH agent
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
+## Git with AI Tools (2023-2024)
+
+### GitHub Copilot Integration
+- AI-powered code suggestions in your editor
+- Context-aware commit message generation
+- Automated PR descriptions
+
+### GitLab AI Features
+- Code suggestions
+- Vulnerability explanation
+- Code review summaries
+
+## Performance Tips
+
+### Large File Storage (LFS)
+Handle large binary files efficiently:
+```bash
+# Track large files
+git lfs track "*.psd"
+git lfs track "*.zip"
+
+# View tracked patterns
+git lfs track
+
+# Clone with LFS files
+git lfs clone <repository>
+```
+
+### Optimizing Repository Performance
+```bash
+# Optimize repository
+git gc --aggressive --prune=now
+
+# Repack objects
+git repack -a -d --depth=250 --window=250
+
+# Clean unnecessary files
+git clean -fd
+```
+
+## Integration with Modern Development
+
+### CI/CD Integration
+Git hooks for automated workflows:
+```bash
+# Pre-push hook example
+#!/bin/sh
+# .git/hooks/pre-push
+npm test && npm run lint
+```
+
+### Monorepo Management
+Tools for managing large codebases:
+- **Nx**: Powerful monorepo build system
+- **Lerna**: JavaScript monorepo tool
+- **Bazel**: Google's build tool
+- **Rush**: Microsoft's monorepo manager
+
+## Troubleshooting Common Issues
+
+### Recovering Lost Commits
+```bash
+# Find lost commits
+git reflog
+
+# Restore lost commit
+git checkout -b recovery-branch <commit-hash>
+```
+
+### Fixing Commit Mistakes
+```bash
+# Change last commit message
+git commit --amend -m "New message"
+
+# Add forgotten files to last commit
+git add forgotten-file.txt
+git commit --amend --no-edit
+```
+
+### Resolving Merge Conflicts
+```bash
+# Use mergetool
+git mergetool
+
+# Accept theirs/ours for specific files
+git checkout --theirs path/to/file
+git checkout --ours path/to/file
+```
+
+## Related Topics
+
+- [Git Command Reference](git-reference.html) - Comprehensive command guide
+- [Branching Strategies](branching.html) - Advanced branching workflows
+- [CI/CD](ci-cd.html) - Continuous integration with Git
+- [GitHub Actions](../devops/github-actions.html) - Automation workflows
+- [GitLab CI](../devops/gitlab-ci.html) - GitLab's CI/CD platform
+
 ## References
 
 - [Official Git Documentation](https://git-scm.com/doc)
-- [Pro Git Book](https://git-scm.com/book)
+- [Pro Git Book](https://git-scm.com/book) - Free comprehensive guide
 - [Git Reference Manual](https://git-scm.com/docs)
+- [GitHub Skills](https://skills.github.com/) - Interactive Git tutorials
+- [Conventional Commits](https://www.conventionalcommits.org/) - Commit message standard
+- [Git Flow](https://nvie.com/posts/a-successful-git-branching-model/) - Original Git Flow model

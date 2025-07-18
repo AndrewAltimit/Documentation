@@ -1753,6 +1753,16 @@ class ParallelLinearAlgebra:
 
 ## Machine Learning Applications
 
+### Recent Advances in Physics-ML Integration (2023-2024)
+
+The intersection of machine learning and physics has seen explosive growth:
+
+**Major Breakthroughs:**
+- **Neural Operators**: Learning solution operators for entire families of PDEs
+- **Equivariant Neural Networks**: Networks that respect physical symmetries
+- **Differentiable Physics Engines**: End-to-end learning through simulations
+- **Foundation Models for Science**: Large models trained on diverse physics data
+
 ### Physics-Informed Neural Networks (PINNs)
 
 ```python
@@ -1945,6 +1955,116 @@ class NeuralPotential(nn.Module):
                                      create_graph=True)[0]
         
         return forces, total_energy
+```
+
+### Fourier Neural Operators (FNO)
+
+```python
+class SpectralConv2d(nn.Module):
+    """2D Fourier layer for Neural Operators"""
+    def __init__(self, in_channels, out_channels, modes1, modes2):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes1 = modes1  # Number of Fourier modes to keep
+        self.modes2 = modes2
+        
+        self.scale = 1 / (in_channels * out_channels)
+        self.weights1 = nn.Parameter(self.scale * torch.rand(
+            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
+        self.weights2 = nn.Parameter(self.scale * torch.rand(
+            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
+    
+    def forward(self, x):
+        batch_size = x.shape[0]
+        # Compute Fourier coefficients
+        x_ft = torch.fft.rfft2(x)
+        
+        # Multiply relevant Fourier modes
+        out_ft = torch.zeros(batch_size, self.out_channels, x.size(-2), 
+                           x.size(-1)//2 + 1, dtype=torch.cfloat, device=x.device)
+        
+        out_ft[:, :, :self.modes1, :self.modes2] = \
+            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
+        out_ft[:, :, -self.modes1:, :self.modes2] = \
+            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
+        
+        # Return to physical space
+        x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
+        return x
+    
+    def compl_mul2d(self, input, weights):
+        # Complex multiplication
+        return torch.einsum("bixy,ioxy->boxy", input, weights)
+
+class FourierNeuralOperator2d(nn.Module):
+    """Fourier Neural Operator for learning solution operators of PDEs"""
+    def __init__(self, modes1, modes2, width=64, in_channels=3, out_channels=1):
+        super().__init__()
+        self.modes1 = modes1
+        self.modes2 = modes2
+        self.width = width
+        
+        # Input lifting
+        self.fc0 = nn.Linear(in_channels, self.width)
+        
+        # Fourier layers
+        self.conv0 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
+        self.conv1 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
+        self.conv2 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
+        self.conv3 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
+        
+        # Regular convolutions for local features
+        self.w0 = nn.Conv2d(self.width, self.width, 1)
+        self.w1 = nn.Conv2d(self.width, self.width, 1)
+        self.w2 = nn.Conv2d(self.width, self.width, 1)
+        self.w3 = nn.Conv2d(self.width, self.width, 1)
+        
+        # Output projection
+        self.fc1 = nn.Linear(self.width, 128)
+        self.fc2 = nn.Linear(128, out_channels)
+        
+        self.activation = nn.GELU()
+    
+    def forward(self, x):
+        # x: (batch, x, y, channels)
+        x = self.fc0(x)
+        x = x.permute(0, 3, 1, 2)  # (batch, channels, x, y)
+        
+        # Fourier layers with residual connections
+        x1 = self.conv0(x)
+        x2 = self.w0(x)
+        x = self.activation(x1 + x2)
+        
+        x1 = self.conv1(x)
+        x2 = self.w1(x)
+        x = self.activation(x1 + x2)
+        
+        x1 = self.conv2(x)
+        x2 = self.w2(x)
+        x = self.activation(x1 + x2)
+        
+        x1 = self.conv3(x)
+        x2 = self.w3(x)
+        x = x1 + x2
+        
+        x = x.permute(0, 2, 3, 1)  # (batch, x, y, channels)
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.fc2(x)
+        return x
+
+# Example: Learning the solution operator for 2D Navier-Stokes
+def train_fno_navier_stokes():
+    """Train FNO to learn the solution operator for 2D turbulence"""
+    model = FourierNeuralOperator2d(modes1=12, modes2=12, width=32)
+    
+    # Training would involve:
+    # 1. Generate training data: initial conditions → solutions at time T
+    # 2. Train model to map: u(x,y,0) → u(x,y,T)
+    # 3. Model learns the solution operator, can generalize to new initial conditions
+    
+    print("FNO architecture created for learning Navier-Stokes solution operator")
 ```
 
 ---
@@ -2382,7 +2502,35 @@ Computational physics has transformed our ability to understand and predict phys
 
 Remember: computational physics is not just about writing code—it's about understanding the physics deeply enough to translate it into efficient, accurate algorithms. The computer is a tool for exploration, but physical intuition guides the journey.
 
-For more physics topics, explore our guides on:
-- [Classical Mechanics](classical-mechanics.md) - Where computational methods bring complex systems to life
-- [Quantum Mechanics](quantum-mechanics.md) - Numerical solutions to the Schrödinger equation
-- [Statistical Mechanics](statistical-mechanics.md) - Monte Carlo and molecular dynamics applications
+---
+
+## Essential Resources
+
+### Software Libraries
+- **NumPy/SciPy**: Foundation for scientific computing in Python
+- **LAMMPS**: Large-scale molecular dynamics
+- **Quantum ESPRESSO**: Electronic structure calculations
+- **FEniCS**: Automated finite element methods
+- **PETSc**: Scalable solution of PDEs
+- **JAX**: Differentiable physics and machine learning
+
+### Learning Resources
+- **Books**: "Computational Physics" by Newman, "Numerical Recipes" series
+- **Courses**: MIT OCW Computational Physics, Coursera Scientific Computing
+- **Communities**: Stack Exchange Physics, GitHub Physics repositories
+
+---
+
+## See Also
+
+### Core Physics Topics:
+- [Classical Mechanics](classical-mechanics.html) - Symplectic integrators and chaos
+- [Quantum Mechanics](quantum-mechanics.html) - Numerical solutions to Schrödinger equation
+- [Statistical Mechanics](statistical-mechanics.html) - Monte Carlo and molecular dynamics
+- [Thermodynamics](thermodynamics.html) - Computational thermodynamics
+- [Quantum Field Theory](quantum-field-theory.html) - Lattice field theory simulations
+
+### Related Computational Topics:
+- [Condensed Matter Physics](condensed-matter.html) - Band structure calculations
+- [String Theory](string-theory.html) - Numerical relativity and AdS/CFT
+- [Relativity](relativity.html) - Gravitational wave simulations

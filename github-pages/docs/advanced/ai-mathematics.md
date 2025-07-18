@@ -90,6 +90,11 @@ converges to global minimum under Neural Tangent Kernel (NTK) regime.
 
 $$\mathbb{E}[f(w_T) - f(w^*)] \leq \left(1 - \frac{\mu}{L}\right)^T [f(w_0) - f(w^*)] + \frac{\eta L \sigma^2}{2\mu}$$
 
+**Recent Advances (2023-2024)**:
+- **Sharpness-Aware Minimization (SAM)**: Achieves better generalization by minimizing both loss and sharpness
+- **Lion Optimizer**: Discovered through program search, uses sign of gradient moments
+- **Schedule-Free Optimization**: Removes need for learning rate scheduling
+
 **Adam Optimizer Analysis**:
 Update rule with bias correction:
 
@@ -162,6 +167,11 @@ $$\Theta(x, x') = \lim_{m \to \infty} \langle \nabla_\theta f(x; \theta), \nabla
 
 **Theorem**: In infinite width limit, network training dynamics become linear in function space.
 
+**Recent Developments (2023-2024)**:
+- **Feature Learning Beyond NTK**: Networks escape kernel regime through feature learning
+- **Maximal Update Parameterization (μP)**: Enables hyperparameter transfer across model scales
+- **Tensor Programs**: Unified framework for analyzing infinite-width limits
+
 ### Mean Field Theory
 
 **Mean Field Limit**: As width → ∞, neurons become independent:
@@ -185,6 +195,11 @@ $$\exists m \subseteq \{1, ..., n\}, |m| \ll n: \mathcal{L}(f_{m}(\theta_0^m)) \
 - Classical regime: U-shaped bias-variance tradeoff
 - Modern regime: Test error decreases again after interpolation threshold
 
+**Grokking Phenomenon (2023-2024)**:
+- Networks suddenly generalize after extended training on memorized data
+- Phase transitions in loss landscape explain delayed generalization
+- Weight decay and data augmentation affect grokking dynamics
+
 ### Optimization-Generalization Connection
 
 **Sharpness-Aware Minimization**:
@@ -195,6 +210,36 @@ $$\min_w \max_{\|\epsilon\| \leq \rho} L(w + \epsilon)$$
 **Transformer Expressivity**: Can approximate any sequence-to-sequence function with:
 $$O(\log n) \text{ layers, } O(n^2) \text{ parameters}$$
 
+**Recent Architecture Theory (2023-2024)**:
+
+**State Space Models (Mamba)**:
+- Linear time complexity O(n) vs O(n²) for transformers
+- Selective state space with hardware-aware algorithm
+- Theoretical connection to linear attention and RNNs
+
+**Mechanistic Interpretability**:
+- **Superposition Hypothesis**: Networks encode more features than neurons
+- **Circuits Framework**: Identifies computational subgraphs
+- **Scaling Monosemanticity**: Sparse autoencoders reveal interpretable features
+
+## Emerging Topics (2024)
+
+### Diffusion Models Theory
+
+**Score Matching Connection**:
+$$\min_\theta \mathbb{E}_{t,x_0,\epsilon}\left[\|\epsilon - \epsilon_\theta(x_t, t)\|^2\right]$$
+
+where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
+
+**Convergence Guarantees**: Polynomial convergence in KL divergence under smoothness assumptions
+
+### Foundation Model Theory
+
+**In-Context Learning**:
+- Transformers implement gradient descent implicitly
+- Task vectors emerge in weight space
+- Theoretical bounds on few-shot performance
+
 ## References and Further Reading
 
 1. Shalev-Shwartz, S., & Ben-David, S. (2014). *Understanding Machine Learning: From Theory to Algorithms*
@@ -202,7 +247,18 @@ $$O(\log n) \text{ layers, } O(n^2) \text{ parameters}$$
 3. Arora, S., et al. (2019). "Fine-Grained Analysis of Optimization and Generalization for Overparameterized Two-Layer Neural Networks"
 4. Jacot, A., Gabriel, F., & Hongler, C. (2018). "Neural Tangent Kernel: Convergence and Generalization in Neural Networks"
 5. Belkin, M., et al. (2019). "Reconciling modern machine learning practice and the bias-variance trade-off"
+6. Power, A., et al. (2022). "Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets"
+7. Gu, A., & Dao, T. (2023). "Mamba: Linear-Time Sequence Modeling with Selective State Spaces"
+8. Anthropic (2023). "Towards Monosemanticity: Decomposing Language Models With Dictionary Learning"
+9. Chen, T., et al. (2024). "The Mechanics of Next-Token Prediction"
+10. Yang, G., et al. (2023). "Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer"
 
 ---
 
 *Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](/docs/artificial-intelligence/).*
+
+## Related Advanced Topics
+
+- [Quantum Machine Learning](/docs/advanced/quantum-algorithms-research/) - Intersection of quantum computing and ML
+- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - For distributed ML training
+- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing large ML codebases

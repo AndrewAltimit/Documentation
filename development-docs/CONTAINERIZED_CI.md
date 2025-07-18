@@ -1,6 +1,6 @@
 # Containerized CI/CD Documentation
 
-This document explains the container-first philosophy that drives this project's architecture.
+This document explains the container-first philosophy that drives this project's architecture. Updated for 2024 with the latest Docker and Python best practices.
 
 ## Container-First Philosophy
 
@@ -25,13 +25,13 @@ This project embraces a **container-first approach** as a core design principle:
 
 The Python CI container (`docker/python-ci.Dockerfile`) includes all necessary tools:
 
-- **Base Image**: Python 3.11-slim for optimal performance
-- **Formatters**: Black, isort
-- **Linters**: flake8, pylint, mypy
-- **Testing**: pytest, pytest-cov, pytest-asyncio, pytest-mock
-- **Security**: bandit, safety
-- **Utilities**: yamllint, pre-commit
-- **Coverage**: XML and terminal coverage reports
+- **Base Image**: Python 3.11-slim (or 3.12-slim) for optimal performance
+- **Formatters**: Black (23.x), isort (5.x)
+- **Linters**: flake8 (6.x), pylint (3.x), mypy (1.x)
+- **Testing**: pytest (7.x), pytest-cov, pytest-asyncio, pytest-mock
+- **Security**: bandit (1.7.x), safety (3.x)
+- **Utilities**: yamllint (1.35.x), pre-commit (3.x)
+- **Coverage**: XML and terminal coverage reports with branch coverage
 
 ### Docker Compose Services
 
@@ -49,9 +49,11 @@ python-ci:
 
 Key features:
 
-- Runs as current user to avoid permission issues
-- Python cache prevention enabled
+- Runs as current user to avoid permission issues (USER_ID:GROUP_ID)
+- Python cache prevention enabled (PYTHONDONTWRITEBYTECODE=1)
 - Mounts current directory as working directory
+- BuildKit enabled for faster builds
+- Multi-stage builds for smaller images
 
 ## Usage
 
@@ -63,25 +65,25 @@ The `run-ci.sh` script provides a simple interface:
 # Format checking
 ./scripts/run-ci.sh format
 
-# Linting
-./scripts/run-ci.sh lint-basic
-./scripts/run-ci.sh lint-full
+# Linting (progressive stages)
+./scripts/run-ci.sh lint-basic   # Black, isort, flake8
+./scripts/run-ci.sh lint-full    # Adds pylint, mypy
 
-# Testing
+# Testing with coverage
 ./scripts/run-ci.sh test
 
 # Security scanning
-./scripts/run-ci.sh security
+./scripts/run-ci.sh security     # Bandit + safety checks
 
 # Auto-formatting
-./scripts/run-ci.sh autoformat
+./scripts/run-ci.sh autoformat   # Applies Black and isort
 
 # Full CI pipeline (all checks)
-./scripts/run-ci.sh full
+./scripts/run-ci.sh full         # Runs all stages in order
 
 # YAML/JSON validation
-./scripts/run-ci.sh yaml-lint
-./scripts/run-ci.sh json-lint
+./scripts/run-ci.sh yaml-lint    # Validates all YAML files
+./scripts/run-ci.sh json-lint    # Validates all JSON files
 ```
 
 ### Direct Docker Compose Commands
@@ -97,6 +99,12 @@ docker-compose run --rm python-ci pytest tests/test_specific.py -v
 
 # Run with custom environment
 docker-compose run --rm -e CUSTOM_VAR=value python-ci command
+
+# Run with coverage report
+docker-compose run --rm python-ci pytest --cov=. --cov-report=term-missing
+
+# Run type checking
+docker-compose run --rm python-ci mypy . --ignore-missing-imports
 ```
 
 ## Python Cache Prevention
@@ -109,10 +117,13 @@ To prevent permission issues with Python cache files:
 
 2. **Configuration Files**:
    - `pytest.ini` includes `-p no:cacheprovider` to disable pytest cache
+   - `.dockerignore` excludes `__pycache__`, `.pytest_cache`, `.mypy_cache`
 
 3. **Container User Permissions**:
    - Containers run as current user (USER_ID:GROUP_ID)
    - No files are created with root permissions
+   - Volume mounts use consistent ownership
+   - Security-enhanced with non-root user in Dockerfile
 
 ## Workflow Integration
 
@@ -132,8 +143,9 @@ This ensures:
 
 - Consistent behavior between local and CI environments
 - No need to install Python dependencies on runners
-- Faster execution with cached Docker images
-- Python 3.11 environment matches production
+- Faster execution with cached Docker images (BuildKit layer caching)
+- Python 3.11+ environment matches production
+- Isolated dependencies prevent conflicts
 
 ## Adding New Tools
 
@@ -142,7 +154,8 @@ To add a new Python tool:
 1. Update `docker/python-ci.Dockerfile`:
 
    ```dockerfile
-   RUN pip install --no-cache-dir new-tool
+   # Add to appropriate stage
+   RUN pip install --no-cache-dir new-tool==version
    ```
 
 2. Add to `run-ci.sh` if needed:
@@ -170,6 +183,12 @@ docker-compose build --no-cache python-ci
 
 # Check build logs
 docker-compose build python-ci 2>&1 | tee build.log
+
+# Use BuildKit for better caching
+DOCKER_BUILDKIT=1 docker-compose build python-ci
+
+# Debug build context size
+du -sh .
 ```
 
 ### Permission Issues
@@ -180,16 +199,28 @@ echo "USER_ID=$(id -u) GROUP_ID=$(id -g)"
 
 # Run with explicit user
 USER_ID=$(id -u) GROUP_ID=$(id -g) docker-compose run --rm python-ci command
+
+# Fix existing permission issues
+./scripts/fix-runner-permissions.sh
+
+# Check container user
+docker-compose run --rm python-ci id
 ```
 
 ### Performance Optimization
 
 ```bash
-# Use BuildKit for faster builds
-DOCKER_BUILDKIT=1 docker-compose build python-ci
+# Use BuildKit for faster builds (recommended)
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+docker-compose build python-ci
 
-# Prune old images
+# Prune old images and build cache
 docker image prune -f
+docker builder prune --keep-storage 10GB
+
+# Monitor resource usage
+docker stats --no-stream
 ```
 
 ## What's Containerized vs What's Not
@@ -200,13 +231,14 @@ docker image prune -f
 - **MCP server**: Runs in its own container with all dependencies
 - **CI/CD operations**: All pipeline steps use containers
 - **Development tools**: Any tool that doesn't need Docker access
+- **Manim and LaTeX**: Run in specialized containers for animations and documents
 
 ### Not Containerized ❌
 
 - **Gemini CLI**: Needs to potentially invoke Docker (would require Docker-in-Docker)
 - **Docker Compose**: Obviously needs to run on the host
 - **GitHub Actions runner**: Needs system-level access
-- **Git operations**: Need access to host git configuration
+- **Git operations**: Need access to host git configuration and SSH keys
 
 ## Benefits
 
@@ -225,6 +257,9 @@ docker image prune -f
 5. Design for single-maintainer efficiency
 6. Run containers with user permissions to avoid file ownership issues
 7. Use multi-stage builds when appropriate for smaller final images
+8. Enable BuildKit for all builds (DOCKER_BUILDKIT=1)
+9. Use .dockerignore to exclude unnecessary files
+10. Pin tool versions for reproducibility
 
 ## Philosophy in Practice
 
@@ -236,3 +271,10 @@ This container-first approach means:
 - **Just Docker, and everything works**
 
 Perfect for individual developers who want professional infrastructure without the complexity.
+
+## Related Documentation
+
+- [CLAUDE.md](CLAUDE.md) - Guidelines for Claude Code
+- [SELF_HOSTED_RUNNER_SETUP.md](SELF_HOSTED_RUNNER_SETUP.md) - Runner configuration
+- [MCP_TOOLS.md](MCP_TOOLS.md) - Containerized MCP tools
+- [AI_AGENTS.md](AI_AGENTS.md) - AI agent integration

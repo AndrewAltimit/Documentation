@@ -124,5 +124,5 @@ Remaining tasks: ~105 (medium and low priority)
 
 ---
 
-Generated: 2025-07-15
+Generated: July 2025
 Project: Documentation Repository Update

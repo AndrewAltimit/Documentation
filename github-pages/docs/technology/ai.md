@@ -102,8 +102,24 @@ toc_icon: "cog"
       <div class="example-item">
         <div class="example-icon"><i class="fas fa-comment-dots"></i></div>
         <div class="example-content">
-          <h5>OpenAI's ChatGPT</h5>
-          <p>Large language model for natural language processing and generation</p>
+          <h5>OpenAI's ChatGPT & GPT-4</h5>
+          <p>Advanced language models with multimodal capabilities (GPT-4V) and enhanced reasoning</p>
+        </div>
+      </div>
+      
+      <div class="example-item">
+        <div class="example-icon"><i class="fas fa-robot"></i></div>
+        <div class="example-content">
+          <h5>Claude 3 (Anthropic)</h5>
+          <p>Constitutional AI with strong safety alignment and coding capabilities</p>
+        </div>
+      </div>
+      
+      <div class="example-item">
+        <div class="example-icon"><i class="fas fa-brain"></i></div>
+        <div class="example-content">
+          <h5>Google's Gemini</h5>
+          <p>Multimodal AI model processing text, images, audio, and video natively</p>
         </div>
       </div>
     </div>
@@ -753,8 +769,9 @@ The transformer's success in language tasks raised an intriguing question: could
 **Key innovations:**
 - Treats image patches as sequence tokens
 - Scales better than CNNs on large datasets
-- Pre-training on large datasets (ImageNet-21k, JFT-300M)
+- Pre-training on large datasets (ImageNet-21k, JFT-300M, LAION-2B)
 - Fewer inductive biases than CNNs
+- Recent variants: DINOv2, EVA-CLIP, InternImage
 
 <div class="code-reference">
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/transformer_architectures.py#L70">transformer_architectures.py#VisionTransformer</a>
@@ -780,7 +797,7 @@ output = model(images)  # [batch_size, num_classes]
 
 #### CLIP (Contrastive Language-Image Pre-training)
 
-What if we could teach AI to understand the relationship between images and text, not just each in isolation? CLIP represents a breakthrough in multimodal learning, creating a shared understanding across different types of data.
+What if we could teach AI to understand the relationship between images and text, not just each in isolation? CLIP pioneered this breakthrough in multimodal learning, and recent models like DALL-E 3, Midjourney v6, and Stable Diffusion XL have pushed these capabilities even further.
 
 **CLIP learns joint embeddings of images and text through contrastive learning:**
 
@@ -1329,11 +1346,12 @@ What started as a theoretical curiosity has become one of the most versatile too
 - **Super-Resolution**: Enhancing image quality and resolution
 - **Medical Imaging**: Generating synthetic medical data, denoising scans
 
-#### Beyond Images
-- **Audio Generation**: Speech synthesis, music generation
-- **Video Generation**: Frame interpolation, video synthesis
-- **3D Generation**: Point clouds, meshes, NeRF representations
-- **Molecular Design**: Drug discovery, protein structure generation
+#### Beyond Images (2024 State-of-the-Art)
+- **Audio Generation**: MusicGen, AudioCraft, Stable Audio, Suno AI
+- **Video Generation**: Runway Gen-2, Pika Labs, Stable Video Diffusion, OpenAI Sora (preview)
+- **3D Generation**: DreamGaussian, Wonder3D, Instant3D, TripoSR
+- **Molecular Design**: RFDiffusion, AlphaFold 3, MoleculeGPT
+- **Text-to-3D**: DreamFusion, Magic3D, Point-E, Shap-E
 
 ### Advantages of Diffusion Models
 
@@ -1378,8 +1396,9 @@ As AI systems become more powerful, researchers are discovering surprising patte
 
 - **Chinchilla Law**: N_opt ∝ C^(β/(α+β)), D_opt ∝ C^(α/(α+β))
 - **Loss Prediction**: L = E + A/N^α + B/D^β 
-- **Optimal Ratio**: ~20 tokens per parameter
+- **Optimal Ratio**: ~20 tokens per parameter (being challenged by models like Llama 3)
 - **Compute-Optimal**: Balance model size and training data
+- **2024 Update**: Llama 3 trained on 15T tokens (100x parameters), suggesting benefits beyond Chinchilla optimal
 
 **Key findings:**
 - Most models are significantly undertrained
@@ -1548,6 +1567,8 @@ Ensuring AI systems are safe and secure:
 - **Health Equity**: Avoiding disparities in AI-driven care
 - **Patient Privacy**: Protecting sensitive health information
 - **Informed Consent**: Patients understanding AI involvement in care
+- **Recent Applications**: Med-PaLM 2 for medical Q&A, AlphaFold 3 for drug discovery
+- **Diagnostic AI**: FDA-approved AI systems for radiology and pathology
 
 #### AI in Criminal Justice
 - **Risk Assessment**: Fairness in predictive policing and sentencing
@@ -1562,10 +1583,12 @@ Ensuring AI systems are safe and secure:
 - **IEEE Standards**: Technical standards for ethical AI design
 - **Company Principles**: Google's AI Principles, Microsoft's Responsible AI
 
-#### Government Regulations
-- **EU AI Act**: Comprehensive regulation of AI systems
-- **US AI Bill of Rights**: Blueprint for protecting rights in AI age
-- **China's AI Regulations**: Focus on algorithmic recommendations and deepfakes
+#### Government Regulations (Updated 2024)
+- **EU AI Act**: Passed in March 2024, world's first comprehensive AI law
+- **US Executive Order on AI**: October 2023 order on safe, secure, and trustworthy AI
+- **China's AI Regulations**: Interim measures for generative AI services (2023)
+- **UK AI Safety Summit**: Bletchley Declaration on AI safety (November 2023)
+- **California SB 1001**: Disclosure requirements for AI-generated content
 
 #### International Cooperation
 - **UNESCO Recommendation**: Global agreement on AI ethics
@@ -1686,17 +1709,24 @@ We've covered a lot of ground—from basic concepts to cutting-edge research. Wh
 - Kaplan, J., et al. (2020). "Scaling Laws for Neural Language Models." *arXiv*.
 - Hoffmann, J., et al. (2022). "Training Compute-Optimal Large Language Models." *NeurIPS*.
 - Wei, J., et al. (2022). "Emergent Abilities of Large Language Models." *TMLR*.
+- Anthropic (2024). "Claude 3 Model Card." *Anthropic Technical Report*.
+- Google DeepMind (2023). "Gemini: A Family of Highly Capable Multimodal Models." *arXiv*.
+- Touvron, H., et al. (2023). "Llama 2: Open Foundation and Fine-Tuned Chat Models." *Meta AI*.
 
 ### AI Safety and Alignment
 - Russell, S. (2019). *Human Compatible: Artificial Intelligence and the Problem of Control*.
 - Amodei, D., et al. (2016). "Concrete Problems in AI Safety." *arXiv*.
 - Anthropic (2023). "Constitutional AI: Harmlessness from AI Feedback." *arXiv*.
+- Achiam, J., et al. (2023). "GPT-4 Technical Report." *OpenAI*.
+- Jiang, A.Q., et al. (2024). "Mixtral of Experts." *Mistral AI*.
 
 ### Research Resources
 - [Papers with Code](https://paperswithcode.com/) - ML papers with implementations
-- [distill.pub](https://distill.pub/) - Interactive ML explanations
+- [distill.pub](https://distill.pub/) - Interactive ML explanations (Note: No longer actively publishing as of 2021)
 - [The Gradient](https://thegradient.pub/) - ML research perspectives
 - [Alignment Forum](https://www.alignmentforum.org/) - AI alignment research
+- [Hugging Face Papers](https://huggingface.co/papers) - Daily curated AI research papers
+- [arXiv Sanity](http://www.arxiv-sanity.com/) - AI/ML paper discovery tool
 
 ## From Theory to Practice: Implementation Resources
 
@@ -1716,12 +1746,14 @@ Ready to build something? Here are the tools and frameworks that researchers and
 """
 ```
 
-### Cutting-Edge Projects
-1. **Foundation Models**: GPT, BERT, T5, CLIP, DALL-E
-2. **Reasoning Systems**: Chain-of-thought, Tree-of-thoughts, ReAct
-3. **Multimodal Models**: Flamingo, BLIP-2, LLaVA
-4. **AI Agents**: AutoGPT, BabyAGI, LangChain
-5. **Interpretability**: TransformerLens, Anthropic's research tools
+### Cutting-Edge Projects (2023-2024)
+1. **Foundation Models**: GPT-4, Claude 3, Gemini Pro, Llama 3, Mixtral 8x7B
+2. **Reasoning Systems**: Chain-of-thought, Tree-of-thoughts, ReAct, Self-Consistency, Graph of Thoughts
+3. **Multimodal Models**: GPT-4V, Gemini Ultra, LLaVA-1.6, CogVLM, Qwen-VL
+4. **AI Agents**: AutoGPT, MetaGPT, AgentGPT, OpenAI Assistants API, Microsoft AutoGen
+5. **Interpretability**: TransformerLens, Anthropic's Constitutional AI, OpenAI's Neuron Explanations
+6. **Code Generation**: GitHub Copilot X, Amazon CodeWhisperer, Cursor, Codeium
+7. **Open Source LLMs**: Llama 3, Mistral, Phi-3, OpenHermes, WizardCoder
 
 ## Connecting to Other Technologies
 

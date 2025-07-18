@@ -1,4 +1,4 @@
-# Documentation Wiki Transformation Plan
+# Documentation Wiki Transformation Plan (2025)
 
 ## Current Structure Issues
 - Tutorial-focused approach with "learning journeys" and "step-by-step" guides

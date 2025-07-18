@@ -154,14 +154,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
     - run: |
         pip install -r requirements.txt
         pytest
 ```
+
+**2024 GitHub Actions Features:**
+- **Larger runners**: Up to 64 vCPUs and 256 GB RAM
+- **GPU runners**: NVIDIA GPU support for ML workloads
+- **Arm64 runners**: Native ARM architecture support
+- **Deployment protection rules**: Environment-specific approvals
 
 ### GitLab CI/CD
 **Best for**: GitLab users, built-in DevOps features
@@ -245,6 +251,8 @@ workflows:
 | CircleCI | Fast, good caching | Can get expensive | Speed-critical projects |
 | Travis CI | Simple setup | Less popular now | Legacy projects |
 | Azure DevOps | Great for .NET | Microsoft-centric | Windows/Azure shops |
+| Buildkite | Hybrid model, scalable | Requires own runners | High-security needs |
+| Drone | Container-native, simple | Smaller community | Kubernetes environments |
 
 ## Pipeline Design Patterns
 
@@ -399,21 +407,26 @@ security-scan:
     - dependency-check:
         script: 
           - npm audit
-          - safety check  # Python
+          - pip-audit  # Python (replaced safety)
           - bundle audit  # Ruby
+          - osv-scanner --recursive .  # Google's OSV Scanner
     
     - sast:  # Static Application Security Testing
         script:
           - semgrep --config=auto
           - bandit -r src/  # Python
+          - snyk code test
     
     - container-scan:
         script:
           - trivy image myapp:latest
+          - grype myapp:latest  # Anchore scanner
+          - docker scout cves myapp:latest  # Docker's native scanner
     
     - secrets-scan:
         script:
           - gitleaks detect --source=.
+          - trufflehog filesystem . --json
 ```
 
 ### Security Best Practices
@@ -689,7 +702,7 @@ update-manifest:
    ```
    app-code/          # Application source
    app-config/        # Kubernetes manifests
-   app-secrets/       # Encrypted secrets
+   app-secrets/       # Encrypted secrets (using Sealed Secrets/SOPS)
    ```
 
 2. **Environment Branches**
@@ -707,6 +720,12 @@ update-manifest:
        - git push
        # GitOps operator automatically rolls back
    ```
+
+**Modern GitOps Tools (2024):**
+- **ArgoCD**: Most popular, great UI, multi-cluster support
+- **Flux v2**: GitOps toolkit, native Kubernetes controller
+- **Rancher Fleet**: Multi-cluster GitOps at scale
+- **Weave GitOps**: Enterprise features, policy management
 
 ## Common Pitfalls and Troubleshooting
 
@@ -1014,20 +1033,68 @@ multi-cloud-deploy:
 
 ## Resources and Further Learning
 
-### Essential Tools
-- **Pipeline Syntax Validators**: YAML validators, GitHub Actions playground
-- **Security Scanners**: Snyk, SonarQube, OWASP ZAP
-- **Monitoring**: Datadog, New Relic, Prometheus/Grafana
-- **GitOps Operators**: ArgoCD, Flux, Jenkins X
+### Essential Tools (2024)
+- **Pipeline Syntax Validators**: 
+  - GitHub Actions playground
+  - GitLab CI Lint
+  - CircleCI Config Validator
+- **Security Scanners**: 
+  - Snyk (now with AI-powered fixes)
+  - SonarQube/SonarCloud
+  - Checkmarx
+  - GitHub Advanced Security
+- **Monitoring**: 
+  - Datadog CI Visibility
+  - New Relic CodeStream
+  - Grafana Cloud
+  - OpenTelemetry (standard for observability)
+- **GitOps Operators**: 
+  - ArgoCD (with ApplicationSets)
+  - Flux v2
+  - Crossplane (infrastructure composition)
 
 ### Books and Courses
-- "Continuous Delivery" by Jez Humble
-- "The DevOps Handbook" by Gene Kim
-- "Accelerate" by Nicole Forsgren
+- "Continuous Delivery" by Jez Humble (Classic)
+- "The DevOps Handbook" by Gene Kim et al.
+- "Accelerate" by Nicole Forsgren et al.
+- "Modern Software Engineering" by David Farley (2022)
+- "The Phoenix Project" & "The Unicorn Project" by Gene Kim
+
+### Online Learning (2024)
+- **DevOps with GitLab CI** - GitLab's official course
+- **GitHub Actions Deep Dive** - A Cloud Guru
+- **Jenkins 2023 Masterclass** - Udemy
+- **CNCF CI/CD with Tekton** - Linux Foundation
 
 ### Community Resources
 - CNCF CI/CD Landscape
 - DevOps Weekly Newsletter
 - CI/CD Collective Forum
+
+### Emerging Trends in CI/CD (2024)
+
+1. **AI-Powered CI/CD**
+   - Predictive test selection
+   - Automated flaky test detection
+   - AI-generated pipeline optimizations
+   - Smart deployment timing
+
+2. **Supply Chain Security**
+   - SBOM (Software Bill of Materials) generation
+   - SLSA compliance automation
+   - Sigstore for artifact signing
+   - Dependency attestation
+
+3. **Platform Engineering**
+   - Internal Developer Platforms (IDPs)
+   - Golden paths for deployment
+   - Self-service infrastructure
+   - Developer experience metrics
+
+4. **Green CI/CD**
+   - Carbon-aware computing
+   - Energy-efficient build scheduling
+   - Resource optimization
+   - Sustainability metrics
 
 Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn't perfection—it's progress.

@@ -509,7 +509,7 @@ Lambda represents a paradigm shift. Instead of managing servers, you upload your
      ```
 
 2. **The "15-Minute Timeout" Wall**
-   - **Symptom**: Function times out for long processes
+   - **Symptom**: Function times out for long processes (Lambda max timeout is 15 minutes)
    - **Solution**: Break into smaller functions or use Step Functions
    ```python
    # Step Functions state machine for long workflows
@@ -925,6 +925,40 @@ As you progress through your AWS learning journey, these resources will accelera
 - **[AWS re:Invent Videos](https://reinvent.awsevents.com/)**: Hundreds of free technical sessions
 
 Pro tip: Start with the Free Tier and Well-Architected Framework. These two resources alone will accelerate your learning by months.
+
+### Key AWS Updates (2023-2024)
+
+Stay current with the latest AWS innovations:
+
+#### Generative AI Services
+- **Amazon Bedrock**: Fully managed service for foundation models (Claude, Llama 2, Stable Diffusion)
+- **Amazon Q**: AI-powered assistant for developers and business users
+- **Amazon CodeWhisperer**: AI code companion (now part of Amazon Q Developer)
+- **PartyRock**: No-code playground for building AI apps
+
+#### Compute & Serverless
+- **Lambda SnapStart**: Up to 10x faster cold starts for Java functions
+- **Lambda Function URLs**: HTTPS endpoints without API Gateway
+- **EC2 Graviton3**: 25% better performance than Graviton2
+- **AWS App Runner**: Automatic scaling for containerized web apps
+
+#### Storage & Databases
+- **S3 Express One Zone**: Single-digit millisecond latency storage class
+- **Aurora Limitless Database**: Scales beyond a single Aurora cluster
+- **ElastiCache Serverless**: Redis and Memcached without capacity planning
+- **RDS Blue/Green Deployments**: Safe database updates with minimal downtime
+
+#### AI/ML Platforms
+- **SageMaker Studio Code Editor**: VS Code-based IDE for ML
+- **SageMaker HyperPod**: Managed infrastructure for training foundation models
+- **AWS Trainium2**: Next-gen ML training chips
+- **SageMaker Canvas**: No-code ML model building
+
+#### Developer Experience
+- **AWS Application Composer**: Visual design for serverless apps
+- **Amazon CodeCatalyst**: Unified software development service
+- **AWS CloudShell**: Browser-based shell with AWS CLI pre-installed
+- **Step Functions Workflow Studio**: Low-code visual workflow designer
 
 ## Building Real Applications: Architecture Patterns
 

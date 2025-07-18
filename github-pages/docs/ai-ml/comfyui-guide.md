@@ -26,7 +26,9 @@ Master ComfyUI's node-based workflow system for advanced AI image generation, fr
 
 ## What is ComfyUI?
 
-ComfyUI is a powerful node-based interface for Stable Diffusion that enables users to create complex image generation workflows through visual programming. Unlike traditional UIs, ComfyUI exposes the entire generation pipeline as modular nodes that can be connected in countless ways.
+ComfyUI is a powerful node-based interface for Stable Diffusion and other diffusion models that enables users to create complex image generation workflows through visual programming. Unlike traditional UIs, ComfyUI exposes the entire generation pipeline as modular nodes that can be connected in countless ways.
+
+As of 2024, ComfyUI has become the de facto standard for advanced workflows, supporting all major models including SDXL, SD3, FLUX, and various video/audio models. Its modular architecture makes it ideal for experimenting with cutting-edge techniques.
 
 ### Key Advantages
 
@@ -72,15 +74,18 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 # Install dependencies
 pip install -r requirements.txt
 
-# Install xformers for better performance (optional, must match PyTorch/CUDA version)
-# For CUDA 11.8:
-pip install xformers --index-url https://download.pytorch.org/whl/cu118
+# Install xformers for 2x+ speedup (highly recommended)
+# Match your PyTorch/CUDA version
+pip install xformers
 
-# For CUDA 12.1:
-pip install xformers --index-url https://download.pytorch.org/whl/cu121
+# Optional: Install Flash Attention 2 for even better performance
+pip install flash-attn --no-build-isolation
 
 # Run ComfyUI
 python main.py
+
+# Or with specific arguments
+python main.py --listen --port 8188 --preview-method auto
 ```
 
 ### Directory Structure
@@ -97,7 +102,10 @@ ComfyUI/
 ├── input/              # Input images
 ├── output/             # Generated images
 ├── custom_nodes/       # Extensions
-└── workflows/          # Saved workflows
+├── web/                # Frontend files
+└── user/               # User data
+    └── default/
+        └── workflows/   # Saved workflows
 ```
 
 ## Core Concepts
@@ -118,6 +126,8 @@ Nodes are the building blocks of ComfyUI workflows. Each node:
 4. **Image**: Image processing and manipulation
 5. **Latent**: Operations in latent space
 6. **Control**: ControlNet and guidance nodes
+7. **Advanced**: Custom sampling, model merging
+8. **Utils**: Helper nodes for workflow control
 
 ### Workflow Execution
 
@@ -311,6 +321,22 @@ Use attention masking for different prompts in different areas:
    - Preprocessors for ControlNet
    - Edge detection
    - Pose estimation
+   - Depth estimation
+
+5. **AnimateDiff Evolved**
+   - Video generation
+   - Motion LoRAs
+   - Frame interpolation
+
+6. **IP-Adapter Plus**
+   - Advanced image prompting
+   - Style transfer
+   - Face consistency
+
+7. **GGUF Support**
+   - Load quantized models
+   - Reduced VRAM usage
+   - Mobile deployment
 
 ### Installing Custom Nodes
 
@@ -340,7 +366,7 @@ The ComfyUI MCP server enables programmatic control:
 import requests
 import json
 
-response = requests.post("http://localhost:8189/mcp/tool", json={
+response = requests.post("http://localhost:8005/mcp/tool", json={
     "tool": "generate-image",
     "arguments": {
         "prompt": "cyberpunk city, neon lights, rain",
@@ -348,7 +374,9 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
         "lora": "cyberpunk_style.safetensors",
         "width": 1024,
         "height": 1024,
-        "steps": 30
+        "steps": 30,
+        "sampler": "dpmpp_2m_sde_gpu",
+        "scheduler": "karras"
     }
 })
 ```
@@ -371,15 +399,20 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
 ### Model Management
 
 ```python
-Complete function with error handling
-response = requests.post("http://localhost:8189/mcp/tool", json={
+# Upload LoRA with metadata
+response = requests.post("http://localhost:8005/mcp/tool", json={
     "tool": "upload-lora",
     "arguments": {
         "filename": "my_style.safetensors",
         "content": base64_content,
         "metadata": {
             "trigger_words": ["mystyle"],
-            "recommended_strength": 0.8
+            "recommended_strength": 0.8,
+            "base_model": "SDXL",
+            "training_details": {
+                "steps": 2000,
+                "dataset_size": 50
+            }
         }
     }
 })
@@ -407,10 +440,15 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
 ### Memory Management
 
 **Low VRAM Techniques**:
-- Use `--lowvram` flag
-- Enable model CPU offloading
+- Use `--lowvram` or `--cpu` flags
+- Enable sequential CPU offloading
 - Use tiled VAE for large images
 - Reduce batch size
+- Use fp8/int8 quantized models
+- Enable smart memory management:
+  ```bash
+  python main.py --lowvram --use-split-cross-attention
+  ```
 
 **Efficient Node Usage**:
 ```python
@@ -512,24 +550,44 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
 [Model2] → [KSampler] → [Latent]
 ```
 
+## Recent ComfyUI Developments (2024)
+
+### New Features
+
+1. **Execution Caching**: Smart caching prevents re-execution
+2. **Node Templates**: Save and reuse node configurations
+3. **Workflow Components**: Encapsulate sub-workflows
+4. **Better Preview**: Real-time latent preview options
+5. **Auto Queue Management**: Intelligent batch processing
+
+### Performance Improvements
+
+- **Torch Compile**: Up to 30% speed improvement
+- **Better Memory Management**: Automatic VRAM optimization
+- **Parallel Execution**: Multiple independent paths
+- **Smart Model Loading**: Reduced loading times
+
 ## Best Practices
 
 ### Workflow Organization
 
 1. **Naming Convention**
    - Use descriptive node titles
-   - Group nodes by function
+   - Group nodes by function  
    - Color code by purpose
+   - Use reroute nodes for clarity
 
 2. **Documentation**
    - Add Note nodes for complex sections
    - Include parameter explanations
    - Document model requirements
+   - Version your workflows
 
 3. **Version Control**
    - Save incremental versions
    - Export workflows as JSON
    - Track model dependencies
+   - Use git for workflow files
 
 ### Sharing Workflows
 
@@ -549,6 +607,28 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
   "groups": [...],
   "version": 0.4
 }
+```
+
+## Advanced Workflows Examples
+
+### LCM Speed Workflow
+```python
+# 4-step generation with LCM
+[SDXL Checkpoint] → [LCM-LoRA Loader @ 1.0] → [KSampler]
+                                                    │
+                                              cfg: 1.5-2.5
+                                              steps: 4-8
+                                              sampler: lcm
+```
+
+### SD3 Workflow
+```python
+# SD3 with triple text encoding
+[SD3 Checkpoint] → [Triple Text Encode]
+                          │
+                    [CLIP L] [CLIP G] [T5]
+                          ↓
+                    [KSampler: shift=3.0]
 ```
 
 ## Example: Complete FLUX LoRA Workflow

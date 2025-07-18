@@ -28,6 +28,8 @@ Cutting-edge techniques and complex workflows for pushing the boundaries of AI i
 
 This guide covers advanced techniques that go beyond basic image generation, including latent space manipulation, regional prompting, advanced sampling methods, and complex multi-stage workflows.
 
+In 2024, the field has advanced with new techniques like consistency distillation, flow matching, and adversarial training methods that enable real-time generation without quality loss. These cutting-edge approaches are reshaping what's possible with diffusion models.
+
 ## Latent Space Techniques
 
 ### Latent Space Interpolation
@@ -202,6 +204,26 @@ def karras_schedule(n, sigma_min=0.002, sigma_max=80, rho=7):
     return sigmas
 ```
 
+### EDM Sampling
+
+Elucidated Diffusion Models approach:
+
+```python
+def edm_sampler(x, model, sigmas, s_churn=0, s_noise=1):
+    """EDM sampling with stochasticity control"""
+    for i, (sigma, sigma_next) in enumerate(zip(sigmas[:-1], sigmas[1:])):
+        # Add noise for stochasticity
+        if s_churn > 0:
+            gamma = min(s_churn / n, np.sqrt(2) - 1)
+            eps = torch.randn_like(x) * s_noise
+            sigma_hat = sigma * (1 + gamma)
+            x = x + eps * (sigma_hat - sigma)
+        
+        # Denoise
+        x = denoise_step(x, model, sigma_hat, sigma_next)
+    return x
+```
+
 ### Restart Sampling
 
 Improve quality with strategic restarts:
@@ -271,14 +293,19 @@ final_latent = sum(l * w for l, w in zip(latents, weights))
 
 ### Attention Optimization
 
-#### Flash Attention
+#### Flash Attention 2
 ```python
-# Enable flash attention for speed
+# Enable flash attention 2 for speed
 config = {
-    "use_flash_attention": True,
+    "use_flash_attention_2": True,
     "attention_slice_size": "auto",
-    "attention_processor": "xformers"
+    "attention_processor": "flash_attn",
+    "enable_math": False,  # Disable for pure Flash Attention
+    "enable_mem_efficient": True
 }
+
+# With torch.compile for additional speedup
+model = torch.compile(model, mode="reduce-overhead")
 ```
 
 #### Token Merging (ToMe)
@@ -452,40 +479,81 @@ def temporal_controlnet(frames, control_strength_decay=0.95):
 
 ## Experimental Techniques
 
-### Diffusion Distillation
+### Consistency Distillation
 
-Create faster models:
+Latest approach for few-step generation:
 
 ```python
-# Progressive distillation
-teacher_steps = 50
-student_steps = 4
-
-# Train student to match teacher
-for batch in training_data:
-    teacher_output = teacher_model(batch, steps=teacher_steps)
-    student_output = student_model(batch, steps=student_steps)
+# Consistency distillation (LCM/TCD style)
+def consistency_distillation(teacher_model, student_model, x, t):
+    """Train student for consistency"""
+    # Teacher prediction
+    with torch.no_grad():
+        teacher_v = teacher_model(x, t)
+        x_pred = predict_x0(x, teacher_v, t)
     
-    loss = mse_loss(student_output, teacher_output.detach())
-    optimize_student(loss)
+    # Student should match at adjacent timesteps
+    t_next = get_adjacent_timestep(t)
+    student_v = student_model(x, t_next)
+    
+    # Consistency loss
+    loss = F.mse_loss(student_v, teacher_v)
+    return loss
 ```
 
-### Consistency Models
-
-Single-step generation:
+### Adversarial Diffusion Distillation (ADD)
 
 ```python
-# Consistency training
-def consistency_loss(model, x_t, t):
-    """Train model to be consistent across timesteps"""
-    # Get two adjacent timesteps
-    t1, t2 = get_adjacent_timesteps(t)
+# GAN-based acceleration
+def add_training(generator, discriminator, real_images):
+    """Adversarial Diffusion Distillation"""
+    # Generate with few steps
+    fake_images = generator(noise, steps=4)
     
-    # Model should produce same output
-    output1 = model(x_t, t1)
-    output2 = model(x_t, t2)
+    # Discriminator loss
+    d_real = discriminator(real_images)
+    d_fake = discriminator(fake_images.detach())
+    d_loss = gan_loss(d_real, d_fake)
     
-    return mse_loss(output1, output2)
+    # Generator loss with perceptual component
+    g_adv = discriminator(fake_images)
+    g_loss = gan_loss(g_adv, real=True) + \
+             perceptual_loss(fake_images, real_images)
+    
+    return g_loss, d_loss
+```
+
+### Flow Matching
+
+Alternative to diffusion used in FLUX/SD3:
+
+```python
+def flow_matching_loss(model, x0, x1, t):
+    """Rectified flow training"""
+    # Interpolate between noise and data
+    xt = t * x1 + (1 - t) * x0
+    
+    # Target velocity
+    target_v = x1 - x0
+    
+    # Model prediction
+    pred_v = model(xt, t)
+    
+    # Matching loss
+    return F.mse_loss(pred_v, target_v)
+
+# Sampling with flow
+def sample_flow(model, x0, steps=50):
+    """ODE sampling for rectified flows"""
+    dt = 1.0 / steps
+    xt = x0
+    
+    for i in range(steps):
+        t = i * dt
+        v = model(xt, t)
+        xt = xt + v * dt
+    
+    return xt
 ```
 
 ### Neural Codec Integration
@@ -559,6 +627,43 @@ def ab_test_parameters(base_config, test_params, num_samples=10):
     return results
 ```
 
+### Real-Time Generation Pipeline
+
+```python
+class RealTimeGenerator:
+    """Optimized for <100ms generation"""
+    
+    def __init__(self, model_path):
+        # Load optimized model
+        self.model = load_lcm_model(model_path)
+        self.model = torch.compile(self.model)
+        
+        # Pre-allocate tensors
+        self.noise = torch.randn(1, 4, 64, 64).cuda()
+        self.text_cache = {}
+    
+    @torch.inference_mode()
+    def generate(self, prompt, seed=None):
+        # Cache text encoding
+        if prompt not in self.text_cache:
+            self.text_cache[prompt] = encode_prompt(prompt)
+        
+        # Fast generation
+        if seed:
+            torch.manual_seed(seed)
+        
+        # 4-step LCM generation
+        latents = self.noise.clone()
+        for t in [999, 749, 499, 249]:
+            latents = self.model(
+                latents, t, 
+                self.text_cache[prompt],
+                guidance_scale=1.5
+            )
+        
+        return decode_latents(latents)
+```
+
 ## Performance Monitoring
 
 ### Generation Metrics
@@ -591,6 +696,43 @@ class GenerationProfiler:
         }
 ```
 
+## Cutting-Edge Techniques (2024)
+
+### Differential Diffusion
+
+Selective region control:
+```python
+def differential_diffusion(x, mask, strength_map):
+    """Apply different denoising strengths by region"""
+    # Decompose into regions
+    regions = segment_by_mask(x, mask)
+    
+    # Apply different schedules
+    for region, strength in zip(regions, strength_map):
+        region_schedule = modify_schedule(base_schedule, strength)
+        regions[i] = denoise_region(region, region_schedule)
+    
+    return combine_regions(regions)
+```
+
+### Self-Attention Guidance (SAG)
+
+```python
+def self_attention_guidance(model, x, t, scale=0.5):
+    """Enhance details using self-attention maps"""
+    # Get attention maps
+    _, attns = model(x, t, return_attention=True)
+    
+    # Blur attention for guidance
+    blurred = gaussian_blur(attns, sigma=1.0)
+    
+    # Guided prediction
+    pred = model(x, t)
+    guided = pred + scale * (attns - blurred)
+    
+    return guided
+```
+
 ## Best Practices
 
 ### Workflow Design
@@ -600,6 +742,7 @@ class GenerationProfiler:
 3. **Documentation**: Comment complex operations
 4. **Version Control**: Track workflow changes
 5. **Performance**: Profile and optimize bottlenecks
+6. **Future-Proofing**: Design for new model architectures
 
 ### Experimentation Guidelines
 
@@ -608,9 +751,17 @@ class GenerationProfiler:
 3. **Metrics**: Define clear success criteria
 4. **Iteration**: Start simple, add complexity
 5. **Documentation**: Record successful configurations
+6. **Benchmarking**: Compare against established baselines
+7. **Community Sharing**: Contribute findings back
 
 ## Conclusion
 
-Advanced techniques open up new possibilities in AI image generation, from precise control over the generation process to optimization for specific use cases. The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations to achieve your desired results.
+Advanced techniques open up new possibilities in AI image generation, from precise control over the generation process to optimization for specific use cases. The landscape in 2024 has shifted toward real-time generation, consistency models, and flow-based approaches that challenge traditional diffusion paradigms.
 
-As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.
+Key trends shaping the future:
+- **Real-time Generation**: Sub-100ms image creation becoming standard
+- **Unified Architectures**: Models handling multiple modalities seamlessly  
+- **Adaptive Computation**: Dynamic resource allocation based on complexity
+- **Neural Compression**: Extreme model compression without quality loss
+
+The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations. As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.

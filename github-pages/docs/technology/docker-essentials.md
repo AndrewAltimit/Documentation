@@ -35,6 +35,7 @@ Repository for storing and distributing Docker images. Docker Hub is the default
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
+# Log out and log back in for group changes to take effect
 ```
 
 ### macOS and Windows
@@ -103,7 +104,7 @@ docker top <container>               # Running processes in container
 ### Common Instructions
 ```dockerfile
 # Base image
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Metadata
 LABEL maintainer="email@example.com"
@@ -149,7 +150,7 @@ HEALTHCHECK --interval=30s --timeout=3s \
 ### Multi-stage Builds
 ```dockerfile
 # Build stage
-FROM node:16 AS builder
+FROM node:20 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -157,7 +158,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:16-alpine
+FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
@@ -226,7 +227,7 @@ services:
       - node_modules:/app/node_modules
 
   db:
-    image: postgres:14
+    image: postgres:16
     environment:
       POSTGRES_DB: myapp
       POSTGRES_USER: user
@@ -320,9 +321,30 @@ export DOCKER_HOST=tcp://remote-host:2375
 docker ps  # Commands now execute on remote host
 ```
 
+## Docker 2024 Updates
+
+### New Features
+- **Docker Scout**: Integrated vulnerability scanning and SBOM analysis
+- **Docker Build Cloud**: Remote builders for faster CI/CD pipelines
+- **Docker Debug**: Interactive debugging for containers
+- **Compose Watch**: Auto-sync for development workflows
+
+### Security Enhancements
+- **Attestations**: Supply chain security with provenance
+- **Rootless mode**: Run Docker daemon without root privileges
+- **Enhanced build secrets**: Improved secret handling during builds
+
+### Alternative Tools
+- **Podman**: Daemonless, rootless container engine
+- **Colima**: Lightweight Docker Desktop alternative for macOS
+- **Rancher Desktop**: Kubernetes-focused container management
+- **OrbStack**: Fast, efficient Docker Desktop alternative
+
 ## Additional Resources
 
 - [Docker Documentation](https://docs.docker.com/)
 - [Docker Hub](https://hub.docker.com/)
 - [Dockerfile Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 - [Docker Security](https://docs.docker.com/engine/security/)
+- [Docker Scout](https://docs.docker.com/scout/)
+- [Docker Build Cloud](https://docs.docker.com/build/cloud/)

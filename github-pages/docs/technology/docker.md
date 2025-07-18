@@ -163,11 +163,11 @@ if __name__ == '__main__':
 EOF
 
 # Create requirements.txt
-echo "flask==2.3.2" > requirements.txt
+echo "flask==3.0.0" > requirements.txt
 
 # Create Dockerfile
 cat > Dockerfile << 'EOF'
-FROM python:3.11-slim
+FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 EOF
 
 # Update requirements.txt
-echo -e "flask==2.3.2\nredis==4.5.5" > requirements.txt
+echo -e "flask==3.0.0\nredis==5.0.1" > requirements.txt
 
 # Start the application stack
 docker-compose up -d
@@ -3149,6 +3149,26 @@ The container landscape continues to evolve rapidly:
 - **Today**: Docker dominates with mature tooling and vast ecosystem
 - **Emerging**: WebAssembly offers new possibilities for lightweight, secure containers
 - **Future**: Hybrid approaches combining traditional containers and WASM
+
+### Docker Updates (2024)
+
+**Docker Desktop Enhancements**:
+- **Docker Scout**: Built-in vulnerability scanning and SBOM generation
+- **Docker Build Cloud**: Remote builders for faster CI/CD
+- **Docker Extensions**: Ecosystem of third-party tools
+- **Compose Watch**: Automatic sync for development
+
+**Container Runtime Evolution**:
+- **containerd 2.0**: Improved performance and features
+- **BuildKit**: Default builder with enhanced caching
+- **Docker Init**: AI-powered Dockerfile generation
+- **Attestations**: Supply chain security with SLSA
+
+**Alternative Runtimes**:
+- **Podman**: Daemonless, rootless containers
+- **Colima**: Lightweight Docker Desktop alternative for Mac
+- **Rancher Desktop**: Kubernetes-focused container management
+- **OrbStack**: Fast, lightweight Docker Desktop alternative
 
 Remember, containerization is not just about technology - it's about enabling:
 - Faster development cycles

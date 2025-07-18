@@ -179,6 +179,8 @@ The math behind ECC involves points on special curves. Instead of factoring, the
 
 Here's a sobering thought: quantum computers, once they're powerful enough, will break RSA and ECC. Shor's algorithm can factor large numbers and solve discrete logarithms efficiently on a quantum computer. This isn't science fiction—it's why organizations are already preparing.
 
+**2024 Update**: IBM's quantum computers have reached 1000+ qubits, and while error rates remain high, the timeline for "cryptographically relevant quantum computers" has shortened. NIST released standardized post-quantum algorithms in 2024, and organizations are beginning the migration.
+
 #### Post-Quantum Cryptography: Preparing for Tomorrow
 
 Cryptographers are developing new algorithms based on problems that even quantum computers find difficult:
@@ -203,7 +205,11 @@ error = [0, 1, -1]  # Small random errors
 
 **Hash-Based Signatures**: These rely only on the security of hash functions. Even if quantum computers arrive tomorrow, hash-based signatures would still be secure.
 
-The transition to post-quantum cryptography is already beginning. Google Chrome has experimentally deployed post-quantum key exchange, and NIST has standardized several post-quantum algorithms.
+The transition to post-quantum cryptography is accelerating. Major browsers including Chrome and Firefox now support post-quantum key exchange by default. NIST's 2024 standards include:
+- **CRYSTALS-Kyber**: For key encapsulation
+- **CRYSTALS-Dilithium**: For digital signatures
+- **FALCON**: Alternative signature scheme
+- **SPHINCS+**: Hash-based signatures for highest security
 
 ### Privacy-Preserving Technologies
 
@@ -366,7 +372,14 @@ But implementing secure authentication is complex. This is where protocols like 
 
 ### JSON Web Tokens: Stateless Security
 
-JWTs solved a major problem in web applications: how to maintain user sessions without storing state on the server:
+JWTs solved a major problem in web applications: how to maintain user sessions without storing state on the server.
+
+**Important Security Update (2024)**: Many JWT libraries had critical vulnerabilities. Always:
+- Use strong, unique secrets (256+ bits)
+- Validate the 'alg' header to prevent algorithm confusion attacks
+- Set and validate expiration times
+- Consider JWE (encrypted JWTs) for sensitive data
+- Use refresh token rotation for long-lived sessions
 
 ```javascript
 // JWT structure: header.payload.signature
@@ -417,7 +430,14 @@ Understanding who secures what is crucial:
 
 ### IAM: The Keys to Your Kingdom
 
-In the cloud, Identity and Access Management (IAM) is your most critical security control. A misconfigured IAM policy can expose your entire infrastructure:
+In the cloud, Identity and Access Management (IAM) is your most critical security control. A misconfigured IAM policy can expose your entire infrastructure.
+
+**Modern IAM Practices (2024)**:
+- **Zero Trust Architecture**: Never trust, always verify
+- **Just-In-Time Access**: Temporary elevated privileges
+- **Passwordless Authentication**: Passkeys, FIDO2 standards
+- **Policy Intelligence**: AI-powered policy recommendations
+- **CNAPP**: Cloud-Native Application Protection Platforms
 
 ```json
 {
@@ -447,7 +467,14 @@ In the cloud, Identity and Access Management (IAM) is your most critical securit
 
 ### Container Security: Shipping Code Safely
 
-Containers add another layer of complexity. You're not just securing an application—you're securing the entire environment it runs in:
+Containers add another layer of complexity. You're not just securing an application—you're securing the entire environment it runs in.
+
+**2024 Container Security Best Practices**:
+- **Software Bill of Materials (SBOM)**: Required by many regulations
+- **Sigstore**: Sign and verify container images
+- **Distroless images**: Reduce attack surface
+- **Runtime security**: Falco, Sysdig for threat detection
+- **Policy as Code**: OPA (Open Policy Agent) for enforcement
 
 ```dockerfile
 # Insecure Dockerfile
@@ -484,9 +511,21 @@ The weakest link in any security system is often the human element. Attackers kn
 
 **Defense**: Security awareness training and technical controls like email authentication (SPF, DKIM, DMARC).
 
+**AI-Powered Attacks (2024)**:
+- **Deepfake voice cloning**: CEO fraud using synthetic voices
+- **AI-generated phishing**: Personalized at scale using LLMs
+- **Business Email Compromise (BEC)**: $2.9 billion in losses (2023)
+- **Defense**: AI-powered email security, behavioral analysis, voice authentication
+
 ### Supply Chain Attacks: Trusting the Untrustworthy
 
 Why hack one company when you can hack a supplier and reach hundreds? The SolarWinds attack compromised 18,000 organizations through a single software update.
+
+**Recent Supply Chain Attacks (2023-2024)**:
+- **3CX**: Compromised software update affected 600,000+ companies
+- **MOVEit**: SQL injection led to breaches at 1000+ organizations
+- **PyPI/npm attacks**: Malicious packages targeting developers
+- **xz Utils backdoor**: Near-miss that could have compromised Linux systems worldwide
 
 ```python
 # How supply chain attacks work:
@@ -863,7 +902,13 @@ Every incident is a learning opportunity:
 
 ### SIEM: Your Security Nerve Center
 
-A Security Information and Event Management system is like having thousands of security cameras with an AI watching them all:
+A Security Information and Event Management system is like having thousands of security cameras with an AI watching them all.
+
+**Next-Gen SIEM (2024)**:
+- **XDR (Extended Detection and Response)**: Unified security across endpoints, network, cloud
+- **SOAR Integration**: Automated response to incidents
+- **ML-Powered Analytics**: Behavioral baselines, anomaly detection
+- **Cloud-Native SIEM**: Elastic, Splunk Cloud, Microsoft Sentinel
 
 ```python
 # Example: Detecting brute force attacks
@@ -939,7 +984,14 @@ Compliance isn't just bureaucracy—it's security with consequences. Understandi
 
 ### GDPR: Privacy as a Human Right
 
-The EU's General Data Protection Regulation changed how we think about data:
+The EU's General Data Protection Regulation changed how we think about data.
+
+**Global Privacy Landscape (2024)**:
+- **EU**: GDPR fines exceeded €2 billion total
+- **US**: State laws proliferating (California CPRA, Virginia VCDPA)
+- **India**: DPDP Act 2023 implementation
+- **China**: PIPL enforcement increasing
+- **AI-Specific**: EU AI Act (2024) adds requirements for AI systems
 
 ```python
 # GDPR requires "privacy by design"
@@ -1358,18 +1410,30 @@ class BlockchainCA:
 - **"The Tangled Web"** - Michal Zalewski
 - **Academic conferences**: IEEE S&P, USENIX Security, CCS, NDSS
 
-### Staying Current
+### Staying Current (2024 Resources)
 - **Krebs on Security** - Brian Krebs' security journalism
 - **Schneier on Security** - Bruce Schneier's blog
 - **Google Project Zero** - Cutting-edge vulnerability research
-- **Full Disclosure** and **Bugtraq** - Security mailing lists
-- **Security podcasts**: Darknet Diaries, Security Now, Risky Business
+- **The Hacker News** - Daily security news
+- **SANS Internet Storm Center** - Real-time threat intelligence
+- **Security podcasts**: Darknet Diaries, Security Now, Risky Business, The CyberWire
+
+### Emerging Threats (2024)
+- **AI-Powered Attacks**: Automated vulnerability discovery, deepfakes, prompt injection
+- **Ransomware Evolution**: Double/triple extortion, RaaS sophistication
+- **Cloud Security**: Misconfigurations remain #1 issue
+- **IoT/OT Security**: Critical infrastructure targeting
+- **API Security**: Now the #1 attack vector for web apps
 
 ### Hands-On Learning
-- **CTF (Capture The Flag) competitions** - Test your skills
-- **Bug bounty programs** - Find real vulnerabilities responsibly
-- **Security certifications**: CISSP, CEH, OSCP (for career advancement)
-- **Build your own lab** - Practice attacks and defenses safely
+- **CTF Platforms**: PicoCTF, OverTheWire, HackTheBox, TryHackMe
+- **Bug bounty programs**: HackerOne, Bugcrowd, Synack
+- **Cloud Security**: AWS Security Hub, Azure Security Center labs
+- **Security certifications**: 
+  - Entry: Security+, CySA+
+  - Mid: CISSP, CEH, GSEC
+  - Advanced: OSCP, OSCE, SANS expert tracks
+- **Build your own lab**: Docker containers for safe practice
 
 ## See Also
 - [Networking](networking.html) - Network fundamentals

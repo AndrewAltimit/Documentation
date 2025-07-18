@@ -189,7 +189,7 @@ feature      ●──●      ●──●      ●──●
 
 ## GitLab Flow
 
-GitLab Flow combines aspects of Git Flow and GitHub Flow with the concept of environment branches.
+GitLab Flow combines aspects of Git Flow and GitHub Flow with the concept of environment branches. This approach has gained popularity as organizations adopt GitOps practices.
 
 ### Environment Branches
 
@@ -347,6 +347,13 @@ This allows:
 - Gradual rollouts
 - Quick rollbacks without redeployment
 
+**Popular Feature Flag Services (2024):**
+- **LaunchDarkly**: Enterprise-grade feature management
+- **Unleash**: Open-source feature toggle service
+- **Split.io**: Feature flags with built-in experimentation
+- **Flipper**: Simple, open-source feature flipping
+- **AWS AppConfig**: Native AWS feature flag service
+
 ### Branch Protection Rules
 
 Configure branch protection in your Git platform:
@@ -446,6 +453,17 @@ if [ $protected_branch = $current_branch ]; then
 fi
 ```
 
+**Modern Alternative - Using pre-commit framework:**
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'production']
+```
+
 ### CI/CD Integration
 
 Example GitHub Actions workflow:
@@ -498,9 +516,16 @@ Now that you understand branching strategies:
 
 ## Further Reading
 
+### Core Resources
 - [Git Documentation](https://git-scm.com/doc)
 - [Atlassian Git Tutorials](https://www.atlassian.com/git/tutorials/comparing-workflows)
 - [GitHub Flow Guide](https://guides.github.com/introduction/flow/)
 - [GitLab Flow Documentation](https://docs.gitlab.com/ee/topics/gitlab_flow.html)
-- [A Successful Git Branching Model](https://nvie.com/posts/a-successful-git-branching-model/)
+- [A Successful Git Branching Model](https://nvie.com/posts/a-successful-git-branching-model/) (Original Git Flow article)
 - [Trunk Based Development](https://trunkbaseddevelopment.com/)
+
+### Modern Practices (2023-2024)
+- [GitHub's Merge Queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) - Automated merging at scale
+- [Stacked Diffs/PRs](https://graphite.dev/guides/stacked-prs) - Managing dependent changes
+- [Ship/Show/Ask](https://martinfowler.com/articles/ship-show-ask.html) - Branching strategy for continuous delivery
+- [GitOps with ArgoCD](https://argo-cd.readthedocs.io/en/stable/) - Git as single source of truth

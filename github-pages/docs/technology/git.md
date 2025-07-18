@@ -26,7 +26,7 @@ toc_icon: "cog"
     <div class="insight-card">
       <i class="fas fa-shield-alt"></i>
       <h4>Cryptographic Integrity</h4>
-      <p>SHA-1/SHA-256 content addressing (SHA-256 recommended)</p>
+      <p>SHA-256 content addressing (SHA-1 deprecated)</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-network-wired"></i>
@@ -43,7 +43,7 @@ Git is a **distributed version control system** created by Linus Torvalds in 200
 - **Stores complete history locally**: Every clone is a full backup
 - **Works offline**: Most operations don't need network access
 - **Branches are lightweight**: Creating/merging branches is fast and easy
-- **Guarantees data integrity**: Uses SHA-1/SHA-256 checksums for all data
+- **Guarantees data integrity**: Uses SHA-256 checksums for all data (SHA-1 legacy support)
 - **Supports non-linear development**: Multiple parallel branches and complex merges
 
 ### Why Use Version Control?
@@ -197,20 +197,23 @@ git fetch --prune           # Clean stale references
 
 ### Content-Addressable Storage Theory
 
-Git implements a content-addressable filesystem where objects are stored and retrieved by their SHA-1 hash. This provides cryptographic integrity and enables efficient storage through deduplication.
+Git implements a content-addressable filesystem where objects are stored and retrieved by their cryptographic hash. This provides integrity guarantees and enables efficient storage through deduplication.
 
 **Key Components:**
 - **GitObject**: Base class for all Git objects (blob, tree, commit, tag)
-- **SHA-1 Hashing**: Content addressing using cryptographic hashes
-  - **⚠️ Security Notice**: SHA-1 is cryptographically broken and deprecated. While Git still uses SHA-1 by default for backward compatibility, it's recommended to migrate to SHA-256 for new repositories using `git init --object-format=sha256`
+- **SHA-256 Hashing**: Content addressing using cryptographic hashes (recommended)
+  - **⚠️ Security Notice**: SHA-1 is cryptographically broken. New repositories should use SHA-256 with `git init --object-format=sha256`. Git 2.42+ supports automatic algorithm detection and interoperability
 - **Compression**: zlib compression for efficient storage
 - **Merkle Trees**: Tree objects form a Merkle tree structure
 - **Commit DAG**: Directed Acyclic Graph for version history
 
 **Object Model:**
 ```python
-# Example: Creating a Git object
+# Example: Creating a Git object (SHA-256 recommended)
 header = f"blob {len(content)}\0".encode()
+# SHA-256 for new repositories
+sha256 = hashlib.sha256(header + content).hexdigest()
+# SHA-1 for legacy compatibility
 sha1 = hashlib.sha1(header + content).hexdigest()
 compressed = zlib.compress(header + content)
 ```
@@ -247,7 +250,7 @@ Their changes
 
 ### Object Storage Implementation
 
-Git uses a content-addressable storage system where objects are identified by their SHA-1 hash. The storage system includes:
+Git uses a content-addressable storage system where objects are identified by their cryptographic hash (SHA-256 recommended, SHA-1 legacy). The storage system includes:
 
 **Key Components:**
 - **Loose Objects**: Individual compressed files stored in `.git/objects/`
@@ -257,8 +260,9 @@ Git uses a content-addressable storage system where objects are identified by th
 
 **Storage Format:**
 - Objects are compressed using zlib
-- Directory structure uses first 2 characters of SHA-1 for sharding
+- Directory structure uses first 2 characters of hash for sharding
 - Pack files use delta compression to reduce storage size
+- SHA-256 repositories use extended object format for compatibility
 
 > **Code Reference**: For complete object storage implementation including loose objects, pack files, and index structures, see [`object_storage.py`](../../code-examples/technology/git/object_storage.py)
 

@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: Artifical Intelligence Deep Dive
+title: Artificial Intelligence Deep Dive
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
@@ -232,7 +232,14 @@ GPT-3 contains 175 billion parameters and demonstrates strong performance on a w
 
 **GPT-4 (2023)**
 
-GPT-4 is claimed to have over 1 trillion parameters though no official numbers have been published. The model is 82% less likely to respond to requests for disallowed content and 40% more likely to produce factual responses than GPT-3.5 according to OpenAI internal evaluations.
+GPT-4 is a multimodal model (text and images) with significantly enhanced capabilities over GPT-3.5. While the exact parameter count remains undisclosed, it demonstrates improved reasoning, reduced hallucinations, and better instruction following. GPT-4 Turbo (November 2023) added a 128K context window, function calling, and improved performance.
+
+**Recent Developments (2024)**
+
+- **Claude 3 (Anthropic)**: Family of models (Haiku, Sonnet, Opus) with strong performance across benchmarks
+- **Gemini (Google)**: Multimodal models processing text, images, audio, and video natively
+- **Llama 3 (Meta)**: Open-source models with 8B and 70B parameters, trained on 15T tokens
+- **Mistral & Mixtral**: Efficient open-source models using mixture of experts architecture
 
 #### Training
 
@@ -259,10 +266,23 @@ Few-shot learning allows GPT models to perform well on new tasks with minimal or
 ### Llama
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://parsa.epfl.ch/course-info/cs723/papers/llama.pdf"> Paper: <b><i>LLaMA: Open and Efficient Foundation Language Models</i></b></a></p>
 
+Meta's Llama series has become the foundation for open-source LLM development:
+- **Llama 2** (July 2023): 7B, 13B, and 70B models with 4K context
+- **Code Llama** (August 2023): Specialized for code generation
+- **Llama 3** (April 2024): 8B and 70B models with significantly improved performance
+- Trained on over 15 trillion tokens (vs 2T for Llama 2)
+- Supports multiple languages and has 8K context window
+
 
 ### Alpaca
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://crfm.stanford.edu/2023/03/13/alpaca.html"> Article: <b><i>Alpaca: A Strong, Replicable Instruction-Following Model</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/tatsu-lab/stanford_alpaca"> Git: <b><i>Stanford Alpaca: An Instruction-following LLaMA Model</i></b></a></p>
+
+Alpaca demonstrated that smaller models could be fine-tuned to follow instructions effectively. This work inspired numerous variants:
+- **Vicuna**: Multi-turn conversation capabilities
+- **WizardLM**: Complex instruction following
+- **Orca**: Learning from explanations
+- **Phi-3**: Microsoft's small but capable models
 
 
 ### Reflexion
@@ -302,9 +322,12 @@ Few-shot learning allows GPT models to perform well on new tasks with minimal or
 
 ### Productivity
 
-- Microsoft 365 and GitHub Copilot
-- Khanmigo: a GPT-4 powered Khan Academy
-- SwiftKey: AI-enhanced keyboard predictions
+- **Microsoft 365 Copilot**: AI integration across Office apps
+- **GitHub Copilot X**: Enhanced with chat, voice, and PR descriptions
+- **Cursor & Continue**: AI-powered code editors
+- **Notion AI & Obsidian AI**: Knowledge management with AI
+- **Perplexity & You.com**: AI-powered search engines
+- **Claude Projects & GPT Custom Instructions**: Personalized AI workflows
 
 ### Extending ChatGPT Capabilities
 
@@ -325,11 +348,33 @@ With ChatGPT plugins, users can:
 - **Implement domain-specific knowledge:** Incorporate plugins that focus on specific industries, niches, or use cases, making the chatbot more effective and relevant in those areas.
 
 ### Running your own LLM Chatbot
-[WIP] Repository: [https://github.com/AndrewAltimit/terraform-ecs-llm](https://github.com/AndrewAltimit/terraform-ecs-llm)
 
-1. Build dockerfile at root of the repo and publish to ECR or reuse my image: **public.ecr.aws/e7b2l8r1/gpt4-x-alpaca:latest**
-2. Deploy the infrastructure using Terraform
-3. Visit the ALB URL and start chatting!
+**Popular Options for Self-Hosting (2024):**
+
+1. **Ollama**: Simple local LLM runner
+   ```bash
+   # Install and run Llama 3
+   curl -fsSL https://ollama.ai/install.sh | sh
+   ollama run llama3
+   ```
+
+2. **LM Studio**: GUI for running LLMs locally
+   - Supports GGUF models
+   - Built-in model browser
+   - Chat interface included
+
+3. **Text Generation WebUI (oobabooga)**:
+   ```bash
+   git clone https://github.com/oobabooga/text-generation-webui
+   cd text-generation-webui
+   pip install -r requirements.txt
+   python server.py --model llama-3-8b
+   ```
+
+4. **vLLM**: High-performance inference
+   - Optimized for throughput
+   - Supports continuous batching
+   - Compatible with OpenAI API
 
 ## Security and Ethics
 
@@ -408,6 +453,15 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 
 
 ## Looking Ahead
+
+**Current State (2024)**
+
+The AI landscape has evolved dramatically:
+- **Multimodal Models**: GPT-4V, Gemini, and Claude 3 can process images, with video capabilities emerging
+- **Longer Context Windows**: Models now handle 100K-1M tokens (Claude 3: 200K, Gemini 1.5: 1M)
+- **Better Reasoning**: O1 and similar models show improved logical reasoning and math capabilities
+- **Open Source Progress**: Llama 3, Mistral, and others rival proprietary models
+- **AI Agents**: Systems that can use tools, browse the web, and complete complex tasks autonomously
 
 **AI as a tool, not a replacement**
 

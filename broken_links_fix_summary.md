@@ -1,6 +1,6 @@
 # Broken Links Fix Summary
 
-## Analysis Results
+## Analysis Results (2025)
 
 ### Initial Scan
 - Total internal links checked: 311

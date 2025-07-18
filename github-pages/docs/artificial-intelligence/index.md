@@ -40,18 +40,18 @@ toc_icon: "brain"
 ## Quick Navigation
 
 ### 🎯 Start Here
-- **New to AI?** → [AI Fundamentals - Simplified](/docs/technology/ai-fundamentals-simple.html) *(No math required)*
-- **Ready for Technical Details?** → [AI Fundamentals - Complete](/docs/technology/ai.html)
-- **Research & Implementation** → [AI Deep Dive - Advanced](/docs/technology/ai-lecture-2023.html)
-- **Mathematical Foundations** → [AI Mathematics](/docs/advanced/ai-mathematics.html)
+- **New to AI?** → [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(No math required)*
+- **Ready for Technical Details?** → [AI Fundamentals - Complete](../technology/ai.html)
+- **Research & Implementation** → [AI Deep Dive - Advanced](../technology/ai-lecture-2023.html)
+- **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics.html)
 
 ### 🛠️ Practical AI/ML Tools
-Our comprehensive [AI/ML Documentation](/docs/ai-ml/) covers:
-- [Stable Diffusion Fundamentals](/docs/ai-ml/stable-diffusion-fundamentals.html)
-- [ComfyUI Guide](/docs/ai-ml/comfyui-guide.html)
-- [LoRA Training](/docs/ai-ml/lora-training.html)
-- [Model Types & Architecture](/docs/ai-ml/model-types.html)
-- [Advanced Techniques](/docs/ai-ml/advanced-techniques.html)
+Our comprehensive [AI/ML Documentation](../ai-ml/index.html) covers:
+- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html)
+- [ComfyUI Guide](../ai-ml/comfyui-guide.html)
+- [LoRA Training](../ai-ml/lora-training.html)
+- [Model Types & Architecture](../ai-ml/model-types.html)
+- [Advanced Techniques](../ai-ml/advanced-techniques.html)
 
 ## Core AI Domains
 
@@ -66,8 +66,8 @@ Machine Learning enables computers to learn from data without being explicitly p
 - Model Evaluation and Validation
 
 **Resources:**
-- [AI Fundamentals](/docs/technology/ai.html#machine-learning)
-- [Base Models Comparison](/docs/ai-ml/base-models-comparison.html)
+- [AI Fundamentals](../technology/ai.html#machine-learning)
+- [Base Models Comparison](../ai-ml/base-models-comparison.html)
 
 ### Deep Learning
 Deep Learning uses neural networks with multiple layers to progressively extract higher-level features from raw input.
@@ -80,8 +80,8 @@ Deep Learning uses neural networks with multiple layers to progressively extract
 - Training Techniques and Optimization
 
 **Resources:**
-- [AI Deep Dive](/docs/technology/ai-lecture-2023.html)
-- [Model Types](/docs/ai-ml/model-types.html)
+- [AI Deep Dive](../technology/ai-lecture-2023.html)
+- [Model Types](../ai-ml/model-types.html)
 
 ### Natural Language Processing
 NLP focuses on enabling computers to understand, interpret, and generate human language.
@@ -109,9 +109,9 @@ Computer Vision enables machines to interpret and understand visual information 
 - Video Analysis
 
 **Resources:**
-- [Stable Diffusion Fundamentals](/docs/ai-ml/stable-diffusion-fundamentals.html)
-- [ControlNet Guide](/docs/ai-ml/controlnet.html)
-- [Output Formats Guide](/docs/ai-ml/output-formats.html)
+- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html)
+- [ControlNet Guide](../ai-ml/controlnet.html)
+- [Output Formats Guide](../ai-ml/output-formats.html)
 
 ### Generative AI
 Generative AI creates new content including images, text, audio, and video.
@@ -124,42 +124,43 @@ Generative AI creates new content including images, text, audio, and video.
 - Multi-modal Models
 
 **Resources:**
-- [ComfyUI Workflows](/docs/ai-ml/comfyui-guide.html)
-- [LoRA Training](/docs/ai-ml/lora-training.html)
-- [Advanced Techniques](/docs/ai-ml/advanced-techniques.html)
+- [ComfyUI Workflows](../ai-ml/comfyui-guide.html)
+- [LoRA Training](../ai-ml/lora-training.html)
+- [Advanced Techniques](../ai-ml/advanced-techniques.html)
 
 ## Learning Pathways
 
 ### 🌱 Beginner Path
-1. Start with [AI Fundamentals - Simplified](/docs/technology/ai-fundamentals-simple.html)
-2. Explore practical applications with [ComfyUI Guide](/docs/ai-ml/comfyui-guide.html)
-3. Understand [Model Types](/docs/ai-ml/model-types.html)
+1. Start with [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html)
+2. Explore practical applications with [ComfyUI Guide](../ai-ml/comfyui-guide.html)
+3. Understand [Model Types](../ai-ml/model-types.html)
 
 ### 📚 Intermediate Path
-1. Deep dive into [AI Fundamentals - Complete](/docs/technology/ai.html)
-2. Learn about [Stable Diffusion](/docs/ai-ml/stable-diffusion-fundamentals.html)
-3. Try [LoRA Training](/docs/ai-ml/lora-training.html)
+1. Deep dive into [AI Fundamentals - Complete](../technology/ai.html)
+2. Learn about [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html)
+3. Try [LoRA Training](../ai-ml/lora-training.html)
 
 ### 🚀 Advanced Path
-1. Study [AI Mathematics](/docs/advanced/ai-mathematics.html)
-2. Explore [Advanced AI Lecture](/docs/technology/ai-lecture-2023.html)
-3. Master [Advanced Techniques](/docs/ai-ml/advanced-techniques.html)
+1. Study [AI Mathematics](../advanced/ai-mathematics.html)
+2. Explore [Advanced AI Lecture](../technology/ai-lecture-2023.html)
+3. Master [Advanced Techniques](../ai-ml/advanced-techniques.html)
 
 ## Related Topics
 
 ### Infrastructure & Tools
-- [Docker for AI/ML](/docs/technology/docker.html)
-- [Cloud Computing (AWS)](/docs/technology/aws.html)
-- [CI/CD for ML Pipelines](/docs/technology/ci-cd.html)
+- [Docker for AI/ML](../technology/docker.html)
+- [Docker Essentials](../technology/docker-essentials.html)
+- [Cloud Computing (AWS)](../technology/aws.html)
+- [CI/CD for ML Pipelines](../technology/ci-cd.html)
 
 ### Theoretical Foundations
-- [Quantum Computing](/docs/technology/quantumcomputing.html)
-- [Computational Physics](/docs/physics/computational-physics.html)
-- [Statistical Mechanics](/docs/physics/statistical-mechanics.html)
+- [Quantum Computing](../technology/quantumcomputing.html)
+- [Quantum Computing Hub](../quantum-computing/index.html)
+- [Statistical Mechanics](../physics/statistical-mechanics.html)
 
 ## Current Trends & Research
 
-### 2024-2025 Focus Areas
+### 2025-2026 Focus Areas
 - **Foundation Models**: Large-scale pre-trained models (GPT, CLIP, DALL-E)
 - **Multimodal AI**: Systems that process multiple data types
 - **AI Safety & Alignment**: Ensuring AI systems behave as intended
@@ -189,18 +190,18 @@ This documentation is continuously evolving. If you notice areas for improvement
   <div class="nav-card">
     <h3>🎓 Learn the Basics</h3>
     <p>Start with simplified AI fundamentals</p>
-    <a href="/docs/technology/ai-fundamentals-simple.html" class="btn btn-primary">Begin Learning</a>
+    <a href="../technology/ai-fundamentals-simple.html" class="btn btn-primary">Begin Learning</a>
   </div>
   
   <div class="nav-card">
     <h3>🔧 Build Something</h3>
     <p>Try ComfyUI for hands-on experience</p>
-    <a href="/docs/ai-ml/comfyui-guide.html" class="btn btn-primary">Start Building</a>
+    <a href="../ai-ml/comfyui-guide.html" class="btn btn-primary">Start Building</a>
   </div>
   
   <div class="nav-card">
     <h3>🧠 Go Deeper</h3>
     <p>Explore advanced AI mathematics</p>
-    <a href="/docs/advanced/ai-mathematics.html" class="btn btn-primary">Advanced Topics</a>
+    <a href="../advanced/ai-mathematics.html" class="btn btn-primary">Advanced Topics</a>
   </div>
 </div>

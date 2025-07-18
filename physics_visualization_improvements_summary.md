@@ -1,6 +1,6 @@
 # Physics Visualization Improvements Summary
 
-## Overview
+## Overview (2025)
 Comprehensive improvements to physics visualizations across documentation to ensure accuracy and pedagogical clarity.
 
 ## Major Improvements

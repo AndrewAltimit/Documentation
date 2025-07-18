@@ -330,6 +330,7 @@ CREATE INDEX idx_customers_email ON customers(email);
 - Use for: Exact matches only
 - Example: Looking up users by ID
 - How it works: Like a hash table - direct lookup
+- Note: PostgreSQL automatically converts to B-tree, MySQL supports true hash
 
 **Full-Text Index**: The Search Engine
 - Use for: Text search, "contains" queries
@@ -366,6 +367,12 @@ INCLUDE (total, status);
 CREATE INDEX idx_active_users ON users(email) WHERE active = true;
 ```
 
+**Modern Index Types (2024)**:
+- **BRIN (Block Range Index)**: For time-series data
+- **GIN/GiST**: For JSON, arrays, full-text search
+- **Vector Indexes**: For AI/ML embeddings (pgvector, Pinecone)
+- **Learned Indexes**: AI-predicted data locations (research phase)
+
 ### The Cost of Indexes
 
 Indexes aren't free:
@@ -374,6 +381,12 @@ Indexes aren't free:
 - **Maintenance**: Indexes can become fragmented
 
 Rule of thumb: Index based on read patterns, but don't index everything!
+
+**AI-Assisted Index Recommendations (2024)**:
+Modern databases now use machine learning to suggest indexes:
+- **PostgreSQL**: pg_stat_statements + ML advisors
+- **MySQL**: Performance Schema with AI insights
+- **Cloud Services**: AWS Performance Insights, Azure Intelligent Performance
 
 ## How Databases Execute Your Queries
 
@@ -2507,6 +2520,23 @@ Databases are the foundation of modern applications. From simple files to distri
 Whether you're building a small app or a global platform, understanding how databases work—from B+ trees to distributed consensus—helps you make better design decisions and debug issues when they arise.
 
 The field continues to evolve rapidly, with machine learning, new hardware, and distributed systems pushing the boundaries of what's possible. But the core principles—organizing data efficiently, managing concurrent access, and ensuring reliability—remain timeless.
+
+### Current Trends (2024)
+
+**AI-Native Databases**: 
+- Vector databases for AI/ML (Pinecone, Weaviate, Qdrant)
+- Natural language to SQL (Text2SQL with LLMs)
+- Automatic index and query optimization with ML
+
+**New Architectures**:
+- Disaggregated storage and compute (Snowflake, Databricks)
+- Serverless databases (Neon, PlanetScale, Fauna)
+- Multi-model databases (document + graph + relational)
+
+**Developer Experience**:
+- Database branching and preview environments
+- Type-safe query builders (Prisma, Drizzle)
+- Edge databases for low latency (Cloudflare D1, Fly.io)
 
 Start with the basics, experiment with different databases, and gradually work your way up to advanced topics. The journey from `SELECT * FROM users` to building distributed systems is challenging but incredibly rewarding.
 

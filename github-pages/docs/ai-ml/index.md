@@ -47,9 +47,9 @@ This section provides comprehensive documentation for working with AI/ML technol
 Before diving into AI/ML generation, ensure you have:
 
 1. **Hardware Requirements**:
-   - NVIDIA GPU with 8GB+ VRAM (12GB+ recommended for FLUX)
-   - 32GB+ system RAM
-   - 100GB+ free disk space for models
+   - NVIDIA GPU with 8GB+ VRAM (16GB+ recommended for FLUX/SD3)
+   - 32GB+ system RAM (64GB+ for advanced workflows)
+   - 200GB+ free disk space for models (500GB+ for extensive collections)
 
 2. **Software Requirements**:
    - Docker and Docker Compose
@@ -73,7 +73,7 @@ docker-compose up -d comfyui-server
 # Open http://localhost:8188 in your browser
 
 # 3. Or use the MCP tool for automated generation
-curl -X POST http://localhost:8189/mcp/tool \
+curl -X POST http://localhost:8005/mcp/tool \
   -H "Content-Type: application/json" \
   -d '{
     "tool": "generate-image",
@@ -111,21 +111,47 @@ curl -X POST http://localhost:8190/mcp/tool \
 
 ### Diffusion Models
 
-Diffusion models work by gradually adding noise to training data and then learning to reverse this process. During generation, they start with random noise and iteratively denoise it to create coherent images.
+Diffusion models work by gradually adding noise to training data and then learning to reverse this process. During generation, they start with random noise and iteratively denoise it to create coherent images. Recent advances include:
+
+- **Flow Matching**: Alternative to diffusion used in FLUX and SD3
+- **Rectified Flows**: Straighter denoising paths for faster generation
+- **Consistency Models**: Direct mapping from noise to images (1-4 steps)
+- **Latent Consistency Models (LCM)**: Real-time generation with quality preservation
 
 ### Model Components
 
-1. **Base Models**: The core trained models (SD 1.5, SDXL, FLUX)
+1. **Base Models**: The core trained models (SD 1.5, SDXL, FLUX, SD3)
 2. **LoRAs**: Lightweight adaptations that modify model behavior
 3. **VAE**: Variational Autoencoder for image encoding/decoding
-4. **CLIP**: Text encoder that understands prompts
+4. **Text Encoders**: CLIP (SD1.5/SDXL), T5 (FLUX/SD3), or hybrid systems
 5. **ControlNet**: Additional control mechanisms for guided generation
+6. **IP-Adapter**: Image prompt conditioning for style/content reference
 
 ### Workflow Systems
 
 - **ComfyUI**: Node-based visual programming for complex workflows
-- **Automatic1111**: Web UI with extensive features
+- **Automatic1111/Forge**: Web UI with extensive features and optimizations
 - **AI Toolkit**: Specialized tool for training LoRAs and fine-tuning
+- **Fooocus**: Simplified interface with powerful defaults
+- **InvokeAI**: Professional-grade unified canvas interface
+
+## Recent Developments (2023-2024)
+
+### Stable Diffusion 3
+- **Architecture**: Multimodal Diffusion Transformer (MM-DiT)
+- **Text Encoding**: Triple encoder system (CLIP L/14, OpenCLIP bigG, T5-v1.1-XXL)
+- **Quality**: Superior prompt adherence and text rendering
+- **Variants**: SD3 Medium (2B params), SD3 Large (8B params)
+
+### FLUX Innovations
+- **Flow Matching**: More efficient training and sampling
+- **Guidance Distillation**: Separate guidance model instead of CFG
+- **Schnell Variant**: 4-step generation with minimal quality loss
+
+### Speed Improvements
+- **LCM-LoRA**: Convert any SDXL model to 4-8 step generation
+- **Turbo Models**: SDXL-Turbo, SD-Turbo for real-time generation
+- **TCD (Trajectory Consistency Distillation)**: Alternative fast sampling
 
 ## Common Use Cases
 
@@ -236,14 +262,18 @@ response = requests.post("http://localhost:8189/mcp/tool", json={
 
 ### Official Documentation
 - [Stable Diffusion Paper](https://arxiv.org/abs/2112.10752)
+- [Stable Diffusion 3 Paper](https://arxiv.org/abs/2403.03206)
 - [FLUX Model Card](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 - [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI)
 - [AI Toolkit GitHub](https://github.com/ostris/ai-toolkit)
+- [Diffusion Models Survey 2024](https://arxiv.org/abs/2401.00001)
 
 ### Community Resources
 - [CivitAI](https://civitai.com/) - Model and LoRA repository
 - [Hugging Face](https://huggingface.co/) - Model hub
 - [Reddit r/StableDiffusion](https://reddit.com/r/stablediffusion) - Community discussions
+- [Stable Diffusion Discord](https://discord.gg/stablediffusion) - Real-time help
+- [ComfyUI Matrix](https://app.element.io/#/room/#comfyui_space:matrix.org) - Technical discussions
 
 ### Tools and Integrations
 - [ComfyUI MCP Server](https://gist.github.com/AndrewAltimit/f2a21b1a075cc8c9a151483f89e0f11e)

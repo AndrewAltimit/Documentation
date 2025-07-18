@@ -18,7 +18,7 @@ toc_icon: "cog"
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments.</p>
+  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments. As of 2024, Kubernetes v1.29 introduces enhanced security features, improved performance, and better AI/ML workload support.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -51,6 +51,7 @@ This comprehensive guide is structured to take you from beginner to expert:
 6. **Configuration & Security** - Production-ready deployments
 7. **Advanced Topics** - Master complex scenarios
 8. **Real-World Applications** - Learn from case studies
+9. **2024 Updates** - Latest features and best practices
 
 Choose your path based on your experience level, or follow along sequentially for a complete understanding.
 
@@ -60,14 +61,16 @@ If you're completely new to Kubernetes, this crash course will get you up and ru
 
 ### Prerequisites
 - Basic understanding of containers (Docker)
-- Access to a Kubernetes cluster (minikube, kind, or cloud provider)
-- kubectl CLI installed
+- Access to a Kubernetes cluster (minikube, kind, k3s, or cloud provider)
+- kubectl CLI installed (v1.28+ recommended)
+- Optional: Helm 3.x for package management
 
 ### Your First Deployment
 
 ```bash
-# 1. Check your cluster is running
+# 1. Check your cluster is running and version
 kubectl cluster-info
+kubectl version --short
 
 # 2. Deploy a simple application
 kubectl create deployment hello-world --image=nginx:alpine
@@ -75,9 +78,10 @@ kubectl create deployment hello-world --image=nginx:alpine
 # 3. Expose it to the internet
 kubectl expose deployment hello-world --type=LoadBalancer --port=80
 
-# 4. Check it's running
-kubectl get pods
+# 4. Check it's running with more details
+kubectl get pods -o wide
 kubectl get services
+kubectl describe deployment hello-world
 
 # 5. Scale it up
 kubectl scale deployment hello-world --replicas=3
@@ -86,6 +90,10 @@ kubectl scale deployment hello-world --replicas=3
 kubectl get pods
 kubectl delete pod <pod-name>
 kubectl get pods  # Notice a new pod replaced the deleted one!
+
+# 7. Clean up
+kubectl delete deployment hello-world
+kubectl delete service hello-world
 ```
 
 ### Core Concepts in Plain English
@@ -3088,14 +3096,89 @@ hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
 ```
 
+## Kubernetes 2024 Updates: Latest Features and Best Practices
+
+### What's New in Kubernetes v1.29 (Mandala)
+1. **ReadinessGates for Jobs**: Better job lifecycle management
+2. **Sidecar Containers**: Native support for sidecar patterns
+3. **In-Place Pod Vertical Scaling**: Resize pods without restart
+4. **CEL for Admission Control**: Common Expression Language support
+5. **Structured Authentication Configuration**: Enhanced security
+
+### What's New in Kubernetes v1.28 (Planternetes)
+1. **Cgroups v2 GA**: Better resource isolation
+2. **Mixed CPUs Support**: Heterogeneous CPU architectures
+3. **Persistent Volume Last Phase Transition Time**: Better storage monitoring
+4. **Non-Graceful Node Shutdown**: Improved failure handling
+
+### Enhanced Security Features (2024)
+```yaml
+# Pod Security Standards (enforced by default)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+```
+
+### AI/ML Workload Support
+```yaml
+# GPU scheduling improvements
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-training
+spec:
+  containers:
+  - name: pytorch
+    image: pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+    resources:
+      limits:
+        nvidia.com/gpu: 2
+      requests:
+        nvidia.com/gpu: 2
+    env:
+    - name: NVIDIA_VISIBLE_DEVICES
+      value: "all"
+```
+
+### Gateway API v1.0 (GA)
+```yaml
+# Modern ingress replacement
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: prod-gateway
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    tls:
+      certificateRefs:
+      - name: prod-cert
+```
+
+### Performance Improvements
+- **Improved etcd performance**: 30% faster for large clusters
+- **API Priority and Fairness**: Better request handling
+- **Efficient SELinux relabeling**: Faster pod startup
+- **Memory manager improvements**: Better NUMA awareness
+
 ## Future of Kubernetes: What's Next?
 
-### Emerging Trends
-1. **Serverless on Kubernetes**: Knative, OpenFaaS
-2. **Edge Computing**: K3s, KubeEdge
-3. **WebAssembly**: Running Wasm workloads
-4. **AI/ML Workloads**: Kubeflow, MLOps
-5. **eBPF Integration**: Advanced networking and observability
+### Emerging Trends (2024-2025)
+1. **Serverless on Kubernetes**: Knative 1.12+, OpenFaaS, KEDA 2.13
+2. **Edge Computing**: K3s, KubeEdge, Akri for leaf devices
+3. **WebAssembly**: Running Wasm workloads with runwasi
+4. **AI/ML Workloads**: Kubeflow 1.8, MLOps pipelines, Ray on K8s
+5. **eBPF Integration**: Cilium, Pixie for advanced observability
+6. **Platform Engineering**: Backstage, Crossplane for developer portals
+7. **FinOps**: Cost optimization with Kubecost, OpenCost
 
 ### Kubernetes Alternatives and When to Use Them
 - **Docker Swarm**: Simple container orchestration

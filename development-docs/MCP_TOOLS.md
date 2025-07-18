@@ -1,6 +1,6 @@
 # MCP Tools Documentation
 
-This document provides detailed information about the containerized MCP (Model Context Protocol) tools in this project.
+This document provides detailed information about the containerized MCP (Model Context Protocol) tools in this project. Updated for 2024 with the latest tool versions and best practices.
 
 ## Container-First Design
 
@@ -26,10 +26,11 @@ All MCP tools run in Docker containers as part of this project's philosophy:
 MCP tools are functions that can be executed through the MCP server to perform various development and content creation tasks. They are accessible via HTTP API or through the MCP protocol.
 
 **Server Details:**
-- **Framework**: FastAPI with Python 3.11
+- **Framework**: FastAPI (0.100+) with Python 3.11+
 - **Port**: 8005 (containerized)
-- **Protocol**: HTTP/REST and MCP
+- **Protocol**: HTTP/REST and MCP v2
 - **Container**: Runs in `mcp-server` Docker container
+- **Async**: Full async/await support with asyncio
 
 ### Tool Execution
 
@@ -38,6 +39,7 @@ All tools can be executed via POST request to `/tools/execute`:
 ```bash
 curl -X POST http://localhost:8005/tools/execute \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
   -d '{
     "tool": "tool_name",
     "arguments": {
@@ -45,6 +47,12 @@ curl -X POST http://localhost:8005/tools/execute \
       "arg2": "value2"
     }
   }'
+
+# With timeout for long-running tools
+curl -X POST http://localhost:8005/tools/execute \
+  -H "Content-Type: application/json" \
+  --max-time 300 \
+  -d '{"tool": "tool_name", "arguments": {}}'
 ```
 
 ## Core Tools
@@ -75,7 +83,9 @@ Check code formatting according to language-specific standards.
 ```json
 {
   "formatted": true,
-  "output": "All files formatted correctly"
+  "output": "All files formatted correctly",
+  "files_checked": 15,
+  "execution_time": 1.23
 }
 ```
 
@@ -107,7 +117,12 @@ Run static code analysis to find potential issues.
   "success": true,
   "issues": [
     "src/main.py:10:1: E302 expected 2 blank lines, found 1"
-  ]
+  ],
+  "severity_counts": {
+    "error": 0,
+    "warning": 1,
+    "info": 3
+  }
 }
 ```
 
@@ -157,8 +172,15 @@ Get AI assistance from Google's Gemini model for technical questions, code revie
 ```json
 {
   "response": "The current implementation has exponential time complexity. Here's an optimized version using memoization...",
-  "model": "gemini-pro",
-  "tokens_used": 245
+  "model": "gemini-2.5-pro",
+  "tokens_used": 245,
+  "suggestions": [
+    {
+      "type": "optimization",
+      "description": "Use memoization to cache results",
+      "code": "@functools.lru_cache(maxsize=None)\ndef fibonacci(n):..."
+    }
+  ]
 }
 ```
 
@@ -203,25 +225,42 @@ The Gemini integration supports several specialized functions:
 1. **Code Analysis**
 
    ```python
-   gemini.analyze_code(code, language="python")
+   result = await gemini.analyze_code(
+       code=code_snippet,
+       language="python",
+       focus=["security", "performance", "best-practices"]
+   )
    ```
 
 2. **Error Explanation**
 
    ```python
-   gemini.explain_error(error_message, code_context)
+   explanation = await gemini.explain_error(
+       error_message=str(exception),
+       code_context=surrounding_code,
+       stack_trace=traceback.format_exc()
+   )
    ```
 
 3. **Documentation Generation**
 
    ```python
-   gemini.generate_documentation(code, style="google")
+   docs = await gemini.generate_documentation(
+       code=function_code,
+       style="google",  # or "numpy", "sphinx"
+       include_examples=True
+   )
    ```
 
 4. **Test Suggestion**
 
    ```python
-   gemini.suggest_tests(code, framework="pytest")
+   tests = await gemini.suggest_tests(
+       code=function_code,
+       framework="pytest",
+       coverage_target=0.90,
+       include_edge_cases=True
+   )
    ```
 
 ## Content Creation Tools
@@ -253,7 +292,10 @@ Create mathematical and technical animations using Manim.
 {
   "success": true,
   "output_path": "/app/output/manim/Example.mp4",
-  "format": "mp4"
+  "format": "mp4",
+  "duration": 5.2,
+  "resolution": "1920x1080",
+  "file_size_mb": 2.3
 }
 ```
 
@@ -284,7 +326,10 @@ Compile LaTeX documents to various formats.
 {
   "success": true,
   "output_path": "/app/output/latex/document_12345.pdf",
-  "format": "pdf"
+  "format": "pdf",
+  "pages": 3,
+  "compile_time": 1.8,
+  "warnings": []
 }
 ```
 
@@ -302,7 +347,10 @@ For detailed setup instructions, see the [ComfyUI MCP Server Setup Guide](https:
 
 - `generate_image`: Generate images using workflows
 - `list_workflows`: List available workflows
-- `execute_workflow`: Execute specific workflow
+- `execute_workflow`: Execute specific workflow with custom parameters
+- `get_workflow_info`: Get detailed workflow information
+- `list_models`: List available models (checkpoints, LoRAs, VAEs)
+- `queue_status`: Check generation queue status
 
 **Configuration:**
 
@@ -320,11 +368,14 @@ For detailed setup instructions, see the [AI Toolkit MCP Server Setup Guide](htt
 
 **Available Tools:**
 
-- `upload_dataset`: Upload training dataset
+- `upload_dataset`: Upload training dataset with validation
 - `create_training_config`: Configure training parameters
-- `start_training`: Begin training job
-- `check_training_status`: Monitor progress
-- `list_models`: List trained models
+- `start_training`: Begin training job with queue management
+- `check_training_status`: Monitor progress with ETA
+- `list_models`: List trained models with metadata
+- `download_model`: Download trained model with optional metadata
+- `cancel_training`: Cancel running training job
+- `get_training_logs`: Retrieve training logs
 
 **Configuration:**
 
@@ -340,41 +391,84 @@ AI_TOOLKIT_SERVER_URL=http://192.168.0.152:8190
 
 ```python
 # tools/mcp/mcp_server.py
+from typing import Dict, Any, Optional
+import asyncio
+
 class MCPTools:
     @staticmethod
-    async def my_custom_tool(param1: str, param2: int = 10) -> Dict[str, Any]:
-    """
-    My custom tool description.
+    async def my_custom_tool(
+        param1: str, 
+        param2: int = 10,
+        timeout: Optional[float] = 30.0
+    ) -> Dict[str, Any]:
+        """
+        My custom tool description.
 
-    Args:
-        param1: Description of param1
-        param2: Description of param2
+        Args:
+            param1: Description of param1
+            param2: Description of param2
+            timeout: Maximum execution time in seconds
 
-    Returns:
-        Dictionary with results
-    """
-    # Tool implementation
-    result = process_data(param1, param2)
+        Returns:
+            Dictionary with results
+            
+        Raises:
+            TimeoutError: If execution exceeds timeout
+            ValueError: If parameters are invalid
+        """
+        # Validate inputs
+        if not param1:
+            raise ValueError("param1 cannot be empty")
+            
+        # Tool implementation with timeout
+        try:
+            result = await asyncio.wait_for(
+                process_data(param1, param2),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"Tool execution exceeded {timeout}s")
 
-    return {
-        "success": True,
-        "result": result,
-        "metadata": {
-            "param1": param1,
-            "param2": param2
+        return {
+            "success": True,
+            "result": result,
+            "metadata": {
+                "param1": param1,
+                "param2": param2,
+                "execution_time": time.time() - start_time
+            }
         }
-    }
 ```
 
 2. **Handle in execute_tool endpoint:**
 
 ```python
 # tools/mcp/mcp_server.py
+from fastapi import HTTPException
+import logging
+
+logger = logging.getLogger(__name__)
+
 @app.post("/tools/execute")
 async def execute_tool(request: ToolRequest):
-    # ... existing code
-    elif tool_name == "my_custom_tool":
-        result = await MCPTools.my_custom_tool(**request.arguments)
+    try:
+        # ... existing code
+        elif tool_name == "my_custom_tool":
+            result = await MCPTools.my_custom_tool(**request.arguments)
+            
+        # Log successful execution
+        logger.info(f"Tool {tool_name} executed successfully")
+        return result
+        
+    except ValueError as e:
+        logger.error(f"Invalid parameters for {tool_name}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except TimeoutError as e:
+        logger.error(f"Timeout executing {tool_name}: {e}")
+        raise HTTPException(status_code=504, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error executing {tool_name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 ```
 
 3. **Update configuration:**
@@ -434,15 +528,30 @@ async def execute_tool(request: ToolRequest):
 # tests/test_custom_tool.py
 import pytest
 from tools.mcp.custom_tools import my_custom_tool
+import asyncio
 
 @pytest.mark.asyncio
 async def test_my_custom_tool():
+    """Test basic functionality of custom tool."""
     result = await my_custom_tool("test", 42)
 
     assert result["success"] is True
     assert result["result"] is not None
     assert result["metadata"]["param1"] == "test"
     assert result["metadata"]["param2"] == 42
+    assert "execution_time" in result["metadata"]
+
+@pytest.mark.asyncio
+async def test_my_custom_tool_validation():
+    """Test parameter validation."""
+    with pytest.raises(ValueError, match="param1 cannot be empty"):
+        await my_custom_tool("", 42)
+
+@pytest.mark.asyncio
+async def test_my_custom_tool_timeout():
+    """Test timeout handling."""
+    with pytest.raises(TimeoutError):
+        await my_custom_tool("test", 42, timeout=0.001)
 ```
 
 ## Best Practices
@@ -450,33 +559,42 @@ async def test_my_custom_tool():
 ### Performance
 
 1. **Caching:**
-   - Cache expensive operations
-   - Use Redis for distributed caching
-   - Set appropriate TTL values
+   - Cache expensive operations with `functools.lru_cache` or Redis
+   - Use Redis for distributed caching across containers
+   - Set appropriate TTL values (5 minutes for dynamic, 1 hour for static)
+   - Implement cache warming for critical paths
 
 2. **Concurrency:**
    - Use asyncio for I/O-bound operations
-   - Implement rate limiting
-   - Handle concurrent requests properly
+   - Implement rate limiting with `slowapi` or custom middleware
+   - Handle concurrent requests with semaphores
+   - Use connection pooling for external services
+   - Configure appropriate worker counts (2 * CPU cores + 1)
 
 ### Security
 
 1. **Input Sanitization:**
-   - Validate all user inputs
-   - Escape special characters
-   - Limit resource usage
+   - Validate all user inputs with Pydantic models
+   - Escape special characters for shell commands
+   - Limit resource usage (memory, CPU, execution time)
+   - Use parameterized queries for any database operations
+   - Implement request size limits
 
 2. **Authentication:**
-   - Implement API key authentication
-   - Use secure communication (HTTPS)
-   - Log access attempts
+   - Implement API key authentication with rotation
+   - Use secure communication (HTTPS with TLS 1.3)
+   - Log access attempts with rate limiting per key
+   - Consider OAuth2 for external integrations
+   - Implement CORS policies for web access
 
 ### Monitoring
 
 1. **Logging:**
-   - Log all tool executions
-   - Include timing information
-   - Track error rates
+   - Log all tool executions with structured logging (JSON)
+   - Include timing information and request IDs
+   - Track error rates and alert on thresholds
+   - Use log rotation to prevent disk filling
+   - Implement log aggregation for multi-container setup
 
 2. **Metrics:**
    - Monitor tool usage
@@ -507,8 +625,16 @@ async def test_my_custom_tool():
 Enable debug logging:
 
 ```bash
+# Set environment variables
 export LOG_LEVEL=DEBUG
+export PYTHONFAULTHANDLER=1
+export ASYNCIO_DEBUG=1
+
+# Run with debug mode
 docker-compose up mcp-server
+
+# Or use the debug configuration
+docker-compose -f docker-compose.yml -f docker-compose.debug.yml up mcp-server
 ```
 
 View logs:
@@ -547,6 +673,12 @@ docker-compose logs -f mcp-server
 ### Error Codes
 
 - `400` - Bad Request (invalid parameters)
+- `401` - Unauthorized (missing or invalid API key)
+- `403` - Forbidden (rate limit exceeded)
 - `404` - Tool not found
+- `408` - Request timeout
+- `413` - Payload too large
+- `429` - Too many requests
 - `500` - Internal server error
 - `503` - Service unavailable
+- `504` - Gateway timeout (tool execution timeout)

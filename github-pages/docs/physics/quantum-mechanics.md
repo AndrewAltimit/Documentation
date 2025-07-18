@@ -224,7 +224,7 @@ Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowl
 ```
 ΔEΔt ≥ ℏ/2
 ```
-Note: Δt is the time scale for significant change in the system, not an uncertainty in clock time
+Note: Δt is the time scale for significant change in the system, not an uncertainty in clock time.
 
 Where ℏ = h/2π (reduced Planck's constant)
 
@@ -336,6 +336,19 @@ One of the most profound mysteries in quantum mechanics is measurement. When we 
 
 This explains why cats are never alive-and-dead but electrons can be!
 
+**Mathematical Framework:**
+The system-environment interaction Hamiltonian:
+```
+Ĥ_int = Σ_α g_α Ŝ_α ⊗ Ê_α
+```
+Where Ŝ_α are system operators and Ê_α are environment operators.
+
+The reduced density matrix evolution follows:
+```
+∂ρ_S/∂t = -i[Ĥ_S, ρ_S] - Σ_α γ_α[Ŝ_α, [Ŝ_α, ρ_S]]
+```
+Where γ_α are decoherence rates determined by environmental coupling strengths and correlation times.
+
 ### Quantum Zeno Effect
 
 Frequent measurements can "freeze" quantum evolution:
@@ -424,7 +437,7 @@ Where n = 0, 1, 2, ...
 ```
 ψ₀(x) = (mω/πℏ)^(1/4) exp(-mωx²/2ℏ)
 ```
-Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1
+Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1.
 
 ### Hydrogen Atom
 
@@ -455,9 +468,9 @@ Eₙ = -13.6 eV/n²
 ψ₁₀₀(r,θ,φ) = 1/√π (1/a₀)^(3/2) e^(-r/a₀)
 ```
 
-Where a₀ = Bohr radius = 0.529 Å = 5.29 × 10⁻¹¹ m
+Where a₀ = Bohr radius = 0.529 Å = 5.29 × 10⁻¹¹ m.
 
-Note: This is properly normalized: ∫∫∫ |ψ₁₀₀|² r² sin(θ) dr dθ dφ = 1
+Note: This is properly normalized: ∫∫∫ |ψ₁₀₀|² r² sin(θ) dr dθ dφ = 1.
 
 ## Angular Momentum
 
@@ -486,6 +499,12 @@ Intrinsic angular momentum of particles:
 ```
 σₓ = |0 1|    σᵧ = |0 -i|    σz = |1  0|
      |1 0|         |i  0|         |0 -1|
+```
+
+In standard matrix notation:
+```
+σₓ = (0 1)    σᵧ = (0 -i)    σz = (1  0)
+     (1 0)         (i  0)         (0 -1)
 ```
 
 **Spin states:**
@@ -527,7 +546,7 @@ Non-local correlations between particles. Example - Bell state:
 ```
 
 This is one of the four maximally entangled Bell states. Note that it's properly normalized:
-⟨Ψ⁻|Ψ⁻⟩ = 1/2(⟨↑↓| - ⟨↓↑|)(|↑↓⟩ - |↓↑⟩) = 1/2(1 + 1) = 1
+⟨Ψ⁻|Ψ⁻⟩ = 1/2(⟨↑↓| - ⟨↓↑|)(|↑↓⟩ - |↓↑⟩) = 1/2(1 + 1) = 1.
 
 Measurement of one particle instantly determines the state of the other, regardless of distance.
 
@@ -558,7 +577,7 @@ Where the time evolution operator is:
 ```
 Û(t) = e^(-iĤt/ℏ)
 ```
-Note: This form assumes a time-independent Hamiltonian Ĥ
+Note: This form assumes a time-independent Hamiltonian Ĥ.
 
 ### Heisenberg Picture
 
@@ -756,6 +775,12 @@ def vqe_iteration(hamiltonian, ansatz, params):
 - Limited algorithms
 - Focus on variational methods
 
+**Recent Milestones (2023-2024)**:
+- IBM Condor: 1,121 superconducting qubits
+- Atom Computing: 1,180 neutral atom qubits
+- Google's error correction breakthrough: Below threshold with surface codes
+- IonQ's algorithmic qubits: Error mitigation vs correction trade-offs
+
 ## Interpretations of Quantum Mechanics
 
 ### Copenhagen Interpretation
@@ -938,7 +963,7 @@ plt.show()
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import hermite
-from scipy.misc import factorial
+from math import factorial
 
 def quantum_harmonic_oscillator(x, n, m=1, w=1, hbar=1):
     """Calculate the wave function for quantum harmonic oscillator
@@ -1148,7 +1173,7 @@ K = lim_{N→∞} ∏_{j=1}^{N-1} ∫ dx_j √(m/2πiℏε) exp(iS_N/ℏ)
 ```
 |α⟩ = e^{-|α|²/2} Σ_{n=0}^{∞} α^n/√(n!) |n⟩
 ```
-This ensures normalization: ⟨α|α⟩ = 1
+This ensures normalization: ⟨α|α⟩ = 1.
 
 **Properties:**
 - â|α⟩ = α|α⟩ (eigenstate of annihilation operator)
@@ -1313,6 +1338,17 @@ W = Tr(ρ̂_i Ĥ_f) - Tr(ρ̂_i Ĥ_i)
 - Open quantum systems at finite temperature
 - Decoherence-assisted transport
 - Quantum coherence in noisy environments
+
+**Recent Discoveries (2022-2024):**
+- **Photosynthesis**: Room-temperature quantum coherence lasting >1 picosecond in light-harvesting complexes
+- **Bird Navigation**: Cryptochrome proteins show quantum entanglement in magnetic field sensing
+- **Olfaction**: Vibrational theory suggests quantum tunneling in smell receptors
+- **Neurotubules**: Controversial claims of quantum effects in consciousness (Orch-OR theory)
+
+**Key Insight**: "Warm, wet, and noisy" biological environments can actually protect and enhance quantum effects through:
+- Environmental noise-assisted transport
+- Dynamical decoupling from specific noise sources
+- Quantum error correction via redundancy
 
 ### Quantum Foundations
 
@@ -1582,3 +1618,4 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 - [Condensed Matter Physics](condensed-matter.html) - Applications to solid state physics
 - [Quantum Field Theory](quantum-field-theory.html) - Relativistic quantum mechanics
 - [Quantum Computing](../technology/quantumcomputing.html) - Technological applications
+- [Computational Physics](computational-physics.html) - Numerical methods for quantum systems

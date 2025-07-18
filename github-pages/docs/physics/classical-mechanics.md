@@ -634,9 +634,9 @@ P = P(q, p, t)
 - Type 3: F₃(p, Q, t) → q = -∂F₃/∂p, P = -∂F₃/∂Q
 - Type 4: F₄(p, P, t) → q = -∂F₄/∂p, Q = ∂F₄/∂P
 
-**Symplectic structure:** Canonical transformations preserve:
+**Symplectic structure:** Canonical transformations preserve the 2-form:
 ```
-Σᵢ dpᵢ ∧ dqᵢ = Σᵢ dPᵢ ∧ dQᵢ
+ω = Σᵢ dpᵢ ∧ dqᵢ = Σᵢ dPᵢ ∧ dQᵢ
 ```
 
 ### Action-Angle Variables
@@ -727,6 +727,19 @@ Just when chaos seems to destroy all hope of understanding, KAM theory provides 
 - Regular and chaotic motion coexist
 
 **The surprising result:** The solar system is mostly stable despite being chaotic! KAM theory explains why planets haven't collided after billions of years.
+
+**Mathematical Statement:**
+For an integrable Hamiltonian H₀(I) perturbed by εH₁(I,θ), if:
+1. The frequency map ω(I) = ∂H₀/∂I is non-degenerate: det(∂²H₀/∂I²) ≠ 0
+2. The perturbation ε is sufficiently small
+3. The frequencies satisfy a Diophantine condition: |ω·k| ≥ γ/|k|^τ for all k ∈ ℤⁿ\{0}
+
+Then most invariant tori with irrational frequency ratios persist.
+
+**Applications:**
+- **Asteroid Belt Stability**: Kirkwood gaps where resonances destroy orbits
+- **Particle Accelerators**: Beam stability in storage rings
+- **Plasma Confinement**: Magnetic surfaces in fusion reactors
 
 ### Strange Attractors
 
@@ -885,6 +898,50 @@ The newest frontier: using AI to discover physical laws from data. But there's a
 
 These approaches let us discover governing equations from observations—essentially automating what took humans centuries to develop!
 
+**Recent Breakthroughs (2023-2024):**
+- **Lagrangian Neural Networks**: Directly learn Lagrangian L(q,q̇) from data, guaranteeing energy conservation
+- **Geometric Deep Learning**: Neural networks on manifolds preserving symplectic structure
+- **AI Feynman 2.0**: Symbolic regression discovering analytical physics equations
+- **Graph Neural Networks**: Learning many-body interactions from particle trajectories
+
+**Example: Learning Unknown Forces**
+```python
+import torch
+import torch.nn as nn
+
+class LagrangianNN(nn.Module):
+    """Neural network that learns the Lagrangian from data"""
+    def __init__(self, q_dim):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(2*q_dim, 128),
+            nn.Softplus(),
+            nn.Linear(128, 128),
+            nn.Softplus(),
+            nn.Linear(128, 1)
+        )
+    
+    def forward(self, q, q_dot):
+        """Returns learned Lagrangian L(q, q̇)"""
+        return self.net(torch.cat([q, q_dot], dim=-1))
+    
+    def get_accelerations(self, q, q_dot):
+        """Derive accelerations using Euler-Lagrange equations"""
+        L = self.forward(q, q_dot)
+        
+        # Compute ∂L/∂q and ∂L/∂q̇
+        dL_dq = torch.autograd.grad(L.sum(), q, create_graph=True)[0]
+        dL_dq_dot = torch.autograd.grad(L.sum(), q_dot, create_graph=True)[0]
+        
+        # Time derivative of ∂L/∂q̇
+        d_dt_dL_dq_dot = torch.autograd.grad(
+            (dL_dq_dot * q_dot).sum(), q, create_graph=True
+        )[0]
+        
+        # Euler-Lagrange: q̈ = (∂L/∂q - d/dt(∂L/∂q̇)) / (∂²L/∂q̇²)
+        return dL_dq - d_dt_dL_dq_dot
+```
+
 ## Advanced Mathematical Tools
 
 ### Differential Geometry
@@ -971,7 +1028,7 @@ from matplotlib.animation import FuncAnimation
 
 def double_pendulum_derivatives(t, state, m1, m2, l1, l2, g):
     """Compute derivatives for double pendulum using Lagrangian mechanics"""
-    Use omega for angular velocity
+    theta1, z1, theta2, z2 = state  # Use z for angular velocity
     
     c, s = np.cos(theta1 - theta2), np.sin(theta1 - theta2)
     
@@ -1380,3 +1437,4 @@ Classical mechanics is both an endpoint and a beginning. It's complete in itself
 - [Computational Physics](computational-physics.html) - Numerical methods for solving complex mechanical systems
 - [Thermodynamics](thermodynamics.html) - Energy and heat in mechanical systems
 - [Condensed Matter Physics](condensed-matter.html) - Mechanics of materials
+- [String Theory](string-theory.html) - Classical mechanics in higher dimensions

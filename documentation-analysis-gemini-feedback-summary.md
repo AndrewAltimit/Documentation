@@ -1,6 +1,6 @@
 # Gemini Feedback Summary on Documentation Analysis
 
-## Overview
+## Overview (2025)
 Gemini reviewed the documentation analysis covering 30 articles with 150 improvements and provided valuable feedback on methodology and implementation.
 
 ## Key Strengths Identified

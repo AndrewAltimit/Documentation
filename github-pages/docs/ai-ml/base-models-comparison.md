@@ -33,6 +33,7 @@ The landscape of diffusion models has evolved rapidly, with each generation brin
 | SD 1.5 | 512×512 | 4GB | Good | Fast | Excellent | 2022 |
 | SD 2.1 | 768×768 | 6GB | Better | Medium | Good | 2022 |
 | SDXL | 1024×1024 | 8GB | Excellent | Slow | Very Good | 2023 |
+| SD3 | 1024×1024 | 10GB | Superior | Medium | Excellent | 2024 |
 | Pony | 1024×1024 | 8GB | Excellent* | Medium | Specialized | 2024 |
 | FLUX | 1024×1024+ | 12GB | State-of-art | Slow | Excellent | 2024 |
 
@@ -305,9 +306,11 @@ File Size: ~24GB (FP16)
 
 ### Model Variants
 
-1. **FLUX.1-dev**: Full quality, slower
-2. **FLUX.1-schnell**: Distilled, 4-step generation
-3. **FLUX-fp8**: Quantized for lower VRAM
+1. **FLUX.1-dev**: Full quality development version
+2. **FLUX.1-schnell**: Distilled 4-step generation (German for "fast")
+3. **FLUX.1-pro**: API-only premium version with best quality
+4. **FLUX-fp8**: Quantized for lower VRAM (12GB viable)
+5. **FLUX-gguf**: Further quantized versions (Q4, Q5, Q8)
 
 ### Revolutionary Features
 
@@ -386,6 +389,58 @@ File Size: ~24GB (FP16)
 | 12GB | FLUX-fp8 | 1024×1024, optimized |
 | 16GB+ | Any model | Full quality |
 
+## Stable Diffusion 3
+
+### Overview
+
+SD3 represents a major architectural shift from previous versions, adopting a Multimodal Diffusion Transformer (MM-DiT) architecture similar to FLUX but with different design choices.
+
+### Technical Specifications
+
+```yaml
+Architecture: MM-DiT (Multimodal Diffusion Transformer)
+Parameters: 2B (Medium), 8B (Large)
+Text Encoders: CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL
+Max Tokens: 77 + 77 + 256
+Training: Rectified Flow (like FLUX)
+Resolution: 1024×1024 base, up to 2048×2048
+File Size: ~6GB (Medium), ~18GB (Large)
+```
+
+### Unique Features
+
+1. **Triple Text Encoding**: Most comprehensive text understanding
+2. **Improved Architecture**: Better than SDXL, competitive with FLUX
+3. **Flexible Resolution**: Better handling of various aspect ratios
+4. **Better Text Rendering**: Can generate readable text in images
+
+### Strengths
+
+- **Prompt Adherence**: Best-in-class prompt following
+- **Text Generation**: Can render words and letters accurately
+- **Efficiency**: Medium model runs well on 10GB VRAM
+- **Quality**: Comparable to FLUX at lower resource cost
+- **Flexibility**: Works with standard diffusion workflows
+
+### Weaknesses
+
+- **Licensing**: More restrictive than SD1.5/SDXL
+- **Ecosystem**: Newer, fewer fine-tunes available
+- **Complexity**: Triple encoder adds complexity
+- **Size**: Large model requires significant resources
+
+### Optimal Settings
+
+```python
+{
+    "resolution": "1024x1024",
+    "steps": 28,  # Recommended by Stability
+    "cfg_scale": 5,  # Lower than traditional
+    "sampler": "dpmpp_2m",
+    "shift": 3.0,  # Important SD3 parameter
+}
+```
+
 ## Performance Comparison
 
 ### Generation Speed (RTX 4090)
@@ -395,8 +450,10 @@ File Size: ~24GB (FP16)
 | SD 1.5 | 512×512 | 25 | 3s | 8.3 |
 | SD 2.1 | 768×768 | 30 | 6s | 5.0 |
 | SDXL | 1024×1024 | 30 | 15s | 2.0 |
+| SD3-M | 1024×1024 | 28 | 20s | 1.4 |
 | Pony | 1024×1024 | 25 | 12s | 2.1 |
 | FLUX | 1024×1024 | 25 | 40s | 0.6 |
+| FLUX-schnell | 1024×1024 | 4 | 8s | 0.5 |
 
 ### Quality Metrics
 
@@ -405,6 +462,7 @@ File Size: ~24GB (FP16)
 | SD 1.5 | 12.6 | 31.7 | 72% |
 | SD 2.1 | 10.2 | 32.5 | 78% |
 | SDXL | 8.1 | 33.8 | 86% |
+| SD3 | 7.5 | 34.5 | 89% |
 | Pony | 9.2* | 32.1* | 91%** |
 | FLUX | 6.3 | 35.2 | 94% |
 
@@ -449,17 +507,19 @@ steps = 25
 
 ### Emerging Trends
 
-1. **Smaller, faster models**: Distillation techniques
-2. **Better architectures**: Transformer-based models
-3. **Multi-modal**: Combined image/video/3D
-4. **Real-time generation**: Sub-second inference
-5. **Mobile deployment**: Edge computing models
+1. **Smaller, faster models**: Distillation techniques (LCM, Turbo)
+2. **Better architectures**: DiT and flow-based models dominating
+3. **Multi-modal**: Combined image/video/3D generation
+4. **Real-time generation**: Sub-second inference becoming standard
+5. **Mobile deployment**: On-device generation with quantization
+6. **Open alternatives**: Models like PixArt-α, Würstchen v3
 
 ### Choosing Future-Proof Models
 
 - **FLUX**: Current best for quality and capabilities
-- **SDXL**: Stable choice with growing ecosystem
-- **SD 1.5**: Will remain relevant for specialized uses
+- **SD3**: Excellent balance of quality and efficiency
+- **SDXL**: Stable choice with mature ecosystem
+- **SD 1.5**: Will remain relevant for specialized uses and low-resource scenarios
 
 ## Conclusion
 
@@ -467,8 +527,9 @@ Each model serves different needs:
 
 - **SD 1.5**: Speed, compatibility, and low requirements
 - **SD 2.x**: Middle ground (mostly superseded)
-- **SDXL**: Quality and resolution balance
-- **Pony**: Specialized excellence for anime/stylized
+- **SDXL**: Quality and resolution balance with mature ecosystem
+- **SD3**: Modern architecture with excellent prompt understanding
+- **Pony**: Specialized excellence for anime/stylized content
 - **FLUX**: Cutting-edge quality and capabilities
 
-Choose based on your specific requirements for quality, speed, hardware, and content type. The ecosystem continues to evolve rapidly, but understanding these foundational models will help you adapt to future developments.
+The rapid evolution continues with models like Stable Cascade, Würstchen, and PixArt-α exploring alternative architectures. Stay informed about new developments while mastering these foundational models. Choose based on your specific requirements for quality, speed, hardware, and content type.

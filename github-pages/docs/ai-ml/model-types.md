@@ -28,18 +28,20 @@ Understanding different model components in the Stable Diffusion ecosystem: LoRA
 
 The Stable Diffusion ecosystem consists of various model types that work together to generate images. Understanding each component's role and how they interact is crucial for achieving optimal results.
 
+As of 2024, the ecosystem has expanded significantly with new model types like LCM-LoRA, IP-Adapter Plus, and advanced control mechanisms. This guide covers both established and emerging model types.
+
 ## Component Architecture
 
 ```
-Text Input → [CLIP] → Text Embeddings
-                           ↓
-                      [U-Net/DiT]  ← [LoRA/ControlNet]
-                           ↓
-                   Latent Space
-                           ↓
-                        [VAE]
-                           ↓
-                    Final Image
+Text Input → [CLIP/T5] → Text Embeddings
+                              ↓
+                         [U-Net/DiT]  ← [LoRA/ControlNet]
+                              ↓         ↑
+                      Latent Space    [IP-Adapter]
+                              ↓         ↑
+                           [VAE]    [Image Input]
+                              ↓
+                       Final Image
 ```
 
 ## Base Models (Checkpoints)
@@ -70,9 +72,11 @@ Total Size: 2-7GB typically
 
 | Format | Extension | Features | Size |
 |--------|-----------|----------|------|
-| SafeTensors | .safetensors | Secure, fast loading | Standard |
+| SafeTensors | .safetensors | Secure, fast loading, preferred | Standard |
 | CKPT | .ckpt | Legacy PyTorch format | Standard |
 | Diffusers | (folder) | HuggingFace format | Larger |
+| GGUF | .gguf | Quantized format (Q4/Q5/Q8) | Smaller |
+| BnB | .bnb | Bits-and-bytes quantized | Smaller |
 
 ## LoRA (Low-Rank Adaptation)
 
@@ -122,11 +126,13 @@ Where:
 
 ```python
 {
-    "strength_model": 0.8,    # How much LoRA affects U-Net
-    "strength_clip": 0.8,     # How much LoRA affects CLIP
+    "strength_model": 0.8,    # How much LoRA affects U-Net/DiT
+    "strength_clip": 0.8,     # How much LoRA affects text encoder
     "rank": 32,               # Complexity of adaptation
-    "alpha": 32,              # Scaling factor
+    "alpha": 32,              # Scaling factor (often rank/2)
     "module": "all",          # Which layers to modify
+    "conv_rank": 16,          # For LoCon variants
+    "conv_alpha": 8,          # LoCon scaling
 }
 ```
 
@@ -157,8 +163,9 @@ CLIP (Contrastive Language-Image Pre-training) converts text prompts into numeri
 | CLIP ViT-L + OpenCLIP ViT-G | 77×2 | 768+1280 | SDXL |
 | T5-XXL | 256 | 4096 | FLUX |
 
-### How CLIP Works
+### How Text Encoders Work
 
+#### CLIP (SD 1.x, SDXL)
 ```
 "a cat" → Tokenizer → [49406, 320, 2368, 49407, ...]
            ↓
@@ -167,6 +174,15 @@ CLIP (Contrastive Language-Image Pre-training) converts text prompts into numeri
       Transformer Layers
            ↓
       [768-dimensional vector per token]
+```
+
+#### T5 (FLUX, SD3)
+```
+"a fluffy cat" → SentencePiece → [1, 3, 745, 2563, ...]
+                    ↓
+               T5 Encoder
+                    ↓
+            [4096-dimensional vectors]
 ```
 
 ### CLIP Skip
@@ -331,10 +347,19 @@ Hypernetworks are neural networks that modify the weights of another network dur
 
 LyCORIS (LoRA beYond Conventional) methods offer more sophisticated adaptations:
 
-1. **LoCon**: LoRA with Convolution layers
-2. **LoHa**: Uses Hadamard products
-3. **LoKr**: Kronecker product decomposition
-4. **DyLoRA**: Dynamic rank allocation
+1. **LoCon**: LoRA with Convolution layers for better style capture
+2. **LoHa**: Uses Hadamard products for efficient parameter usage
+3. **LoKr**: Kronecker product decomposition for extreme compression
+4. **DyLoRA**: Dynamic rank allocation based on layer importance
+5. **IA3**: Few-parameter adaptation through rescaling
+6. **Lokr**: Combination of LoRA and LoKr benefits
+
+### New LoRA Technologies (2024)
+
+1. **LCM-LoRA**: Enables 4-8 step generation on any SDXL model
+2. **HyperDream**: LoRA with hypernetwork properties
+3. **DoRA**: Weight-Decomposed Low-Rank Adaptation
+4. **LoRA+**: Improved training efficiency with different learning rates
 
 ### Comparison with Standard LoRA
 
@@ -379,12 +404,20 @@ IP-Adapter allows using images as prompts alongside text:
 [Text Prompt] → [CLIP Text] → Combined Conditioning
 ```
 
+### IP-Adapter Variants
+
+1. **IP-Adapter**: Basic image conditioning
+2. **IP-Adapter Plus**: Enhanced with better vision encoder
+3. **IP-Adapter Face**: Specialized for face consistency
+4. **IP-Adapter Full**: Maximum control and quality
+
 ### Use Cases
 
 - Style reference
-- Character consistency
+- Character consistency  
 - Composition guidance
 - Face swapping
+- Multiple image conditioning
 
 ## Model Organization
 
@@ -419,25 +452,67 @@ Examples:
 - vae_ft_mse_840000_ema_pruned.safetensors
 ```
 
+## Emerging Model Types (2024)
+
+### Consistency Models
+
+**LCM (Latent Consistency Model)**:
+- Convert any model to 4-8 step generation
+- Maintains ~90% of original quality
+- Available as LoRA or full model
+
+**TCD (Trajectory Consistency Distillation)**:
+- Alternative to LCM
+- Better preservation of model characteristics
+- Works with various samplers
+
+### Turbo Models
+
+**SDXL-Turbo/SD-Turbo**:
+- Adversarial distillation
+- 1-4 step generation
+- Real-time capable
+- Some quality trade-offs
+
+### Advanced Control
+
+**InstantID**:
+- Zero-shot identity preservation
+- Single reference image
+- Better than traditional face swap
+
+**AnimateDiff**:
+- Temporal consistency for video
+- Works with existing SD models
+- Motion LoRAs for specific movements
+
 ## Performance Considerations
 
 ### Memory Usage
 
 | Component | VRAM Usage | Loading Time |
-|-----------|------------|--------------|
+|-----------|------------|--------------|  
 | SD 1.5 Checkpoint | ~2GB | 5-10s |
 | SDXL Checkpoint | ~6GB | 10-20s |
+| SD3 Medium | ~5GB | 10-15s |
+| FLUX-fp8 | ~12GB | 20-30s |
 | LoRA | ~100MB | <1s |
+| LCM-LoRA | ~200MB | <2s |
 | VAE | ~350MB | 2-5s |
 | ControlNet | ~1.5GB | 5-10s |
+| IP-Adapter | ~1GB | 3-8s |
 | CLIP | ~500MB | 2-5s |
+| T5-XXL | ~10GB | 15-25s |
 
 ### Optimization Tips
 
 1. **Share Components**: Reuse CLIP/VAE across models
 2. **Lazy Loading**: Load only when needed
-3. **Quantization**: Use fp16 or int8 versions
+3. **Quantization**: Use fp16/fp8/int8/GGUF versions
 4. **CPU Offload**: Move unused components to RAM
+5. **Model Caching**: Keep frequently used models in memory
+6. **LoRA Merging**: Merge frequently used LoRAs into base
+7. **Attention Optimization**: Use Flash Attention or xFormers
 
 ## Choosing the Right Models
 
@@ -454,14 +529,17 @@ Examples:
 
 ### Compatibility Matrix
 
-| Component | SD 1.5 | SD 2.x | SDXL | FLUX |
-|-----------|--------|--------|------|------|
-| SD1.5 LoRA | ✓ | ✗ | ✗ | ✗ |
-| SDXL LoRA | ✗ | ✗ | ✓ | ✗ |
-| FLUX LoRA | ✗ | ✗ | ✗ | ✓ |
-| SD1.5 VAE | ✓ | ≈ | ✗ | ✗ |
-| SDXL VAE | ✗ | ✗ | ✓ | ✗ |
-| Embeddings | ✓ | ≈ | ≈ | ✗ |
+| Component | SD 1.5 | SD 2.x | SDXL | SD3 | FLUX |
+|-----------|--------|--------|------|-----|------|
+| SD1.5 LoRA | ✓ | ✗ | ✗ | ✗ | ✗ |
+| SDXL LoRA | ✗ | ✗ | ✓ | ✗ | ✗ |
+| SD3 LoRA | ✗ | ✗ | ✗ | ✓ | ✗ |
+| FLUX LoRA | ✗ | ✗ | ✗ | ✗ | ✓ |
+| SD1.5 VAE | ✓ | ≈ | ✗ | ✗ | ✗ |
+| SDXL VAE | ✗ | ✗ | ✓ | ≈ | ✗ |
+| Embeddings | ✓ | ≈ | ≈ | ✗ | ✗ |
+| ControlNet | ✓ | ✓ | ✓ | Soon | Soon |
+| IP-Adapter | ✓ | ✓ | ✓ | ✓ | Soon |
 
 ## Best Practices
 

@@ -408,6 +408,29 @@ F = dp/dt = d(γmv)/dt
 KE = (γ - 1)mc²
 ```
 
+### Four-Vectors and Tensor Notation
+
+In special relativity, we use four-vectors to unify space and time:
+
+**Position four-vector:**
+```
+x^μ = (ct, x, y, z)
+```
+
+**Four-momentum:**
+```
+p^μ = (E/c, px, py, pz)
+```
+
+**Four-velocity:**
+```
+u^μ = γ(c, vx, vy, vz)
+```
+
+**Invariants:**
+- Spacetime interval: s² = -c²t² + x² + y² + z²
+- Rest mass: m²c² = -(p^μp_μ)/c²
+
 ## General Relativity
 
 <div class="section-intro gr-intro">
@@ -1239,6 +1262,20 @@ A = 8πγl_P² Σᵢ√(jᵢ(jᵢ+1))
 
 **Multi-messenger astronomy:** GW + EM + neutrinos
 
+### Recent Discoveries (2023-2024)
+
+**Gravitational Wave Breakthroughs:**
+- **NANOGrav 15-year data**: Evidence for nanohertz gravitational wave background
+- **LIGO-Virgo-KAGRA O4**: Detection of intermediate-mass black hole mergers
+- **GW230529**: First neutron star-black hole merger with mass gap object
+- **Continuous waves**: New limits on spinning neutron star deformations
+
+**Tests of General Relativity:**
+- **Event Horizon Telescope**: Sagittarius A* black hole image (2022)
+- **Gravity Probe B**: Frame-dragging confirmed to 0.2% precision
+- **Binary pulsar timing**: Tests of strong-field gravity
+- **Cosmological tensions**: H₀ and σ₈ discrepancies challenging ΛCDM
+
 ### Tests of General Relativity
 
 **Strong field tests:**
@@ -1497,3 +1534,17 @@ def riemann(Gamma, coords):
 <div class="conclusion-box">
   <p>The theory of relativity fundamentally changed our understanding of the universe, revealing that space and time are interwoven and dynamic, shaped by matter and energy. Its predictions continue to be confirmed with ever-increasing precision, while also pointing toward new physics yet to be discovered.</p>
 </div>
+
+## See Also
+
+### Core Physics Topics:
+- [Classical Mechanics](classical-mechanics.html) - Newtonian mechanics and the classical limit
+- [Quantum Mechanics](quantum-mechanics.html) - Quantum theory and relativistic quantum mechanics
+- [Quantum Field Theory](quantum-field-theory.html) - Unifying quantum mechanics and special relativity
+- [String Theory](string-theory.html) - Quantum gravity and extra dimensions
+
+### Related Topics:
+- [Computational Physics](computational-physics.html) - Numerical relativity simulations
+- [Condensed Matter Physics](condensed-matter.html) - Relativistic effects in graphene
+- [Thermodynamics](thermodynamics.html) - Relativistic thermodynamics
+- [Statistical Mechanics](statistical-mechanics.html) - Relativistic statistical mechanics

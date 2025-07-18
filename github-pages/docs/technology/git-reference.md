@@ -5,7 +5,7 @@ title: "Git Command Reference"
 
 # Git Command Reference
 
-Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This reference covers essential Git commands and workflows.
+Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This comprehensive reference covers essential Git commands, workflows, and the latest features introduced in 2023-2024.
 
 ## Repository Initialization
 
@@ -97,8 +97,9 @@ git branch -D <branch-name>          # Force delete branch
 ```bash
 git checkout <branch-name>           # Switch to branch
 git checkout -b <branch-name>        # Create and switch to branch
-git switch <branch-name>             # Modern alternative to checkout
+git switch <branch-name>             # Modern alternative to checkout (Git 2.23+)
 git switch -c <branch-name>          # Create and switch (modern)
+git switch -                         # Switch to previous branch
 ```
 
 ### Merging
@@ -148,9 +149,11 @@ git reset HEAD <file>                # Unstage file (legacy)
 ### Commits
 ```bash
 git reset --soft HEAD~1              # Undo commit, keep changes staged
-git reset --mixed HEAD~1             # Undo commit, unstage changes
+git reset --mixed HEAD~1             # Undo commit, unstage changes (default)
 git reset --hard HEAD~1              # Undo commit, discard changes
 git revert <commit>                  # Create new commit undoing changes
+git revert --no-commit <commit>      # Revert without committing
+git revert -m 1 <merge-commit>       # Revert a merge commit
 ```
 
 ## Stashing
@@ -249,6 +252,80 @@ git push
 5. **Pull Before Push**: Always sync with remote before pushing
 6. **Review Before Commit**: Use `git diff --staged` before committing
 
+## Advanced Features (2023-2024)
+
+### Worktrees
+```bash
+git worktree add <path> <branch>     # Create new worktree
+git worktree list                    # List all worktrees
+git worktree remove <path>           # Remove worktree
+git worktree prune                   # Clean up stale worktrees
+```
+
+### Sparse Checkout
+```bash
+git sparse-checkout init             # Initialize sparse checkout
+git sparse-checkout set <dir1> <dir2> # Set directories to include
+git sparse-checkout list             # Show current sparse patterns
+git sparse-checkout disable          # Disable sparse checkout
+```
+
+### Maintenance and Performance
+```bash
+git maintenance start                # Enable automatic maintenance
+git maintenance run                  # Run maintenance tasks
+git maintenance stop                 # Disable automatic maintenance
+git commit-graph write               # Generate commit graph
+git multi-pack-index write           # Optimize pack files
+```
+
+### Advanced Diff and Merge
+```bash
+git diff --color-words               # Show word-level differences
+git diff --word-diff                 # Alternative word diff format
+git diff --name-status               # Show only file names and status
+git diff --check                     # Check for whitespace errors
+git merge --no-ff                    # Force merge commit
+git merge --squash                   # Squash branch into single commit
+git rerere                           # Reuse recorded resolution
+```
+
+### Bundle Operations
+```bash
+git bundle create <file> <refs>      # Create bundle file
+git bundle verify <file>             # Verify bundle
+git bundle list-heads <file>         # List references in bundle
+git clone <bundle-file> <dir>        # Clone from bundle
+```
+
+### Bisect for Bug Finding
+```bash
+git bisect start                     # Start bisect session
+git bisect bad                       # Mark current commit as bad
+git bisect good <commit>             # Mark known good commit
+git bisect skip                      # Skip current commit
+git bisect reset                     # End bisect session
+git bisect run <script>              # Automate bisect with script
+```
+
+### Signing and Verification
+```bash
+git config --global user.signingkey <key-id>  # Set GPG key
+git config --global commit.gpgsign true        # Auto-sign commits
+git config --global tag.gpgsign true           # Auto-sign tags
+git commit -S -m "Signed commit"               # Sign specific commit
+git tag -s <tag-name> -m "Signed tag"          # Create signed tag
+git verify-commit <commit>                      # Verify commit signature
+git verify-tag <tag>                            # Verify tag signature
+```
+
+### SSH Signing (Git 2.34+)
+```bash
+git config gpg.format ssh                       # Use SSH for signing
+git config user.signingkey ~/.ssh/id_ed25519   # Set SSH key
+git config gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -257,6 +334,7 @@ git push
 ```bash
 git checkout <branch-name>           # Return to branch
 git checkout -b <new-branch>         # Create branch from current state
+git switch -c <new-branch>           # Modern way to create branch
 ```
 
 **Merge Conflicts**
@@ -264,16 +342,107 @@ git checkout -b <new-branch>         # Create branch from current state
 # Edit conflicted files manually
 git add <resolved-files>
 git commit                           # Complete merge
+# Or use merge tool
+git mergetool                        # Launch configured merge tool
 ```
 
 **Wrong Branch Commits**
 ```bash
 git cherry-pick <commit>             # Copy commit to correct branch
 git reset --hard HEAD~1              # Remove from wrong branch
+# Or move last n commits to new branch
+git branch <new-branch>
+git reset --hard HEAD~n
+git checkout <new-branch>
+```
+
+**Large File Issues**
+```bash
+git filter-branch --tree-filter 'rm -f <large-file>' HEAD
+# Or use modern alternative
+git filter-repo --path <large-file> --invert-paths
+```
+
+**Corrupted Repository**
+```bash
+git fsck --full                      # Check repository integrity
+git gc --prune=now                   # Clean up repository
+git reflog expire --expire=now --all # Expire all reflog entries
+```
+
+## Performance Optimization
+
+### Config Optimizations
+```bash
+git config core.preloadindex true    # Speed up git status
+git config core.fscache true         # Enable file system cache (Windows)
+git config core.untrackedCache true  # Cache untracked files
+git config feature.manyFiles true    # Optimize for many files
+```
+
+### Large Repository Handling
+```bash
+# Shallow clone
+git clone --depth 1 <url>            # Clone only latest commit
+git clone --shallow-since=<date>     # Clone from specific date
+git clone --shallow-exclude=<rev>    # Exclude specific revision
+
+# Partial clone
+git clone --filter=blob:none <url>   # Clone without file contents
+git clone --filter=tree:0 <url>      # Clone without trees
+```
+
+## Integration with Development Tools
+
+### VS Code Integration
+```bash
+git config --global core.editor "code --wait"
+git config --global diff.tool vscode
+git config --global difftool.vscode.cmd 'code --wait --diff $LOCAL $REMOTE'
+```
+
+### GitHub CLI Integration
+```bash
+gh repo clone <owner>/<repo>         # Clone with GitHub CLI
+gh pr create                         # Create pull request
+gh pr checkout <number>              # Checkout PR locally
+gh issue create                      # Create issue
+```
+
+### Pre-commit Hooks
+```bash
+# Install pre-commit framework
+pip install pre-commit
+pre-commit install                   # Install git hooks
+pre-commit run --all-files          # Run on all files
+```
+
+## Security Best Practices
+
+### Removing Sensitive Data
+```bash
+# Remove file from all commits
+git filter-branch --force --index-filter \
+  'git rm --cached --ignore-unmatch <file>' \
+  --prune-empty --tag-name-filter cat -- --all
+
+# Modern alternative using git-filter-repo
+git filter-repo --path <sensitive-file> --invert-paths
+```
+
+### Secret Scanning
+```bash
+# Use tools like git-secrets
+git secrets --install
+git secrets --register-aws          # Register AWS patterns
+git secrets --scan                  # Scan for secrets
 ```
 
 ## Additional Resources
 
-- [Pro Git Book](https://git-scm.com/book)
-- [Git Documentation](https://git-scm.com/docs)
-- [Git Internals](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain)
+- [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide
+- [Git Documentation](https://git-scm.com/docs) - Official reference
+- [Git Internals](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain) - Deep dive
+- [GitHub Skills](https://skills.github.com/) - Interactive tutorials
+- [Atlassian Git Tutorial](https://www.atlassian.com/git) - Visual guides
+- [Git Flight Rules](https://github.com/k88hudson/git-flight-rules) - What to do when things go wrong

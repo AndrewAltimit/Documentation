@@ -1,6 +1,6 @@
 # Visual Enhancement Summary
 
-## Completed Enhancements
+## Completed Enhancements (2025)
 
 ### Quantum Mechanics Document (quantum-mechanics.md)
 

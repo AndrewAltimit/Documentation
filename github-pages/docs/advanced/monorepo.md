@@ -1,6 +1,8 @@
 ---
 layout: docs
 title: "Monorepo Strategies and Management"
+permalink: /docs/advanced/monorepo/
+parent: "Advanced Topics"
 description: "Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases"
 ---
 
@@ -717,6 +719,37 @@ package-lock.json merge=ours
       --nx-cloud
 ```
 
+### Bun Workspaces
+
+**New Addition (2023-2024)**: Bun's built-in workspace support
+```json
+// package.json
+{
+  "workspaces": ["packages/*", "apps/*"]
+}
+```
+
+**Key Features**:
+- Native workspace support
+- Fast dependency installation
+- Built-in TypeScript support
+- Compatible with existing tools
+
+### PNPM Catalogs (2024)
+
+**Centralized Dependency Management**:
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  react: ^18.2.0
+  typescript: ^5.3.0
+  vite: ^5.0.0
+
+packages:
+  - 'packages/*'
+  - 'apps/*'
+```
+
 ## Performance Optimization Techniques
 
 ### File System Optimization
@@ -799,6 +832,12 @@ await Promise.all(tasks);
 ## Conclusion
 
 Monorepos can significantly improve development workflow for teams working on related projects. Success requires careful planning, appropriate tooling, and ongoing optimization. Start small, measure constantly, and scale gradually.
+
+## Related Advanced Topics
+
+- [AI Mathematics](/docs/advanced/ai-mathematics/) - Managing ML research codebases
+- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - Distributed build systems
+- [Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research/) - Quantum software repositories
 
 ## Additional Resources
 
