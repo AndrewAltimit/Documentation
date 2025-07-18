@@ -833,7 +833,11 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><a href="#clip-text-encoder" id="markdown-toc-clip-text-encoder">CLIP (Text Encoder)</a>    <ol>
       <li><a href="#what-is-clip" id="markdown-toc-what-is-clip">What is CLIP?</a></li>
       <li><a href="#clip-variants" id="markdown-toc-clip-variants">CLIP Variants</a></li>
-      <li><a href="#how-clip-works" id="markdown-toc-how-clip-works">How CLIP Works</a></li>
+      <li><a href="#how-text-encoders-work" id="markdown-toc-how-text-encoders-work">How Text Encoders Work</a>        <ol>
+          <li><a href="#clip-sd-1x-sdxl" id="markdown-toc-clip-sd-1x-sdxl">CLIP (SD 1.x, SDXL)</a></li>
+          <li><a href="#t5-flux-sd3" id="markdown-toc-t5-flux-sd3">T5 (FLUX, SD3)</a></li>
+        </ol>
+      </li>
       <li><a href="#clip-skip" id="markdown-toc-clip-skip">CLIP Skip</a></li>
       <li><a href="#custom-clip-models" id="markdown-toc-custom-clip-models">Custom CLIP Models</a></li>
     </ol>
@@ -874,6 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </li>
   <li><a href="#lycorislocon" id="markdown-toc-lycorislocon">LyCORIS/LoCon</a>    <ol>
       <li><a href="#advanced-lora-variants" id="markdown-toc-advanced-lora-variants">Advanced LoRA Variants</a></li>
+      <li><a href="#new-lora-technologies-2024" id="markdown-toc-new-lora-technologies-2024">New LoRA Technologies (2024)</a></li>
       <li><a href="#comparison-with-standard-lora" id="markdown-toc-comparison-with-standard-lora">Comparison with Standard LoRA</a></li>
     </ol>
   </li>
@@ -885,12 +890,19 @@ document.addEventListener('DOMContentLoaded', function() {
   </li>
   <li><a href="#ip-adapter" id="markdown-toc-ip-adapter">IP-Adapter</a>    <ol>
       <li><a href="#image-prompt-adapter" id="markdown-toc-image-prompt-adapter">Image Prompt Adapter</a></li>
+      <li><a href="#ip-adapter-variants" id="markdown-toc-ip-adapter-variants">IP-Adapter Variants</a></li>
       <li><a href="#use-cases" id="markdown-toc-use-cases">Use Cases</a></li>
     </ol>
   </li>
   <li><a href="#model-organization" id="markdown-toc-model-organization">Model Organization</a>    <ol>
       <li><a href="#directory-structure" id="markdown-toc-directory-structure">Directory Structure</a></li>
       <li><a href="#naming-conventions" id="markdown-toc-naming-conventions">Naming Conventions</a></li>
+    </ol>
+  </li>
+  <li><a href="#emerging-model-types-2024" id="markdown-toc-emerging-model-types-2024">Emerging Model Types (2024)</a>    <ol>
+      <li><a href="#consistency-models" id="markdown-toc-consistency-models">Consistency Models</a></li>
+      <li><a href="#turbo-models" id="markdown-toc-turbo-models">Turbo Models</a></li>
+      <li><a href="#advanced-control" id="markdown-toc-advanced-control">Advanced Control</a></li>
     </ol>
   </li>
   <li><a href="#performance-considerations" id="markdown-toc-performance-considerations">Performance Considerations</a>    <ol>
@@ -918,17 +930,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>The Stable Diffusion ecosystem consists of various model types that work together to generate images. Understanding each component’s role and how they interact is crucial for achieving optimal results.</p>
 
+<p>As of 2024, the ecosystem has expanded significantly with new model types like LCM-LoRA, IP-Adapter Plus, and advanced control mechanisms. This guide covers both established and emerging model types.</p>
+
 <h2 id="component-architecture">Component Architecture</h2>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text Input → [CLIP] → Text Embeddings
-                           ↓
-                      [U-Net/DiT]  ← [LoRA/ControlNet]
-                           ↓
-                   Latent Space
-                           ↓
-                        [VAE]
-                           ↓
-                    Final Image
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Text Input → [CLIP/T5] → Text Embeddings
+                              ↓
+                         [U-Net/DiT]  ← [LoRA/ControlNet]
+                              ↓         ↑
+                      Latent Space    [IP-Adapter]
+                              ↓         ↑
+                           [VAE]    [Image Input]
+                              ↓
+                       Final Image
 </code></pre></div></div>
 
 <h2 id="base-models-checkpoints">Base Models (Checkpoints)</h2>
@@ -971,7 +985,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <tr>
       <td>SafeTensors</td>
       <td>.safetensors</td>
-      <td>Secure, fast loading</td>
+      <td>Secure, fast loading, preferred</td>
       <td>Standard</td>
     </tr>
     <tr>
@@ -985,6 +999,18 @@ document.addEventListener('DOMContentLoaded', function() {
       <td>(folder)</td>
       <td>HuggingFace format</td>
       <td>Larger</td>
+    </tr>
+    <tr>
+      <td>GGUF</td>
+      <td>.gguf</td>
+      <td>Quantized format (Q4/Q5/Q8)</td>
+      <td>Smaller</td>
+    </tr>
+    <tr>
+      <td>BnB</td>
+      <td>.bnb</td>
+      <td>Bits-and-bytes quantized</td>
+      <td>Smaller</td>
     </tr>
   </tbody>
 </table>
@@ -1043,11 +1069,13 @@ Where:
 <h3 id="lora-parameters">LoRA Parameters</h3>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">strength_model</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>    <span class="c1"># How much LoRA affects U-Net
-</span>    <span class="sh">"</span><span class="s">strength_clip</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>     <span class="c1"># How much LoRA affects CLIP
+    <span class="sh">"</span><span class="s">strength_model</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>    <span class="c1"># How much LoRA affects U-Net/DiT
+</span>    <span class="sh">"</span><span class="s">strength_clip</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>     <span class="c1"># How much LoRA affects text encoder
 </span>    <span class="sh">"</span><span class="s">rank</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>               <span class="c1"># Complexity of adaptation
-</span>    <span class="sh">"</span><span class="s">alpha</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>              <span class="c1"># Scaling factor
+</span>    <span class="sh">"</span><span class="s">alpha</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>              <span class="c1"># Scaling factor (often rank/2)
 </span>    <span class="sh">"</span><span class="s">module</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">,</span>          <span class="c1"># Which layers to modify
+</span>    <span class="sh">"</span><span class="s">conv_rank</span><span class="sh">"</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>          <span class="c1"># For LoCon variants
+</span>    <span class="sh">"</span><span class="s">conv_alpha</span><span class="sh">"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>          <span class="c1"># LoCon scaling
 </span><span class="p">}</span>
 </code></pre></div></div>
 
@@ -1109,8 +1137,9 @@ Where:
   </tbody>
 </table>
 
-<h3 id="how-clip-works">How CLIP Works</h3>
+<h3 id="how-text-encoders-work">How Text Encoders Work</h3>
 
+<h4 id="clip-sd-1x-sdxl">CLIP (SD 1.x, SDXL)</h4>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"a cat" → Tokenizer → [49406, 320, 2368, 49407, ...]
            ↓
       Token Embeddings
@@ -1118,6 +1147,14 @@ Where:
       Transformer Layers
            ↓
       [768-dimensional vector per token]
+</code></pre></div></div>
+
+<h4 id="t5-flux-sd3">T5 (FLUX, SD3)</h4>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"a fluffy cat" → SentencePiece → [1, 3, 745, 2563, ...]
+                    ↓
+               T5 Encoder
+                    ↓
+            [4096-dimensional vectors]
 </code></pre></div></div>
 
 <h3 id="clip-skip">CLIP Skip</h3>
@@ -1325,10 +1362,21 @@ Decoding: Latent (64×64×4) → VAE Decoder → Image (512×512×3)
 <p>LyCORIS (LoRA beYond Conventional) methods offer more sophisticated adaptations:</p>
 
 <ol>
-  <li><strong>LoCon</strong>: LoRA with Convolution layers</li>
-  <li><strong>LoHa</strong>: Uses Hadamard products</li>
-  <li><strong>LoKr</strong>: Kronecker product decomposition</li>
-  <li><strong>DyLoRA</strong>: Dynamic rank allocation</li>
+  <li><strong>LoCon</strong>: LoRA with Convolution layers for better style capture</li>
+  <li><strong>LoHa</strong>: Uses Hadamard products for efficient parameter usage</li>
+  <li><strong>LoKr</strong>: Kronecker product decomposition for extreme compression</li>
+  <li><strong>DyLoRA</strong>: Dynamic rank allocation based on layer importance</li>
+  <li><strong>IA3</strong>: Few-parameter adaptation through rescaling</li>
+  <li><strong>Lokr</strong>: Combination of LoRA and LoKr benefits</li>
+</ol>
+
+<h3 id="new-lora-technologies-2024">New LoRA Technologies (2024)</h3>
+
+<ol>
+  <li><strong>LCM-LoRA</strong>: Enables 4-8 step generation on any SDXL model</li>
+  <li><strong>HyperDream</strong>: LoRA with hypernetwork properties</li>
+  <li><strong>DoRA</strong>: Weight-Decomposed Low-Rank Adaptation</li>
+  <li><strong>LoRA+</strong>: Improved training efficiency with different learning rates</li>
 </ol>
 
 <h3 id="comparison-with-standard-lora">Comparison with Standard LoRA</h3>
@@ -1403,6 +1451,15 @@ Decoding: Latent (64×64×4) → VAE Decoder → Image (512×512×3)
 <span class="p">[</span><span class="n">Text</span> <span class="n">Prompt</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">CLIP</span> <span class="n">Text</span><span class="p">]</span> <span class="err">→</span> <span class="n">Combined</span> <span class="n">Conditioning</span>
 </code></pre></div></div>
 
+<h3 id="ip-adapter-variants">IP-Adapter Variants</h3>
+
+<ol>
+  <li><strong>IP-Adapter</strong>: Basic image conditioning</li>
+  <li><strong>IP-Adapter Plus</strong>: Enhanced with better vision encoder</li>
+  <li><strong>IP-Adapter Face</strong>: Specialized for face consistency</li>
+  <li><strong>IP-Adapter Full</strong>: Maximum control and quality</li>
+</ol>
+
 <h3 id="use-cases">Use Cases</h3>
 
 <ul>
@@ -1410,6 +1467,7 @@ Decoding: Latent (64×64×4) → VAE Decoder → Image (512×512×3)
   <li>Character consistency</li>
   <li>Composition guidance</li>
   <li>Face swapping</li>
+  <li>Multiple image conditioning</li>
 </ul>
 
 <h2 id="model-organization">Model Organization</h2>
@@ -1443,6 +1501,50 @@ Examples:
 - vae_ft_mse_840000_ema_pruned.safetensors
 </code></pre></div></div>
 
+<h2 id="emerging-model-types-2024">Emerging Model Types (2024)</h2>
+
+<h3 id="consistency-models">Consistency Models</h3>
+
+<p><strong>LCM (Latent Consistency Model)</strong>:</p>
+<ul>
+  <li>Convert any model to 4-8 step generation</li>
+  <li>Maintains ~90% of original quality</li>
+  <li>Available as LoRA or full model</li>
+</ul>
+
+<p><strong>TCD (Trajectory Consistency Distillation)</strong>:</p>
+<ul>
+  <li>Alternative to LCM</li>
+  <li>Better preservation of model characteristics</li>
+  <li>Works with various samplers</li>
+</ul>
+
+<h3 id="turbo-models">Turbo Models</h3>
+
+<p><strong>SDXL-Turbo/SD-Turbo</strong>:</p>
+<ul>
+  <li>Adversarial distillation</li>
+  <li>1-4 step generation</li>
+  <li>Real-time capable</li>
+  <li>Some quality trade-offs</li>
+</ul>
+
+<h3 id="advanced-control">Advanced Control</h3>
+
+<p><strong>InstantID</strong>:</p>
+<ul>
+  <li>Zero-shot identity preservation</li>
+  <li>Single reference image</li>
+  <li>Better than traditional face swap</li>
+</ul>
+
+<p><strong>AnimateDiff</strong>:</p>
+<ul>
+  <li>Temporal consistency for video</li>
+  <li>Works with existing SD models</li>
+  <li>Motion LoRAs for specific movements</li>
+</ul>
+
 <h2 id="performance-considerations">Performance Considerations</h2>
 
 <h3 id="memory-usage">Memory Usage</h3>
@@ -1467,9 +1569,24 @@ Examples:
       <td>10-20s</td>
     </tr>
     <tr>
+      <td>SD3 Medium</td>
+      <td>~5GB</td>
+      <td>10-15s</td>
+    </tr>
+    <tr>
+      <td>FLUX-fp8</td>
+      <td>~12GB</td>
+      <td>20-30s</td>
+    </tr>
+    <tr>
       <td>LoRA</td>
       <td>~100MB</td>
       <td>&lt;1s</td>
+    </tr>
+    <tr>
+      <td>LCM-LoRA</td>
+      <td>~200MB</td>
+      <td>&lt;2s</td>
     </tr>
     <tr>
       <td>VAE</td>
@@ -1482,9 +1599,19 @@ Examples:
       <td>5-10s</td>
     </tr>
     <tr>
+      <td>IP-Adapter</td>
+      <td>~1GB</td>
+      <td>3-8s</td>
+    </tr>
+    <tr>
       <td>CLIP</td>
       <td>~500MB</td>
       <td>2-5s</td>
+    </tr>
+    <tr>
+      <td>T5-XXL</td>
+      <td>~10GB</td>
+      <td>15-25s</td>
     </tr>
   </tbody>
 </table>
@@ -1494,8 +1621,11 @@ Examples:
 <ol>
   <li><strong>Share Components</strong>: Reuse CLIP/VAE across models</li>
   <li><strong>Lazy Loading</strong>: Load only when needed</li>
-  <li><strong>Quantization</strong>: Use fp16 or int8 versions</li>
+  <li><strong>Quantization</strong>: Use fp16/fp8/int8/GGUF versions</li>
   <li><strong>CPU Offload</strong>: Move unused components to RAM</li>
+  <li><strong>Model Caching</strong>: Keep frequently used models in memory</li>
+  <li><strong>LoRA Merging</strong>: Merge frequently used LoRAs into base</li>
+  <li><strong>Attention Optimization</strong>: Use Flash Attention or xFormers</li>
 </ol>
 
 <h2 id="choosing-the-right-models">Choosing the Right Models</h2>
@@ -1553,6 +1683,7 @@ Examples:
       <th>SD 1.5</th>
       <th>SD 2.x</th>
       <th>SDXL</th>
+      <th>SD3</th>
       <th>FLUX</th>
     </tr>
   </thead>
@@ -1563,6 +1694,7 @@ Examples:
       <td>✗</td>
       <td>✗</td>
       <td>✗</td>
+      <td>✗</td>
     </tr>
     <tr>
       <td>SDXL LoRA</td>
@@ -1570,9 +1702,19 @@ Examples:
       <td>✗</td>
       <td>✓</td>
       <td>✗</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>SD3 LoRA</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✗</td>
+      <td>✓</td>
+      <td>✗</td>
     </tr>
     <tr>
       <td>FLUX LoRA</td>
+      <td>✗</td>
       <td>✗</td>
       <td>✗</td>
       <td>✗</td>
@@ -1584,12 +1726,14 @@ Examples:
       <td>≈</td>
       <td>✗</td>
       <td>✗</td>
+      <td>✗</td>
     </tr>
     <tr>
       <td>SDXL VAE</td>
       <td>✗</td>
       <td>✗</td>
       <td>✓</td>
+      <td>≈</td>
       <td>✗</td>
     </tr>
     <tr>
@@ -1598,6 +1742,23 @@ Examples:
       <td>≈</td>
       <td>≈</td>
       <td>✗</td>
+      <td>✗</td>
+    </tr>
+    <tr>
+      <td>ControlNet</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>Soon</td>
+      <td>Soon</td>
+    </tr>
+    <tr>
+      <td>IP-Adapter</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>✓</td>
+      <td>Soon</td>
     </tr>
   </tbody>
 </table>

@@ -801,100 +801,566 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <!-- Custom styles are now loaded via main.scss -->
 
-<p>Please Build is a versatile build automation tool that simplifies the process of building, testing, and deploying your projects. This documentation provides you with a step-by-step guide to getting started with Please Build and integrating it into your workflow.</p>
+<p>Please Build is a high-performance, extensible build system that brings the power of Google’s Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This comprehensive guide covers everything from basic setup to advanced features.</p>
 
 <h2 id="key-features">Key Features</h2>
 
 <ul>
-  <li><strong>Language Agnostic</strong>: Please Build supports numerous programming languages, making it versatile for various projects.</li>
-  <li><strong>Flexible</strong>: The tool offers a customizable configuration to cater to specific project requirements.</li>
-  <li><strong>Parallel Execution</strong>: Please Build can run tasks concurrently, speeding up the build process.</li>
-  <li><strong>Incremental Builds</strong>: The tool efficiently rebuilds only what has changed, saving time and resources.</li>
-  <li><strong>Extensible</strong>: Please Build allows developers to create custom build definitions for unique scenarios.</li>
+  <li><strong>Language Agnostic</strong>: Supports Go, Python, Java, C++, JavaScript, Rust, and more out of the box</li>
+  <li><strong>Hermetic Builds</strong>: Ensures reproducible builds by isolating build environments</li>
+  <li><strong>Parallel Execution</strong>: Automatically parallelizes independent build steps across available cores</li>
+  <li><strong>Incremental Builds</strong>: Content-addressed caching ensures minimal rebuilds</li>
+  <li><strong>Remote Execution</strong>: Distribute builds across multiple machines for massive speedups</li>
+  <li><strong>Extensible</strong>: Write custom build rules in Python-like Starlark language</li>
+  <li><strong>Cross-compilation</strong>: Build for multiple platforms from a single machine</li>
+  <li><strong>Build Graph Visualization</strong>: Understand dependencies with interactive graphs</li>
 </ul>
 
 <h2 id="installation">Installation</h2>
 
-<p>To install Please Build, run the following command in your terminal:</p>
+<h3 id="quick-install-recommended">Quick Install (Recommended)</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-sSfL</span> https://get.please.build | bash
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Latest stable version</span>
+curl <span class="nt">-sSfL</span> https://get.please.build | bash
+
+<span class="c"># Or with specific version</span>
+curl <span class="nt">-sSfL</span> https://get.please.build | bash <span class="nt">-s</span> <span class="nt">--</span> <span class="nt">--version</span><span class="o">=</span>17.8.0
+</code></pre></div></div>
+
+<h3 id="alternative-installation-methods">Alternative Installation Methods</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># macOS with Homebrew</span>
+brew tap thought-machine/please
+brew <span class="nb">install </span>please
+
+<span class="c"># From source</span>
+git clone https://github.com/thought-machine/please.git
+<span class="nb">cd </span>please
+./bootstrap.sh
+
+<span class="c"># Using Go</span>
+go <span class="nb">install </span>github.com/thought-machine/please@latest
+</code></pre></div></div>
+
+<h3 id="verify-installation">Verify Installation</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz <span class="nt">--version</span>
+<span class="c"># Output: Please version 17.8.0</span>
 </code></pre></div></div>
 
 <h2 id="getting-started">Getting Started</h2>
 
-<p>To create a new Please Build project, navigate to your project directory and run the following command:</p>
+<h3 id="creating-a-new-project">Creating a New Project</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz init
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize a new Please project</span>
+plz init
+
+<span class="c"># With templates for specific languages</span>
+plz init <span class="nt">--template</span><span class="o">=</span>go     <span class="c"># Go project</span>
+plz init <span class="nt">--template</span><span class="o">=</span>python <span class="c"># Python project</span>
+plz init <span class="nt">--template</span><span class="o">=</span>java   <span class="c"># Java project</span>
 </code></pre></div></div>
 
-<p>This will generate a <code class="language-plaintext highlighter-rouge">plzconfig</code> file in the root directory, which will be used to configure Please Build.</p>
+<p>This creates:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">.plzconfig</code> - Main configuration file</li>
+  <li><code class="language-plaintext highlighter-rouge">BUILD</code> - Root build file</li>
+  <li><code class="language-plaintext highlighter-rouge">.gitignore</code> - With Please-specific entries</li>
+</ul>
 
 <h2 id="configuration">Configuration</h2>
 
-<p>Edit the <code class="language-plaintext highlighter-rouge">plzconfig</code> file to configure Please Build according to your project’s requirements. Below is a sample <code class="language-plaintext highlighter-rouge">plzconfig</code> configuration:</p>
+<h3 id="basic-configuration">Basic Configuration</h3>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">please</span><span class="p">]</span>
-<span class="n">version</span> <span class="o">=</span> <span class="mi">17</span><span class="p">.</span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span>
-<span class="n">selfupdate</span> <span class="o">=</span> <span class="nb">true</span>
+<p>Edit <code class="language-plaintext highlighter-rouge">.plzconfig</code> to configure Please Build:</p>
 
-<span class="p">[</span><span class="n">build</span><span class="p">]</span>
-<span class="n">path</span> <span class="o">=</span> <span class="n">src</span><span class="o">/</span>
-<span class="n">languages</span> <span class="o">=</span> <span class="n">python</span><span class="p">,</span><span class="n">go</span>
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[please]</span>
+<span class="py">version</span> <span class="p">=</span> <span class="s">17.8.0</span>
+<span class="py">selfupdate</span> <span class="p">=</span> <span class="s">true</span>
+<span class="py">location</span> <span class="p">=</span> <span class="s">~/.please</span>
+
+<span class="nn">[build]</span>
+<span class="py">path</span> <span class="p">=</span> <span class="s">src/</span>
+<span class="py">languages</span> <span class="p">=</span> <span class="s">python,go,java</span>
+<span class="py">timeout</span> <span class="p">=</span> <span class="s">600</span>
+<span class="py">workers</span> <span class="p">=</span> <span class="s">4</span>
+
+<span class="nn">[cache]</span>
+<span class="py">dir</span> <span class="p">=</span> <span class="s">~/.cache/please</span>
+<span class="py">httpurl</span> <span class="p">=</span> <span class="s">https://cache.example.com  # Optional remote cache</span>
+
+<span class="nn">[python]</span>
+<span class="py">defaultinterpreter</span> <span class="p">=</span> <span class="s">python3</span>
+<span class="py">piptool</span> <span class="p">=</span> <span class="s">pip3</span>
+<span class="py">moduledir</span> <span class="p">=</span> <span class="s">third_party/python</span>
+
+<span class="nn">[go]</span>
+<span class="py">goroot</span> <span class="p">=</span> <span class="s">/usr/local/go</span>
+<span class="py">importpath</span> <span class="p">=</span> <span class="s">github.com/myorg/myproject</span>
 </code></pre></div></div>
 
-<p>For more details on the available configuration options, refer to the <a href="https://please.build/configuration.html">official documentation</a>.</p>
+<h3 id="advanced-configuration-2024">Advanced Configuration (2024)</h3>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[remote]</span>
+<span class="py">url</span> <span class="p">=</span> <span class="s">grpc://remote-execution.example.com:8980</span>
+<span class="py">instancename</span> <span class="p">=</span> <span class="s">main</span>
+<span class="py">numexecutors</span> <span class="p">=</span> <span class="s">100</span>
+
+<span class="nn">[metrics]</span>
+<span class="py">pushgatewayurl</span> <span class="p">=</span> <span class="s">http://prometheus-pushgateway:9091</span>
+
+<span class="nn">[experimental]</span>
+<span class="py">go_modules</span> <span class="p">=</span> <span class="s">true</span>
+<span class="py">python_wheel</span> <span class="p">=</span> <span class="s">true</span>
+<span class="py">rust_cargo</span> <span class="p">=</span> <span class="s">true</span>
+</code></pre></div></div>
 
 <h2 id="build-rules">Build Rules</h2>
 
-<p>Please Build uses build rules to specify how to build, test, and deploy your project. Create a <code class="language-plaintext highlighter-rouge">BUILD.plz</code> file in the appropriate directory and define your build rules. For example:</p>
+<h3 id="core-concepts">Core Concepts</h3>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python_binary</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s">"main"</span><span class="p">,</span>
-    <span class="n">main</span> <span class="o">=</span> <span class="s">"main.py"</span><span class="p">,</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="s">":lib"</span><span class="p">],</span>
+<p>Build rules define how to build targets. Create <code class="language-plaintext highlighter-rouge">BUILD</code> files (or <code class="language-plaintext highlighter-rouge">BUILD.plz</code>) in directories:</p>
+
+<h3 id="python-example">Python Example</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># BUILD file
+</span><span class="nf">python_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">main</span> <span class="o">=</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">//third_party/python:requests</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
 <span class="p">)</span>
 
-<span class="n">python_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s">"lib"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s">"*.py"</span><span class="p">]),</span>
+<span class="nf">python_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">lib</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.py</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">*_test.py</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">//common:utils</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nf">python_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">lib_test</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">lib_test.py</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
-<p>For more information on build rules and how to customize them, check out the <a href="https://please.build/rules.html">build rules documentation</a>.</p>
+<h3 id="go-example">Go Example</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">go_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">server</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">:handlers</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">//third_party/go:github.com_gorilla_mux</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nf">go_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.go</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">*_test.go</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">main.go</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//service/...</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nf">go_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers_test</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">handlers_test.go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:handlers</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="cross-language-dependencies">Cross-Language Dependencies</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Protocol buffers used by multiple languages
+</span><span class="nf">proto_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">api_proto</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">api.proto</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">python</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">java</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">PUBLIC</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Docker image with multi-language app
+</span><span class="nf">docker_image</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">microservice</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">:go_server</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">:python_worker</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="sh">"</span><span class="s">alpine:3.18</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">dockerfile</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Dockerfile</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></div>
 
 <h2 id="testing">Testing</h2>
 
-<p>Please Build supports many popular testing frameworks. To add a test rule to your project, include it in the <code class="language-plaintext highlighter-rouge">BUILD.plz</code> file. Here’s an example of a Python test rule:</p>
+<h3 id="writing-tests">Writing Tests</h3>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">python_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="s">"tests"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="n">glob</span><span class="p">([</span><span class="s">"*_test.py"</span><span class="p">]),</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="s">":lib"</span><span class="p">],</span>
+<p>Please Build has first-class support for testing:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Unit tests
+</span><span class="nf">python_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">unit_tests</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*_test.py</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="sh">"</span><span class="s">small</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Integration tests
+</span><span class="nf">python_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">integration_tests</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">integration_test.py</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:app</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="sh">"</span><span class="s">medium</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">timeout</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">integration</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Benchmarks
+</span><span class="nf">go_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">bench</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">bench_test.go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">flags</span> <span class="o">=</span> <span class="sh">"</span><span class="s">-bench=.</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">benchmark</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
-<p>To run tests, use the following command:</p>
+<h3 id="running-tests">Running Tests</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz <span class="nb">test</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run all tests</span>
+plz <span class="nb">test</span>
+
+<span class="c"># Run specific test</span>
+plz <span class="nb">test</span> //src:unit_tests
+
+<span class="c"># Run tests matching pattern</span>
+plz <span class="nb">test</span> //..._test
+
+<span class="c"># Run tests with specific label</span>
+plz <span class="nb">test</span> <span class="nt">--include</span> integration
+
+<span class="c"># Run tests in parallel</span>
+plz <span class="nb">test</span> <span class="nt">--num_test_runs</span><span class="o">=</span>10
+
+<span class="c"># Generate coverage report</span>
+plz cover //src:unit_tests
+</code></pre></div></div>
+
+<h3 id="test-sharding">Test Sharding</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Automatically shard large test suites
+</span><span class="nf">python_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">large_test_suite</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">test_*.py</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">shard_count</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>  <span class="c1"># Split across 4 parallel jobs
+</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h2 id="continuous-integration">Continuous Integration</h2>
 
-<p>Integrating Please Build with continuous integration (CI) services is simple. Add the following configuration to your CI service’s configuration file (e.g., <code class="language-plaintext highlighter-rouge">.travis.yml</code> for Travis CI):</p>
+<h3 id="github-actions">GitHub Actions</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">language</span><span class="pi">:</span> <span class="s">minimal</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Please Build CI</span>
 
-<span class="na">install</span><span class="pi">:</span>
+<span class="na">on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">push</span><span class="pi">,</span> <span class="nv">pull_request</span><span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">build</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install Please</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">curl -sSfL https://get.please.build | bash</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">export PATH="$HOME/.please/bin:$PATH"</span>
+        <span class="s">plz build //...</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Test</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">plz test //... --detailed_tests</span>
+    
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Coverage</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">plz cover --coverage_report=xml //...</span>
+    
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">codecov/codecov-action@v3</span>
+      <span class="na">with</span><span class="pi">:</span>
+        <span class="na">file</span><span class="pi">:</span> <span class="s">./cover.xml</span>
+</code></pre></div></div>
+
+<h3 id="gitlab-ci">GitLab CI</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">image</span><span class="pi">:</span> <span class="s">ubuntu:22.04</span>
+
+<span class="na">before_script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">apt-get update &amp;&amp; apt-get install -y curl</span>
   <span class="pi">-</span> <span class="s">curl -sSfL https://get.please.build | bash</span>
+  <span class="pi">-</span> <span class="s">export PATH="$HOME/.please/bin:$PATH"</span>
 
-<span class="na">script</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">plz build</span>
-  <span class="pi">-</span> <span class="s">plz test</span>
+<span class="na">build</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">plz build //...</span>
+  <span class="na">artifacts</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">plz-out/</span>
+
+<span class="na">test</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">plz test //... --log_file=test.log</span>
+  <span class="na">artifacts</span><span class="pi">:</span>
+    <span class="na">reports</span><span class="pi">:</span>
+      <span class="na">junit</span><span class="pi">:</span> <span class="s">test.log</span>
+</code></pre></div></div>
+
+<h3 id="remote-caching-for-ci">Remote Caching for CI</h3>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># .plzconfig for CI
+</span><span class="nn">[cache]</span>
+<span class="py">dir</span> <span class="p">=</span> <span class="s">~/.cache/please</span>
+<span class="py">httpurl</span> <span class="p">=</span> <span class="s">https://please-cache.example.com</span>
+<span class="py">httpwriteable</span> <span class="p">=</span> <span class="s">true</span>
+<span class="py">httpheaders</span> <span class="p">=</span> <span class="s">Authorization: Bearer $CACHE_TOKEN</span>
+</code></pre></div></div>
+
+<h2 id="advanced-features-2024">Advanced Features (2024)</h2>
+
+<h3 id="remote-execution">Remote Execution</h3>
+
+<p>Distribute builds across multiple machines:</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># .plzconfig
+</span><span class="nn">[remote]</span>
+<span class="py">url</span> <span class="p">=</span> <span class="s">grpc://remote.example.com:8980</span>
+<span class="py">instancename</span> <span class="p">=</span> <span class="s">main</span>
+<span class="py">numexecutors</span> <span class="p">=</span> <span class="s">50</span>
+<span class="py">casurl</span> <span class="p">=</span> <span class="s">grpc://cas.example.com:8981</span>
+</code></pre></div></div>
+
+<h3 id="custom-build-rules">Custom Build Rules</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># build_defs/BUILD
+</span><span class="nf">filegroup</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">rules</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">rust_rules.build_defs</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">PUBLIC</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># build_defs/rust_rules.build_defs
+</span><span class="k">def</span> <span class="nf">rust_binary</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">srcs</span><span class="p">,</span> <span class="n">deps</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">visibility</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Build a Rust binary.</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">build_rule</span><span class="p">(</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span>
+        <span class="n">srcs</span> <span class="o">=</span> <span class="n">srcs</span><span class="p">,</span>
+        <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="p">,</span>
+        <span class="n">outs</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">],</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">rustc $SRCS -o $OUT</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">binary</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="n">visibility</span> <span class="o">=</span> <span class="n">visibility</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="build-graph-analysis">Build Graph Analysis</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Visualize dependencies</span>
+plz query graph <span class="nt">--to</span> //src:app | dot <span class="nt">-Tpng</span> <span class="o">&gt;</span> graph.png
+
+<span class="c"># Find all reverse dependencies</span>
+plz query revdeps //common:utils
+
+<span class="c"># Query for specific attributes</span>
+plz query print //src:app <span class="nt">--field</span><span class="o">=</span>deps
+
+<span class="c"># Find all tests</span>
+plz query alltargets <span class="nt">--include</span> <span class="nb">test</span>
+</code></pre></div></div>
+
+<h3 id="performance-optimization">Performance Optimization</h3>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[build]</span>
+<span class="py">workers</span> <span class="p">=</span> <span class="s">16  # Parallel build jobs</span>
+<span class="py">memorylimit</span> <span class="p">=</span> <span class="s">8GB</span>
+
+<span class="nn">[test]</span>
+<span class="py">defaulttimeout</span> <span class="p">=</span> <span class="s">300</span>
+<span class="py">workers</span> <span class="p">=</span> <span class="s">8</span>
+
+<span class="nn">[metrics]</span>
+<span class="py">pushgatewayurl</span> <span class="p">=</span> <span class="s">http://prometheus:9091</span>
+<span class="py">namespace</span> <span class="p">=</span> <span class="s">please_build</span>
+</code></pre></div></div>
+
+<h3 id="integration-with-modern-tools">Integration with Modern Tools</h3>
+
+<h4 id="docker-support">Docker Support</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">docker_image</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app_image</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:app_binary</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">dockerfile</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Dockerfile</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">latest</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">$VERSION</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">repo</span> <span class="o">=</span> <span class="sh">"</span><span class="s">myorg/myapp</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<h4 id="kubernetes-deployment">Kubernetes Deployment</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">k8s_config</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">deployment</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">k8s/*.yaml</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">containers</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">:app_image</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<h4 id="protocol-buffers--grpc">Protocol Buffers &amp; gRPC</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">grpc_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">api_grpc</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">api.proto</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">python</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">protoc_flags</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">--experimental_allow_proto3_optional</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="monorepo-organization">Monorepo Organization</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/
+├── .plzconfig
+├── BUILD              # Root build file
+├── build_defs/        # Custom build rules
+├── common/            # Shared libraries
+├── services/          # Microservices
+│   ├── api/
+│   ├── auth/
+│   └── worker/
+├── tools/             # Development tools
+└── third_party/       # External dependencies
+    ├── go/
+    ├── python/
+    └── java/
+</code></pre></div></div>
+
+<h3 id="dependency-management">Dependency Management</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># third_party/python/BUILD
+</span><span class="nf">pip_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">requests</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2.31.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">hashes</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">sha256:...</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">:urllib3</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">:certifi</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Lock dependencies
+# Run: plz hash --update //third_party/python/...
+</span></code></pre></div></div>
+
+<h3 id="build-optimization-tips">Build Optimization Tips</h3>
+
+<ol>
+  <li><strong>Use Remote Caching</strong>: Share build artifacts across team</li>
+  <li><strong>Minimize Dependencies</strong>: Keep build graphs shallow</li>
+  <li><strong>Parallelize Tests</strong>: Use test sharding for large suites</li>
+  <li><strong>Profile Builds</strong>: <code class="language-plaintext highlighter-rouge">plz build --profile_file=profile.json</code></li>
+  <li><strong>Incremental Builds</strong>: Design rules for maximum incrementality</li>
+</ol>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="common-issues">Common Issues</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clean build cache</span>
+plz clean
+
+<span class="c"># Rebuild specific target</span>
+plz build <span class="nt">--rebuild</span> //src:app
+
+<span class="c"># Debug build rules</span>
+plz build //src:app <span class="nt">--debug</span>
+
+<span class="c"># Show build output</span>
+plz build //src:app <span class="nt">--show_all_output</span>
+
+<span class="c"># Trace execution</span>
+plz build //src:app <span class="nt">--trace_file</span><span class="o">=</span>trace.json
+</code></pre></div></div>
+
+<h3 id="build-reproducibility">Build Reproducibility</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Verify reproducible builds</span>
+plz build //src:app <span class="nt">--reproducible</span>
+<span class="nb">cp </span>plz-out/gen/src/app app1
+plz clean
+plz build //src:app <span class="nt">--reproducible</span>
+diff plz-out/gen/src/app app1  <span class="c"># Should be identical</span>
+</code></pre></div></div>
+
+<h2 id="migration-guide">Migration Guide</h2>
+
+<h3 id="from-bazel">From Bazel</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel rule
+</span><span class="nf">cc_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.cc</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># Please equivalent
+</span><span class="nf">cc_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.cc</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>  <span class="c1"># Almost identical!
+</span></code></pre></div></div>
+
+<h3 id="from-make">From Make</h3>
+
+<div class="language-makefile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Makefile
+</span><span class="nl">app</span><span class="o">:</span> <span class="nf">main.o lib.o</span>
+    <span class="err">gcc</span> <span class="err">-o</span> <span class="err">app</span> <span class="err">main.o</span> <span class="err">lib.o</span>
+
+<span class="c"># Please BUILD file
+</span><span class="err">cc_binary(</span>
+    <span class="nv">name</span> <span class="o">=</span> <span class="s2">"app"</span>,
+    <span class="nv">srcs</span> <span class="o">=</span> <span class="o">[</span><span class="s2">"main.c"</span><span class="o">]</span>,
+    <span class="nv">deps</span> <span class="o">=</span> <span class="o">[</span><span class="s2">":lib"</span><span class="o">]</span>,
+<span class="err">)</span>
 </code></pre></div></div>
 
 <h2 id="faq">FAQ</h2>
 
-<p>For frequently asked questions, please refer to the <a href="https://please.build/faq.html">FAQ section</a> in the official documentation.</p>
+<p><strong>Q: How does Please compare to Bazel?</strong>
+A: Please is inspired by Bazel but focuses on simplicity and ease of use. It has a gentler learning curve while maintaining most of Bazel’s power.</p>
+
+<p><strong>Q: Can I use Please for small projects?</strong>
+A: Yes! Please scales from single-file projects to massive monorepos.</p>
+
+<p><strong>Q: Does Please support Windows?</strong>
+A: Please has experimental Windows support via WSL2.</p>
+
+<p><strong>Q: How do I debug failing builds?</strong>
+A: Use <code class="language-plaintext highlighter-rouge">--debug</code> and <code class="language-plaintext highlighter-rouge">--show_all_output</code> flags, or check <code class="language-plaintext highlighter-rouge">plz-out/log/</code></p>
+
+<p>For more FAQs, see the <a href="https://please.build/faq.html">official FAQ</a>.</p>
+
+<h2 id="resources">Resources</h2>
+
+<ul>
+  <li><a href="https://please.build/">Official Documentation</a></li>
+  <li><a href="https://github.com/thought-machine/please">GitHub Repository</a></li>
+  <li><a href="https://github.com/thought-machine/please/tree/master/test">Rule Examples</a></li>
+  <li><a href="https://please-build.slack.com/">Please Community Slack</a></li>
+  <li><a href="https://please.build/language.html">Build Language Reference</a></li>
+  <li><a href="https://github.com/thought-machine/awesome-please">Awesome Please</a> - Community resources</li>
+</ul>
 
       </section>
     </div>

@@ -914,14 +914,26 @@ document.addEventListener('DOMContentLoaded', function() {
   <span class="na">test</span><span class="pi">:</span>
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
     <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/setup-python@v4</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/setup-python@v5</span>
       <span class="na">with</span><span class="pi">:</span>
-        <span class="na">python-version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.11'</span>
+        <span class="na">python-version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.12'</span>
     <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
         <span class="s">pip install -r requirements.txt</span>
         <span class="s">pytest</span>
 </code></pre></div></div>
+
+<p><strong>2024 GitHub Actions Features:</strong></p>
+<ul>
+  <li>
+<strong>Larger runners</strong>: Up to 64 vCPUs and 256 GB RAM</li>
+  <li>
+<strong>GPU runners</strong>: NVIDIA GPU support for ML workloads</li>
+  <li>
+<strong>Arm64 runners</strong>: Native ARM architecture support</li>
+  <li>
+<strong>Deployment protection rules</strong>: Environment-specific approvals</li>
+</ul>
 
 <h3 id="gitlab-cicd">GitLab CI/CD</h3>
 <p><strong>Best for</strong>: GitLab users, built-in DevOps features</p>
@@ -1039,6 +1051,18 @@ document.addEventListener('DOMContentLoaded', function() {
       <td>Great for .NET</td>
       <td>Microsoft-centric</td>
       <td>Windows/Azure shops</td>
+    </tr>
+    <tr>
+      <td>Buildkite</td>
+      <td>Hybrid model, scalable</td>
+      <td>Requires own runners</td>
+      <td>High-security needs</td>
+    </tr>
+    <tr>
+      <td>Drone</td>
+      <td>Container-native, simple</td>
+      <td>Smaller community</td>
+      <td>Kubernetes environments</td>
     </tr>
   </tbody>
 </table>
@@ -1183,21 +1207,26 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="pi">-</span> <span class="na">dependency-check</span><span class="pi">:</span>
         <span class="na">script</span><span class="pi">:</span> 
           <span class="pi">-</span> <span class="s">npm audit</span>
-          <span class="pi">-</span> <span class="s">safety check</span>  <span class="c1"># Python</span>
+          <span class="pi">-</span> <span class="s">pip-audit</span>  <span class="c1"># Python (replaced safety)</span>
           <span class="pi">-</span> <span class="s">bundle audit</span>  <span class="c1"># Ruby</span>
+          <span class="pi">-</span> <span class="s">osv-scanner --recursive .</span>  <span class="c1"># Google's OSV Scanner</span>
     
     <span class="pi">-</span> <span class="na">sast</span><span class="pi">:</span>  <span class="c1"># Static Application Security Testing</span>
         <span class="na">script</span><span class="pi">:</span>
           <span class="pi">-</span> <span class="s">semgrep --config=auto</span>
           <span class="pi">-</span> <span class="s">bandit -r src/</span>  <span class="c1"># Python</span>
+          <span class="pi">-</span> <span class="s">snyk code test</span>
     
     <span class="pi">-</span> <span class="na">container-scan</span><span class="pi">:</span>
         <span class="na">script</span><span class="pi">:</span>
           <span class="pi">-</span> <span class="s">trivy image myapp:latest</span>
+          <span class="pi">-</span> <span class="s">grype myapp:latest</span>  <span class="c1"># Anchore scanner</span>
+          <span class="pi">-</span> <span class="s">docker scout cves myapp:latest</span>  <span class="c1"># Docker's native scanner</span>
     
     <span class="pi">-</span> <span class="na">secrets-scan</span><span class="pi">:</span>
         <span class="na">script</span><span class="pi">:</span>
           <span class="pi">-</span> <span class="s">gitleaks detect --source=.</span>
+          <span class="pi">-</span> <span class="s">trufflehog filesystem . --json</span>
 </code></pre></div></div>
 
 <h3 id="security-best-practices">Security Best Practices</h3>
@@ -1480,7 +1509,7 @@ after_script:
     <div class="language-plaintext highlighter-rouge">
 <div class="highlight"><pre class="highlight"><code>app-code/          # Application source
 app-config/        # Kubernetes manifests
-app-secrets/       # Encrypted secrets
+app-secrets/       # Encrypted secrets (using Sealed Secrets/SOPS)
 </code></pre></div>    </div>
   </li>
   <li>
@@ -1502,6 +1531,18 @@ develop  → development/
 </code></pre></div>    </div>
   </li>
 </ol>
+
+<p><strong>Modern GitOps Tools (2024):</strong></p>
+<ul>
+  <li>
+<strong>ArgoCD</strong>: Most popular, great UI, multi-cluster support</li>
+  <li>
+<strong>Flux v2</strong>: GitOps toolkit, native Kubernetes controller</li>
+  <li>
+<strong>Rancher Fleet</strong>: Multi-cluster GitOps at scale</li>
+  <li>
+<strong>Weave GitOps</strong>: Enterprise features, policy management</li>
+</ul>
 
 <h2 id="common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</h2>
 
@@ -1823,23 +1864,63 @@ develop  → development/
 
 <h2 id="resources-and-further-learning">Resources and Further Learning</h2>
 
-<h3 id="essential-tools">Essential Tools</h3>
+<h3 id="essential-tools-2024">Essential Tools (2024)</h3>
 <ul>
   <li>
-<strong>Pipeline Syntax Validators</strong>: YAML validators, GitHub Actions playground</li>
+<strong>Pipeline Syntax Validators</strong>:
+    <ul>
+      <li>GitHub Actions playground</li>
+      <li>GitLab CI Lint</li>
+      <li>CircleCI Config Validator</li>
+    </ul>
+  </li>
   <li>
-<strong>Security Scanners</strong>: Snyk, SonarQube, OWASP ZAP</li>
+<strong>Security Scanners</strong>:
+    <ul>
+      <li>Snyk (now with AI-powered fixes)</li>
+      <li>SonarQube/SonarCloud</li>
+      <li>Checkmarx</li>
+      <li>GitHub Advanced Security</li>
+    </ul>
+  </li>
   <li>
-<strong>Monitoring</strong>: Datadog, New Relic, Prometheus/Grafana</li>
+<strong>Monitoring</strong>:
+    <ul>
+      <li>Datadog CI Visibility</li>
+      <li>New Relic CodeStream</li>
+      <li>Grafana Cloud</li>
+      <li>OpenTelemetry (standard for observability)</li>
+    </ul>
+  </li>
   <li>
-<strong>GitOps Operators</strong>: ArgoCD, Flux, Jenkins X</li>
+<strong>GitOps Operators</strong>:
+    <ul>
+      <li>ArgoCD (with ApplicationSets)</li>
+      <li>Flux v2</li>
+      <li>Crossplane (infrastructure composition)</li>
+    </ul>
+  </li>
 </ul>
 
 <h3 id="books-and-courses">Books and Courses</h3>
 <ul>
-  <li>“Continuous Delivery” by Jez Humble</li>
-  <li>“The DevOps Handbook” by Gene Kim</li>
-  <li>“Accelerate” by Nicole Forsgren</li>
+  <li>“Continuous Delivery” by Jez Humble (Classic)</li>
+  <li>“The DevOps Handbook” by Gene Kim et al.</li>
+  <li>“Accelerate” by Nicole Forsgren et al.</li>
+  <li>“Modern Software Engineering” by David Farley (2022)</li>
+  <li>“The Phoenix Project” &amp; “The Unicorn Project” by Gene Kim</li>
+</ul>
+
+<h3 id="online-learning-2024">Online Learning (2024)</h3>
+<ul>
+  <li>
+<strong>DevOps with GitLab CI</strong> - GitLab’s official course</li>
+  <li>
+<strong>GitHub Actions Deep Dive</strong> - A Cloud Guru</li>
+  <li>
+<strong>Jenkins 2023 Masterclass</strong> - Udemy</li>
+  <li>
+<strong>CNCF CI/CD with Tekton</strong> - Linux Foundation</li>
 </ul>
 
 <h3 id="community-resources">Community Resources</h3>
@@ -1848,6 +1929,47 @@ develop  → development/
   <li>DevOps Weekly Newsletter</li>
   <li>CI/CD Collective Forum</li>
 </ul>
+
+<h3 id="emerging-trends-in-cicd-2024">Emerging Trends in CI/CD (2024)</h3>
+
+<ol>
+  <li>
+<strong>AI-Powered CI/CD</strong>
+    <ul>
+      <li>Predictive test selection</li>
+      <li>Automated flaky test detection</li>
+      <li>AI-generated pipeline optimizations</li>
+      <li>Smart deployment timing</li>
+    </ul>
+  </li>
+  <li>
+<strong>Supply Chain Security</strong>
+    <ul>
+      <li>SBOM (Software Bill of Materials) generation</li>
+      <li>SLSA compliance automation</li>
+      <li>Sigstore for artifact signing</li>
+      <li>Dependency attestation</li>
+    </ul>
+  </li>
+  <li>
+<strong>Platform Engineering</strong>
+    <ul>
+      <li>Internal Developer Platforms (IDPs)</li>
+      <li>Golden paths for deployment</li>
+      <li>Self-service infrastructure</li>
+      <li>Developer experience metrics</li>
+    </ul>
+  </li>
+  <li>
+<strong>Green CI/CD</strong>
+    <ul>
+      <li>Carbon-aware computing</li>
+      <li>Energy-efficient build scheduling</li>
+      <li>Resource optimization</li>
+      <li>Sustainability metrics</li>
+    </ul>
+  </li>
+</ol>
 
 <p>Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn’t perfection—it’s progress.</p>
 

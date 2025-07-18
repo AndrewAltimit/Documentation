@@ -2488,6 +2488,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h2 id="machine-learning-applications">Machine Learning Applications</h2>
 
+<h3 id="recent-advances-in-physics-ml-integration-2023-2024">Recent Advances in Physics-ML Integration (2023-2024)</h3>
+
+<p>The intersection of machine learning and physics has seen explosive growth:</p>
+
+<p><strong>Major Breakthroughs:</strong></p>
+<ul>
+  <li>
+<strong>Neural Operators</strong>: Learning solution operators for entire families of PDEs</li>
+  <li>
+<strong>Equivariant Neural Networks</strong>: Networks that respect physical symmetries</li>
+  <li>
+<strong>Differentiable Physics Engines</strong>: End-to-end learning through simulations</li>
+  <li>
+<strong>Foundation Models for Science</strong>: Large models trained on diverse physics data</li>
+</ul>
+
 <h3 id="physics-informed-neural-networks-pinns">Physics-Informed Neural Networks (PINNs)</h3>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
@@ -2678,6 +2694,115 @@ document.addEventListener('DOMContentLoaded', function() {
                                      <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         
         <span class="k">return</span> <span class="n">forces</span><span class="p">,</span> <span class="n">total_energy</span>
+</code></pre></div></div>
+
+<h3 id="fourier-neural-operators-fno">Fourier Neural Operators (FNO)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">2D Fourier layer for Neural Operators</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">in_channels</span> <span class="o">=</span> <span class="n">in_channels</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">out_channels</span> <span class="o">=</span> <span class="n">out_channels</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">modes1</span> <span class="o">=</span> <span class="n">modes1</span>  <span class="c1"># Number of Fourier modes to keep
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">modes2</span> <span class="o">=</span> <span class="n">modes2</span>
+        
+        <span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">in_channels</span> <span class="o">*</span> <span class="n">out_channels</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">weights1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">weights2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># Compute Fourier coefficients
+</span>        <span class="n">x_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">rfft2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        
+        <span class="c1"># Multiply relevant Fourier modes
+</span>        <span class="n">out_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">out_channels</span><span class="p">,</span> <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> 
+                           <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="p">.</span><span class="n">device</span><span class="p">)</span>
+        
+        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">]</span> <span class="o">=</span> \
+            <span class="n">self</span><span class="p">.</span><span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">weights1</span><span class="p">)</span>
+        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">]</span> <span class="o">=</span> \
+            <span class="n">self</span><span class="p">.</span><span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">weights2</span><span class="p">)</span>
+        
+        <span class="c1"># Return to physical space
+</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">irfft2</span><span class="p">(</span><span class="n">out_ft</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">x</span>
+    
+    <span class="k">def</span> <span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+        <span class="c1"># Complex multiplication
+</span>        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">bixy,ioxy-&gt;boxy</span><span class="sh">"</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">FourierNeuralOperator2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Fourier Neural Operator for learning solution operators of PDEs</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">in_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">modes1</span> <span class="o">=</span> <span class="n">modes1</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">modes2</span> <span class="o">=</span> <span class="n">modes2</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">width</span>
+        
+        <span class="c1"># Input lifting
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">fc0</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">in_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">)</span>
+        
+        <span class="c1"># Fourier layers
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">conv0</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">conv3</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
+        
+        <span class="c1"># Regular convolutions for local features
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">w0</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">w1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">w2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">w3</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1"># Output projection
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">)</span>
+        
+        <span class="n">self</span><span class="p">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">GELU</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="c1"># x: (batch, x, y, channels)
+</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (batch, channels, x, y)
+</span>        
+        <span class="c1"># Fourier layers with residual connections
+</span>        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
+        
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
+        
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
+        
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span>
+        
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># (batch, x, y, channels)
+</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="c1"># Example: Learning the solution operator for 2D Navier-Stokes
+</span><span class="k">def</span> <span class="nf">train_fno_navier_stokes</span><span class="p">():</span>
+    <span class="sh">"""</span><span class="s">Train FNO to learn the solution operator for 2D turbulence</span><span class="sh">"""</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="nc">FourierNeuralOperator2d</span><span class="p">(</span><span class="n">modes1</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">modes2</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+    
+    <span class="c1"># Training would involve:
+</span>    <span class="c1"># 1. Generate training data: initial conditions → solutions at time T
+</span>    <span class="c1"># 2. Train model to map: u(x,y,0) → u(x,y,T)
+</span>    <span class="c1"># 3. Model learns the solution operator, can generalize to new initial conditions
+</span>    
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">FNO architecture created for learning Navier-Stokes solution operator</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <hr>
@@ -3127,14 +3252,62 @@ __global__ void add_vectors(float *a, float *b, float *c, int n)
 
 <p>Remember: computational physics is not just about writing code—it’s about understanding the physics deeply enough to translate it into efficient, accurate algorithms. The computer is a tool for exploration, but physical intuition guides the journey.</p>
 
-<p>For more physics topics, explore our guides on:</p>
+<hr>
+
+<h2 id="essential-resources">Essential Resources</h2>
+
+<h3 id="software-libraries">Software Libraries</h3>
 <ul>
   <li>
-<a href="classical-mechanics.md">Classical Mechanics</a> - Where computational methods bring complex systems to life</li>
+<strong>NumPy/SciPy</strong>: Foundation for scientific computing in Python</li>
   <li>
-<a href="quantum-mechanics.md">Quantum Mechanics</a> - Numerical solutions to the Schrödinger equation</li>
+<strong>LAMMPS</strong>: Large-scale molecular dynamics</li>
   <li>
-<a href="statistical-mechanics.md">Statistical Mechanics</a> - Monte Carlo and molecular dynamics applications</li>
+<strong>Quantum ESPRESSO</strong>: Electronic structure calculations</li>
+  <li>
+<strong>FEniCS</strong>: Automated finite element methods</li>
+  <li>
+<strong>PETSc</strong>: Scalable solution of PDEs</li>
+  <li>
+<strong>JAX</strong>: Differentiable physics and machine learning</li>
+</ul>
+
+<h3 id="learning-resources">Learning Resources</h3>
+<ul>
+  <li>
+<strong>Books</strong>: “Computational Physics” by Newman, “Numerical Recipes” series</li>
+  <li>
+<strong>Courses</strong>: MIT OCW Computational Physics, Coursera Scientific Computing</li>
+  <li>
+<strong>Communities</strong>: Stack Exchange Physics, GitHub Physics repositories</li>
+</ul>
+
+<hr>
+
+<h2 id="see-also">See Also</h2>
+
+<h3 id="core-physics-topics">Core Physics Topics:</h3>
+<ul>
+  <li>
+<a href="classical-mechanics.html">Classical Mechanics</a> - Symplectic integrators and chaos</li>
+  <li>
+<a href="quantum-mechanics.html">Quantum Mechanics</a> - Numerical solutions to Schrödinger equation</li>
+  <li>
+<a href="statistical-mechanics.html">Statistical Mechanics</a> - Monte Carlo and molecular dynamics</li>
+  <li>
+<a href="thermodynamics.html">Thermodynamics</a> - Computational thermodynamics</li>
+  <li>
+<a href="quantum-field-theory.html">Quantum Field Theory</a> - Lattice field theory simulations</li>
+</ul>
+
+<h3 id="related-computational-topics">Related Computational Topics:</h3>
+<ul>
+  <li>
+<a href="condensed-matter.html">Condensed Matter Physics</a> - Band structure calculations</li>
+  <li>
+<a href="string-theory.html">String Theory</a> - Numerical relativity and AdS/CFT</li>
+  <li>
+<a href="relativity.html">Relativity</a> - Gravitational wave simulations</li>
 </ul>
 
       </section>

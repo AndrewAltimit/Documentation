@@ -821,7 +821,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <li><a href="#image-requirements" id="markdown-toc-image-requirements">Image Requirements</a></li>
       <li><a href="#captioning-best-practices" id="markdown-toc-captioning-best-practices">Captioning Best Practices</a>        <ol>
           <li><a href="#caption-structure" id="markdown-toc-caption-structure">Caption Structure</a></li>
-          <li><a href="#flux-caption-guidelines" id="markdown-toc-flux-caption-guidelines">FLUX Caption Guidelines</a></li>
+          <li><a href="#model-specific-caption-guidelines" id="markdown-toc-model-specific-caption-guidelines">Model-Specific Caption Guidelines</a></li>
         </ol>
       </li>
       <li><a href="#automated-captioning" id="markdown-toc-automated-captioning">Automated Captioning</a></li>
@@ -847,6 +847,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><a href="#dataset-upload" id="markdown-toc-dataset-upload">Dataset Upload</a>    <ol>
       <li><a href="#direct-upload-small-datasets" id="markdown-toc-direct-upload-small-datasets">Direct Upload (Small Datasets)</a></li>
       <li><a href="#chunked-upload-large-files" id="markdown-toc-chunked-upload-large-files">Chunked Upload (Large Files)</a></li>
+    </ol>
+  </li>
+  <li><a href="#specialized-lora-types-2024" id="markdown-toc-specialized-lora-types-2024">Specialized LoRA Types (2024)</a>    <ol>
+      <li><a href="#lcm-lora-training" id="markdown-toc-lcm-lora-training">LCM-LoRA Training</a></li>
+      <li><a href="#dora-weight-decomposed-lora" id="markdown-toc-dora-weight-decomposed-lora">DoRA (Weight-Decomposed LoRA)</a></li>
+      <li><a href="#control-lora" id="markdown-toc-control-lora">Control-LoRA</a></li>
     </ol>
   </li>
   <li><a href="#common-training-scenarios" id="markdown-toc-common-training-scenarios">Common Training Scenarios</a>    <ol>
@@ -896,6 +902,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <h2 id="what-is-lora">What is LoRA?</h2>
 
 <p>LoRA (Low-Rank Adaptation) is a training technique that allows you to fine-tune large models like Stable Diffusion by training only a small number of parameters. Instead of modifying the entire model, LoRA adds trainable rank decomposition matrices to existing weights.</p>
+
+<p>In 2024, LoRA training has become significantly more accessible with tools like AI Toolkit, Kohya SS, and cloud-based solutions. New variants like LCM-LoRA and DoRA offer specialized capabilities beyond traditional style/character training.</p>
 
 <h3 id="key-benefits">Key Benefits</h3>
 
@@ -956,16 +964,34 @@ docker-compose up <span class="nt">-d</span>
       <td>15-30 min</td>
     </tr>
     <tr>
+      <td>SD 2.x</td>
+      <td>8GB</td>
+      <td>12GB</td>
+      <td>20-40 min</td>
+    </tr>
+    <tr>
       <td>SDXL</td>
       <td>12GB</td>
       <td>16GB</td>
       <td>30-60 min</td>
     </tr>
     <tr>
-      <td>FLUX</td>
+      <td>SD3 Medium</td>
+      <td>14GB</td>
+      <td>20GB</td>
+      <td>45-90 min</td>
+    </tr>
+    <tr>
+      <td>FLUX Dev</td>
       <td>16GB</td>
       <td>24GB</td>
       <td>60-120 min</td>
+    </tr>
+    <tr>
+      <td>FLUX Schnell</td>
+      <td>N/A</td>
+      <td>N/A</td>
+      <td>(Distilled, no training)</td>
     </tr>
   </tbody>
 </table>
@@ -985,10 +1011,11 @@ docker-compose up <span class="nt">-d</span>
   </li>
   <li><strong>Dataset Size Guidelines</strong>:
     <ul>
-      <li><strong>Style LoRA</strong>: 10-50 images</li>
-      <li><strong>Character/Person</strong>: 20-100 images</li>
-      <li><strong>Object/Concept</strong>: 15-50 images</li>
-      <li><strong>Complex Style</strong>: 50-200 images</li>
+      <li><strong>Style LoRA</strong>: 10-50 images (quality &gt; quantity)</li>
+      <li><strong>Character/Person</strong>: 20-100 images (varied poses/expressions)</li>
+      <li><strong>Object/Concept</strong>: 15-50 images (multiple angles)</li>
+      <li><strong>Complex Style</strong>: 50-200 images (diverse examples)</li>
+      <li><strong>LCM-LoRA</strong>: 100-500 images (for speed optimization)</li>
     </ul>
   </li>
 </ol>
@@ -1021,36 +1048,59 @@ xyz_style digital painting of a landscape, vibrant colors, fantasy art style, hi
 xyz_object a red sports car, studio lighting, product photography, white background
 </code></pre></div></div>
 
-<h4 id="flux-caption-guidelines">FLUX Caption Guidelines</h4>
+<h4 id="model-specific-caption-guidelines">Model-Specific Caption Guidelines</h4>
 
-<p>For FLUX models specifically, include these elements:</p>
-
-<ol>
-  <li><strong>Trigger Word</strong>: Always first (e.g., “xyz_style”)</li>
-  <li><strong>Subject</strong>: Clear description (e.g., “a woman”, “a building”)</li>
-  <li><strong>Camera Angle</strong>: Perspective (e.g., “front view”, “aerial shot”)</li>
-  <li><strong>Environment</strong>: Setting (e.g., “in a forest”, “studio background”)</li>
-  <li><strong>Lighting</strong>: Conditions (e.g., “golden hour”, “dramatic lighting”)</li>
-</ol>
-
-<p>Example:</p>
+<p><strong>FLUX Captions</strong>:</p>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>xyz_style portrait of a knight, three-quarter view, in a medieval castle, torch lighting
 </code></pre></div></div>
+<ul>
+  <li>Natural language preferred</li>
+  <li>Include camera angles and lighting</li>
+  <li>Detailed scene descriptions</li>
+</ul>
+
+<p><strong>SDXL Captions</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>xyz_style, digital artwork, fantasy knight, detailed armor, castle interior, dramatic lighting, masterpiece
+</code></pre></div></div>
+<ul>
+  <li>Mix of tags and natural language</li>
+  <li>Quality tags important</li>
+  <li>Booru-style tags work well</li>
+</ul>
+
+<p><strong>SD3 Captions</strong>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>A knight in shining armor standing in a medieval castle, xyz_style artwork
+</code></pre></div></div>
+<ul>
+  <li>Very natural language</li>
+  <li>Trigger word can be mid-sentence</li>
+  <li>Detailed descriptions excel</li>
+</ul>
 
 <h3 id="automated-captioning">Automated Captioning</h3>
 
 <p>Using AI Toolkit’s caption generation:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Using BLIP or WD14 taggers
-</span><span class="n">responses</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="sh">"</span><span class="s">generate-captions</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">{</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Modern captioning options
+</span><span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8190/mcp/tool</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+    <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">generate-captions</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">arguments</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
         <span class="sh">"</span><span class="s">dataset_path</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">/ai-toolkit/datasets/my-dataset</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">caption_model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">blip2</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">trigger_word</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">xyz_style</span><span class="sh">"</span>
+        <span class="sh">"</span><span class="s">caption_model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">blip2</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># or "wd14", "cogvlm", "florence2"
+</span>        <span class="sh">"</span><span class="s">trigger_word</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">xyz_style</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">caption_style</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">natural</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># or "booru", "mixed"
+</span>        <span class="sh">"</span><span class="s">add_quality_tags</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
     <span class="p">}</span>
-<span class="p">]</span>
+<span class="p">})</span>
 </code></pre></div></div>
+
+<p><strong>Caption Models</strong>:</p>
+<ul>
+  <li><strong>BLIP2</strong>: Best for natural descriptions</li>
+  <li><strong>WD14</strong>: Excellent for anime/booru tags</li>
+  <li><strong>CogVLM</strong>: Advanced understanding</li>
+  <li><strong>Florence2</strong>: Detailed region descriptions</li>
+</ul>
 
 <h2 id="training-configuration">Training Configuration</h2>
 
@@ -1091,6 +1141,8 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
   <li><strong>Conservative</strong>: 1e-4 (0.0001) - Slower but safer</li>
   <li><strong>Aggressive</strong>: 3e-4 (0.0003) - For stubborn concepts</li>
   <li><strong>Fine-tuning</strong>: 5e-5 (0.00005) - For existing styles</li>
+  <li><strong>Prodigy Optimizer</strong>: 1.0 - Self-adjusting (recommended)</li>
+  <li><strong>AdamW8bit</strong>: 3e-4 - Memory efficient option</li>
 </ul>
 
 <h4 id="steps-calculation">Steps Calculation</h4>
@@ -1142,7 +1194,7 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
     <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">advanced-lora</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">model_name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ostris/Flex.1-alpha</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># FLUX model
+    <span class="sh">"</span><span class="s">model_name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">black-forest-labs/FLUX.1-dev</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># FLUX model
 </span>    <span class="sh">"</span><span class="s">dataset_path</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">/ai-toolkit/datasets/my-dataset</span><span class="sh">"</span><span class="p">,</span>
     
     <span class="c1"># Training parameters
@@ -1150,7 +1202,7 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
     <span class="sh">"</span><span class="s">batch_size</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">gradient_accumulation_steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">learning_rate</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0002</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">lr_scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cosine</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">lr_scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cosine_with_restarts</span><span class="sh">"</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">lr_warmup_steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
     
     <span class="c1"># LoRA parameters
@@ -1176,7 +1228,14 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
 </span>    <span class="sh">"</span><span class="s">network_dim</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">network_alpha</span><span class="sh">"</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">clip_skip</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">max_token_length</span><span class="sh">"</span><span class="p">:</span> <span class="mi">225</span>
+    <span class="sh">"</span><span class="s">max_token_length</span><span class="sh">"</span><span class="p">:</span> <span class="mi">225</span><span class="p">,</span>
+    
+    <span class="c1"># 2024 Features
+</span>    <span class="sh">"</span><span class="s">use_prodigy_optimizer</span><span class="sh">"</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">masked_loss</span><span class="sh">"</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">debiased_estimation</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">ip_noise_gamma</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">min_snr_gamma</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
@@ -1291,6 +1350,44 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
         <span class="sh">"</span><span class="s">upload_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">upload_id</span>
     <span class="p">}</span>
 <span class="p">})</span>
+</code></pre></div></div>
+
+<h2 id="specialized-lora-types-2024">Specialized LoRA Types (2024)</h2>
+
+<h3 id="lcm-lora-training">LCM-LoRA Training</h3>
+
+<p>Train for fast generation:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">lcm-lora</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">base_model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">stabilityai/stable-diffusion-xl-base-1.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">teacher_model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">lcm-sdxl</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">distillation_mode</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">learning_rate</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">guidance_scale_range</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="dora-weight-decomposed-lora">DoRA (Weight-Decomposed LoRA)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dora-style</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">use_dora</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">magnitude_learning_rate</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">direction_learning_rate</span><span class="sh">"</span><span class="p">:</span> <span class="mf">2e-4</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">rank</span><span class="sh">"</span><span class="p">:</span> <span class="mi">64</span>  <span class="c1"># Can use higher ranks effectively
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="control-lora">Control-LoRA</h3>
+
+<p>Combine LoRA with ControlNet:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+    <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">control-lora</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">control_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">openpose</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">control_weight</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">train_control_adapter</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
+<span class="p">}</span>
 </code></pre></div></div>
 
 <h2 id="common-training-scenarios">Common Training Scenarios</h2>
@@ -1557,20 +1654,24 @@ xyz_object a red sports car, studio lighting, product photography, white backgro
 <h2 id="best-practices-summary">Best Practices Summary</h2>
 
 <h3 id="dos">Do’s</h3>
-<p>✓ Use unique trigger words (xyz_style, not “style”)
+<p>✓ Use unique trigger words (xyz_style, not “style”)<br />
 ✓ Include trigger word in all captions
 ✓ Vary descriptions while maintaining consistency
 ✓ Test with prompts during training
 ✓ Save checkpoints regularly
-✓ Start with conservative settings</p>
+✓ Start with conservative settings
+✓ Use regularization images for better generalization
+✓ Monitor validation loss</p>
 
 <h3 id="donts">Don’ts</h3>
 <p>✗ Don’t overtrain (watch for overfitting)
-✗ Don’t use copyrighted content
-✗ Don’t skip dataset curation
+✗ Don’t use copyrighted content without permission
+✗ Don’t skip dataset quality control
 ✗ Don’t use generic trigger words
 ✗ Don’t ignore sampling results
-✗ Don’t train at full model resolution always</p>
+✗ Don’t train at full resolution if not needed
+✗ Don’t mix incompatible model versions
+✗ Don’t forget to backup successful LoRAs</p>
 
 <h2 id="conclusion">Conclusion</h2>
 

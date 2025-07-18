@@ -888,6 +888,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>Stable Diffusion is a latent text-to-image diffusion model capable of generating detailed images from text descriptions. Released in 2022 by Stability AI, it democratized AI image generation by being open source and efficient enough to run on consumer GPUs.</p>
 
+<p>The technology has evolved significantly:</p>
+<ul>
+  <li><strong>2022</strong>: SD 1.x series (1.4, 1.5) established the foundation</li>
+  <li><strong>2023</strong>: SDXL brought higher resolution and better quality</li>
+  <li><strong>2024</strong>: SD3 introduced rectified flow and multimodal architecture</li>
+  <li><strong>Beyond</strong>: FLUX and other models push boundaries further</li>
+</ul>
+
 <h3 id="key-innovation-latent-space">Key Innovation: Latent Space</h3>
 
 <p>Unlike earlier diffusion models that worked directly in pixel space, Stable Diffusion operates in a compressed latent space. This innovation:</p>
@@ -997,7 +1005,8 @@ Output: Predicted Noise
 </code></pre></div>    </div>
   </li>
   <li><strong>Initialize Noise</strong>:
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Add</span> <span class="n">scheduler</span> <span class="n">noise</span> <span class="n">scaling</span>  <span class="c1"># Random noise in latent space
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">latents</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">))</span>  <span class="c1"># Random noise in latent space
+</span><span class="n">latents</span> <span class="o">=</span> <span class="n">latents</span> <span class="o">*</span> <span class="n">scheduler</span><span class="p">.</span><span class="n">init_noise_sigma</span>  <span class="c1"># Scale by scheduler
 </span></code></pre></div>    </div>
   </li>
   <li><strong>Denoising Loop</strong>:
@@ -1080,10 +1089,15 @@ Output: Predicted Noise
   <li><strong>SD 1.5</strong>: 512×512</li>
   <li><strong>SD 2.x</strong>: 768×768</li>
   <li><strong>SDXL</strong>: 1024×1024</li>
-  <li><strong>FLUX</strong>: 1024×1024+</li>
+  <li><strong>SD3</strong>: 1024×1024 (up to 2048×2048)</li>
+  <li><strong>FLUX</strong>: 1024×1024+ (flexible aspect ratios)</li>
 </ul>
 
-<p>Higher resolutions require more VRAM and computation time.</p>
+<p>Higher resolutions require more VRAM and computation time. Modern models support multiple aspect ratios natively:</p>
+<ul>
+  <li><strong>SDXL/SD3</strong>: Trained on bucketed resolutions</li>
+  <li><strong>FLUX</strong>: Continuous aspect ratio support via positional encoding</li>
+</ul>
 
 <h3 id="steps">Steps</h3>
 
@@ -1147,6 +1161,14 @@ Output: Predicted Noise
   <li>V: Value (from text embeddings)</li>
 </ul>
 
+<p>Modern optimizations:</p>
+<ul>
+  <li><strong>Flash Attention</strong>: Fused kernels for 2-4x speedup</li>
+  <li><strong>Memory Efficient Attention</strong>: xFormers implementation</li>
+  <li><strong>Sparse Attention</strong>: Focus on relevant regions only</li>
+  <li><strong>Multi-Query Attention</strong>: Shared K,V for efficiency</li>
+</ul>
+
 <h3 id="latent-space-manipulation">Latent Space Manipulation</h3>
 
 <p>Working in latent space enables:</p>
@@ -1177,6 +1199,7 @@ Output: Predicted Noise
       <th>Resolution</th>
       <th>SD 1.5</th>
       <th>SDXL</th>
+      <th>SD3</th>
       <th>FLUX</th>
     </tr>
   </thead>
@@ -1186,10 +1209,12 @@ Output: Predicted Noise
       <td>2.5GB</td>
       <td>-</td>
       <td>-</td>
+      <td>-</td>
     </tr>
     <tr>
       <td>768×768</td>
       <td>3.5GB</td>
+      <td>-</td>
       <td>-</td>
       <td>-</td>
     </tr>
@@ -1197,7 +1222,15 @@ Output: Predicted Noise
       <td>1024×1024</td>
       <td>5GB</td>
       <td>8GB</td>
+      <td>10GB</td>
       <td>12GB</td>
+    </tr>
+    <tr>
+      <td>2048×2048</td>
+      <td>-</td>
+      <td>16GB</td>
+      <td>20GB</td>
+      <td>24GB</td>
     </tr>
   </tbody>
 </table>
@@ -1205,10 +1238,14 @@ Output: Predicted Noise
 <h3 id="optimization-techniques">Optimization Techniques</h3>
 
 <ol>
-  <li><strong>Float16 Precision</strong>: Halve VRAM usage</li>
+  <li><strong>Float16/BFloat16</strong>: Halve VRAM usage with minimal quality loss</li>
+  <li><strong>Int8 Quantization</strong>: Further reduction for inference</li>
+  <li><strong>Flash Attention</strong>: Faster, memory-efficient attention</li>
+  <li><strong>Torch Compile</strong>: JIT compilation for speed</li>
   <li><strong>Attention Slicing</strong>: Process attention in chunks</li>
   <li><strong>VAE Tiling</strong>: Decode large images in tiles</li>
   <li><strong>CPU Offloading</strong>: Move unused components to RAM</li>
+  <li><strong>Sequential CPU Offload</strong>: Extreme memory saving mode</li>
 </ol>
 
 <h2 id="common-issues-and-solutions">Common Issues and Solutions</h2>
@@ -1256,20 +1293,24 @@ Output: Predicted Noise
 <h3 id="emerging-techniques">Emerging Techniques</h3>
 
 <ol>
-  <li><strong>Consistency Models</strong>: Single-step generation</li>
-  <li><strong>Flow Matching</strong>: Alternative to diffusion</li>
-  <li><strong>Rectified Flows</strong>: Straighter generation paths</li>
-  <li><strong>Latent Consistency Models</strong>: 1-4 step generation</li>
+  <li><strong>Consistency Models</strong>: Single-step generation via direct mapping</li>
+  <li><strong>Flow Matching</strong>: More efficient than diffusion (used in FLUX/SD3)</li>
+  <li><strong>Rectified Flows</strong>: Straighter generation paths for faster sampling</li>
+  <li><strong>Latent Consistency Models (LCM)</strong>: 1-4 step generation while maintaining quality</li>
+  <li><strong>Adversarial Diffusion Distillation (ADD)</strong>: GAN-based acceleration</li>
+  <li><strong>Distribution Matching Distillation (DMD)</strong>: One-step generation</li>
 </ol>
 
 <h3 id="research-areas">Research Areas</h3>
 
 <ul>
-  <li>Higher resolution without increased compute</li>
-  <li>Better text understanding and adherence</li>
-  <li>Video and 3D generation</li>
-  <li>Real-time generation</li>
-  <li>Improved control mechanisms</li>
+  <li><strong>Resolution Scaling</strong>: Generate 4K+ images efficiently</li>
+  <li><strong>Language Understanding</strong>: Better prompt interpretation with LLMs</li>
+  <li><strong>Multimodal Generation</strong>: Unified image/video/3D/audio models</li>
+  <li><strong>Real-time Generation</strong>: Sub-second high-quality results</li>
+  <li><strong>Precise Control</strong>: Natural language editing and manipulation</li>
+  <li><strong>Efficiency</strong>: Mobile and edge deployment</li>
+  <li><strong>Consistency</strong>: Long-form content generation</li>
 </ul>
 
 <h2 id="practical-tips">Practical Tips</h2>

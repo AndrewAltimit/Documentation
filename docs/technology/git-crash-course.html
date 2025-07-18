@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h2 id="overview">Overview</h2>
 
-<p>Git is a distributed version control system that tracks changes in source code during software development. It enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.</p>
+<p>Git is a distributed version control system that tracks changes in source code during software development. Created by Linus Torvalds in 2005, it has become the de facto standard for version control, powering platforms like GitHub, GitLab, and Bitbucket. Git enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications.</p>
 
 <h2 id="core-concepts">Core Concepts</h2>
 
@@ -874,6 +874,27 @@ git fetch origin            <span class="c"># Fetch remote changes without mergi
   <li>Merge into main branch after approval</li>
 </ol>
 
+<h3 id="git-flow">Git Flow</h3>
+<p>A branching model designed around project releases:</p>
+<ul>
+  <li><strong>main/master</strong>: Production-ready code</li>
+  <li><strong>develop</strong>: Integration branch for features</li>
+  <li><strong>feature/</strong>: Individual feature branches</li>
+  <li><strong>release/</strong>: Preparation for production release</li>
+  <li><strong>hotfix/</strong>: Emergency fixes for production</li>
+</ul>
+
+<h3 id="github-flow">GitHub Flow</h3>
+<p>A simplified workflow perfect for continuous deployment:</p>
+<ol>
+  <li>Create branch from main</li>
+  <li>Add commits</li>
+  <li>Open pull request</li>
+  <li>Discuss and review</li>
+  <li>Deploy for testing</li>
+  <li>Merge to main</li>
+</ol>
+
 <h2 id="file-states">File States</h2>
 
 <p>Git tracks files in three states:</p>
@@ -933,6 +954,35 @@ git stash apply          <span class="c"># Apply stash without removing</span>
   <li>Body: explain what and why (72 characters per line)</li>
 </ul>
 
+<h4 id="conventional-commits-2023-2024-standard">Conventional Commits (2023-2024 Standard)</h4>
+<p>Many projects now follow the Conventional Commits specification:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;type&gt;[optional scope]: &lt;description&gt;
+
+[optional body]
+
+[optional footer(s)]
+</code></pre></div></div>
+
+<p>Types:</p>
+<ul>
+  <li><strong>feat</strong>: New feature</li>
+  <li><strong>fix</strong>: Bug fix</li>
+  <li><strong>docs</strong>: Documentation changes</li>
+  <li><strong>style</strong>: Code style changes (formatting, semicolons, etc.)</li>
+  <li><strong>refactor</strong>: Code refactoring</li>
+  <li><strong>test</strong>: Test additions or modifications</li>
+  <li><strong>chore</strong>: Maintenance tasks</li>
+</ul>
+
+<p>Example:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>feat(auth): add OAuth2 integration
+
+Implemented Google and GitHub OAuth2 providers with
+proper token refresh and error handling.
+
+Closes #123
+</code></pre></div></div>
+
 <h3 id="commit-frequency">Commit Frequency</h3>
 <ul>
   <li>Make atomic commits (one logical change per commit)</li>
@@ -975,12 +1025,174 @@ Thumbs.db
 .env.local
 </code></pre>
 
+<h2 id="advanced-git-features-2023-2024-updates">Advanced Git Features (2023-2024 Updates)</h2>
+
+<h3 id="git-worktree">Git Worktree</h3>
+<p>Manage multiple working trees attached to the same repository:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a new worktree for a hotfix</span>
+git worktree add ../hotfix-branch hotfix/critical-bug
+
+<span class="c"># List all worktrees</span>
+git worktree list
+
+<span class="c"># Remove worktree</span>
+git worktree remove ../hotfix-branch
+</code></pre></div></div>
+
+<h3 id="partial-clone-and-sparse-checkout">Partial Clone and Sparse Checkout</h3>
+<p>Work with large repositories more efficiently:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clone with limited history</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none <span class="nt">--sparse</span> &lt;url&gt;
+
+<span class="c"># Enable sparse checkout</span>
+git sparse-checkout init <span class="nt">--cone</span>
+
+<span class="c"># Add directories to checkout</span>
+git sparse-checkout <span class="nb">set </span>src/frontend docs
+</code></pre></div></div>
+
+<h3 id="git-maintenance-git-231">Git Maintenance (Git 2.31+)</h3>
+<p>Automatic repository optimization:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable automatic maintenance</span>
+git maintenance start
+
+<span class="c"># Run maintenance tasks manually</span>
+git maintenance run <span class="nt">--auto</span>
+</code></pre></div></div>
+
+<h2 id="security-best-practices-2024">Security Best Practices (2024)</h2>
+
+<h3 id="signing-commits">Signing Commits</h3>
+<p>Ensure commit authenticity with GPG or SSH signatures:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Configure GPG signing</span>
+git config <span class="nt">--global</span> user.signingkey YOUR_GPG_KEY_ID
+git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>
+
+<span class="c"># Sign a specific commit</span>
+git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Signed commit"</span>
+
+<span class="c"># Verify signatures</span>
+git log <span class="nt">--show-signature</span>
+</code></pre></div></div>
+
+<h3 id="ssh-key-authentication-recommended-2024">SSH Key Authentication (Recommended 2024)</h3>
+<p>GitHub deprecated password authentication. Use SSH keys:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate ED25519 key (recommended)</span>
+ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"your_email@example.com"</span>
+
+<span class="c"># Add to SSH agent</span>
+<span class="nb">eval</span> <span class="s2">"</span><span class="si">$(</span>ssh-agent <span class="nt">-s</span><span class="si">)</span><span class="s2">"</span>
+ssh-add ~/.ssh/id_ed25519
+</code></pre></div></div>
+
+<h2 id="git-with-ai-tools-2023-2024">Git with AI Tools (2023-2024)</h2>
+
+<h3 id="github-copilot-integration">GitHub Copilot Integration</h3>
+<ul>
+  <li>AI-powered code suggestions in your editor</li>
+  <li>Context-aware commit message generation</li>
+  <li>Automated PR descriptions</li>
+</ul>
+
+<h3 id="gitlab-ai-features">GitLab AI Features</h3>
+<ul>
+  <li>Code suggestions</li>
+  <li>Vulnerability explanation</li>
+  <li>Code review summaries</li>
+</ul>
+
+<h2 id="performance-tips">Performance Tips</h2>
+
+<h3 id="large-file-storage-lfs">Large File Storage (LFS)</h3>
+<p>Handle large binary files efficiently:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Track large files</span>
+git lfs track <span class="s2">"*.psd"</span>
+git lfs track <span class="s2">"*.zip"</span>
+
+<span class="c"># View tracked patterns</span>
+git lfs track
+
+<span class="c"># Clone with LFS files</span>
+git lfs clone &lt;repository&gt;
+</code></pre></div></div>
+
+<h3 id="optimizing-repository-performance">Optimizing Repository Performance</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Optimize repository</span>
+git gc <span class="nt">--aggressive</span> <span class="nt">--prune</span><span class="o">=</span>now
+
+<span class="c"># Repack objects</span>
+git repack <span class="nt">-a</span> <span class="nt">-d</span> <span class="nt">--depth</span><span class="o">=</span>250 <span class="nt">--window</span><span class="o">=</span>250
+
+<span class="c"># Clean unnecessary files</span>
+git clean <span class="nt">-fd</span>
+</code></pre></div></div>
+
+<h2 id="integration-with-modern-development">Integration with Modern Development</h2>
+
+<h3 id="cicd-integration">CI/CD Integration</h3>
+<p>Git hooks for automated workflows:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Pre-push hook example</span>
+<span class="c">#!/bin/sh</span>
+<span class="c"># .git/hooks/pre-push</span>
+npm <span class="nb">test</span> <span class="o">&amp;&amp;</span> npm run lint
+</code></pre></div></div>
+
+<h3 id="monorepo-management">Monorepo Management</h3>
+<p>Tools for managing large codebases:</p>
+<ul>
+  <li><strong>Nx</strong>: Powerful monorepo build system</li>
+  <li><strong>Lerna</strong>: JavaScript monorepo tool</li>
+  <li><strong>Bazel</strong>: Google’s build tool</li>
+  <li><strong>Rush</strong>: Microsoft’s monorepo manager</li>
+</ul>
+
+<h2 id="troubleshooting-common-issues">Troubleshooting Common Issues</h2>
+
+<h3 id="recovering-lost-commits">Recovering Lost Commits</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Find lost commits</span>
+git reflog
+
+<span class="c"># Restore lost commit</span>
+git checkout <span class="nt">-b</span> recovery-branch &lt;commit-hash&gt;
+</code></pre></div></div>
+
+<h3 id="fixing-commit-mistakes">Fixing Commit Mistakes</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Change last commit message</span>
+git commit <span class="nt">--amend</span> <span class="nt">-m</span> <span class="s2">"New message"</span>
+
+<span class="c"># Add forgotten files to last commit</span>
+git add forgotten-file.txt
+git commit <span class="nt">--amend</span> <span class="nt">--no-edit</span>
+</code></pre></div></div>
+
+<h3 id="resolving-merge-conflicts">Resolving Merge Conflicts</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use mergetool</span>
+git mergetool
+
+<span class="c"># Accept theirs/ours for specific files</span>
+git checkout <span class="nt">--theirs</span> path/to/file
+git checkout <span class="nt">--ours</span> path/to/file
+</code></pre></div></div>
+
+<h2 id="related-topics">Related Topics</h2>
+
+<ul>
+  <li><a href="git-reference.html">Git Command Reference</a> - Comprehensive command guide</li>
+  <li><a href="branching.html">Branching Strategies</a> - Advanced branching workflows</li>
+  <li><a href="ci-cd.html">CI/CD</a> - Continuous integration with Git</li>
+  <li><a href="../devops/github-actions.html">GitHub Actions</a> - Automation workflows</li>
+  <li><a href="../devops/gitlab-ci.html">GitLab CI</a> - GitLab’s CI/CD platform</li>
+</ul>
+
 <h2 id="references">References</h2>
 
 <ul>
   <li><a href="https://git-scm.com/doc">Official Git Documentation</a></li>
-  <li><a href="https://git-scm.com/book">Pro Git Book</a></li>
+  <li><a href="https://git-scm.com/book">Pro Git Book</a> - Free comprehensive guide</li>
   <li><a href="https://git-scm.com/docs">Git Reference Manual</a></li>
+  <li><a href="https://skills.github.com/">GitHub Skills</a> - Interactive Git tutorials</li>
+  <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a> - Commit message standard</li>
+  <li><a href="https://nvie.com/posts/a-successful-git-branching-model/">Git Flow</a> - Original Git Flow model</li>
 </ul>
 
       </section>

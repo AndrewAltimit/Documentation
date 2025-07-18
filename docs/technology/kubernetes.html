@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments.</p>
+  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments. As of 2024, Kubernetes v1.29 introduces enhanced security features, improved performance, and better AI/ML workload support.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -798,6 +798,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <strong>Advanced Topics</strong> - Master complex scenarios</li>
   <li>
 <strong>Real-World Applications</strong> - Learn from case studies</li>
+  <li>
+<strong>2024 Updates</strong> - Latest features and best practices</li>
 </ol>
 
 <p>Choose your path based on your experience level, or follow along sequentially for a complete understanding.</p>
@@ -809,14 +811,16 @@ document.addEventListener('DOMContentLoaded', function() {
 <h3 id="prerequisites">Prerequisites</h3>
 <ul>
   <li>Basic understanding of containers (Docker)</li>
-  <li>Access to a Kubernetes cluster (minikube, kind, or cloud provider)</li>
-  <li>kubectl CLI installed</li>
+  <li>Access to a Kubernetes cluster (minikube, kind, k3s, or cloud provider)</li>
+  <li>kubectl CLI installed (v1.28+ recommended)</li>
+  <li>Optional: Helm 3.x for package management</li>
 </ul>
 
 <h3 id="your-first-deployment">Your First Deployment</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Check your cluster is running</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Check your cluster is running and version</span>
 kubectl cluster-info
+kubectl version <span class="nt">--short</span>
 
 <span class="c"># 2. Deploy a simple application</span>
 kubectl create deployment hello-world <span class="nt">--image</span><span class="o">=</span>nginx:alpine
@@ -824,9 +828,10 @@ kubectl create deployment hello-world <span class="nt">--image</span><span class
 <span class="c"># 3. Expose it to the internet</span>
 kubectl expose deployment hello-world <span class="nt">--type</span><span class="o">=</span>LoadBalancer <span class="nt">--port</span><span class="o">=</span>80
 
-<span class="c"># 4. Check it's running</span>
-kubectl get pods
+<span class="c"># 4. Check it's running with more details</span>
+kubectl get pods <span class="nt">-o</span> wide
 kubectl get services
+kubectl describe deployment hello-world
 
 <span class="c"># 5. Scale it up</span>
 kubectl scale deployment hello-world <span class="nt">--replicas</span><span class="o">=</span>3
@@ -835,6 +840,10 @@ kubectl scale deployment hello-world <span class="nt">--replicas</span><span cla
 kubectl get pods
 kubectl delete pod &lt;pod-name&gt;
 kubectl get pods  <span class="c"># Notice a new pod replaced the deleted one!</span>
+
+<span class="c"># 7. Clean up</span>
+kubectl delete deployment hello-world
+kubectl delete service hello-world
 </code></pre></div></div>
 
 <h3 id="core-concepts-in-plain-english">Core Concepts in Plain English</h3>
@@ -3862,20 +3871,113 @@ velero backup create production-backup <span class="se">\</span>
 <span class="na">dnsPolicy</span><span class="pi">:</span> <span class="s">ClusterFirstWithHostNet</span>
 </code></pre></div></div>
 
-<h2 id="future-of-kubernetes-whats-next">Future of Kubernetes: What’s Next?</h2>
+<h2 id="kubernetes-2024-updates-latest-features-and-best-practices">Kubernetes 2024 Updates: Latest Features and Best Practices</h2>
 
-<h3 id="emerging-trends">Emerging Trends</h3>
+<h3 id="whats-new-in-kubernetes-v129-mandala">What’s New in Kubernetes v1.29 (Mandala)</h3>
 <ol>
   <li>
-<strong>Serverless on Kubernetes</strong>: Knative, OpenFaaS</li>
+<strong>ReadinessGates for Jobs</strong>: Better job lifecycle management</li>
   <li>
-<strong>Edge Computing</strong>: K3s, KubeEdge</li>
+<strong>Sidecar Containers</strong>: Native support for sidecar patterns</li>
   <li>
-<strong>WebAssembly</strong>: Running Wasm workloads</li>
+<strong>In-Place Pod Vertical Scaling</strong>: Resize pods without restart</li>
   <li>
-<strong>AI/ML Workloads</strong>: Kubeflow, MLOps</li>
+<strong>CEL for Admission Control</strong>: Common Expression Language support</li>
   <li>
-<strong>eBPF Integration</strong>: Advanced networking and observability</li>
+<strong>Structured Authentication Configuration</strong>: Enhanced security</li>
+</ol>
+
+<h3 id="whats-new-in-kubernetes-v128-planternetes">What’s New in Kubernetes v1.28 (Planternetes)</h3>
+<ol>
+  <li>
+<strong>Cgroups v2 GA</strong>: Better resource isolation</li>
+  <li>
+<strong>Mixed CPUs Support</strong>: Heterogeneous CPU architectures</li>
+  <li>
+<strong>Persistent Volume Last Phase Transition Time</strong>: Better storage monitoring</li>
+  <li>
+<strong>Non-Graceful Node Shutdown</strong>: Improved failure handling</li>
+</ol>
+
+<h3 id="enhanced-security-features-2024">Enhanced Security Features (2024)</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pod Security Standards (enforced by default)</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">pod-security.kubernetes.io/enforce</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/audit</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/warn</span><span class="pi">:</span> <span class="s">restricted</span>
+</code></pre></div></div>
+
+<h3 id="aiml-workload-support">AI/ML Workload Support</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GPU scheduling improvements</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ml-training</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pytorch</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
+    <span class="na">env</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NVIDIA_VISIBLE_DEVICES</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">all"</span>
+</code></pre></div></div>
+
+<h3 id="gateway-api-v10-ga">Gateway API v1.0 (GA)</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Modern ingress replacement</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prod-gateway</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">gatewayClassName</span><span class="pi">:</span> <span class="s">nginx</span>
+  <span class="na">listeners</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">HTTPS</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
+    <span class="na">tls</span><span class="pi">:</span>
+      <span class="na">certificateRefs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">prod-cert</span>
+</code></pre></div></div>
+
+<h3 id="performance-improvements">Performance Improvements</h3>
+<ul>
+  <li>
+<strong>Improved etcd performance</strong>: 30% faster for large clusters</li>
+  <li>
+<strong>API Priority and Fairness</strong>: Better request handling</li>
+  <li>
+<strong>Efficient SELinux relabeling</strong>: Faster pod startup</li>
+  <li>
+<strong>Memory manager improvements</strong>: Better NUMA awareness</li>
+</ul>
+
+<h2 id="future-of-kubernetes-whats-next">Future of Kubernetes: What’s Next?</h2>
+
+<h3 id="emerging-trends-2024-2025">Emerging Trends (2024-2025)</h3>
+<ol>
+  <li>
+<strong>Serverless on Kubernetes</strong>: Knative 1.12+, OpenFaaS, KEDA 2.13</li>
+  <li>
+<strong>Edge Computing</strong>: K3s, KubeEdge, Akri for leaf devices</li>
+  <li>
+<strong>WebAssembly</strong>: Running Wasm workloads with runwasi</li>
+  <li>
+<strong>AI/ML Workloads</strong>: Kubeflow 1.8, MLOps pipelines, Ray on K8s</li>
+  <li>
+<strong>eBPF Integration</strong>: Cilium, Pixie for advanced observability</li>
+  <li>
+<strong>Platform Engineering</strong>: Backstage, Crossplane for developer portals</li>
+  <li>
+<strong>FinOps</strong>: Cost optimization with Kubecost, OpenCost</li>
 </ol>
 
 <h3 id="kubernetes-alternatives-and-when-to-use-them">Kubernetes Alternatives and When to Use Them</h3>

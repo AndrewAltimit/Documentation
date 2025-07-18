@@ -1449,8 +1449,8 @@ P = P(q, p, t)
   <li>Type 4: F₄(p, P, t) → q = -∂F₄/∂p, Q = ∂F₄/∂P</li>
 </ul>
 
-<p><strong>Symplectic structure:</strong> Canonical transformations preserve:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Σᵢ dpᵢ ∧ dqᵢ = Σᵢ dPᵢ ∧ dQᵢ
+<p><strong>Symplectic structure:</strong> Canonical transformations preserve the 2-form:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ω = Σᵢ dpᵢ ∧ dqᵢ = Σᵢ dPᵢ ∧ dQᵢ
 </code></pre></div></div>
 
 <h3 id="action-angle-variables">Action-Angle Variables</h3>
@@ -1544,6 +1544,35 @@ P = P(q, p, t)
 </ul>
 
 <p><strong>The surprising result:</strong> The solar system is mostly stable despite being chaotic! KAM theory explains why planets haven’t collided after billions of years.</p>
+
+<p><strong>Mathematical Statement:</strong>
+For an integrable Hamiltonian H₀(I) perturbed by εH₁(I,θ), if:</p>
+<ol>
+  <li>The frequency map ω(I) = ∂H₀/∂I is non-degenerate: det(∂²H₀/∂I²) ≠ 0</li>
+  <li>The perturbation ε is sufficiently small</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td>The frequencies satisfy a Diophantine condition:</td>
+          <td>ω·k</td>
+          <td>≥ γ/</td>
+          <td>k</td>
+          <td>^τ for all k ∈ ℤⁿ{0}</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+</ol>
+
+<p>Then most invariant tori with irrational frequency ratios persist.</p>
+
+<p><strong>Applications:</strong></p>
+<ul>
+  <li><strong>Asteroid Belt Stability</strong>: Kirkwood gaps where resonances destroy orbits</li>
+  <li><strong>Particle Accelerators</strong>: Beam stability in storage rings</li>
+  <li><strong>Plasma Confinement</strong>: Magnetic surfaces in fusion reactors</li>
+</ul>
 
 <h3 id="strange-attractors">Strange Attractors</h3>
 
@@ -1699,6 +1728,51 @@ P = P(q, p, t)
 
 <p>These approaches let us discover governing equations from observations—essentially automating what took humans centuries to develop!</p>
 
+<p><strong>Recent Breakthroughs (2023-2024):</strong></p>
+<ul>
+  <li><strong>Lagrangian Neural Networks</strong>: Directly learn Lagrangian L(q,q̇) from data, guaranteeing energy conservation</li>
+  <li><strong>Geometric Deep Learning</strong>: Neural networks on manifolds preserving symplectic structure</li>
+  <li><strong>AI Feynman 2.0</strong>: Symbolic regression discovering analytical physics equations</li>
+  <li><strong>Graph Neural Networks</strong>: Learning many-body interactions from particle trajectories</li>
+</ul>
+
+<p><strong>Example: Learning Unknown Forces</strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+
+<span class="k">class</span> <span class="nc">LagrangianNN</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Neural network that learns the Lagrangian from data</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q_dim</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">q_dim</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Returns learned Lagrangian L(q, q̇)</span><span class="sh">"""</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">net</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">get_accelerations</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Derive accelerations using Euler-Lagrange equations</span><span class="sh">"""</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">)</span>
+        
+        <span class="c1"># Compute ∂L/∂q and ∂L/∂q̇
+</span>        <span class="n">dL_dq</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">L</span><span class="p">.</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dL_dq_dot</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">L</span><span class="p">.</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q_dot</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="c1"># Time derivative of ∂L/∂q̇
+</span>        <span class="n">d_dt_dL_dq_dot</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">dL_dq_dot</span> <span class="o">*</span> <span class="n">q_dot</span><span class="p">).</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        
+        <span class="c1"># Euler-Lagrange: q̈ = (∂L/∂q - d/dt(∂L/∂q̇)) / (∂²L/∂q̇²)
+</span>        <span class="k">return</span> <span class="n">dL_dq</span> <span class="o">-</span> <span class="n">d_dt_dL_dq_dot</span>
+</code></pre></div></div>
+
 <h2 id="advanced-mathematical-tools">Advanced Mathematical Tools</h2>
 
 <h3 id="differential-geometry">Differential Geometry</h3>
@@ -1800,8 +1874,8 @@ P = P(q, p, t)
 
 <span class="k">def</span> <span class="nf">double_pendulum_derivatives</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">g</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Compute derivatives for double pendulum using Lagrangian mechanics</span><span class="sh">"""</span>
-    <span class="n">Use</span> <span class="n">omega</span> <span class="k">for</span> <span class="n">angular</span> <span class="n">velocity</span>
-    
+    <span class="n">theta1</span><span class="p">,</span> <span class="n">z1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">,</span> <span class="n">z2</span> <span class="o">=</span> <span class="n">state</span>  <span class="c1"># Use z for angular velocity
+</span>    
     <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta1</span> <span class="o">-</span> <span class="n">theta2</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta1</span> <span class="o">-</span> <span class="n">theta2</span><span class="p">)</span>
     
     <span class="n">den1</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">l1</span> <span class="o">-</span> <span class="n">m2</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">c</span><span class="o">*</span><span class="n">c</span>
@@ -2214,6 +2288,7 @@ flowchart TD
   <li><a href="computational-physics.html">Computational Physics</a> - Numerical methods for solving complex mechanical systems</li>
   <li><a href="thermodynamics.html">Thermodynamics</a> - Energy and heat in mechanical systems</li>
   <li><a href="condensed-matter.html">Condensed Matter Physics</a> - Mechanics of materials</li>
+  <li><a href="string-theory.html">String Theory</a> - Classical mechanics in higher dimensions</li>
 </ul>
 
       </section>

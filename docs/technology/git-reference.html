@@ -801,7 +801,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <h1 id="git-command-reference">Git Command Reference</h1>
 
-<p>Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This reference covers essential Git commands and workflows.</p>
+<p>Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This comprehensive reference covers essential Git commands, workflows, and the latest features introduced in 2023-2024.</p>
 
 <h2 id="repository-initialization">Repository Initialization</h2>
 
@@ -882,8 +882,9 @@ git branch <span class="nt">-D</span> &lt;branch-name&gt;          <span class="
 <h3 id="switching-branches">Switching Branches</h3>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout &lt;branch-name&gt;           <span class="c"># Switch to branch</span>
 git checkout <span class="nt">-b</span> &lt;branch-name&gt;        <span class="c"># Create and switch to branch</span>
-git switch &lt;branch-name&gt;             <span class="c"># Modern alternative to checkout</span>
+git switch &lt;branch-name&gt;             <span class="c"># Modern alternative to checkout (Git 2.23+)</span>
 git switch <span class="nt">-c</span> &lt;branch-name&gt;          <span class="c"># Create and switch (modern)</span>
+git switch -                         <span class="c"># Switch to previous branch</span>
 </code></pre></div></div>
 
 <h3 id="merging">Merging</h3>
@@ -927,9 +928,11 @@ git reset HEAD &lt;file&gt;                <span class="c"># Unstage file (legac
 
 <h3 id="commits">Commits</h3>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reset <span class="nt">--soft</span> HEAD~1              <span class="c"># Undo commit, keep changes staged</span>
-git reset <span class="nt">--mixed</span> HEAD~1             <span class="c"># Undo commit, unstage changes</span>
+git reset <span class="nt">--mixed</span> HEAD~1             <span class="c"># Undo commit, unstage changes (default)</span>
 git reset <span class="nt">--hard</span> HEAD~1              <span class="c"># Undo commit, discard changes</span>
 git revert &lt;commit&gt;                  <span class="c"># Create new commit undoing changes</span>
+git revert <span class="nt">--no-commit</span> &lt;commit&gt;      <span class="c"># Revert without committing</span>
+git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;       <span class="c"># Revert a merge commit</span>
 </code></pre></div></div>
 
 <h2 id="stashing">Stashing</h2>
@@ -1021,6 +1024,72 @@ git push
   <li><strong>Review Before Commit</strong>: Use <code class="language-plaintext highlighter-rouge">git diff --staged</code> before committing</li>
 </ol>
 
+<h2 id="advanced-features-2023-2024">Advanced Features (2023-2024)</h2>
+
+<h3 id="worktrees">Worktrees</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git worktree add &lt;path&gt; &lt;branch&gt;     <span class="c"># Create new worktree</span>
+git worktree list                    <span class="c"># List all worktrees</span>
+git worktree remove &lt;path&gt;           <span class="c"># Remove worktree</span>
+git worktree prune                   <span class="c"># Clean up stale worktrees</span>
+</code></pre></div></div>
+
+<h3 id="sparse-checkout">Sparse Checkout</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git sparse-checkout init             <span class="c"># Initialize sparse checkout</span>
+git sparse-checkout <span class="nb">set</span> &lt;dir1&gt; &lt;dir2&gt; <span class="c"># Set directories to include</span>
+git sparse-checkout list             <span class="c"># Show current sparse patterns</span>
+git sparse-checkout disable          <span class="c"># Disable sparse checkout</span>
+</code></pre></div></div>
+
+<h3 id="maintenance-and-performance">Maintenance and Performance</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git maintenance start                <span class="c"># Enable automatic maintenance</span>
+git maintenance run                  <span class="c"># Run maintenance tasks</span>
+git maintenance stop                 <span class="c"># Disable automatic maintenance</span>
+git commit-graph write               <span class="c"># Generate commit graph</span>
+git multi-pack-index write           <span class="c"># Optimize pack files</span>
+</code></pre></div></div>
+
+<h3 id="advanced-diff-and-merge">Advanced Diff and Merge</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git diff <span class="nt">--color-words</span>               <span class="c"># Show word-level differences</span>
+git diff <span class="nt">--word-diff</span>                 <span class="c"># Alternative word diff format</span>
+git diff <span class="nt">--name-status</span>               <span class="c"># Show only file names and status</span>
+git diff <span class="nt">--check</span>                     <span class="c"># Check for whitespace errors</span>
+git merge <span class="nt">--no-ff</span>                    <span class="c"># Force merge commit</span>
+git merge <span class="nt">--squash</span>                   <span class="c"># Squash branch into single commit</span>
+git rerere                           <span class="c"># Reuse recorded resolution</span>
+</code></pre></div></div>
+
+<h3 id="bundle-operations">Bundle Operations</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bundle create &lt;file&gt; &lt;refs&gt;      <span class="c"># Create bundle file</span>
+git bundle verify &lt;file&gt;             <span class="c"># Verify bundle</span>
+git bundle list-heads &lt;file&gt;         <span class="c"># List references in bundle</span>
+git clone &lt;bundle-file&gt; &lt;<span class="nb">dir</span><span class="o">&gt;</span>        <span class="c"># Clone from bundle</span>
+</code></pre></div></div>
+
+<h3 id="bisect-for-bug-finding">Bisect for Bug Finding</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bisect start                     <span class="c"># Start bisect session</span>
+git bisect bad                       <span class="c"># Mark current commit as bad</span>
+git bisect good &lt;commit&gt;             <span class="c"># Mark known good commit</span>
+git bisect skip                      <span class="c"># Skip current commit</span>
+git bisect reset                     <span class="c"># End bisect session</span>
+git bisect run &lt;script&gt;              <span class="c"># Automate bisect with script</span>
+</code></pre></div></div>
+
+<h3 id="signing-and-verification">Signing and Verification</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.signingkey &lt;key-id&gt;  <span class="c"># Set GPG key</span>
+git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>        <span class="c"># Auto-sign commits</span>
+git config <span class="nt">--global</span> tag.gpgsign <span class="nb">true</span>           <span class="c"># Auto-sign tags</span>
+git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Signed commit"</span>               <span class="c"># Sign specific commit</span>
+git tag <span class="nt">-s</span> &lt;tag-name&gt; <span class="nt">-m</span> <span class="s2">"Signed tag"</span>          <span class="c"># Create signed tag</span>
+git verify-commit &lt;commit&gt;                      <span class="c"># Verify commit signature</span>
+git verify-tag &lt;tag&gt;                            <span class="c"># Verify tag signature</span>
+</code></pre></div></div>
+
+<h3 id="ssh-signing-git-234">SSH Signing (Git 2.34+)</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config gpg.format ssh                       <span class="c"># Use SSH for signing</span>
+git config user.signingkey ~/.ssh/id_ed25519   <span class="c"># Set SSH key</span>
+git config gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
+</code></pre></div></div>
+
 <h2 id="troubleshooting">Troubleshooting</h2>
 
 <h3 id="common-issues">Common Issues</h3>
@@ -1028,25 +1097,108 @@ git push
 <p><strong>Detached HEAD State</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout &lt;branch-name&gt;           <span class="c"># Return to branch</span>
 git checkout <span class="nt">-b</span> &lt;new-branch&gt;         <span class="c"># Create branch from current state</span>
+git switch <span class="nt">-c</span> &lt;new-branch&gt;           <span class="c"># Modern way to create branch</span>
 </code></pre></div></div>
 
 <p><strong>Merge Conflicts</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Edit conflicted files manually</span>
 git add &lt;resolved-files&gt;
 git commit                           <span class="c"># Complete merge</span>
+<span class="c"># Or use merge tool</span>
+git mergetool                        <span class="c"># Launch configured merge tool</span>
 </code></pre></div></div>
 
 <p><strong>Wrong Branch Commits</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;commit&gt;             <span class="c"># Copy commit to correct branch</span>
 git reset <span class="nt">--hard</span> HEAD~1              <span class="c"># Remove from wrong branch</span>
+<span class="c"># Or move last n commits to new branch</span>
+git branch &lt;new-branch&gt;
+git reset <span class="nt">--hard</span> HEAD~n
+git checkout &lt;new-branch&gt;
+</code></pre></div></div>
+
+<p><strong>Large File Issues</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git filter-branch <span class="nt">--tree-filter</span> <span class="s1">'rm -f &lt;large-file&gt;'</span> HEAD
+<span class="c"># Or use modern alternative</span>
+git filter-repo <span class="nt">--path</span> &lt;large-file&gt; <span class="nt">--invert-paths</span>
+</code></pre></div></div>
+
+<p><strong>Corrupted Repository</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--full</span>                      <span class="c"># Check repository integrity</span>
+git gc <span class="nt">--prune</span><span class="o">=</span>now                   <span class="c"># Clean up repository</span>
+git reflog expire <span class="nt">--expire</span><span class="o">=</span>now <span class="nt">--all</span> <span class="c"># Expire all reflog entries</span>
+</code></pre></div></div>
+
+<h2 id="performance-optimization">Performance Optimization</h2>
+
+<h3 id="config-optimizations">Config Optimizations</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config core.preloadindex <span class="nb">true</span>    <span class="c"># Speed up git status</span>
+git config core.fscache <span class="nb">true</span>         <span class="c"># Enable file system cache (Windows)</span>
+git config core.untrackedCache <span class="nb">true</span>  <span class="c"># Cache untracked files</span>
+git config feature.manyFiles <span class="nb">true</span>    <span class="c"># Optimize for many files</span>
+</code></pre></div></div>
+
+<h3 id="large-repository-handling">Large Repository Handling</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Shallow clone</span>
+git clone <span class="nt">--depth</span> 1 &lt;url&gt;            <span class="c"># Clone only latest commit</span>
+git clone <span class="nt">--shallow-since</span><span class="o">=</span>&lt;<span class="nb">date</span><span class="o">&gt;</span>     <span class="c"># Clone from specific date</span>
+git clone <span class="nt">--shallow-exclude</span><span class="o">=</span>&lt;rev&gt;    <span class="c"># Exclude specific revision</span>
+
+<span class="c"># Partial clone</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none &lt;url&gt;   <span class="c"># Clone without file contents</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>tree:0 &lt;url&gt;      <span class="c"># Clone without trees</span>
+</code></pre></div></div>
+
+<h2 id="integration-with-development-tools">Integration with Development Tools</h2>
+
+<h3 id="vs-code-integration">VS Code Integration</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> core.editor <span class="s2">"code --wait"</span>
+git config <span class="nt">--global</span> diff.tool vscode
+git config <span class="nt">--global</span> difftool.vscode.cmd <span class="s1">'code --wait --diff $LOCAL $REMOTE'</span>
+</code></pre></div></div>
+
+<h3 id="github-cli-integration">GitHub CLI Integration</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gh repo clone &lt;owner&gt;/&lt;repo&gt;         <span class="c"># Clone with GitHub CLI</span>
+gh <span class="nb">pr </span>create                         <span class="c"># Create pull request</span>
+gh <span class="nb">pr </span>checkout &lt;number&gt;              <span class="c"># Checkout PR locally</span>
+gh issue create                      <span class="c"># Create issue</span>
+</code></pre></div></div>
+
+<h3 id="pre-commit-hooks">Pre-commit Hooks</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install pre-commit framework</span>
+pip <span class="nb">install </span>pre-commit
+pre-commit <span class="nb">install</span>                   <span class="c"># Install git hooks</span>
+pre-commit run <span class="nt">--all-files</span>          <span class="c"># Run on all files</span>
+</code></pre></div></div>
+
+<h2 id="security-best-practices">Security Best Practices</h2>
+
+<h3 id="removing-sensitive-data">Removing Sensitive Data</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Remove file from all commits</span>
+git filter-branch <span class="nt">--force</span> <span class="nt">--index-filter</span> <span class="se">\</span>
+  <span class="s1">'git rm --cached --ignore-unmatch &lt;file&gt;'</span> <span class="se">\</span>
+  <span class="nt">--prune-empty</span> <span class="nt">--tag-name-filter</span> <span class="nb">cat</span> <span class="nt">--</span> <span class="nt">--all</span>
+
+<span class="c"># Modern alternative using git-filter-repo</span>
+git filter-repo <span class="nt">--path</span> &lt;sensitive-file&gt; <span class="nt">--invert-paths</span>
+</code></pre></div></div>
+
+<h3 id="secret-scanning">Secret Scanning</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use tools like git-secrets</span>
+git secrets <span class="nt">--install</span>
+git secrets <span class="nt">--register-aws</span>          <span class="c"># Register AWS patterns</span>
+git secrets <span class="nt">--scan</span>                  <span class="c"># Scan for secrets</span>
 </code></pre></div></div>
 
 <h2 id="additional-resources">Additional Resources</h2>
 
 <ul>
-  <li><a href="https://git-scm.com/book">Pro Git Book</a></li>
-  <li><a href="https://git-scm.com/docs">Git Documentation</a></li>
-  <li><a href="https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain">Git Internals</a></li>
+  <li><a href="https://git-scm.com/book">Pro Git Book</a> - Comprehensive Git guide</li>
+  <li><a href="https://git-scm.com/docs">Git Documentation</a> - Official reference</li>
+  <li><a href="https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain">Git Internals</a> - Deep dive</li>
+  <li><a href="https://skills.github.com/">GitHub Skills</a> - Interactive tutorials</li>
+  <li><a href="https://www.atlassian.com/git">Atlassian Git Tutorial</a> - Visual guides</li>
+  <li><a href="https://github.com/k88hudson/git-flight-rules">Git Flight Rules</a> - What to do when things go wrong</li>
 </ul>
 
       </section>

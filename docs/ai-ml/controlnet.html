@@ -808,6 +808,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>ControlNet is a neural network architecture that adds spatial control to diffusion models. It allows you to guide image generation using various types of conditioning inputs like human poses, edge maps, depth maps, and more, while maintaining the quality and capabilities of the base model.</p>
 
+<p>As of 2024, ControlNet has evolved significantly with new control types, better preprocessing, and support for newer models. The ecosystem now includes alternatives like T2I-Adapter, IP-Adapter, and InstantID that offer different trade-offs between control precision and flexibility.</p>
+
 <h3 id="how-controlnet-works">How ControlNet Works</h3>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Input Image → Preprocessor → Control Map
@@ -848,9 +850,19 @@ Text Prompt → Base Model + ControlNet → Controlled Output
 <p>More accurate pose estimation with better occlusion handling.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Advantages</span><span class="pi">:</span> <span class="s">Better accuracy, stable tracking</span>
-<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">More detailed skeleton</span>
+<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">More detailed skeleton</span>  
 <span class="na">Performance</span><span class="pi">:</span> <span class="s">Slower but more reliable</span>
 <span class="na">Use case</span><span class="pi">:</span> <span class="s">Complex poses, partial visibility</span>
+<span class="na">New</span><span class="pi">:</span> <span class="s">Whole-body estimation including hands/face</span>
+</code></pre></div></div>
+
+<h4 id="rtmpose">RTMPose</h4>
+<p>Real-time pose estimation with good accuracy.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Speed</span><span class="pi">:</span> <span class="s">Fastest option available</span>
+<span class="na">Accuracy</span><span class="pi">:</span> <span class="s">Good balance</span>
+<span class="na">Use case</span><span class="pi">:</span> <span class="s">Real-time applications</span>
+<span class="na">Platforms</span><span class="pi">:</span> <span class="s">Mobile-friendly</span>
 </code></pre></div></div>
 
 <h3 id="edge-detection">Edge Detection</h3>
@@ -1003,9 +1015,16 @@ Text Prompt → Base Model + ControlNet → Controlled Output
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install ControlNet models</span>
 <span class="nb">cd </span>ComfyUI/models/controlnet
 
-<span class="c"># Download models (example)</span>
+<span class="c"># Download models (example for SD 1.5)</span>
 wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth
 wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1p_sd15_depth.pth
+
+<span class="c"># For SDXL ControlNet</span>
+wget https://huggingface.co/diffusers/controlnet-canny-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors
+
+<span class="c"># Install preprocessor nodes</span>
+<span class="nb">cd</span> ../../custom_nodes
+git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 </code></pre></div></div>
 
 <h3 id="required-components">Required Components</h3>
@@ -1061,9 +1080,14 @@ wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reduce control over time for more creativity
 </span><span class="n">strength_schedule</span> <span class="o">=</span> <span class="p">{</span>
     <span class="mi">0</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>    <span class="c1"># Full control at start
-</span>    <span class="mf">0.5</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Reduce midway
+</span>    <span class="mf">0.5</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Reduce midway  
 </span>    <span class="mf">0.8</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>  <span class="c1"># Minimal at end
 </span><span class="p">}</span>
+
+<span class="c1"># Advanced scheduling with curves
+</span><span class="k">def</span> <span class="nf">cosine_schedule</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">):</span>
+    <span class="n">progress</span> <span class="o">=</span> <span class="n">step</span> <span class="o">/</span> <span class="n">total_steps</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">progress</span><span class="p">))</span>
 </code></pre></div></div>
 
 <h3 id="multiple-control-combinations">Multiple Control Combinations</h3>
@@ -1191,6 +1215,23 @@ wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f
 
 <h2 id="model-compatibility">Model Compatibility</h2>
 
+<h3 id="recent-developments-2024">Recent Developments (2024)</h3>
+
+<h4 id="new-control-types">New Control Types</h4>
+<ul>
+  <li><strong>QR Code Control</strong>: Generate scannable QR codes in artistic styles</li>
+  <li><strong>Illumination Control</strong>: Precise lighting direction control</li>
+  <li><strong>Recolor</strong>: Change colors while preserving structure</li>
+  <li><strong>Blur Control</strong>: Depth-of-field and focus control</li>
+</ul>
+
+<h4 id="model-support">Model Support</h4>
+<ul>
+  <li><strong>SDXL ControlNet</strong>: Full support with higher quality</li>
+  <li><strong>SD3 ControlNet</strong>: In development</li>
+  <li><strong>FLUX Support</strong>: Coming soon with new architecture</li>
+</ul>
+
 <h3 id="controlnet-versions">ControlNet Versions</h3>
 
 <table>
@@ -1214,8 +1255,13 @@ wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f
     </tr>
     <tr>
       <td>SDXL</td>
-      <td>SDXL</td>
-      <td>controlnet-<em>-sdxl-</em>.safetensors</td>
+      <td>SDXL v1</td>
+      <td>controlnet-<em>-sdxl-1.0</em>.safetensors</td>
+    </tr>
+    <tr>
+      <td>SD3</td>
+      <td>In Development</td>
+      <td>controlnet-<em>-sd3-</em>.safetensors</td>
     </tr>
     <tr>
       <td>FLUX</td>
@@ -1233,10 +1279,19 @@ wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f
 <span class="pi">-</span> <span class="s">Smaller model size (~80MB vs ~1.4GB)</span>
 <span class="pi">-</span> <span class="s">Faster inference</span>
 <span class="pi">-</span> <span class="s">Multiple adapters combinable</span>
+<span class="pi">-</span> <span class="s">Lower VRAM usage</span>
+<span class="pi">-</span> <span class="s">Better for real-time applications</span>
 
 <span class="na">Disadvantages</span><span class="pi">:</span>
 <span class="pi">-</span> <span class="s">Sometimes less precise</span>
 <span class="pi">-</span> <span class="s">Fewer available types</span>
+<span class="pi">-</span> <span class="s">May require more prompt engineering</span>
+</code></pre></div></div>
+
+<h3 id="ip-adapter-integration">IP-Adapter Integration</h3>
+
+<p>Combine ControlNet with IP-Adapter:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">ControlNet</span> <span class="n">Depth</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">IP</span><span class="o">-</span><span class="n">Adapter</span> <span class="n">Style</span><span class="p">]</span> <span class="o">=</span> <span class="n">Precise</span> <span class="n">structure</span> <span class="k">with</span> <span class="n">reference</span> <span class="n">style</span>
 </code></pre></div></div>
 
 <h2 id="common-workflows">Common Workflows</h2>
@@ -1379,20 +1434,25 @@ wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f
 <h3 id="emerging-controlnet-technologies">Emerging ControlNet Technologies</h3>
 
 <ol>
-  <li><strong>3D-Aware Control</strong>: Full 3D scene understanding</li>
-  <li><strong>Video ControlNet</strong>: Temporal consistency</li>
-  <li><strong>Semantic Editing</strong>: Natural language control</li>
-  <li><strong>Adaptive Control</strong>: Self-adjusting strength</li>
-  <li><strong>Neural Controls</strong>: Learned control patterns</li>
+  <li><strong>3D-Aware Control</strong>: Full 3D scene understanding with depth and normals</li>
+  <li><strong>Video ControlNet</strong>: Temporal consistency across frames</li>
+  <li><strong>Semantic Editing</strong>: Natural language region control</li>
+  <li><strong>Adaptive Control</strong>: AI-driven strength adjustment</li>
+  <li><strong>Neural Controls</strong>: Learned control patterns from examples</li>
+  <li><strong>Diffusion Illusions</strong>: Optical illusion generation</li>
+  <li><strong>Multi-Subject Control</strong>: Individual control over multiple subjects</li>
+  <li><strong>Mesh Control</strong>: Direct 3D mesh conditioning</li>
 </ol>
 
 <h3 id="integration-trends">Integration Trends</h3>
 
 <ul>
-  <li>Real-time control preview</li>
-  <li>Mobile-optimized controls</li>
-  <li>Cloud-based preprocessing</li>
-  <li>AI-assisted control creation</li>
+  <li><strong>Real-time Preview</strong>: See control effects instantly</li>
+  <li><strong>Mobile Optimization</strong>: On-device control processing</li>
+  <li><strong>Cloud Preprocessing</strong>: Offload heavy computation</li>
+  <li><strong>AI Control Generation</strong>: Generate control maps from prompts</li>
+  <li><strong>Cross-Model Support</strong>: Universal control formats</li>
+  <li><strong>Community Controls</strong>: User-created control types</li>
 </ul>
 
 <h2 id="conclusion">Conclusion</h2>

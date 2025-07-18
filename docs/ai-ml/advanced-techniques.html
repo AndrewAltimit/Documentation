@@ -829,6 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <li><a href="#classifier-free-guidance-rescale" id="markdown-toc-classifier-free-guidance-rescale">Classifier-Free Guidance Rescale</a></li>
       <li><a href="#dynamic-thresholding" id="markdown-toc-dynamic-thresholding">Dynamic Thresholding</a></li>
       <li><a href="#karras-noise-schedule" id="markdown-toc-karras-noise-schedule">Karras Noise Schedule</a></li>
+      <li><a href="#edm-sampling" id="markdown-toc-edm-sampling">EDM Sampling</a></li>
       <li><a href="#restart-sampling" id="markdown-toc-restart-sampling">Restart Sampling</a></li>
     </ol>
   </li>
@@ -840,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
   </li>
   <li><a href="#optimization-techniques" id="markdown-toc-optimization-techniques">Optimization Techniques</a>    <ol>
       <li><a href="#attention-optimization" id="markdown-toc-attention-optimization">Attention Optimization</a>        <ol>
-          <li><a href="#flash-attention" id="markdown-toc-flash-attention">Flash Attention</a></li>
+          <li><a href="#flash-attention-2" id="markdown-toc-flash-attention-2">Flash Attention 2</a></li>
           <li><a href="#token-merging-tome" id="markdown-toc-token-merging-tome">Token Merging (ToMe)</a></li>
         </ol>
       </li>
@@ -867,18 +868,25 @@ document.addEventListener('DOMContentLoaded', function() {
     </ol>
   </li>
   <li><a href="#experimental-techniques" id="markdown-toc-experimental-techniques">Experimental Techniques</a>    <ol>
-      <li><a href="#diffusion-distillation" id="markdown-toc-diffusion-distillation">Diffusion Distillation</a></li>
-      <li><a href="#consistency-models" id="markdown-toc-consistency-models">Consistency Models</a></li>
+      <li><a href="#consistency-distillation" id="markdown-toc-consistency-distillation">Consistency Distillation</a></li>
+      <li><a href="#adversarial-diffusion-distillation-add" id="markdown-toc-adversarial-diffusion-distillation-add">Adversarial Diffusion Distillation (ADD)</a></li>
+      <li><a href="#flow-matching" id="markdown-toc-flow-matching">Flow Matching</a></li>
       <li><a href="#neural-codec-integration" id="markdown-toc-neural-codec-integration">Neural Codec Integration</a></li>
     </ol>
   </li>
   <li><a href="#workflow-automation" id="markdown-toc-workflow-automation">Workflow Automation</a>    <ol>
       <li><a href="#batch-processing-pipeline" id="markdown-toc-batch-processing-pipeline">Batch Processing Pipeline</a></li>
       <li><a href="#ab-testing-framework" id="markdown-toc-ab-testing-framework">A/B Testing Framework</a></li>
+      <li><a href="#real-time-generation-pipeline" id="markdown-toc-real-time-generation-pipeline">Real-Time Generation Pipeline</a></li>
     </ol>
   </li>
   <li><a href="#performance-monitoring" id="markdown-toc-performance-monitoring">Performance Monitoring</a>    <ol>
       <li><a href="#generation-metrics" id="markdown-toc-generation-metrics">Generation Metrics</a></li>
+    </ol>
+  </li>
+  <li><a href="#cutting-edge-techniques-2024" id="markdown-toc-cutting-edge-techniques-2024">Cutting-Edge Techniques (2024)</a>    <ol>
+      <li><a href="#differential-diffusion" id="markdown-toc-differential-diffusion">Differential Diffusion</a></li>
+      <li><a href="#self-attention-guidance-sag" id="markdown-toc-self-attention-guidance-sag">Self-Attention Guidance (SAG)</a></li>
     </ol>
   </li>
   <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
@@ -894,6 +902,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <h2 id="overview">Overview</h2>
 
 <p>This guide covers advanced techniques that go beyond basic image generation, including latent space manipulation, regional prompting, advanced sampling methods, and complex multi-stage workflows.</p>
+
+<p>In 2024, the field has advanced with new techniques like consistency distillation, flow matching, and adversarial training methods that enable real-time generation without quality loss. These cutting-edge approaches are reshaping what’s possible with diffusion models.</p>
 
 <h2 id="latent-space-techniques">Latent Space Techniques</h2>
 
@@ -1058,6 +1068,25 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="k">return</span> <span class="n">sigmas</span>
 </code></pre></div></div>
 
+<h3 id="edm-sampling">EDM Sampling</h3>
+
+<p>Elucidated Diffusion Models approach:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">edm_sampler</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">sigmas</span><span class="p">,</span> <span class="n">s_churn</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">s_noise</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">EDM sampling with stochasticity control</span><span class="sh">"""</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">sigma_next</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">sigmas</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sigmas</span><span class="p">[</span><span class="mi">1</span><span class="p">:])):</span>
+        <span class="c1"># Add noise for stochasticity
+</span>        <span class="k">if</span> <span class="n">s_churn</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">gamma</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">s_churn</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">eps</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">s_noise</span>
+            <span class="n">sigma_hat</span> <span class="o">=</span> <span class="n">sigma</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">gamma</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="p">(</span><span class="n">sigma_hat</span> <span class="o">-</span> <span class="n">sigma</span><span class="p">)</span>
+        
+        <span class="c1"># Denoise
+</span>        <span class="n">x</span> <span class="o">=</span> <span class="nf">denoise_step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">sigma_hat</span><span class="p">,</span> <span class="n">sigma_next</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
+</code></pre></div></div>
+
 <h3 id="restart-sampling">Restart Sampling</h3>
 
 <p>Improve quality with strategic restarts:</p>
@@ -1123,13 +1152,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h3 id="attention-optimization">Attention Optimization</h3>
 
-<h4 id="flash-attention">Flash Attention</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable flash attention for speed
+<h4 id="flash-attention-2">Flash Attention 2</h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable flash attention 2 for speed
 </span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">use_flash_attention</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">use_flash_attention_2</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">attention_slice_size</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">attention_processor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">xformers</span><span class="sh">"</span>
+    <span class="sh">"</span><span class="s">attention_processor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">flash_attn</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">enable_math</span><span class="sh">"</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>  <span class="c1"># Disable for pure Flash Attention
+</span>    <span class="sh">"</span><span class="s">enable_mem_efficient</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span>
 <span class="p">}</span>
+
+<span class="c1"># With torch.compile for additional speedup
+</span><span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">compile</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="sh">"</span><span class="s">reduce-overhead</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h4 id="token-merging-tome">Token Merging (ToMe)</h4>
@@ -1294,38 +1328,78 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h2 id="experimental-techniques">Experimental Techniques</h2>
 
-<h3 id="diffusion-distillation">Diffusion Distillation</h3>
+<h3 id="consistency-distillation">Consistency Distillation</h3>
 
-<p>Create faster models:</p>
+<p>Latest approach for few-step generation:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Progressive distillation
-</span><span class="n">teacher_steps</span> <span class="o">=</span> <span class="mi">50</span>
-<span class="n">student_steps</span> <span class="o">=</span> <span class="mi">4</span>
-
-<span class="c1"># Train student to match teacher
-</span><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
-    <span class="n">teacher_output</span> <span class="o">=</span> <span class="nf">teacher_model</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">teacher_steps</span><span class="p">)</span>
-    <span class="n">student_output</span> <span class="o">=</span> <span class="nf">student_model</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="n">student_steps</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consistency distillation (LCM/TCD style)
+</span><span class="k">def</span> <span class="nf">consistency_distillation</span><span class="p">(</span><span class="n">teacher_model</span><span class="p">,</span> <span class="n">student_model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Train student for consistency</span><span class="sh">"""</span>
+    <span class="c1"># Teacher prediction
+</span>    <span class="k">with</span> <span class="n">torch</span><span class="p">.</span><span class="nf">no_grad</span><span class="p">():</span>
+        <span class="n">teacher_v</span> <span class="o">=</span> <span class="nf">teacher_model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">x_pred</span> <span class="o">=</span> <span class="nf">predict_x0</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">teacher_v</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
     
-    <span class="n">loss</span> <span class="o">=</span> <span class="nf">mse_loss</span><span class="p">(</span><span class="n">student_output</span><span class="p">,</span> <span class="n">teacher_output</span><span class="p">.</span><span class="nf">detach</span><span class="p">())</span>
-    <span class="nf">optimize_student</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+    <span class="c1"># Student should match at adjacent timesteps
+</span>    <span class="n">t_next</span> <span class="o">=</span> <span class="nf">get_adjacent_timestep</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="n">student_v</span> <span class="o">=</span> <span class="nf">student_model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t_next</span><span class="p">)</span>
+    
+    <span class="c1"># Consistency loss
+</span>    <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="p">.</span><span class="nf">mse_loss</span><span class="p">(</span><span class="n">student_v</span><span class="p">,</span> <span class="n">teacher_v</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">loss</span>
 </code></pre></div></div>
 
-<h3 id="consistency-models">Consistency Models</h3>
+<h3 id="adversarial-diffusion-distillation-add">Adversarial Diffusion Distillation (ADD)</h3>
 
-<p>Single-step generation:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GAN-based acceleration
+</span><span class="k">def</span> <span class="nf">add_training</span><span class="p">(</span><span class="n">generator</span><span class="p">,</span> <span class="n">discriminator</span><span class="p">,</span> <span class="n">real_images</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Adversarial Diffusion Distillation</span><span class="sh">"""</span>
+    <span class="c1"># Generate with few steps
+</span>    <span class="n">fake_images</span> <span class="o">=</span> <span class="nf">generator</span><span class="p">(</span><span class="n">noise</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    
+    <span class="c1"># Discriminator loss
+</span>    <span class="n">d_real</span> <span class="o">=</span> <span class="nf">discriminator</span><span class="p">(</span><span class="n">real_images</span><span class="p">)</span>
+    <span class="n">d_fake</span> <span class="o">=</span> <span class="nf">discriminator</span><span class="p">(</span><span class="n">fake_images</span><span class="p">.</span><span class="nf">detach</span><span class="p">())</span>
+    <span class="n">d_loss</span> <span class="o">=</span> <span class="nf">gan_loss</span><span class="p">(</span><span class="n">d_real</span><span class="p">,</span> <span class="n">d_fake</span><span class="p">)</span>
+    
+    <span class="c1"># Generator loss with perceptual component
+</span>    <span class="n">g_adv</span> <span class="o">=</span> <span class="nf">discriminator</span><span class="p">(</span><span class="n">fake_images</span><span class="p">)</span>
+    <span class="n">g_loss</span> <span class="o">=</span> <span class="nf">gan_loss</span><span class="p">(</span><span class="n">g_adv</span><span class="p">,</span> <span class="n">real</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span> <span class="o">+</span> \
+             <span class="nf">perceptual_loss</span><span class="p">(</span><span class="n">fake_images</span><span class="p">,</span> <span class="n">real_images</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">g_loss</span><span class="p">,</span> <span class="n">d_loss</span>
+</code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consistency training
-</span><span class="k">def</span> <span class="nf">consistency_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x_t</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Train model to be consistent across timesteps</span><span class="sh">"""</span>
-    <span class="c1"># Get two adjacent timesteps
-</span>    <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="nf">get_adjacent_timesteps</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+<h3 id="flow-matching">Flow Matching</h3>
+
+<p>Alternative to diffusion used in FLUX/SD3:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">flow_matching_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Rectified flow training</span><span class="sh">"""</span>
+    <span class="c1"># Interpolate between noise and data
+</span>    <span class="n">xt</span> <span class="o">=</span> <span class="n">t</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">x0</span>
     
-    <span class="c1"># Model should produce same output
-</span>    <span class="n">output1</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">t1</span><span class="p">)</span>
-    <span class="n">output2</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+    <span class="c1"># Target velocity
+</span>    <span class="n">target_v</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span>
     
-    <span class="k">return</span> <span class="nf">mse_loss</span><span class="p">(</span><span class="n">output1</span><span class="p">,</span> <span class="n">output2</span><span class="p">)</span>
+    <span class="c1"># Model prediction
+</span>    <span class="n">pred_v</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">xt</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+    
+    <span class="c1"># Matching loss
+</span>    <span class="k">return</span> <span class="n">F</span><span class="p">.</span><span class="nf">mse_loss</span><span class="p">(</span><span class="n">pred_v</span><span class="p">,</span> <span class="n">target_v</span><span class="p">)</span>
+
+<span class="c1"># Sampling with flow
+</span><span class="k">def</span> <span class="nf">sample_flow</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">ODE sampling for rectified flows</span><span class="sh">"""</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">steps</span>
+    <span class="n">xt</span> <span class="o">=</span> <span class="n">x0</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">dt</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">xt</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">xt</span> <span class="o">=</span> <span class="n">xt</span> <span class="o">+</span> <span class="n">v</span> <span class="o">*</span> <span class="n">dt</span>
+    
+    <span class="k">return</span> <span class="n">xt</span>
 </code></pre></div></div>
 
 <h3 id="neural-codec-integration">Neural Codec Integration</h3>
@@ -1396,6 +1470,42 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></div>
 
+<h3 id="real-time-generation-pipeline">Real-Time Generation Pipeline</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RealTimeGenerator</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Optimized for &lt;100ms generation</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">):</span>
+        <span class="c1"># Load optimized model
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="nf">load_lcm_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">compile</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">)</span>
+        
+        <span class="c1"># Pre-allocate tensors
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">noise</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">).</span><span class="nf">cuda</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">text_cache</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="nd">@torch.inference_mode</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">generate</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">prompt</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="c1"># Cache text encoding
+</span>        <span class="k">if</span> <span class="n">prompt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">text_cache</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">text_cache</span><span class="p">[</span><span class="n">prompt</span><span class="p">]</span> <span class="o">=</span> <span class="nf">encode_prompt</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+        
+        <span class="c1"># Fast generation
+</span>        <span class="k">if</span> <span class="n">seed</span><span class="p">:</span>
+            <span class="n">torch</span><span class="p">.</span><span class="nf">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        
+        <span class="c1"># 4-step LCM generation
+</span>        <span class="n">latents</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">noise</span><span class="p">.</span><span class="nf">clone</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">999</span><span class="p">,</span> <span class="mi">749</span><span class="p">,</span> <span class="mi">499</span><span class="p">,</span> <span class="mi">249</span><span class="p">]:</span>
+            <span class="n">latents</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">model</span><span class="p">(</span>
+                <span class="n">latents</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> 
+                <span class="n">self</span><span class="p">.</span><span class="n">text_cache</span><span class="p">[</span><span class="n">prompt</span><span class="p">],</span>
+                <span class="n">guidance_scale</span><span class="o">=</span><span class="mf">1.5</span>
+            <span class="p">)</span>
+        
+        <span class="k">return</span> <span class="nf">decode_latents</span><span class="p">(</span><span class="n">latents</span><span class="p">)</span>
+</code></pre></div></div>
+
 <h2 id="performance-monitoring">Performance Monitoring</h2>
 
 <h3 id="generation-metrics">Generation Metrics</h3>
@@ -1427,6 +1537,41 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="p">}</span>
 </code></pre></div></div>
 
+<h2 id="cutting-edge-techniques-2024">Cutting-Edge Techniques (2024)</h2>
+
+<h3 id="differential-diffusion">Differential Diffusion</h3>
+
+<p>Selective region control:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">differential_diffusion</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">strength_map</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Apply different denoising strengths by region</span><span class="sh">"""</span>
+    <span class="c1"># Decompose into regions
+</span>    <span class="n">regions</span> <span class="o">=</span> <span class="nf">segment_by_mask</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+    
+    <span class="c1"># Apply different schedules
+</span>    <span class="k">for</span> <span class="n">region</span><span class="p">,</span> <span class="n">strength</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">regions</span><span class="p">,</span> <span class="n">strength_map</span><span class="p">):</span>
+        <span class="n">region_schedule</span> <span class="o">=</span> <span class="nf">modify_schedule</span><span class="p">(</span><span class="n">base_schedule</span><span class="p">,</span> <span class="n">strength</span><span class="p">)</span>
+        <span class="n">regions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nf">denoise_region</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">region_schedule</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="nf">combine_regions</span><span class="p">(</span><span class="n">regions</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="self-attention-guidance-sag">Self-Attention Guidance (SAG)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">self_attention_guidance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Enhance details using self-attention maps</span><span class="sh">"""</span>
+    <span class="c1"># Get attention maps
+</span>    <span class="n">_</span><span class="p">,</span> <span class="n">attns</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">return_attention</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    
+    <span class="c1"># Blur attention for guidance
+</span>    <span class="n">blurred</span> <span class="o">=</span> <span class="nf">gaussian_blur</span><span class="p">(</span><span class="n">attns</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+    
+    <span class="c1"># Guided prediction
+</span>    <span class="n">pred</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+    <span class="n">guided</span> <span class="o">=</span> <span class="n">pred</span> <span class="o">+</span> <span class="n">scale</span> <span class="o">*</span> <span class="p">(</span><span class="n">attns</span> <span class="o">-</span> <span class="n">blurred</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">guided</span>
+</code></pre></div></div>
+
 <h2 id="best-practices">Best Practices</h2>
 
 <h3 id="workflow-design">Workflow Design</h3>
@@ -1437,6 +1582,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><strong>Documentation</strong>: Comment complex operations</li>
   <li><strong>Version Control</strong>: Track workflow changes</li>
   <li><strong>Performance</strong>: Profile and optimize bottlenecks</li>
+  <li><strong>Future-Proofing</strong>: Design for new model architectures</li>
 </ol>
 
 <h3 id="experimentation-guidelines">Experimentation Guidelines</h3>
@@ -1447,13 +1593,23 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><strong>Metrics</strong>: Define clear success criteria</li>
   <li><strong>Iteration</strong>: Start simple, add complexity</li>
   <li><strong>Documentation</strong>: Record successful configurations</li>
+  <li><strong>Benchmarking</strong>: Compare against established baselines</li>
+  <li><strong>Community Sharing</strong>: Contribute findings back</li>
 </ol>
 
 <h2 id="conclusion">Conclusion</h2>
 
-<p>Advanced techniques open up new possibilities in AI image generation, from precise control over the generation process to optimization for specific use cases. The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations to achieve your desired results.</p>
+<p>Advanced techniques open up new possibilities in AI image generation, from precise control over the generation process to optimization for specific use cases. The landscape in 2024 has shifted toward real-time generation, consistency models, and flow-based approaches that challenge traditional diffusion paradigms.</p>
 
-<p>As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.</p>
+<p>Key trends shaping the future:</p>
+<ul>
+  <li><strong>Real-time Generation</strong>: Sub-100ms image creation becoming standard</li>
+  <li><strong>Unified Architectures</strong>: Models handling multiple modalities seamlessly</li>
+  <li><strong>Adaptive Computation</strong>: Dynamic resource allocation based on complexity</li>
+  <li><strong>Neural Compression</strong>: Extreme model compression without quality loss</li>
+</ul>
+
+<p>The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations. As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.</p>
 
       </section>
     </div>

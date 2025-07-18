@@ -876,9 +876,19 @@ document.addEventListener('DOMContentLoaded', function() {
       <li><a href="#multi-model-ensemble" id="markdown-toc-multi-model-ensemble">Multi-Model Ensemble</a></li>
     </ol>
   </li>
+  <li><a href="#recent-comfyui-developments-2024" id="markdown-toc-recent-comfyui-developments-2024">Recent ComfyUI Developments (2024)</a>    <ol>
+      <li><a href="#new-features" id="markdown-toc-new-features">New Features</a></li>
+      <li><a href="#performance-improvements" id="markdown-toc-performance-improvements">Performance Improvements</a></li>
+    </ol>
+  </li>
   <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
       <li><a href="#workflow-organization" id="markdown-toc-workflow-organization">Workflow Organization</a></li>
       <li><a href="#sharing-workflows" id="markdown-toc-sharing-workflows">Sharing Workflows</a></li>
+    </ol>
+  </li>
+  <li><a href="#advanced-workflows-examples" id="markdown-toc-advanced-workflows-examples">Advanced Workflows Examples</a>    <ol>
+      <li><a href="#lcm-speed-workflow" id="markdown-toc-lcm-speed-workflow">LCM Speed Workflow</a></li>
+      <li><a href="#sd3-workflow" id="markdown-toc-sd3-workflow">SD3 Workflow</a></li>
     </ol>
   </li>
   <li><a href="#example-complete-flux-lora-workflow" id="markdown-toc-example-complete-flux-lora-workflow">Example: Complete FLUX LoRA Workflow</a></li>
@@ -889,7 +899,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h2 id="what-is-comfyui">What is ComfyUI?</h2>
 
-<p>ComfyUI is a powerful node-based interface for Stable Diffusion that enables users to create complex image generation workflows through visual programming. Unlike traditional UIs, ComfyUI exposes the entire generation pipeline as modular nodes that can be connected in countless ways.</p>
+<p>ComfyUI is a powerful node-based interface for Stable Diffusion and other diffusion models that enables users to create complex image generation workflows through visual programming. Unlike traditional UIs, ComfyUI exposes the entire generation pipeline as modular nodes that can be connected in countless ways.</p>
+
+<p>As of 2024, ComfyUI has become the de facto standard for advanced workflows, supporting all major models including SDXL, SD3, FLUX, and various video/audio models. Its modular architecture makes it ideal for experimenting with cutting-edge techniques.</p>
 
 <h3 id="key-advantages">Key Advantages</h3>
 
@@ -935,15 +947,18 @@ pip <span class="nb">install </span>torch torchvision torchaudio <span class="nt
 <span class="c"># Install dependencies</span>
 pip <span class="nb">install</span> <span class="nt">-r</span> requirements.txt
 
-<span class="c"># Install xformers for better performance (optional, must match PyTorch/CUDA version)</span>
-<span class="c"># For CUDA 11.8:</span>
-pip <span class="nb">install </span>xformers <span class="nt">--index-url</span> https://download.pytorch.org/whl/cu118
+<span class="c"># Install xformers for 2x+ speedup (highly recommended)</span>
+<span class="c"># Match your PyTorch/CUDA version</span>
+pip <span class="nb">install </span>xformers
 
-<span class="c"># For CUDA 12.1:</span>
-pip <span class="nb">install </span>xformers <span class="nt">--index-url</span> https://download.pytorch.org/whl/cu121
+<span class="c"># Optional: Install Flash Attention 2 for even better performance</span>
+pip <span class="nb">install </span>flash-attn <span class="nt">--no-build-isolation</span>
 
 <span class="c"># Run ComfyUI</span>
 python main.py
+
+<span class="c"># Or with specific arguments</span>
+python main.py <span class="nt">--listen</span> <span class="nt">--port</span> 8188 <span class="nt">--preview-method</span> auto
 </code></pre></div></div>
 
 <h3 id="directory-structure">Directory Structure</h3>
@@ -959,7 +974,10 @@ python main.py
 ├── input/              # Input images
 ├── output/             # Generated images
 ├── custom_nodes/       # Extensions
-└── workflows/          # Saved workflows
+├── web/                # Frontend files
+└── user/               # User data
+    └── default/
+        └── workflows/   # Saved workflows
 </code></pre></div></div>
 
 <h2 id="core-concepts">Core Concepts</h2>
@@ -983,6 +1001,8 @@ python main.py
   <li><strong>Image</strong>: Image processing and manipulation</li>
   <li><strong>Latent</strong>: Operations in latent space</li>
   <li><strong>Control</strong>: ControlNet and guidance nodes</li>
+  <li><strong>Advanced</strong>: Custom sampling, model merging</li>
+  <li><strong>Utils</strong>: Helper nodes for workflow control</li>
 </ol>
 
 <h3 id="workflow-execution">Workflow Execution</h3>
@@ -1172,6 +1192,28 @@ Outputs:
       <li>Preprocessors for ControlNet</li>
       <li>Edge detection</li>
       <li>Pose estimation</li>
+      <li>Depth estimation</li>
+    </ul>
+  </li>
+  <li><strong>AnimateDiff Evolved</strong>
+    <ul>
+      <li>Video generation</li>
+      <li>Motion LoRAs</li>
+      <li>Frame interpolation</li>
+    </ul>
+  </li>
+  <li><strong>IP-Adapter Plus</strong>
+    <ul>
+      <li>Advanced image prompting</li>
+      <li>Style transfer</li>
+      <li>Face consistency</li>
+    </ul>
+  </li>
+  <li><strong>GGUF Support</strong>
+    <ul>
+      <li>Load quantized models</li>
+      <li>Reduced VRAM usage</li>
+      <li>Mobile deployment</li>
     </ul>
   </li>
 </ol>
@@ -1201,7 +1243,7 @@ git clone https://github.com/user/custom-node-pack
 </span><span class="kn">import</span> <span class="n">requests</span>
 <span class="kn">import</span> <span class="n">json</span>
 
-<span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8189/mcp/tool</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8005/mcp/tool</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
     <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">generate-image</span><span class="sh">"</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">arguments</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
         <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cyberpunk city, neon lights, rain</span><span class="sh">"</span><span class="p">,</span>
@@ -1209,7 +1251,9 @@ git clone https://github.com/user/custom-node-pack
         <span class="sh">"</span><span class="s">lora</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cyberpunk_style.safetensors</span><span class="sh">"</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">width</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">height</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">30</span>
+        <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dpmpp_2m_sde_gpu</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">karras</span><span class="sh">"</span>
     <span class="p">}</span>
 <span class="p">})</span>
 </code></pre></div></div>
@@ -1230,15 +1274,20 @@ git clone https://github.com/user/custom-node-pack
 
 <h3 id="model-management">Model Management</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Complete</span> <span class="n">function</span> <span class="k">with</span> <span class="n">error</span> <span class="n">handling</span>
-<span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8189/mcp/tool</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Upload LoRA with metadata
+</span><span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8005/mcp/tool</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
     <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">upload-lora</span><span class="sh">"</span><span class="p">,</span>
     <span class="sh">"</span><span class="s">arguments</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
         <span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">my_style.safetensors</span><span class="sh">"</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">content</span><span class="sh">"</span><span class="p">:</span> <span class="n">base64_content</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">metadata</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
             <span class="sh">"</span><span class="s">trigger_words</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">mystyle</span><span class="sh">"</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">recommended_strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span>
+            <span class="sh">"</span><span class="s">recommended_strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">base_model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">training_details</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2000</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">dataset_size</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span>
+            <span class="p">}</span>
         <span class="p">}</span>
     <span class="p">}</span>
 <span class="p">})</span>
@@ -1273,10 +1322,15 @@ git clone https://github.com/user/custom-node-pack
 
 <p><strong>Low VRAM Techniques</strong>:</p>
 <ul>
-  <li>Use <code class="language-plaintext highlighter-rouge">--lowvram</code> flag</li>
-  <li>Enable model CPU offloading</li>
+  <li>Use <code class="language-plaintext highlighter-rouge">--lowvram</code> or <code class="language-plaintext highlighter-rouge">--cpu</code> flags</li>
+  <li>Enable sequential CPU offloading</li>
   <li>Use tiled VAE for large images</li>
   <li>Reduce batch size</li>
+  <li>Use fp8/int8 quantized models</li>
+  <li>Enable smart memory management:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python main.py <span class="nt">--lowvram</span> <span class="nt">--use-split-cross-attention</span>
+</code></pre></div>    </div>
+  </li>
 </ul>
 
 <p><strong>Efficient Node Usage</strong>:</p>
@@ -1376,6 +1430,27 @@ git clone https://github.com/user/custom-node-pack
 <span class="p">[</span><span class="n">Model2</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Latent</span><span class="p">]</span>
 </code></pre></div></div>
 
+<h2 id="recent-comfyui-developments-2024">Recent ComfyUI Developments (2024)</h2>
+
+<h3 id="new-features">New Features</h3>
+
+<ol>
+  <li><strong>Execution Caching</strong>: Smart caching prevents re-execution</li>
+  <li><strong>Node Templates</strong>: Save and reuse node configurations</li>
+  <li><strong>Workflow Components</strong>: Encapsulate sub-workflows</li>
+  <li><strong>Better Preview</strong>: Real-time latent preview options</li>
+  <li><strong>Auto Queue Management</strong>: Intelligent batch processing</li>
+</ol>
+
+<h3 id="performance-improvements">Performance Improvements</h3>
+
+<ul>
+  <li><strong>Torch Compile</strong>: Up to 30% speed improvement</li>
+  <li><strong>Better Memory Management</strong>: Automatic VRAM optimization</li>
+  <li><strong>Parallel Execution</strong>: Multiple independent paths</li>
+  <li><strong>Smart Model Loading</strong>: Reduced loading times</li>
+</ul>
+
 <h2 id="best-practices">Best Practices</h2>
 
 <h3 id="workflow-organization">Workflow Organization</h3>
@@ -1386,6 +1461,7 @@ git clone https://github.com/user/custom-node-pack
       <li>Use descriptive node titles</li>
       <li>Group nodes by function</li>
       <li>Color code by purpose</li>
+      <li>Use reroute nodes for clarity</li>
     </ul>
   </li>
   <li><strong>Documentation</strong>
@@ -1393,6 +1469,7 @@ git clone https://github.com/user/custom-node-pack
       <li>Add Note nodes for complex sections</li>
       <li>Include parameter explanations</li>
       <li>Document model requirements</li>
+      <li>Version your workflows</li>
     </ul>
   </li>
   <li><strong>Version Control</strong>
@@ -1400,6 +1477,7 @@ git clone https://github.com/user/custom-node-pack
       <li>Save incremental versions</li>
       <li>Export workflows as JSON</li>
       <li>Track model dependencies</li>
+      <li>Use git for workflow files</li>
     </ul>
   </li>
 </ol>
@@ -1424,6 +1502,26 @@ git clone https://github.com/user/custom-node-pack
   </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.4</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
+
+<h2 id="advanced-workflows-examples">Advanced Workflows Examples</h2>
+
+<h3 id="lcm-speed-workflow">LCM Speed Workflow</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 4-step generation with LCM
+</span><span class="p">[</span><span class="n">SDXL</span> <span class="n">Checkpoint</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">LCM</span><span class="o">-</span><span class="n">LoRA</span> <span class="n">Loader</span> <span class="o">@</span> <span class="mf">1.0</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span>
+                                                    <span class="err">│</span>
+                                              <span class="n">cfg</span><span class="p">:</span> <span class="mf">1.5</span><span class="o">-</span><span class="mf">2.5</span>
+                                              <span class="n">steps</span><span class="p">:</span> <span class="mi">4</span><span class="o">-</span><span class="mi">8</span>
+                                              <span class="n">sampler</span><span class="p">:</span> <span class="n">lcm</span>
+</code></pre></div></div>
+
+<h3 id="sd3-workflow">SD3 Workflow</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SD3 with triple text encoding
+</span><span class="p">[</span><span class="n">SD3</span> <span class="n">Checkpoint</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Triple</span> <span class="n">Text</span> <span class="n">Encode</span><span class="p">]</span>
+                          <span class="err">│</span>
+                    <span class="p">[</span><span class="n">CLIP</span> <span class="n">L</span><span class="p">]</span> <span class="p">[</span><span class="n">CLIP</span> <span class="n">G</span><span class="p">]</span> <span class="p">[</span><span class="n">T5</span><span class="p">]</span>
+                          <span class="err">↓</span>
+                    <span class="p">[</span><span class="n">KSampler</span><span class="p">:</span> <span class="n">shift</span><span class="o">=</span><span class="mf">3.0</span><span class="p">]</span>
+</code></pre></div></div>
 
 <h2 id="example-complete-flux-lora-workflow">Example: Complete FLUX LoRA Workflow</h2>
 

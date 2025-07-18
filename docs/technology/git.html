@@ -818,7 +818,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="insight-card">
       <i class="fas fa-shield-alt"></i>
       <h4>Cryptographic Integrity</h4>
-      <p>SHA-1/SHA-256 content addressing (SHA-256 recommended)</p>
+      <p>SHA-256 content addressing (SHA-1 deprecated)</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-network-wired"></i>
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><strong>Stores complete history locally</strong>: Every clone is a full backup</li>
   <li><strong>Works offline</strong>: Most operations don’t need network access</li>
   <li><strong>Branches are lightweight</strong>: Creating/merging branches is fast and easy</li>
-  <li><strong>Guarantees data integrity</strong>: Uses SHA-1/SHA-256 checksums for all data</li>
+  <li><strong>Guarantees data integrity</strong>: Uses SHA-256 checksums for all data (SHA-1 legacy support)</li>
   <li><strong>Supports non-linear development</strong>: Multiple parallel branches and complex merges</li>
 </ul>
 
@@ -1002,14 +1002,14 @@ git fetch <span class="nt">--prune</span>           <span class="c"># Clean stal
 
 <h3 id="content-addressable-storage-theory">Content-Addressable Storage Theory</h3>
 
-<p>Git implements a content-addressable filesystem where objects are stored and retrieved by their SHA-1 hash. This provides cryptographic integrity and enables efficient storage through deduplication.</p>
+<p>Git implements a content-addressable filesystem where objects are stored and retrieved by their cryptographic hash. This provides integrity guarantees and enables efficient storage through deduplication.</p>
 
 <p><strong>Key Components:</strong></p>
 <ul>
   <li><strong>GitObject</strong>: Base class for all Git objects (blob, tree, commit, tag)</li>
-  <li><strong>SHA-1 Hashing</strong>: Content addressing using cryptographic hashes
+  <li><strong>SHA-256 Hashing</strong>: Content addressing using cryptographic hashes (recommended)
     <ul>
-      <li><strong>⚠️ Security Notice</strong>: SHA-1 is cryptographically broken and deprecated. While Git still uses SHA-1 by default for backward compatibility, it’s recommended to migrate to SHA-256 for new repositories using <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code></li>
+      <li><strong>⚠️ Security Notice</strong>: SHA-1 is cryptographically broken. New repositories should use SHA-256 with <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code>. Git 2.42+ supports automatic algorithm detection and interoperability</li>
     </ul>
   </li>
   <li><strong>Compression</strong>: zlib compression for efficient storage</li>
@@ -1018,9 +1018,12 @@ git fetch <span class="nt">--prune</span>           <span class="c"># Clean stal
 </ul>
 
 <p><strong>Object Model:</strong></p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Creating a Git object
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Creating a Git object (SHA-256 recommended)
 </span><span class="n">header</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">blob </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="se">\0</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
-<span class="n">sha1</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="c1"># SHA-256 for new repositories
+</span><span class="n">sha256</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="c1"># SHA-1 for legacy compatibility
+</span><span class="n">sha1</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
 <span class="n">compressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="p">.</span><span class="nf">compress</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -1063,7 +1066,7 @@ Their changes
 
 <h3 id="object-storage-implementation">Object Storage Implementation</h3>
 
-<p>Git uses a content-addressable storage system where objects are identified by their SHA-1 hash. The storage system includes:</p>
+<p>Git uses a content-addressable storage system where objects are identified by their cryptographic hash (SHA-256 recommended, SHA-1 legacy). The storage system includes:</p>
 
 <p><strong>Key Components:</strong></p>
 <ul>
@@ -1076,8 +1079,9 @@ Their changes
 <p><strong>Storage Format:</strong></p>
 <ul>
   <li>Objects are compressed using zlib</li>
-  <li>Directory structure uses first 2 characters of SHA-1 for sharding</li>
+  <li>Directory structure uses first 2 characters of hash for sharding</li>
   <li>Pack files use delta compression to reduce storage size</li>
+  <li>SHA-256 repositories use extended object format for compatibility</li>
 </ul>
 
 <blockquote>
