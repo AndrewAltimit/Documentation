@@ -1,0 +1,351 @@
+{% comment %}
+  Code Tabs Component - Display code examples at different complexity levels
+  
+  Usage:
+  {% capture simple_code %}
+  # Simple version
+  def hello():
+      print("Hello, World!")
+  {% endcapture %}
+  
+  {% capture advanced_code %}
+  # Production-ready version
+  import logging
+  
+  def hello(name: str = "World") -> None:
+      """Greet someone with proper logging."""
+      try:
+          logging.info(f"Greeting {name}")
+          print(f"Hello, {name}!")
+      except Exception as e:
+          logging.error(f"Failed to greet: {e}")
+          raise
+  {% endcapture %}
+  
+  {% include code-tabs.html 
+     tabs="Simple:simple_code,Advanced:advanced_code"
+     language="python" %}
+  
+  Parameters:
+  - tabs: Comma-separated list of "Label:variable_name" pairs
+  - language: Programming language for syntax highlighting
+  - default_tab: Which tab to show by default (1-indexed, default: 1)
+{% endcomment %}
+
+{% assign tab_id = include.tabs | replace: ' ', '' | replace: ',', '-' | replace: ':', '-' %}
+{% assign default_tab = include.default_tab | default: 1 %}
+{% assign language = include.language | default: "plaintext" %}
+
+<div class="code-tabs-container" id="tabs-{{ tab_id }}">
+  <div class="code-tabs-header">
+    {% assign tab_pairs = include.tabs | split: ',' %}
+    {% for tab_pair in tab_pairs %}
+      {% assign tab_parts = tab_pair | split: ':' %}
+      {% assign tab_label = tab_parts[0] %}
+      {% assign is_active = forloop.index == default_tab %}
+      
+      <button class="code-tab {% if is_active %}active{% endif %}" 
+              onclick="switchCodeTab('{{ tab_id }}', {{ forloop.index }})"
+              data-tab-index="{{ forloop.index }}">
+        {% if tab_label contains "Simple" or tab_label contains "Basic" %}
+          <i class="fas fa-seedling"></i>
+        {% elsif tab_label contains "Advanced" or tab_label contains "Production" %}
+          <i class="fas fa-cog"></i>
+        {% elsif tab_label contains "Example" %}
+          <i class="fas fa-code"></i>
+        {% else %}
+          <i class="fas fa-file-code"></i>
+        {% endif %}
+        {{ tab_label }}
+      </button>
+    {% endfor %}
+    
+    <div class="code-actions">
+      <button class="copy-button" onclick="copyCode('{{ tab_id }}')" title="Copy code">
+        <i class="fas fa-copy"></i>
+      </button>
+    </div>
+  </div>
+  
+  <div class="code-tabs-content">
+    {% for tab_pair in tab_pairs %}
+      {% assign tab_parts = tab_pair | split: ':' %}
+      {% assign tab_var = tab_parts[1] %}
+      {% assign is_active = forloop.index == default_tab %}
+      
+      <div class="code-tab-panel {% if is_active %}active{% endif %}" 
+           data-panel-index="{{ forloop.index }}">
+        {% if tab_var == "simple_code" %}
+          <pre><code class="language-{{ language }}">{{ simple_code | xml_escape }}</code></pre>
+        {% elsif tab_var == "advanced_code" %}
+          <pre><code class="language-{{ language }}">{{ advanced_code | xml_escape }}</code></pre>
+        {% elsif tab_var == "example_code" %}
+          <pre><code class="language-{{ language }}">{{ example_code | xml_escape }}</code></pre>
+        {% elsif tab_var == "complete_code" %}
+          <pre><code class="language-{{ language }}">{{ complete_code | xml_escape }}</code></pre>
+        {% elsif tab_var == "simple_config" %}
+          <pre><code class="language-{{ language }}">{{ simple_config | xml_escape }}</code></pre>
+        {% elsif tab_var == "advanced_config" %}
+          <pre><code class="language-{{ language }}">{{ advanced_config | xml_escape }}</code></pre>
+        {% elsif tab_var == "staging_patterns" %}
+          <pre><code class="language-{{ language }}">{{ staging_patterns | xml_escape }}</code></pre>
+        {% elsif tab_var == "undo_changes" %}
+          <pre><code class="language-{{ language }}">{{ undo_changes | xml_escape }}</code></pre>
+        {% else %}
+          <pre><code class="language-{{ language }}">{{ include[tab_var] | xml_escape }}</code></pre>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+.code-tabs-container {
+  margin: 1.5rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.code-tabs-header {
+  display: flex;
+  align-items: center;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0;
+  gap: 1px;
+}
+
+.code-tab {
+  flex: 0 0 auto;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.code-tab:hover {
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.code-tab.active {
+  background: #ffffff;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.code-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #4299e1;
+}
+
+.code-tab i {
+  font-size: 0.875rem;
+}
+
+.code-tab i.fa-seedling {
+  color: #48bb78;
+}
+
+.code-tab i.fa-cog {
+  color: #ed8936;
+}
+
+.code-tab i.fa-code {
+  color: #4299e1;
+}
+
+.code-actions {
+  margin-left: auto;
+  padding: 0 1rem;
+}
+
+.copy-button {
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #718096;
+  transition: all 0.2s ease;
+}
+
+.copy-button:hover {
+  background: #edf2f7;
+  color: #4a5568;
+}
+
+.copy-button.copied {
+  color: #48bb78;
+  border-color: #48bb78;
+}
+
+.copy-button.copied i::before {
+  content: "\f00c"; /* Font Awesome check icon */
+}
+
+.code-tabs-content {
+  position: relative;
+  background: #f8f8f8;
+}
+
+.code-tab-panel {
+  display: none;
+}
+
+.code-tab-panel.active {
+  display: block;
+}
+
+/* Override syntax highlighting container styles */
+.code-tab-panel .highlight {
+  margin: 0;
+  border-radius: 0;
+}
+
+.code-tab-panel pre {
+  margin: 0;
+  padding: 1.5rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Language badge */
+.code-tabs-container::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #4a5568;
+  z-index: 10;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .code-tabs-header {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  
+  .code-tab {
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  
+  .code-tab-panel pre {
+    padding: 1rem;
+    font-size: 0.8125rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .code-tabs-container {
+    background: #1a202c;
+    border-color: #2d3748;
+  }
+  
+  .code-tabs-header {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+  
+  .code-tab {
+    color: #a0aec0;
+  }
+  
+  .code-tab:hover {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .code-tab.active {
+    background: #1a202c;
+    color: #f7fafc;
+  }
+  
+  .code-tabs-content {
+    background: #2d3748;
+  }
+}
+</style>
+
+<script>
+function switchCodeTab(containerId, tabIndex) {
+  const container = document.getElementById(`tabs-${containerId}`);
+  
+  // Update active tab
+  container.querySelectorAll('.code-tab').forEach((tab, index) => {
+    tab.classList.toggle('active', index + 1 === tabIndex);
+  });
+  
+  // Update active panel
+  container.querySelectorAll('.code-tab-panel').forEach((panel, index) => {
+    panel.classList.toggle('active', index + 1 === tabIndex);
+  });
+  
+  // Save preference
+  const pageId = '{{ page.id }}';
+  const tabPrefs = JSON.parse(localStorage.getItem(`code_tab_prefs_${pageId}`) || '{}');
+  tabPrefs[containerId] = tabIndex;
+  localStorage.setItem(`code_tab_prefs_${pageId}`, JSON.stringify(tabPrefs));
+}
+
+function copyCode(containerId) {
+  const container = document.getElementById(`tabs-${containerId}`);
+  const activePanel = container.querySelector('.code-tab-panel.active');
+  const code = activePanel.querySelector('pre').textContent;
+  
+  navigator.clipboard.writeText(code).then(() => {
+    const button = container.querySelector('.copy-button');
+    button.classList.add('copied');
+    
+    setTimeout(() => {
+      button.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// Restore tab preferences
+document.addEventListener('DOMContentLoaded', function() {
+  const pageId = '{{ page.id }}';
+  const tabPrefs = JSON.parse(localStorage.getItem(`code_tab_prefs_${pageId}`) || '{}');
+  
+  Object.entries(tabPrefs).forEach(([containerId, tabIndex]) => {
+    const container = document.getElementById(`tabs-${containerId}`);
+    if (container) {
+      switchCodeTab(containerId, tabIndex);
+    }
+  });
+  
+  // Add language data attribute for CSS
+  document.querySelectorAll('.code-tabs-container').forEach(container => {
+    const language = '{{ language }}';
+    if (language && language !== 'plaintext') {
+      container.setAttribute('data-language', language);
+    }
+  });
+});
+</script>

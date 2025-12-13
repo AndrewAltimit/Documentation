@@ -1,0 +1,929 @@
+---
+layout: docs
+title: Thermodynamics
+toc: true
+toc_sticky: true
+toc_label: "On This Page"
+toc_icon: "cog"
+---
+
+
+<!-- Custom styles are now loaded via main.scss -->
+
+---
+
+**The Science of Heat and Energy: From Steam Engines to Stars**
+
+*Explore the fundamental laws that govern energy transformation and the arrow of time*
+
+Thermodynamics is the branch of physics that deals with heat, work, temperature, and the statistical behavior of systems with large numbers of particles. It bridges the microscopic world of atoms and molecules with the macroscopic properties we observe.
+
+---
+
+## Overview
+
+**Fundamental Laws**
+- [The Laws of Thermodynamics](#the-laws-of-thermodynamics)
+- [Thermodynamic Processes](#thermodynamic-processes)
+- [State Functions and Properties](#state-functions-and-properties)
+
+**Applications**
+- [Heat Engines](#heat-engines)
+- [Refrigerators and Heat Pumps](#refrigerators-and-heat-pumps)
+- [Phase Transitions](#phase-transitions)
+
+**Advanced Topics**
+- [Maxwell Relations](#maxwell-relations)
+- [Chemical Thermodynamics](#chemical-thermodynamics)
+- [Non-equilibrium Thermodynamics](#non-equilibrium-thermodynamics)
+
+---
+
+## Fundamental Concepts
+
+### The Laws of Thermodynamics
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.gutenberg.org/files/33229/33229-pdf.pdf"> Paper: <b><i>Reflections on the Motive Power of Fire</i></b> - Sadi Carnot</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=Xb05CaG7TsQ"> Video: <b><i>The Laws of Thermodynamics Explained</i></b></a></p>
+
+<center>
+<a href="https://andrewaltimit.github.io/Documentation/images/physics/thermodynamics-laws.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/physics/thermodynamics-laws.png" alt="The Four Laws of Thermodynamics" width="80%">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://en.wikipedia.org/wiki/Laws_of_thermodynamics">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Visual Summary of Thermodynamic Laws</i></b></a>
+</p>
+</center>
+
+#### Zeroth Law
+If two systems are in thermal equilibrium with a third system, they are in thermal equilibrium with each other. This law establishes temperature as a fundamental thermodynamic property.
+
+$$T_A = T_C \text{ and } T_B = T_C \Rightarrow T_A = T_B$$
+
+#### First Law (Conservation of Energy)
+Energy cannot be created or destroyed, only transformed from one form to another. For a closed system:
+
+$$dU = \delta Q - \delta W$$
+
+Where:
+- $dU$ is the change in internal energy
+- $\delta Q$ is the heat added to the system
+- $\delta W$ is the work done by the system
+
+For a cyclic process: $\oint \delta Q = \oint \delta W$
+
+#### Second Law
+The entropy of an isolated system never decreases. There are several equivalent formulations:
+
+**Clausius Statement**: Heat cannot spontaneously flow from cold to hot.
+
+**Kelvin-Planck Statement**: No engine can convert all heat into work.
+
+**Entropy Statement**: For an isolated system:
+$$dS \geq 0$$
+
+For a reversible process: $dS = \frac{\delta Q_{rev}}{T}$
+
+#### Third Law
+As temperature approaches absolute zero, the entropy of a perfect crystal approaches zero:
+
+$$\lim_{T \to 0} S = 0$$
+
+## Thermodynamic Processes
+
+<details>
+<summary><b>Interactive P-V Diagram: Thermodynamic Processes</b></summary>
+<br>
+
+```mermaid
+graph TD
+    subgraph "P-V Diagram"
+        A[Initial State<br/>P₁, V₁, T₁] -->|Isothermal<br/>T = constant| B[State 2<br/>P₂, V₂, T₁]
+        A -->|Adiabatic<br/>Q = 0| C[State 3<br/>P₃, V₃, T₂]
+        A -->|Isobaric<br/>P = constant| D[State 4<br/>P₁, V₄, T₃]
+        A -->|Isochoric<br/>V = constant| E[State 5<br/>P₅, V₁, T₄]
+    end
+    
+    F[Legend] --> G[Isothermal: PV = constant]
+    F --> H[Adiabatic: PVᵞ = constant]
+    F --> I[Isobaric: P = constant]
+    F --> J[Isochoric: V = constant]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style F fill:#ccf,stroke:#333,stroke-width:2px
+```
+
+</details>
+
+<center>
+<a href="https://andrewaltimit.github.io/Documentation/images/physics/pv-diagrams-processes.gif">
+<img src="https://andrewaltimit.github.io/Documentation/images/physics/pv-diagrams-processes.gif" alt="P-V Diagrams for Different Processes" width="70%">
+</a>
+<br>
+<p class="referenceBoxes type2">
+<a href="https://phet.colorado.edu/en/simulation/gas-properties">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Interactive: <b><i>Gas Properties Simulation</i></b></a>
+</p>
+</center>
+
+### Isothermal Process
+Temperature remains constant: $T = \text{constant}$
+
+For an ideal gas:
+- $PV = nRT = \text{constant}$
+- Work done: $W = nRT \ln\left(\frac{V_f}{V_i}\right)$
+- Internal energy change: $\Delta U = 0$
+
+### Adiabatic Process
+No heat exchange: $\delta Q = 0$
+
+For an ideal gas:
+- $PV^\gamma = \text{constant}$
+- $TV^{\gamma-1} = \text{constant}$
+- Where $\gamma = \frac{C_P}{C_V}$ is the heat capacity ratio
+
+### Isobaric Process
+Pressure remains constant: $P = \text{constant}$
+
+Work done: $W = P(V_f - V_i)$
+
+### Isochoric Process
+Volume remains constant: $V = \text{constant}$
+
+Work done: $W = 0$
+
+## State Functions and Properties
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Lecture: <b><i>The Laws of Thermodynamics - Feynman Lectures</i></b></a></p>
+
+<a href="https://andrewaltimit.github.io/Documentation/images/physics/state-functions-diagram.png">
+<img src="https://andrewaltimit.github.io/Documentation/images/physics/state-functions-diagram.png" alt="State Functions Relationships" width="400px" style="float:right; margin: 20px;">
+</a>
+
+### Internal Energy (U)
+Total energy contained within a system, excluding kinetic and potential energy of the system as a whole.
+
+For an ideal gas: $U = nC_VT$
+
+### Enthalpy (H)
+$$H = U + PV$$
+
+Useful for processes at constant pressure:
+$$dH = dU + PdV + VdP$$
+
+At constant pressure: $dH = \delta Q_P$
+
+### Entropy (S)
+Measure of disorder or number of accessible microstates:
+
+$$S = k_B \ln \Omega$$
+
+Where $\Omega$ is the number of microstates and $k_B$ is Boltzmann's constant.
+
+### Gibbs Free Energy (G)
+$$G = H - TS$$
+
+Determines spontaneity at constant temperature and pressure:
+- $\Delta G < 0$: Spontaneous process
+- $\Delta G = 0$: Equilibrium
+- $\Delta G > 0$: Non-spontaneous
+
+### Helmholtz Free Energy (F)
+$$F = U - TS$$
+
+Useful for processes at constant temperature and volume.
+
+## Maxwell Relations
+
+Derived from the equality of mixed partial derivatives:
+
+$$\left(\frac{\partial T}{\partial V}\right)_S = -\left(\frac{\partial P}{\partial S}\right)_V$$
+
+$$\left(\frac{\partial T}{\partial P}\right)_S = \left(\frac{\partial V}{\partial S}\right)_P$$
+
+$$\left(\frac{\partial S}{\partial V}\right)_T = \left(\frac{\partial P}{\partial T}\right)_V$$
+
+$$\left(\frac{\partial S}{\partial P}\right)_T = -\left(\frac{\partial V}{\partial T}\right)_P$$
+
+## Phase Transitions
+
+### Clausius-Clapeyron Equation
+Describes the phase boundary between two phases:
+
+$$\frac{dP}{dT} = \frac{L}{T\Delta V}$$
+
+Where $L$ is the latent heat and $\Delta V$ is the volume change.
+
+For vapor-liquid equilibrium:
+$$\ln\left(\frac{P_2}{P_1}\right) = -\frac{\Delta H_{vap}}{R}\left(\frac{1}{T_2} - \frac{1}{T_1}\right)$$
+
+### Critical Point
+Where liquid and gas phases become indistinguishable:
+- Critical temperature $T_c$
+- Critical pressure $P_c$
+- Critical volume $V_c$
+
+## Heat Engines and Refrigerators
+
+### Carnot Engine
+The most efficient heat engine operating between two temperatures:
+
+Efficiency: $\eta = 1 - \frac{T_C}{T_H}$
+
+Where $T_H$ is the hot reservoir temperature and $T_C$ is the cold reservoir temperature.
+
+### Carnot Refrigerator
+Coefficient of Performance (COP):
+$$\text{COP} = \frac{T_C}{T_H - T_C}$$
+
+### Otto Cycle
+Models the idealized gasoline engine:
+1. Adiabatic compression
+2. Isochoric heat addition
+3. Adiabatic expansion
+4. Isochoric heat rejection
+
+Efficiency: $\eta = 1 - \frac{1}{r^{\gamma-1}}$
+
+Where $r$ is the compression ratio.
+
+## Real Gases
+
+### Van der Waals Equation
+Accounts for molecular size and intermolecular forces:
+
+$$\left(P + \frac{an^2}{V^2}\right)(V - nb) = nRT$$
+
+Where:
+- $a$ accounts for attractive forces
+- $b$ accounts for molecular volume
+
+### Virial Expansion
+$$\frac{PV}{nRT} = 1 + \frac{B(T)}{V} + \frac{C(T)}{V^2} + ...$$
+
+Where $B(T)$, $C(T)$ are virial coefficients.
+
+## Chemical Thermodynamics
+
+### Chemical Potential
+For species $i$ in a mixture:
+$$\mu_i = \left(\frac{\partial G}{\partial n_i}\right)_{T,P,n_{j\neq i}}$$
+
+### Reaction Equilibrium
+At equilibrium:
+$$\sum_i \nu_i \mu_i = 0$$
+
+Where $\nu_i$ are stoichiometric coefficients.
+
+### Equilibrium Constant
+$$K = \exp\left(-\frac{\Delta G^\circ}{RT}\right)$$
+
+## Code Examples
+
+### Carnot Engine Simulation
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+import matplotlib.patches as mpatches
+
+def carnot_cycle(T_hot=600, T_cold=300, V1=1.0, V2=2.0):
+    """
+    Simulate a Carnot cycle and calculate efficiency
+    """
+    gamma = 1.4  # Heat capacity ratio for diatomic gas
+    
+    # State points
+    # 1->2: Isothermal expansion at T_hot
+    # 2->3: Adiabatic expansion
+    # 3->4: Isothermal compression at T_cold
+    # 4->1: Adiabatic compression
+    
+    # Calculate V3 and V4 using adiabatic relations
+    # For adiabatic process: TV^(γ-1) = constant
+    # From state 2 to 3: T_hot * V2^(γ-1) = T_cold * V3^(γ-1)
+    V3 = V2 * (T_hot/T_cold)**(1/(gamma-1))
+    V4 = V1 * (T_hot/T_cold)**(1/(gamma-1))
+    
+    # Generate P-V diagram
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    
+    # Process 1->2: Isothermal expansion
+    V_12 = np.linspace(V1, V2, 100)
+    P_12 = T_hot / V_12  # Using PV = nRT (normalized)
+    
+    # Process 2->3: Adiabatic expansion
+    V_23 = np.linspace(V2, V3, 100)
+    P_23 = P_12[-1] * (V2/V_23)**gamma
+    
+    # Process 3->4: Isothermal compression
+    V_34 = np.linspace(V3, V4, 100)
+    P_34 = T_cold / V_34
+    
+    # Process 4->1: Adiabatic compression
+    V_41 = np.linspace(V4, V1, 100)
+    P_41 = P_34[-1] * (V4/V_41)**gamma
+    
+    # Plot P-V diagram
+    ax1.plot(V_12, P_12, 'r-', linewidth=2, label='1→2: Isothermal (T_hot)')
+    ax1.plot(V_23, P_23, 'b-', linewidth=2, label='2→3: Adiabatic')
+    ax1.plot(V_34, P_34, 'g-', linewidth=2, label='3→4: Isothermal (T_cold)')
+    ax1.plot(V_41, P_41, 'm-', linewidth=2, label='4→1: Adiabatic')
+    
+    # Mark state points
+    states = [(V1, T_hot/V1, '1'), (V2, T_hot/V2, '2'), 
+              (V3, T_cold/V3, '3'), (V4, T_cold/V4, '4')]
+    for V, P, label in states:
+        ax1.plot(V, P, 'ko', markersize=8)
+        ax1.annotate(label, (V, P), xytext=(5, 5), textcoords='offset points')
+    
+    ax1.fill([V1] + list(V_12) + list(V_23) + list(V_34) + list(V_41), 
+             [P_12[0]] + list(P_12) + list(P_23) + list(P_34) + list(P_41), 
+             alpha=0.3, color='yellow')
+    
+    ax1.set_xlabel('Volume (V)')
+    ax1.set_ylabel('Pressure (P)')
+    ax1.set_title('Carnot Cycle P-V Diagram')
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    
+    # Calculate and display efficiency
+    efficiency = 1 - T_cold/T_hot
+    work = T_hot * np.log(V2/V1) - T_cold * np.log(V3/V4)
+    
+    # Energy flow diagram
+    ax2.set_xlim(0, 10)
+    ax2.set_ylim(0, 10)
+    ax2.axis('off')
+    
+    # Hot reservoir
+    hot_rect = Rectangle((1, 7), 3, 2, facecolor='red', alpha=0.5)
+    ax2.add_patch(hot_rect)
+    ax2.text(2.5, 8, f'T_hot = {T_hot}K', ha='center', va='center', fontsize=12)
+    
+    # Engine
+    engine_rect = Rectangle((2, 4), 2, 2, facecolor='gray', alpha=0.5)
+    ax2.add_patch(engine_rect)
+    ax2.text(3, 5, 'Carnot\nEngine', ha='center', va='center', fontsize=10)
+    
+    # Cold reservoir
+    cold_rect = Rectangle((1, 1), 3, 2, facecolor='blue', alpha=0.5)
+    ax2.add_patch(cold_rect)
+    ax2.text(2.5, 2, f'T_cold = {T_cold}K', ha='center', va='center', fontsize=12)
+    
+    # Energy arrows
+    ax2.arrow(3, 7, 0, -0.8, head_width=0.2, head_length=0.1, fc='red', ec='red')
+    ax2.text(3.5, 6.5, 'Q_hot', fontsize=10)
+    
+    ax2.arrow(4, 5, 1, 0, head_width=0.2, head_length=0.1, fc='green', ec='green')
+    ax2.text(5.5, 5, f'W = {work:.2f}', fontsize=10)
+    
+    ax2.arrow(3, 4, 0, -0.8, head_width=0.2, head_length=0.1, fc='blue', ec='blue')
+    ax2.text(3.5, 3.5, 'Q_cold', fontsize=10)
+    
+    ax2.text(7, 8, f'Efficiency = {efficiency:.1%}', fontsize=14, 
+             bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.5))
+    ax2.text(7, 7, f'η = 1 - T_cold/T_hot', fontsize=10)
+    
+    ax2.set_title('Carnot Engine Energy Flow')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return efficiency, work
+
+# Run simulation
+eff, work = carnot_cycle(T_hot=600, T_cold=300)
+print(f"Carnot efficiency: {eff:.1%}")
+print(f"Work output (normalized): {work:.2f}")
+```
+
+<details>
+<summary><b>Expected Output</b></summary>
+<br>
+The code produces two visualizations:
+<ol>
+<li>Left: P-V diagram showing the four processes of the Carnot cycle with the enclosed area representing work done</li>
+<li>Right: Energy flow diagram showing heat flow from hot to cold reservoir and work output</li>
+</ol>
+Console output shows:
+<ul>
+<li>Carnot efficiency: 50.0%</li>
+<li>Work output (normalized): 0.69</li>
+</ul>
+</details>
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/scipy/scipy/blob/main/scipy/constants/constants.py"> Library: <b><i>SciPy Constants - Thermodynamic Constants</i></b></a></p>
+
+## Applications
+
+### Power Generation
+- Steam turbines using Rankine cycle
+- Gas turbines using Brayton cycle
+- Combined cycle power plants
+
+### Refrigeration and Air Conditioning
+- Vapor compression cycle
+- Absorption refrigeration
+- Heat pumps
+
+### Chemical Engineering
+- Distillation column design
+- Reaction engineering
+- Process optimization
+
+### Materials Science
+- Phase diagram analysis
+- Crystal growth
+- Heat treatment of materials
+
+## Legendre Transformations and Thermodynamic Potentials
+
+### Mathematical Framework
+
+Legendre transformations connect different thermodynamic potentials:
+
+**General Legendre transformation:**
+```
+F(p) = px - f(x)
+```
+where p = df/dx
+
+### Thermodynamic Potentials
+
+**Internal Energy:** U(S,V,N)
+```
+dU = TdS - PdV + μdN
+```
+
+**Enthalpy:** H(S,P,N) = U + PV
+```
+dH = TdS + VdP + μdN
+```
+
+**Helmholtz Free Energy:** F(T,V,N) = U - TS
+```
+dF = -SdT - PdV + μdN
+```
+
+**Gibbs Free Energy:** G(T,P,N) = U - TS + PV
+```
+dG = -SdT + VdP + μdN
+```
+
+**Grand Potential:** Ω(T,V,μ) = U - TS - μN
+```
+dΩ = -SdT - PdV - Ndμ
+```
+
+### Maxwell Relations Extended
+
+From the exactness of differentials:
+
+| Potential | Variables | Maxwell Relations |
+|-----------|-----------|------------------|
+| U | S,V,N | (∂T/∂V)_{S,N} = -(∂P/∂S)_{V,N} |
+| H | S,P,N | (∂T/∂P)_{S,N} = (∂V/∂S)_{P,N} |
+| F | T,V,N | (∂S/∂V)_{T,N} = (∂P/∂T)_{V,N} |
+| G | T,P,N | (∂S/∂P)_{T,N} = -(∂V/∂T)_{P,N} |
+
+### Thermodynamic Square
+
+```
+        U -------- H
+        |          |
+        |          |
+        F -------- G
+```
+
+Diagonal relationships:
+- U + G = H + F = TS + μN
+
+## Critical Phenomena and Phase Transitions
+
+### Critical Exponents
+
+Near the critical point (T_c), thermodynamic quantities follow power laws:
+
+| Quantity | Definition | Exponent |
+|----------|------------|----------|
+| Specific heat | C ∼ |t|^{-α} | α |
+| Order parameter | m ∼ |t|^β | β |
+| Susceptibility | χ ∼ |t|^{-γ} | γ |
+| Correlation length | ξ ∼ |t|^{-ν} | ν |
+| Critical isotherm | m ∼ H^{1/δ} | δ |
+| Correlation function | G(r) ∼ r^{-(d-2+η)} | η |
+
+Where t = (T - T_c)/T_c is the reduced temperature.
+
+### Scaling Relations
+
+**Rushbrooke:** α + 2β + γ = 2
+**Griffiths:** α + β(1 + δ) = 2
+**Widom:** γ = β(δ - 1)
+**Fisher:** γ = ν(2 - η)
+**Josephson:** dν = 2 - α (hyperscaling)
+
+### Landau Theory
+
+Free energy expansion near critical point:
+```
+F = F_0 + at²m² + bm⁴ + cm⁶ + ... - Hm
+```
+
+**Mean-field critical exponents:**
+- α = 0 (logarithmic)
+- β = 1/2
+- γ = 1
+- δ = 3
+- ν = 1/2
+- η = 0
+
+### Renormalization Group Theory
+
+**RG transformation:** R maps Hamiltonian H → H'
+
+**Fixed points:** H* = R(H*)
+
+**Scaling dimensions:** y_i eigenvalues of linearized RG
+- Relevant: y_i > 0
+- Marginal: y_i = 0  
+- Irrelevant: y_i < 0
+
+**Universality:** Systems with same symmetry and dimensionality have same critical exponents
+
+## Statistical Foundations
+
+### Ensemble Theory
+
+**Microcanonical (NVE):**
+```
+S = k_B ln Ω(E,V,N)
+Ω(E,V,N) = ∫ δ(H - E) dΓ
+```
+
+**Canonical (NVT):**
+```
+Z = ∫ exp(-βH) dΓ
+F = -k_B T ln Z
+```
+
+**Grand Canonical (μVT):**
+```
+Ξ = Σ_N exp(βμN) Z_N
+Ω = -k_B T ln Ξ
+```
+
+### Fluctuations and Response Functions
+
+**Fluctuation-dissipation theorem:**
+```
+⟨(δA)²⟩ = k_B T² (∂⟨A⟩/∂T)_{X}
+```
+
+**Specific heat:**
+```
+C_V = (∂U/∂T)_V = ⟨(δE)²⟩/(k_B T²)
+```
+
+**Compressibility:**
+```
+κ_T = -(1/V)(∂V/∂P)_T = ⟨(δV)²⟩/(k_B T V)
+```
+
+**Magnetic susceptibility:**
+```
+χ = (∂M/∂H)_T = β⟨(δM)²⟩
+```
+
+## Non-equilibrium Thermodynamics
+
+### Linear Response Theory
+
+**Onsager regression hypothesis:**
+Fluctuations decay like macroscopic perturbations
+
+**Transport coefficients:**
+```
+J_i = Σ_j L_{ij} X_j
+```
+
+Where J_i are fluxes and X_j are thermodynamic forces.
+
+**Onsager reciprocity:**
+```
+L_{ij} = L_{ji}
+```
+
+### Entropy Production
+
+**Local entropy production:**
+```
+σ = Σ_i J_i X_i ≥ 0
+```
+
+**Minimum entropy production:** For steady states near equilibrium
+
+### Fluctuation Theorems
+
+**Crooks relation:**
+```
+P_F(W)/P_R(-W) = exp(βW - βΔF)
+```
+
+**Jarzynski equality:**
+```
+⟨exp(-βW)⟩ = exp(-βΔF)
+```
+
+**Gallavotti-Cohen theorem:** For entropy production
+```
+P(Σ_τ = A)/P(Σ_τ = -A) = exp(τA/k_B)
+```
+
+## Advanced Phase Transitions
+
+### Kosterlitz-Thouless Transition
+
+Topological phase transition in 2D:
+- No true long-range order (Mermin-Wagner)
+- Quasi-long-range order below T_KT
+- Vortex-antivortex unbinding
+
+**Correlation function:**
+```
+G(r) ∼ r^{-η(T)} for T < T_KT
+G(r) ∼ exp(-r/ξ) for T > T_KT
+```
+
+### Quantum Phase Transitions
+
+Phase transitions at T = 0 driven by quantum fluctuations:
+
+**Scaling ansatz:**
+```
+F(g,T) = b^{-(d+z)}F(gb^{1/ν}, Tb^z)
+```
+
+Where z is dynamical critical exponent.
+
+### Glass Transitions
+
+**Kauzmann paradox:** Extrapolated entropy becomes negative
+
+**Vogel-Fulcher law:**
+```
+τ = τ_0 exp[DT_0/(T - T_0)]
+```
+
+**Adam-Gibbs theory:** Relates relaxation to configurational entropy
+
+## Computational Methods
+
+### Monte Carlo Methods
+
+```python
+def metropolis_ising_2d(L, T, n_steps):
+    """Metropolis algorithm for 2D Ising model"""
+    # Initialize random spin configuration
+    spins = 2*np.random.randint(2, size=(L, L)) - 1
+    beta = 1.0/T
+    
+    # Precompute Boltzmann factors
+    w = {}
+    for dE in [-8, -4, 0, 4, 8]:
+        w[dE] = np.exp(-beta * dE)
+    
+    magnetization = []
+    energy = []
+    
+    for step in range(n_steps):
+        # Choose random spin
+        i = np.random.randint(L)
+        j = np.random.randint(L)
+        
+        # Calculate energy change
+        s = spins[i, j]
+        neighbors = spins[(i+1)%L, j] + spins[i, (j+1)%L] + \
+                   spins[(i-1)%L, j] + spins[i, (j-1)%L]
+        dE = 2 * s * neighbors
+        
+        # Metropolis acceptance
+        if dE <= 0 or np.random.random() < w[dE]:
+            spins[i, j] = -s
+        
+        # Measure observables
+        if step % 10 == 0:
+            magnetization.append(np.mean(spins))
+            energy.append(calculate_energy(spins))
+    
+    return magnetization, energy, spins
+
+def wolff_cluster_algorithm(spins, T):
+    """Wolff cluster algorithm for reduced critical slowing"""
+    L = len(spins)
+    p_add = 1 - np.exp(-2.0/T)
+    
+    # Choose random spin
+    i0, j0 = np.random.randint(L, size=2)
+    cluster_spin = spins[i0, j0]
+    
+    # Build cluster
+    cluster = {(i0, j0)}
+    boundary = {(i0, j0)}
+    
+    while boundary:
+        i, j = boundary.pop()
+        
+        # Check neighbors
+        for di, dj in [(1,0), (-1,0), (0,1), (0,-1)]:
+            ni, nj = (i+di)%L, (j+dj)%L
+            
+            if (ni, nj) not in cluster and \
+               spins[ni, nj] == cluster_spin and \
+               np.random.random() < p_add:
+                cluster.add((ni, nj))
+                boundary.add((ni, nj))
+    
+    # Flip cluster
+    for i, j in cluster:
+        spins[i, j] = -spins[i, j]
+    
+    return len(cluster)
+```
+
+### Density Functional Theory
+
+**Grand potential functional:**
+```
+Ω[ρ] = F[ρ] + ∫ dr ρ(r)[V_{ext}(r) - μ]
+```
+
+**Euler-Lagrange equation:**
+```
+δF/δρ(r) + V_{ext}(r) = μ
+```
+
+**Mean-field approximation:**
+```
+F[ρ] = k_B T ∫ dr ρ(r)[ln(ρ(r)Λ³) - 1] + (1/2) ∫∫ dr dr' ρ(r)ρ(r')V(|r-r'|)
+```
+
+## Modern Research Topics
+
+### Active Matter Thermodynamics
+
+**Entropy production in active systems:**
+```
+Π = Π_{housekeeping} + Π_{excess}
+```
+
+**Pressure in active fluids:** Violates equation of state
+
+**Effective temperature:** Different for different degrees of freedom
+
+### Stochastic Thermodynamics
+
+**Langevin equation:**
+```
+m\ddot{x} = -γ\dot{x} - ∂U/∂x + √(2γk_B T) ξ(t)
+```
+
+**Work fluctuations:** ⟨e^{-βW}⟩ = e^{-βΔF}
+
+**Information thermodynamics:** 
+Maxwell's demon, Szilard engine, feedback control
+
+### Quantum Thermodynamics
+
+**Quantum work:**
+```
+W = Σ_n E_n(λ_f)[p_n(λ_f) - p_n(λ_i)]
+```
+
+**Quantum heat engines:** Otto cycle with quantum working medium
+
+**Thermodynamic uncertainty relations:**
+```
+(ΔJ)²/⟨J⟩² ≥ 2k_B T/⟨Σ⟩
+```
+
+### Machine Learning Applications
+
+**Neural networks for phase classification:**
+```python
+def build_phase_classifier():
+    model = tf.keras.Sequential([
+        tf.keras.layers.Conv2D(32, (3,3), activation='relu'),
+        tf.keras.layers.MaxPooling2D(2,2),
+        tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dense(1, activation='sigmoid')
+    ])
+    return model
+```
+
+**Variational free energy calculations:** Neural network ansatz for density matrices
+
+## Research Frontiers
+
+### Thermodynamics of Information
+
+**Landauer's principle:** Erasing one bit costs k_B T ln 2
+
+**Information engines:** Extract work from information
+
+**Quantum information thermodynamics:** Entanglement as resource
+
+### Extreme Conditions
+
+**Negative temperature systems:** Population inversion
+
+**Black hole thermodynamics:** 
+- Bekenstein-Hawking entropy: S = k_B A/(4l_P²)
+- Hawking temperature: T = ℏc³/(8πGMk_B)
+
+### Biological Systems
+
+**Efficiency of molecular motors:** Often near theoretical limits
+
+**Thermodynamics of self-replication:** Minimum dissipation requirements
+
+**Non-equilibrium steady states:** Maintenance of life
+
+## References and Further Reading
+
+### Graduate Textbooks
+1. **Callen** - *Thermodynamics and an Introduction to Thermostatistics*
+2. **Reichl** - *A Modern Course in Statistical Physics*
+3. **Chandler** - *Introduction to Modern Statistical Mechanics*
+4. **Kardar** - *Statistical Physics of Particles* and *Statistical Physics of Fields*
+
+### Research Monographs  
+1. **Goldenfeld** - *Lectures on Phase Transitions and the Renormalization Group*
+2. **Chaikin & Lubensky** - *Principles of Condensed Matter Physics*
+3. **Seifert** - *Stochastic Thermodynamics* (Rep. Prog. Phys. 2012)
+4. **Jarzynski** - *Nonequilibrium Work Relations* (C. R. Physique 2007)
+
+### Recent Reviews
+1. **Active Matter:** Marchetti et al., Rev. Mod. Phys. 85, 1143 (2013)
+2. **Fluctuation Theorems:** Sevick et al., Annu. Rev. Phys. Chem. 59, 603 (2008)  
+3. **Quantum Thermodynamics:** Vinjanampathy & Anders, Contemp. Phys. 57, 545 (2016)
+4. **Information Thermodynamics:** Parrondo et al., Nat. Phys. 11, 131 (2015)
+
+### Computational Resources
+1. **LAMMPS:** Large-scale MD simulations
+2. **Monte Carlo codes:** ALPS, SpinMC
+3. **Phase diagram software:** CALPHAD, Thermo-Calc
+4. **Python libraries:** pyro, emcee, thermopy
+
+## Advanced Mathematical Methods
+
+### Jacobians and Thermodynamic Derivatives
+
+**Jacobian notation:**
+```
+∂(u,v)/∂(x,y) = |∂u/∂x  ∂u/∂y|
+                |∂v/∂x  ∂v/∂y|
+```
+
+**Chain rule:**
+```
+∂(u,v)/∂(x,y) = ∂(u,v)/∂(s,t) × ∂(s,t)/∂(x,y)
+```
+
+**Thermodynamic identities:**
+```
+(∂T/∂P)_S = ∂(T,S)/∂(P,S) = -∂(T,S)/∂(S,P) = -∂(T,V)/∂(S,P) × ∂(S,P)/∂(S,V)
+```
+
+### Stability Conditions
+
+**Thermodynamic stability requires:**
+1. C_V > 0 (thermal stability)
+2. κ_T > 0 (mechanical stability)
+3. (∂μ/∂N)_{T,V} > 0 (diffusive stability)
+
+**Convexity of thermodynamic potentials:**
+- S(U,V,N) is concave
+- U(S,V,N) is convex
+- F(T,V,N) is convex in V
+- G(T,P,N) is convex in N
+
+---
+
+## Essential Resources
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Book: <b><i>The Feynman Lectures on Physics - Thermodynamics</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://ocw.mit.edu/courses/chemistry/5-60-thermodynamics-kinetics-spring-2008/"> Course: <b><i>MIT 5.60 Thermodynamics & Kinetics</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://youtube.com/playlist?list=PLA62087102CC93765"> Video Series: <b><i>Thermodynamics - MIT OpenCourseWare</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/CalebBell/thermo"> Library: <b><i>Thermo - Chemical Engineering Thermodynamics in Python</i></b></a></p>
+
+---
+
+## See Also
+- [Statistical Mechanics](statistical-mechanics.html) - Microscopic foundation of thermodynamics
+- [Classical Mechanics](classical-mechanics.html) - For understanding work and energy
+- [Quantum Mechanics](quantum-mechanics.html) - For quantum statistical mechanics

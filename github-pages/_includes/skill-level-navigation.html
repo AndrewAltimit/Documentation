@@ -1,0 +1,195 @@
+{% comment %}
+  Skill Level Navigation Component
+  Usage: {% include skill-level-navigation.html current_level="intermediate" %}
+  
+  Parameters:
+  - current_level: "beginner", "intermediate", or "advanced"
+  - topic: The current topic name (optional, defaults to page.title)
+  - beginner_link: URL to beginner version
+  - intermediate_link: URL to intermediate version
+  - advanced_link: URL to advanced version
+{% endcomment %}
+
+{% assign current = include.current_level | default: page.difficulty_level | default: "intermediate" %}
+{% assign topic_name = include.topic | default: page.title %}
+
+<div class="skill-level-navigation" data-current-level="{{ current }}">
+  <div class="skill-level-header">
+    <h4>Difficulty Level</h4>
+    <div class="current-level-indicator">
+      <span class="level-badge level-{{ current }}">{{ current | capitalize }}</span>
+    </div>
+  </div>
+  
+  <div class="skill-level-selector">
+    <div class="level-options">
+      {% if include.beginner_link %}
+        <a href="{{ include.beginner_link }}" 
+           class="level-option {% if current == 'beginner' %}active{% endif %}"
+           data-level="beginner">
+          <span class="level-icon">🌱</span>
+          <span class="level-label">Beginner</span>
+          <span class="level-description">New to {{ topic_name }}</span>
+        </a>
+      {% endif %}
+      
+      {% if include.intermediate_link %}
+        <a href="{{ include.intermediate_link }}" 
+           class="level-option {% if current == 'intermediate' %}active{% endif %}"
+           data-level="intermediate">
+          <span class="level-icon">🌿</span>
+          <span class="level-label">Intermediate</span>
+          <span class="level-description">Some experience</span>
+        </a>
+      {% endif %}
+      
+      {% if include.advanced_link %}
+        <a href="{{ include.advanced_link }}" 
+           class="level-option {% if current == 'advanced' %}active{% endif %}"
+           data-level="advanced">
+          <span class="level-icon">🌳</span>
+          <span class="level-label">Advanced</span>
+          <span class="level-description">Deep expertise</span>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  
+  <div class="level-transition-hint">
+    {% if current == 'beginner' and include.intermediate_link %}
+      <p>Ready for more? Try the <a href="{{ include.intermediate_link }}">intermediate version</a></p>
+    {% elsif current == 'intermediate' %}
+      {% if include.beginner_link %}
+        <p>Need simpler? Check the <a href="{{ include.beginner_link }}">beginner version</a></p>
+      {% endif %}
+      {% if include.advanced_link %}
+        <p>Want deeper? Explore the <a href="{{ include.advanced_link }}">advanced version</a></p>
+      {% endif %}
+    {% elsif current == 'advanced' and include.intermediate_link %}
+      <p>Need review? See the <a href="{{ include.intermediate_link }}">intermediate version</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.skill-level-navigation {
+  background: var(--skill-nav-bg, #f8f9fa);
+  border: 1px solid var(--skill-nav-border, #dee2e6);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.skill-level-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.skill-level-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-secondary, #495057);
+}
+
+.current-level-indicator .level-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.level-badge.level-beginner {
+  background: #d4edda;
+  color: #155724;
+}
+
+.level-badge.level-intermediate {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.level-badge.level-advanced {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.level-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.level-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.level-option:hover {
+  background: var(--level-hover-bg, #fff);
+  border-color: var(--level-hover-border, #0066cc);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.level-option.active {
+  background: var(--level-active-bg, #fff);
+  border-color: var(--level-active-border, #0066cc);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.level-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.level-label {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.level-description {
+  font-size: 0.875rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.level-transition-hint {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light, #e9ecef);
+  font-size: 0.9rem;
+  color: var(--text-secondary, #495057);
+}
+
+.level-transition-hint p {
+  margin: 0;
+}
+
+.level-transition-hint a {
+  color: var(--link-color, #0066cc);
+  font-weight: 500;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .skill-level-navigation {
+    --skill-nav-bg: #1a1a1a;
+    --skill-nav-border: #333;
+    --text-secondary: #b0b0b0;
+    --text-muted: #808080;
+    --level-hover-bg: #2a2a2a;
+    --level-active-bg: #2a2a2a;
+    --border-light: #333;
+  }
+}
+</style>

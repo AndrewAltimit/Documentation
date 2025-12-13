@@ -1,0 +1,397 @@
+{% comment %}
+  Prerequisite Check Component
+  
+  Usage: {% include prerequisite-check.html prerequisites=page.prerequisites %}
+  
+  Parameters:
+  - prerequisites: Array of prerequisite objects with id, title, and required fields
+  - compact: Boolean for compact display mode (optional)
+{% endcomment %}
+
+{% assign compact_mode = include.compact | default: false %}
+
+<div class="prerequisite-check {% if compact_mode %}compact{% endif %}">
+  <div class="prerequisite-header">
+    <h3>
+      <i class="fas fa-tasks"></i>
+      Prerequisites
+    </h3>
+    <button class="check-all-btn" onclick="checkAllPrerequisites()">
+      Check My Knowledge
+    </button>
+  </div>
+  
+  <div class="prerequisite-list">
+    {% for prereq in include.prerequisites %}
+      {% assign prereq_type = "recommended" %}
+      {% if prereq.required %}
+        {% assign prereq_type = "required" %}
+      {% endif %}
+      
+      <div class="prerequisite-item {{ prereq_type }}" data-prereq-id="{{ prereq.id }}">
+        <div class="prereq-status">
+          <i class="status-icon fas fa-circle-notch"></i>
+        </div>
+        
+        <div class="prereq-content">
+          <div class="prereq-title">
+            <span class="prereq-type-badge {{ prereq_type }}">
+              <i class="fas fa-{{ site.data.metadata.prerequisite_types[prereq_type].icon }}"></i>
+              {{ site.data.metadata.prerequisite_types[prereq_type].label }}
+            </span>
+            <a href="/docs/{{ prereq.id }}" class="prereq-link">
+              {{ prereq.title }}
+            </a>
+          </div>
+          
+          {% if prereq.description %}
+            <p class="prereq-description">{{ prereq.description }}</p>
+          {% endif %}
+          
+          {% unless compact_mode %}
+            <div class="prereq-actions">
+              <button class="test-knowledge-btn" onclick="testPrerequisite('{{ prereq.id }}')">
+                <i class="fas fa-clipboard-check"></i>
+                Test My Knowledge
+              </button>
+              <a href="/docs/{{ prereq.id }}" class="review-btn">
+                <i class="fas fa-book-open"></i>
+                Review Material
+              </a>
+            </div>
+          {% endunless %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  
+  <div class="prerequisite-summary" style="display: none;">
+    <div class="summary-content">
+      <p class="summary-message"></p>
+      <div class="summary-actions">
+        <button class="proceed-btn" style="display: none;">
+          <i class="fas fa-arrow-right"></i>
+          Continue to Content
+        </button>
+        <button class="review-missing-btn" style="display: none;">
+          <i class="fas fa-book"></i>
+          Review Missing Prerequisites
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.prerequisite-check {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+
+.prerequisite-check.compact {
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.prerequisite-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.prerequisite-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.check-all-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.check-all-btn:hover {
+  background: #0056b3;
+}
+
+.prerequisite-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.prerequisite-item:last-child {
+  margin-bottom: 0;
+}
+
+.prerequisite-item.required {
+  border-left: 4px solid #dc3545;
+}
+
+.prerequisite-item.recommended {
+  border-left: 4px solid #ffc107;
+}
+
+.prereq-status {
+  margin-right: 1rem;
+  font-size: 1.25rem;
+}
+
+.status-icon {
+  color: #6c757d;
+  transition: all 0.3s;
+}
+
+.status-icon.checking {
+  animation: spin 1s linear infinite;
+}
+
+.status-icon.completed {
+  color: #28a745;
+}
+
+.status-icon.incomplete {
+  color: #dc3545;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.prereq-content {
+  flex: 1;
+}
+
+.prereq-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.prereq-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.prereq-type-badge.required {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.prereq-type-badge.recommended {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.prereq-link {
+  font-weight: 600;
+  color: #007bff;
+  text-decoration: none;
+}
+
+.prereq-link:hover {
+  text-decoration: underline;
+}
+
+.prereq-description {
+  margin: 0.5rem 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.prereq-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.prereq-actions button,
+.prereq-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #495057;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prereq-actions button:hover,
+.prereq-actions a:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.prerequisite-summary {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #e9ecef;
+  border-radius: 6px;
+}
+
+.summary-message {
+  margin: 0 0 1rem 0;
+  font-weight: 500;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.proceed-btn,
+.review-missing-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.proceed-btn {
+  background: #28a745;
+  color: white;
+}
+
+.proceed-btn:hover {
+  background: #218838;
+}
+
+.review-missing-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.review-missing-btn:hover {
+  background: #e0a800;
+}
+
+/* Compact mode styles */
+.compact .prerequisite-header h3 {
+  font-size: 1.1rem;
+}
+
+.compact .prerequisite-item {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.compact .prereq-actions {
+  display: none;
+}
+
+.compact .prereq-description {
+  display: none;
+}
+</style>
+
+<script>
+// Check if prerequisites are completed (from localStorage)
+document.addEventListener('DOMContentLoaded', function() {
+  const completedPrereqs = JSON.parse(localStorage.getItem('completedPrerequisites') || '{}');
+  
+  document.querySelectorAll('.prerequisite-item').forEach(item => {
+    const prereqId = item.dataset.prereqId;
+    if (completedPrereqs[prereqId]) {
+      item.querySelector('.status-icon').className = 'status-icon fas fa-check-circle completed';
+    }
+  });
+});
+
+function checkAllPrerequisites() {
+  const items = document.querySelectorAll('.prerequisite-item');
+  let checking = 0;
+  let completed = 0;
+  let required_missing = 0;
+  
+  items.forEach((item, index) => {
+    const icon = item.querySelector('.status-icon');
+    icon.className = 'status-icon fas fa-circle-notch checking';
+    
+    // Simulate checking with delay
+    setTimeout(() => {
+      const isCompleted = checkPrerequisiteCompletion(item.dataset.prereqId);
+      
+      if (isCompleted) {
+        icon.className = 'status-icon fas fa-check-circle completed';
+        completed++;
+      } else {
+        icon.className = 'status-icon fas fa-times-circle incomplete';
+        if (item.classList.contains('required')) {
+          required_missing++;
+        }
+      }
+      
+      checking++;
+      
+      // Show summary when all checks are done
+      if (checking === items.length) {
+        showPrerequisiteSummary(completed, items.length, required_missing);
+      }
+    }, 300 * (index + 1));
+  });
+}
+
+function checkPrerequisiteCompletion(prereqId) {
+  // Check localStorage for completion status
+  const completedPrereqs = JSON.parse(localStorage.getItem('completedPrerequisites') || '{}');
+  return completedPrereqs[prereqId] === true;
+}
+
+function testPrerequisite(prereqId) {
+  // Open a modal or navigate to a quiz page
+  console.log('Testing prerequisite:', prereqId);
+  // This would typically open a modal with a quick quiz
+  alert('Quiz functionality would be implemented here for: ' + prereqId);
+}
+
+function showPrerequisiteSummary(completed, total, requiredMissing) {
+  const summary = document.querySelector('.prerequisite-summary');
+  const message = summary.querySelector('.summary-message');
+  const proceedBtn = summary.querySelector('.proceed-btn');
+  const reviewBtn = summary.querySelector('.review-missing-btn');
+  
+  if (requiredMissing === 0) {
+    message.textContent = `Great! You've completed ${completed}/${total} prerequisites. You're ready to continue!`;
+    message.style.color = '#28a745';
+    proceedBtn.style.display = 'inline-flex';
+    reviewBtn.style.display = 'none';
+  } else {
+    message.textContent = `You're missing ${requiredMissing} required prerequisite${requiredMissing > 1 ? 's' : ''}. We recommend reviewing them first.`;
+    message.style.color = '#dc3545';
+    proceedBtn.style.display = 'none';
+    reviewBtn.style.display = 'inline-flex';
+  }
+  
+  summary.style.display = 'block';
+}
+</script>

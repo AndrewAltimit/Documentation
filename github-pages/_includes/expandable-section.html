@@ -1,0 +1,291 @@
+{% comment %}
+  Expandable Section Component for Progressive Disclosure
+  
+  Usage: 
+  {% capture section_content %}
+    Your advanced content here...
+  {% endcapture %}
+  {% include expandable-section.html 
+     title="Deep Dive: Implementation Details" 
+     content=section_content 
+     type="advanced" 
+     icon="microscope" %}
+  
+  Parameters:
+  - title: Section title
+  - content: The content to show/hide
+  - type: "advanced", "example", "theory", "warning" (affects styling)
+  - icon: Font Awesome icon name (optional)
+  - expanded: Boolean - Whether to start expanded (default: false)
+{% endcomment %}
+
+{% assign section_id = include.title | slugify %}
+{% assign expanded = include.expanded | default: false %}
+{% assign section_type = include.type | default: "default" %}
+{% assign section_icon = include.icon | default: "chevron-down" %}
+
+<div class="expandable-section {{ section_type }}" id="section-{{ section_id }}">
+  <button class="section-toggle" 
+          onclick="toggleSection('{{ section_id }}')"
+          aria-expanded="{{ expanded }}"
+          aria-controls="content-{{ section_id }}">
+    <span class="toggle-icon">
+      <i class="fas fa-{{ section_icon }}"></i>
+    </span>
+    <span class="section-title">{{ include.title }}</span>
+    <span class="expand-icon">
+      <i class="fas fa-chevron-down"></i>
+    </span>
+  </button>
+  
+  <div class="section-content" 
+       id="content-{{ section_id }}"
+       {% unless expanded %}style="display: none;"{% endunless %}>
+    <div class="content-inner">
+      {{ include.content }}
+    </div>
+  </div>
+</div>
+
+<style>
+.expandable-section {
+  margin: 1.5rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Section type variants */
+.expandable-section.default {
+  border: 1px solid #e2e8f0;
+  background: #f7fafc;
+}
+
+.expandable-section.advanced {
+  border: 1px solid #feb2b2;
+  background: #fff5f5;
+}
+
+.expandable-section.example {
+  border: 1px solid #9ae6b4;
+  background: #f0fff4;
+}
+
+.expandable-section.theory {
+  border: 1px solid #d6bcfa;
+  background: #faf5ff;
+}
+
+.expandable-section.warning {
+  border: 1px solid #fbd38d;
+  background: #fffaf0;
+}
+
+/* Toggle button */
+.section-toggle {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  text-align: left;
+}
+
+.section-toggle:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.section-toggle:focus {
+  outline: 2px solid #4299e1;
+  outline-offset: -2px;
+}
+
+/* Icons */
+.toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 1.125rem;
+}
+
+.default .toggle-icon {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.advanced .toggle-icon {
+  background: #feb2b2;
+  color: #c53030;
+}
+
+.example .toggle-icon {
+  background: #9ae6b4;
+  color: #276749;
+}
+
+.theory .toggle-icon {
+  background: #d6bcfa;
+  color: #553c9a;
+}
+
+.warning .toggle-icon {
+  background: #fbd38d;
+  color: #c05621;
+}
+
+.section-title {
+  flex: 1;
+}
+
+.expand-icon {
+  color: #718096;
+  transition: transform 0.3s ease;
+}
+
+.section-toggle[aria-expanded="true"] .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* Content area */
+.section-content {
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.content-inner {
+  padding: 1.5rem;
+}
+
+/* Smooth animation */
+.section-content {
+  max-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.section-content[style*="display: block"] {
+  max-height: 2000px; /* Adjust based on your content */
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Content styling */
+.content-inner > *:first-child {
+  margin-top: 0;
+}
+
+.content-inner > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested expandable sections */
+.expandable-section .expandable-section {
+  margin: 1rem 0;
+}
+
+.expandable-section .expandable-section .section-toggle {
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .section-toggle {
+    padding: 0.875rem 1rem;
+    font-size: 0.95rem;
+    gap: 0.75rem;
+  }
+  
+  .toggle-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+  
+  .content-inner {
+    padding: 1rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .expandable-section .section-content {
+    display: block !important;
+    max-height: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  .expand-icon {
+    display: none;
+  }
+}
+</style>
+
+<script>
+function toggleSection(sectionId) {
+  const button = document.querySelector(`#section-${sectionId} .section-toggle`);
+  const content = document.getElementById(`content-${sectionId}`);
+  const isExpanded = button.getAttribute('aria-expanded') === 'true';
+  
+  // Toggle state
+  button.setAttribute('aria-expanded', !isExpanded);
+  content.style.display = isExpanded ? 'none' : 'block';
+  
+  // Save state to localStorage
+  const pageId = '{{ page.id }}';
+  const expandedSections = JSON.parse(localStorage.getItem(`expanded_sections_${pageId}`) || '{}');
+  expandedSections[sectionId] = !isExpanded;
+  localStorage.setItem(`expanded_sections_${pageId}`, JSON.stringify(expandedSections));
+  
+  // Emit custom event for analytics
+  if (window.gtag) {
+    gtag('event', 'toggle_section', {
+      'section_id': sectionId,
+      'action': isExpanded ? 'collapse' : 'expand',
+      'page_path': window.location.pathname
+    });
+  }
+}
+
+// Restore expanded state from localStorage
+document.addEventListener('DOMContentLoaded', function() {
+  const pageId = '{{ page.id }}';
+  const expandedSections = JSON.parse(localStorage.getItem(`expanded_sections_${pageId}`) || '{}');
+  
+  Object.entries(expandedSections).forEach(([sectionId, isExpanded]) => {
+    if (isExpanded) {
+      const button = document.querySelector(`#section-${sectionId} .section-toggle`);
+      const content = document.getElementById(`content-${sectionId}`);
+      
+      if (button && content) {
+        button.setAttribute('aria-expanded', 'true');
+        content.style.display = 'block';
+      }
+    }
+  });
+});
+
+// Add keyboard navigation
+document.addEventListener('keydown', function(e) {
+  if (e.target.classList.contains('section-toggle')) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.target.click();
+    }
+  }
+});
+</script>
