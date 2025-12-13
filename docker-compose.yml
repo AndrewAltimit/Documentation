@@ -1,99 +1,726 @@
-version: '3.8'
-
 services:
-  # GitHub Pages Jekyll
+  # GitHub Pages Jekyll - Site Building
   jekyll:
     image: jekyll/jekyll:4.2.2
     command: jekyll build
+    working_dir: /srv/jekyll
     volumes:
-      - .:/srv/jekyll
-      - ./_site:/srv/jekyll/_site
+      - ./github-pages:/srv/jekyll
+      - ./github-pages/_site:/srv/jekyll/_site
+      - ./github-pages/vendor/bundle:/usr/local/bundle
     environment:
       - JEKYLL_ENV=production
 
-  # Main MCP Server
-  mcp-server:
+  # Code Quality MCP Server
+  mcp-code-quality:
     build:
       context: .
-      dockerfile: docker/mcp.Dockerfile
-    container_name: mcp-server
+      dockerfile: docker/mcp-code-quality.Dockerfile
+    container_name: mcp-code-quality
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     ports:
-      - "8005:8000"
+      - "8010:8010"
     volumes:
-      - ./tools/mcp:/app/tools/mcp
-      - ./.mcp.json:/app/.mcp.json
-      - ./scripts:/app/scripts
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.config/github-copilot/hosts.json:/root/.config/github-copilot/hosts.json:ro
+      - ./:/app:ro  # Read-only mount for security
+      - /tmp:/tmp   # For temporary files
     environment:
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
       - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
-      - MCP_SERVER_NAME=mcp-server
+      - PORT=8010
     networks:
       - mcp-network
+    command: ["python", "-m", "mcp_code_quality.server", "--mode", "http"]
     restart: unless-stopped
-    command: python -m tools.mcp.mcp_server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
 
-  # ComfyUI MCP HTTP Bridge (for remote ComfyUI)
-  mcp-comfyui-http:
+  # Content Creation MCP Server
+  mcp-content-creation:
     build:
       context: .
-      dockerfile: docker/mcp-http-bridge.Dockerfile
-    container_name: mcp-comfyui-http
+      dockerfile: docker/mcp-content.Dockerfile
+    container_name: mcp-content-creation
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     ports:
-      - "8189:8189"
-    environment:
-      - REMOTE_MCP_URL=${COMFYUI_SERVER_URL:-http://192.168.0.152:8189}
-      - SERVICE_NAME=comfyui
-    networks:
-      - mcp-network
-    restart: unless-stopped
-
-  # AI Toolkit MCP HTTP Bridge (for remote AI Toolkit)
-  mcp-ai-toolkit-http:
-    build:
-      context: .
-      dockerfile: docker/mcp-http-bridge.Dockerfile
-    container_name: mcp-ai-toolkit-http
-    ports:
-      - "8190:8190"
-    environment:
-      - REMOTE_MCP_URL=${AI_TOOLKIT_SERVER_URL:-http://192.168.0.152:8190}
-      - SERVICE_NAME=ai-toolkit
-    networks:
-      - mcp-network
-    restart: unless-stopped
-
-  # Development Database (optional)
-  postgres:
-    image: postgres:15-alpine
-    container_name: project-db
-    environment:
-      - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-project_db}
+      - "8011:8011"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - ./:/app:ro
+      - ./outputs/mcp-content:/output  # Bind mount to local outputs directory
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8011
+      - MCP_OUTPUT_DIR=/output
     networks:
       - mcp-network
+    command: ["python", "-m", "mcp_content_creation.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     profiles:
-      - development
+      - services
 
-  # Redis Cache (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: project-cache
+  # Meme Generator MCP Server
+  mcp-meme-generator:
+    build:
+      context: .
+      dockerfile: docker/mcp-meme.Dockerfile
+    container_name: mcp-meme-generator
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     ports:
-      - "6379:6379"
+      - "8016:8016"
+    volumes:
+      - ./:/app:ro
+      - ./outputs/mcp-memes:/output  # Bind mount to local outputs directory
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8016
+      - MCP_OUTPUT_DIR=/output
     networks:
       - mcp-network
+    command: ["python", "-m", "mcp_meme_generator.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     profiles:
-      - development
+      - services
 
-  # CI/CD Python container
+  # GitHub Board MCP Server
+  mcp-github-board:
+    build:
+      context: .
+      dockerfile: docker/mcp-github-board.Dockerfile
+    container_name: mcp-github-board
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8021:8021"
+    volumes:
+      - ./:/app:ro  # Read-only mount for security
+      - /tmp:/tmp   # For temporary files
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8021
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - GITHUB_PROJECT_NUMBER=${GITHUB_PROJECT_NUMBER:-1}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_github_board.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8021/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # Video Editor MCP Server
+  mcp-video-editor:
+    build:
+      context: .
+      dockerfile: docker/mcp-video-editor.Dockerfile
+    container_name: mcp-video-editor
+    # Note: user directive removed - entrypoint handles user switching after permission setup
+    ports:
+      - "8019:8019"
+    volumes:
+      - ./:/app:ro
+      - ./outputs/video-editor:/output  # Output directory for rendered videos
+      - video-editor-cache:/cache  # Named volume for transcripts and analysis cache
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8019
+      - MCP_VIDEO_OUTPUT_DIR=/output
+      - MCP_VIDEO_CACHE_DIR=/cache
+      - WHISPER_MODEL=${WHISPER_MODEL:-medium}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cuda}
+      - DIART_DEVICE=${DIART_DEVICE:-cuda}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - ENABLE_GPU=${ENABLE_GPU:-true}
+      # GPU device selection for multi-GPU systems
+      # IMPORTANT: GPU_DEVICE should be set to a single device index (e.g., 0, 1, 2)
+      # Do NOT set GPU_DEVICE to "all" when using count: 1 in deploy.resources.reservations
+      # If you need all GPUs, remove the count: 1 constraint and set GPU_DEVICE=all
+      - NVIDIA_VISIBLE_DEVICES=${GPU_DEVICE:-0}
+      - CUDA_VISIBLE_DEVICES=${GPU_DEVICE:-0}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_video_editor.server", "--mode", "http"]
+    restart: unless-stopped
+    # GPU support for AI models and video encoding
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - services
+      - gpu
+
+  # ElevenLabs Speech MCP Server
+  mcp-elevenlabs-speech:
+    build:
+      context: .
+      dockerfile: docker/elevenlabs.Dockerfile
+    container_name: mcp-elevenlabs-speech
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8018:8018"
+    volumes:
+      - ./:/app:ro
+      - ./outputs/elevenlabs_speech:/output  # Bind mount to local outputs directory
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8018  # Note: If you change this port, also update the healthcheck below
+      - MCP_OUTPUT_DIR=/output
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_DEFAULT_MODEL=${ELEVENLABS_DEFAULT_MODEL:-eleven_multilingual_v2}
+      - ELEVENLABS_DEFAULT_VOICE=${ELEVENLABS_DEFAULT_VOICE:-Rachel}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_elevenlabs_speech.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8018/health"]  # Must match PORT above
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # Blender MCP Server
+  mcp-blender:
+    build:
+      context: .
+      dockerfile: docker/blender-mcp.Dockerfile
+    container_name: mcp-blender
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8017:8017"
+    volumes:
+      - ./outputs/blender/projects:/app/projects
+      - ./outputs/blender/assets:/app/assets
+      - ./outputs/blender/renders:/app/outputs
+      - ./outputs/blender/templates:/app/templates
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - mcp-network
+    # GPU support (optional - uncomment if GPU available)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    #     # Optional resource limits to prevent excessive consumption
+    #     limits:
+    #       cpus: '4.0'
+    #       memory: 8G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8017/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - services
+      - gpu
+
+  # Gaea2 MCP Server (Windows host required for full functionality)
+  mcp-gaea2:
+    build:
+      context: .
+      dockerfile: docker/mcp-gaea2.Dockerfile
+    container_name: mcp-gaea2
+    # Note: user directive removed - entrypoint handles user switching after permission setup
+    ports:
+      - "8007:8007"
+    volumes:
+      - ./:/app:ro
+      - ./outputs/mcp-gaea2:/output/gaea2  # Bind mount to local outputs directory
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8007
+      - GAEA2_TEST_MODE=0
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_gaea2.server", "--mode", "http", "--output-dir", "/output/gaea2", "--no-enforce-file-validation"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # Sleeper Agent Detection - Evaluation Mode (CPU)
+  sleeper-eval-cpu:
+    build:
+      context: .
+      dockerfile: docker/sleeper-evaluation-cpu.Dockerfile
+    container_name: sleeper-eval-cpu
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ./:/app:ro
+      - ./evaluation_results:/results  # Evaluation results and reports
+      - sleeper-models-cache:/models  # Model cache
+      - sleeper-eval-db:/db  # SQLite database
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SLEEPER_CPU_MODE=true
+      - DEVICE=cpu
+    networks:
+      - mcp-network
+    # Default: Run CLI test for validation.
+    # To run API server instead: docker-compose run --rm sleeper-eval-cpu uvicorn sleeper_agents.api.main:app --host 0.0.0.0 --port 8022
+    command: ["python", "-m", "sleeper_agents.cli", "test", "--cpu"]
+    profiles:
+      - evaluation
+      - eval-cpu
+
+  # Sleeper Agent Detection - Evaluation Mode (GPU)
+  sleeper-eval-gpu:
+    build:
+      context: .
+      dockerfile: docker/sleeper-evaluation.Dockerfile
+    container_name: sleeper-eval-gpu
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ./:/app:ro
+      - ./evaluation_results:/results
+      - sleeper-models-cache:/models
+      - sleeper-eval-db:/db
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SLEEPER_CPU_MODE=false
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - DEVICE=cuda
+    networks:
+      - mcp-network
+    # Default: Run model evaluation.
+    # To run API server instead: docker-compose run --rm sleeper-eval-gpu uvicorn sleeper_agents.api.main:app --host 0.0.0.0 --port 8022
+    command: ["python", "-m", "sleeper_agents.cli", "evaluate", "--gpu"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    runtime: nvidia
+    profiles:
+      - evaluation-gpu
+      - eval-gpu
+
+  # Sleeper Detection Dashboard
+  sleeper-dashboard:
+    build:
+      context: ./packages/sleeper_agents/dashboard
+      dockerfile: Dockerfile
+    container_name: sleeper-dashboard
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./packages/sleeper_agents/dashboard:/home/dashboard/app:ro
+      - ./evaluation_results:/home/dashboard/app/evaluation_results
+      - sleeper-eval-db:/home/dashboard/app/db  # Share database with evaluation services
+    environment:
+      - DATABASE_PATH=/home/dashboard/app/db/evaluation_results.db
+      - DASHBOARD_ADMIN_PASSWORD=${DASHBOARD_ADMIN_PASSWORD}
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    profiles:
+      - dashboard
+      - evaluation
+
+  # Gemini MCP Server
+  mcp-gemini:
+    build:
+      context: .
+      dockerfile: docker/mcp-gemini.Dockerfile
+      args:
+        USER_ID: "${USER_ID:-1000}"
+        GROUP_ID: "${GROUP_ID:-1000}"
+    container_name: mcp-gemini
+    volumes:
+      - ~/.gemini:/home/geminiuser/.gemini  # Mount host Gemini credentials directory
+      - ./:/workspace:ro  # Mount workspace for file access (read-only)
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Pass API key from .env file (CLI will use this over corrupted token file)
+      - GEMINI_API_KEY=${GOOGLE_API_KEY:-}
+      # Explicitly unset GOOGLE_API_KEY to avoid Vertex API confusion
+      - GOOGLE_API_KEY=
+      - GEMINI_TIMEOUT=${GEMINI_TIMEOUT:-300}
+      - GEMINI_USE_CONTAINER=false  # Disable nested containerization
+      - HOME=/home/geminiuser  # Set home directory for .gemini access
+    networks:
+      - mcp-network
+    # For stdio mode, we don't need a long-running service
+    stdin_open: true
+    tty: false
+    healthcheck:
+      test: ["CMD-SHELL", "gemini --help > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - services
+
+  # Virtual Character MCP Server (Middleware only - VRChat runs on remote Windows)
+  # This is the middleware that bridges AI agents to virtual platforms.
+  # For VRChat: Connects to Windows machine at VRCHAT_REMOTE_HOST (default 192.168.0.152)
+  mcp-virtual-character:
+    build:
+      context: .
+      dockerfile: docker/mcp-virtual-character.Dockerfile
+    container_name: mcp-virtual-character
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8020:8020"
+    volumes:
+      - ./:/app:ro
+      - ./config/avatars:/app/config/avatars:ro  # Avatar configurations
+    environment:
+      - PYTHONUNBUFFERED=1
+      - VIRTUAL_CHARACTER_HOST=0.0.0.0
+      - VIRTUAL_CHARACTER_PORT=8020
+      - DEFAULT_BACKEND=mock
+      - VRCHAT_REMOTE_HOST=${VRCHAT_REMOTE_HOST:-192.168.0.152}
+      - OBS_PASSWORD=${OBS_PASSWORD}
+      - STREAM_AUTH_TOKEN=${STREAM_AUTH_TOKEN}
+      - UNITY_API_KEY=${UNITY_API_KEY}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_virtual_character.server"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # AI Toolkit (Web UI and MCP Server)
+  mcp-ai-toolkit:
+    build:
+      context: .
+      dockerfile: docker/ai-toolkit.Dockerfile
+    container_name: ai-toolkit
+    runtime: nvidia
+    ports:
+      - "8675:8675"   # Web UI (Next.js app)
+      - "8012:8012"   # MCP Server
+    volumes:
+      - ./:/workspace/repo:ro
+      - ai-toolkit-datasets:/ai-toolkit/datasets
+      - ai-toolkit-outputs:/ai-toolkit/outputs
+      - ai-toolkit-configs:/ai-toolkit/configs
+      - ai-toolkit-logs:/workspace/logs
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+      - PYTHONUNBUFFERED=1
+      - AI_TOOLKIT_PATH=/ai-toolkit
+    networks:
+      - mcp-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    # Healthcheck defined in Dockerfile
+    profiles:
+      - ai-services
+      - gpu
+
+  # ComfyUI (Web UI and MCP Server)
+  mcp-comfyui:
+    build:
+      context: .
+      dockerfile: docker/comfyui.Dockerfile
+    container_name: comfyui
+    runtime: nvidia
+    user: "${USER_ID}:${GROUP_ID}"
+    ports:
+      - "8188:8188"   # Web UI
+      - "8013:8013"   # MCP Server
+    volumes:
+      - ./:/workspace/repo:ro
+      # Model directories - persist between container restarts
+      - ./comfyui/models/checkpoints:/comfyui/models/checkpoints
+      - ./comfyui/models/clip:/comfyui/models/clip
+      - ./comfyui/models/clip_vision:/comfyui/models/clip_vision
+      - ./comfyui/models/controlnet:/comfyui/models/controlnet
+      - ./comfyui/models/diffusers:/comfyui/models/diffusers
+      - ./comfyui/models/embeddings:/comfyui/models/embeddings
+      - ./comfyui/models/gligen:/comfyui/models/gligen
+      - ./comfyui/models/hypernetworks:/comfyui/models/hypernetworks
+      - ./comfyui/models/loras:/comfyui/models/loras
+      - ./comfyui/models/style_models:/comfyui/models/style_models
+      - ./comfyui/models/unet:/comfyui/models/unet
+      - ./comfyui/models/upscale_models:/comfyui/models/upscale_models
+      - ./comfyui/models/vae:/comfyui/models/vae
+      - ./comfyui/models/vae_approx:/comfyui/models/vae_approx
+      # Output and input directories
+      - ./comfyui/output:/comfyui/output
+      - ./comfyui/input:/comfyui/input
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+      - PYTHONUNBUFFERED=1
+      - COMFYUI_PATH=/comfyui
+    networks:
+      - mcp-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    # Healthcheck defined in Dockerfile
+    profiles:
+      - ai-services
+      - gpu
+
+
+  # OpenCode MCP Server
+  mcp-opencode:
+    build:
+      context: .
+      dockerfile: docker/mcp-opencode.Dockerfile
+    container_name: mcp-opencode
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8014:8014"
+    volumes:
+      - ./:/app:ro
+      - /tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8014
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENCODE_ENABLED=${OPENCODE_ENABLED:-true}
+      - OPENCODE_MODEL=${OPENCODE_MODEL:-qwen/qwen-2.5-coder-32b-instruct}
+      - RUNNING_IN_DOCKER=true
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_opencode.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # Crush MCP Server
+  mcp-crush:
+    build:
+      context: .
+      dockerfile: docker/mcp-crush.Dockerfile
+    container_name: mcp-crush
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8015:8015"
+    volumes:
+      - ./:/app:ro
+      - /tmp:/tmp
+      - crush-data:/home/node/.crush
+      - crush-local-data:/home/node/.local/share/crush
+      - crush-cache:/home/node/.cache/crush
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8015
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - CRUSH_ENABLED=${CRUSH_ENABLED:-true}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_crush.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # Codex MCP Server
+  mcp-codex:
+    build:
+      context: .
+      dockerfile: docker/codex.Dockerfile
+      args:
+        MODE: mcp
+    container_name: mcp-codex
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8021:8021"
+    volumes:
+      - ./:/workspace:ro  # Read-only mount for security
+      # Read-write is required for Codex to manage session files and history.
+      # The auth token itself is protected by the host's file permissions.
+      - ~/.codex:/home/user/.codex:rw
+    environment:
+      - MODE=mcp
+      - PYTHONUNBUFFERED=1
+      - PORT=8021
+      - CODEX_ENABLED=${CODEX_ENABLED:-true}
+      - CODEX_AUTH_PATH=/home/user/.codex/auth.json
+      - CODEX_BYPASS_SANDBOX=${CODEX_BYPASS_SANDBOX:-false}  # Default to sandboxed
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_codex.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8021/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+
+  # AI Agents container for GitHub automation
+  ai-agents:
+    build:
+      context: .
+      dockerfile: docker/ai-agents.Dockerfile
+    container_name: ai-agents
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ./:/workspace
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - ENABLE_AGENTS=${ENABLE_AGENTS:-false}
+      - CONTAINER=ai-agents
+    # Secrets are mounted as volumes at runtime - see workflows
+    working_dir: /workspace
+    networks:
+      - mcp-network
+    # Default to interactive mode for development
+    # Override with docker-compose run for specific agent commands
+    command: ["/bin/bash"]
+    tty: true
+    stdin_open: true
+    profiles:
+      - agents
+
+  # OpenRouter Agents container (OpenCode, Crush)
+  # NOTE: Requires mcp-opencode and mcp-crush images to be built first
+  openrouter-agents:
+    build:
+      context: .
+      dockerfile: docker/openrouter-agents.Dockerfile
+      args:
+        OPENCODE_IMAGE: Documentation-mcp-opencode:latest
+        CRUSH_IMAGE: Documentation-mcp-crush:latest
+    container_name: openrouter-agents
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ./:/workspace
+      # SECURITY: Use environment variables for credentials instead of mounting host directories
+      # This prevents exposing host filesystem paths to the container
+      # API keys should be passed via OPENROUTER_API_KEY environment variable
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - CONTAINER=openrouter-agents
+    working_dir: /workspace
+    networks:
+      - mcp-network
+    command: ["/bin/bash"]
+    tty: true
+    stdin_open: true
+    profiles:
+      - agents
+      - openrouter
+
+  # Codex Agent container (OpenAI Codex)
+  codex-agent:
+    build:
+      context: .
+      dockerfile: docker/codex.Dockerfile
+      args:
+        MODE: agent
+    container_name: codex-agent
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    volumes:
+      - ./:/workspace
+      # Mount Codex auth from host (needs write access for history/config)
+      # User must authenticate on host first with: codex auth
+      - ~/.codex:/home/user/.codex:rw
+    environment:
+      - MODE=agent
+      - NODE_ENV=production
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY}
+      - CONTAINER=codex-agent
+    working_dir: /workspace
+    networks:
+      - mcp-network
+    command: ["/bin/bash"]
+    tty: true
+    stdin_open: true
+    profiles:
+      - agents
+      - codex
+
+  # Python CI container for running tests and linting
   python-ci:
     build:
       context: .
@@ -101,14 +728,273 @@ services:
     container_name: python-ci
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     volumes:
-      - .:/workspace
-    working_dir: /workspace
+      - ./:/app
+      - ~/.cache/pre-commit:/home/user/.cache/pre-commit
     environment:
-      - HOME=/tmp
-      - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+      - CI=true
+      - SKIP_SLOW_TESTS=${SKIP_SLOW_TESTS:-false}
+      - PRE_COMMIT_HOME=/home/user/.cache/pre-commit
+    working_dir: /app
     networks:
       - mcp-network
+    command: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+    profiles:
+      - ci
+
+  # Optional PostgreSQL for future use
+  postgres:
+    image: postgres:15-alpine
+    container_name: mcp-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mcp}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mcp_password}
+      - POSTGRES_DB=${POSTGRES_DB:-mcp_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - database
+
+  # Optional Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - cache
+
+  # Virtual Character Storage Service
+  # Secure file exchange for audio, animations, and other assets
+  virtual-character-storage:
+    build:
+      context: ./tools/mcp/mcp_virtual_character/storage_service
+      dockerfile: Dockerfile
+    container_name: vc-storage
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8021:8021"
+    volumes:
+      - audio-storage-data:/tmp/audio_storage
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STORAGE_PORT=8021
+      - STORAGE_HOST=0.0.0.0
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BASE_URL=${STORAGE_BASE_URL:-http://localhost:8021}
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    profiles:
+      - services
+      - virtual-character
+
+  # Corporate Proxy Services
+  # Crush Corporate Proxy
+  crush-proxy:
+    build:
+      context: .
+      dockerfile: automation/corporate-proxy/crush/docker/Dockerfile
+    container_name: crush-proxy
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8051:8051"  # Crush proxy port
+    volumes:
+      - ./:/workspace:rw
+      - /tmp:/tmp
+    environment:
+      - USE_MOCK_API=${USE_MOCK_API:-true}
+      - API_MODE=crush
+      - PORT=8051
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8051/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - proxy
+      - crush-proxy
+
+  # OpenCode Corporate Proxy
+  opencode-proxy:
+    build:
+      context: .
+      dockerfile: automation/corporate-proxy/opencode/docker/Dockerfile
+    container_name: opencode-proxy
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8052:8052"  # OpenCode proxy port
+    volumes:
+      - ./:/workspace:rw
+      - /tmp:/tmp
+    environment:
+      - USE_MOCK_API=${USE_MOCK_API:-true}
+      - API_MODE=opencode
+      - PORT=8052
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8052/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - proxy
+      - opencode-proxy
+
+  # Gemini Corporate Proxy
+  gemini-proxy:
+    build:
+      context: .
+      dockerfile: automation/corporate-proxy/gemini/docker/Dockerfile
+    container_name: gemini-proxy
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    ports:
+      - "8053:8053"  # Gemini proxy port
+      - "8050:8050"  # Unified API port for Gemini
+    volumes:
+      - ./:/workspace:rw
+      - /tmp:/tmp
+    environment:
+      - USE_MOCK_API=${USE_MOCK_API:-true}
+      - GEMINI_PROXY_PORT=8053
+      - GEMINI_MAX_OUTPUT_SIZE=${GEMINI_MAX_OUTPUT_SIZE:-102400}
+      - GEMINI_ALLOW_INSECURE_TLS=${GEMINI_ALLOW_INSECURE_TLS:-false}
+      - API_MODE=gemini
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - proxy
+      - gemini-proxy
+
+  # ─────────────────────────────────────────────────────────────
+  # AgentCore Memory MCP Server
+  # ─────────────────────────────────────────────────────────────
+  # Multi-provider memory for AI agents
+  # Supports: AWS AgentCore (managed) or ChromaDB (self-hosted)
+
+  mcp-agentcore-memory:
+    build:
+      context: .
+      dockerfile: docker/mcp-agentcore-memory.Dockerfile
+    container_name: mcp-agentcore-memory
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    # Note: ChromaDB dependency is optional - only needed when MEMORY_PROVIDER=chromadb
+    # Start chromadb first with: docker-compose --profile memory-chromadb up -d chromadb
+    ports:
+      - "8023:8023"
+    volumes:
+      - .:/app:ro
+      # Mount AWS credentials for AgentCore provider
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    environment:
+      - HOME=/home/appuser
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PORT=8023
+      # Provider selection: agentcore | chromadb
+      - MEMORY_PROVIDER=${MEMORY_PROVIDER:-chromadb}
+      # AWS AgentCore settings
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_PROFILE=${AWS_PROFILE:-}
+      - AGENTCORE_MEMORY_ID
+      - AGENTCORE_DATA_PLANE_ENDPOINT=${AGENTCORE_DATA_PLANE_ENDPOINT:-}
+      # ChromaDB settings (for self-hosted)
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - CHROMADB_COLLECTION=${CHROMADB_COLLECTION:-agent_memory}
+    networks:
+      - mcp-network
+    command: ["python", "-m", "mcp_agentcore_memory.server", "--mode", "http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8023/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - services
+      - memory
+
+  # ChromaDB - Self-hosted vector database for memory
+  # Start with: docker-compose --profile memory-chromadb up -d
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    container_name: chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+      - IS_PERSISTENT=TRUE
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - memory
+      - memory-chromadb
+
+  # All services combined (for development)
+  all-services:
+    image: busybox
+    command: echo "All MCP services are managed individually"
+    depends_on:
+      - mcp-code-quality
+      - mcp-content-creation
+      - mcp-gaea2
+      - mcp-ai-toolkit
+      - mcp-comfyui
+      - mcp-crush
+      - mcp-opencode
+      - mcp-blender
+      - mcp-elevenlabs-speech
+      - mcp-agentcore-memory
+    profiles:
+      - all
+
+  # CI runner (for testing)
+  ci-runner:
+    extends: python-ci
+    command: ["bash", "-c", "pytest tests/ -v --cov=. --cov-report=xml"]
     profiles:
       - ci
 
@@ -117,4 +1003,23 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres_data: {}
+  chromadb_data: {}
+  crush-data: {}
+  crush-local-data: {}
+  crush-cache: {}
+  # Video Editor volumes
+  video-editor-cache: {}
+  # AI Toolkit volumes
+  ai-toolkit-datasets: {}
+  ai-toolkit-outputs: {}
+  ai-toolkit-configs: {}
+  ai-toolkit-logs: {}
+  # Virtual character storage
+  audio-storage-data: {}
+  # Sleeper Detection Evaluation volumes
+  sleeper-models-cache: {}
+  sleeper-eval-db: {}
+
+# Secrets are managed at runtime by GitHub Actions or local setup script
+# Never commit actual secret files to the repository!

@@ -1,160 +1,161 @@
 {
   "mcpServers": {
-    "local-tools": {
-      "name": "Local MCP Tools",
-      "url": "http://localhost:8000",
-      "tools": {
-        "format_check": {
-          "description": "Check code formatting",
-          "parameters": {
-            "path": {
-              "type": "string",
-              "description": "Path to check"
-            },
-            "language": {
-              "type": "string",
-              "description": "Programming language",
-              "enum": [
-                "python",
-                "javascript",
-                "typescript",
-                "go",
-                "rust"
-              ]
-            }
-          }
-        },
-        "lint": {
-          "description": "Run code linting",
-          "parameters": {
-            "path": {
-              "type": "string",
-              "description": "Path to lint"
-            },
-            "config": {
-              "type": "string",
-              "description": "Linting configuration file"
-            }
-          }
-        },
-        "analyze": {
-          "description": "Run static code analysis",
-          "parameters": {
-            "path": {
-              "type": "string",
-              "description": "Path to analyze"
-            },
-            "depth": {
-              "type": "integer",
-              "description": "Analysis depth"
-            }
-          }
-        },
-        "consult_gemini": {
-          "description": "Get AI assistance from Gemini",
-          "parameters": {
-            "question": {
-              "type": "string",
-              "description": "Technical question or code to review"
-            },
-            "context": {
-              "type": "string",
-              "description": "Additional context"
-            }
-          }
-        },
-        "create_manim_animation": {
-          "description": "Create mathematical animations",
-          "parameters": {
-            "script": {
-              "type": "string",
-              "description": "Manim script content"
-            },
-            "output_format": {
-              "type": "string",
-              "enum": [
-                "mp4",
-                "gif",
-                "webm"
-              ],
-              "default": "mp4"
-            }
-          }
-        },
-        "compile_latex": {
-          "description": "Compile LaTeX documents",
-          "parameters": {
-            "content": {
-              "type": "string",
-              "description": "LaTeX document content"
-            },
-            "format": {
-              "type": "string",
-              "enum": [
-                "pdf",
-                "dvi",
-                "ps"
-              ],
-              "default": "pdf"
-            }
-          }
-        }
+    "code-quality": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-code-quality",
+        "python",
+        "-m",
+        "mcp_code_quality.server",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "content-creation": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-content-creation",
+        "python",
+        "-m",
+        "mcp_content_creation.server",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "gemini": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-gemini",
+        "python",
+        "-m",
+        "mcp_gemini.server",
+        "--mode",
+        "stdio"
+      ],
+      "env": {
+        "GEMINI_TIMEOUT": "300",
+        "GEMINI_USE_CONTAINER": "false",
+        "_comment": "GEMINI_USE_CONTAINER is set to false to prevent docker-in-docker, as mcp-gemini itself runs in a container. API key is set via GEMINI_API_KEY in docker-compose.yml from GOOGLE_API_KEY. Note: Don't specify GEMINI_MODEL - the CLI uses the default model automatically to avoid 404 errors"
       }
     },
-    "comfyui": {
-      "name": "ComfyUI MCP Server",
-      "url": "http://localhost:8189",
-      "remote_url": "${COMFYUI_SERVER_URL}",
-      "tools": {
-        "generate_image": {
-          "description": "Generate images using ComfyUI workflows"
-        },
-        "list_workflows": {
-          "description": "List available ComfyUI workflows"
-        },
-        "execute_workflow": {
-          "description": "Execute a specific ComfyUI workflow"
-        }
+    "opencode": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-opencode",
+        "python",
+        "-m",
+        "mcp_opencode.server",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "crush": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-crush",
+        "python",
+        "-m",
+        "mcp_crush.server",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "codex": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-codex",
+        "python",
+        "-m",
+        "mcp_codex.server",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "github-board": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--profile",
+        "services",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-github-board",
+        "python",
+        "-m",
+        "mcp_github_board.server",
+        "--mode",
+        "stdio"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "GITHUB_REPOSITORY": "${GITHUB_REPOSITORY}",
+        "GITHUB_PROJECT_NUMBER": "1",
+        "_comment": "GitHub Board MCP server for board operations and agent coordination. Runs containerized via docker-compose run."
       }
     },
-    "ai-toolkit": {
-      "name": "AI Toolkit MCP Server",
-      "url": "http://localhost:8190",
-      "remote_url": "${AI_TOOLKIT_SERVER_URL}",
-      "tools": {
-        "upload_dataset": {
-          "description": "Upload training dataset"
-        },
-        "create_training_config": {
-          "description": "Create LoRA training configuration"
-        },
-        "start_training": {
-          "description": "Start LoRA training job"
-        },
-        "check_training_status": {
-          "description": "Check training job status"
-        },
-        "list_models": {
-          "description": "List trained models"
-        }
-      }
-    }
-  },
-  "settings": {
-    "timeout": 30,
-    "max_retries": 3,
-    "log_level": "INFO",
-    "enable_caching": true,
-    "cache_ttl": 3600
-  },
-  "security": {
-    "require_auth": false,
-    "allowed_origins": [
-      "*"
-    ],
-    "rate_limit": {
-      "enabled": true,
-      "requests_per_minute": 60
+    "agentcore-memory": {
+      "command": "docker-compose",
+      "args": [
+        "-f",
+        "./docker-compose.yml",
+        "--env-file",
+        "./.env",
+        "--profile",
+        "memory",
+        "run",
+        "--rm",
+        "-T",
+        "mcp-agentcore-memory",
+        "python",
+        "-m",
+        "mcp_agentcore_memory.server",
+        "--mode",
+        "stdio"
+      ]
     }
   }
 }
