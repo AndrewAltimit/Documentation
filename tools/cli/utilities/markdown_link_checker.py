@@ -119,6 +119,9 @@ class MarkdownLinkChecker:
                 # Filter out ignored patterns
                 links_to_check = []
                 for link in links:
+                    # Skip single-character "links" (false positives from LaTeX)
+                    if len(link) <= 1:
+                        continue
                     should_ignore = any(pattern.match(link) for pattern in compiled_patterns)
                     if not should_ignore:
                         if not check_external and link.startswith(("http://", "https://")):
@@ -198,6 +201,91 @@ class MarkdownLinkChecker:
         tasks = [check_single_link(link) for link in links]
         return await asyncio.gather(*tasks)
 
+    def _resolve_jekyll_path(self, file_path: Path, base_dir: Path) -> bool:
+        """
+        Resolve a path using Jekyll conventions.
+
+        Jekyll converts .md files to .html and supports permalinks.
+        This method checks multiple possible source file locations.
+        """
+        path_str = str(file_path)
+
+        # Direct file exists check
+        if file_path.exists():
+            return True
+
+        # For relative paths, also check from base_dir
+        full_path = base_dir / file_path
+        if full_path.exists():
+            return True
+
+        # Try to find the Jekyll source root (look for github-pages or _config.yml)
+        jekyll_root = self._find_jekyll_root(base_dir)
+
+        # List of path variations to try
+        paths_to_try = []
+
+        # Handle .html -> .md conversion
+        if path_str.endswith(".html"):
+            md_path = path_str[:-5] + ".md"
+            paths_to_try.append(Path(md_path))
+
+        # Handle permalink-style paths (e.g., /docs/foo/bar/)
+        if path_str.endswith("/"):
+            # Could be docs/foo/bar.md or docs/foo/bar/index.md
+            base_path = path_str.rstrip("/")
+            paths_to_try.append(Path(base_path + ".md"))
+            paths_to_try.append(Path(base_path) / "index.md")
+
+        # Handle paths without extension (could be permalink)
+        if not path_str.endswith((".md", ".html", "/")):
+            paths_to_try.append(Path(path_str + ".md"))
+            paths_to_try.append(Path(path_str) / "index.md")
+            paths_to_try.append(Path(path_str + ".html"))
+
+        # Check all variations
+        for try_path in paths_to_try:
+            # Check relative to base_dir
+            if (base_dir / try_path).exists():
+                return True
+            # Check as absolute from current dir
+            if try_path.exists():
+                return True
+            # Check relative to Jekyll root if found
+            if jekyll_root and (jekyll_root / try_path).exists():
+                return True
+
+        # For absolute paths starting with /docs/, try github-pages prefix
+        if path_str.startswith("docs/") or path_str.startswith("/docs/"):
+            clean_path = path_str.lstrip("/")
+            gh_pages_paths = [
+                Path("github-pages") / clean_path,
+                Path("github-pages") / (clean_path.rstrip("/") + ".md"),
+                Path("github-pages") / clean_path.rstrip("/") / "index.md",
+            ]
+            # Handle .html -> .md
+            if clean_path.endswith(".html"):
+                gh_pages_paths.append(Path("github-pages") / (clean_path[:-5] + ".md"))
+
+            for gh_path in gh_pages_paths:
+                if gh_path.exists():
+                    return True
+                if jekyll_root and (jekyll_root.parent / gh_path).exists():
+                    return True
+
+        return False
+
+    def _find_jekyll_root(self, start_dir: Path) -> Optional[Path]:
+        """Find the Jekyll site root by looking for _config.yml"""
+        current = start_dir
+        for _ in range(10):  # Limit search depth
+            if (current / "_config.yml").exists():
+                return current
+            if current.parent == current:
+                break
+            current = current.parent
+        return None
+
     async def _check_single_link(self, link: str, base_dir: Path, timeout: int) -> Tuple[str, bool, Optional[str]]:
         """Check if a single link is valid"""
         try:
@@ -205,7 +293,7 @@ class MarkdownLinkChecker:
             if not link.startswith(("http://", "https://", "ftp://", "//")):
                 # Handle relative paths
                 if link.startswith("/"):
-                    # Absolute path from repo root
+                    # Absolute path - likely a Jekyll permalink
                     file_path = Path(link[1:])
                 else:
                     # Relative to current file
@@ -215,8 +303,8 @@ class MarkdownLinkChecker:
                 if "#" in str(file_path):
                     file_path = Path(str(file_path).split("#", maxsplit=1)[0])
 
-                # Check if file exists
-                if file_path.exists():
+                # Check if file exists using Jekyll-aware resolution
+                if self._resolve_jekyll_path(file_path, base_dir):
                     return (link, True, None)
                 else:
                     return (link, False, "File not found")
