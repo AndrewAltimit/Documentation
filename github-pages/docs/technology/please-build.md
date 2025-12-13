@@ -109,7 +109,7 @@ goroot = /usr/local/go
 importpath = github.com/myorg/myproject
 ```
 
-### Advanced Configuration (2024)
+### Advanced Configuration
 
 ```ini
 [remote]
@@ -346,7 +346,7 @@ httpwriteable = true
 httpheaders = Authorization: Bearer $CACHE_TOKEN
 ```
 
-## Advanced Features (2024)
+## Advanced Features
 
 ### Remote Execution
 

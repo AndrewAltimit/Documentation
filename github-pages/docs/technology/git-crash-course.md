@@ -225,7 +225,7 @@ Thumbs.db
 .env.local
 ```
 
-## Advanced Git Features (2023-2024 Updates)
+## Advanced Git Features
 
 ### Git Worktree
 Manage multiple working trees attached to the same repository:
@@ -263,7 +263,7 @@ git maintenance start
 git maintenance run --auto
 ```
 
-## Security Best Practices (2024)
+## Security Best Practices
 
 ### Signing Commits
 Ensure commit authenticity with GPG or SSH signatures:
@@ -279,7 +279,7 @@ git commit -S -m "Signed commit"
 git log --show-signature
 ```
 
-### SSH Key Authentication (Recommended 2024)
+### SSH Key Authentication (Recommended)
 GitHub deprecated password authentication. Use SSH keys:
 ```bash
 # Generate ED25519 key (recommended)
@@ -379,13 +379,12 @@ git checkout --theirs path/to/file
 git checkout --ours path/to/file
 ```
 
-## Related Topics
+## Related Git Documentation
 
-- [Git Command Reference](git-reference.html) - Comprehensive command guide
-- [Branching Strategies](branching.html) - Advanced branching workflows
-- [CI/CD](ci-cd.html) - Continuous integration with Git
-- [GitHub Actions](../devops/github-actions.html) - Automation workflows
-- [GitLab CI](../devops/gitlab-ci.html) - GitLab's CI/CD platform
+- [Git Version Control](git.html) - Deep dive into Git internals and architecture
+- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
+- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
 
 ## References
 

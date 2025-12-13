@@ -1453,3 +1453,15 @@ def ads_cft_correlator(operators, positions):
 5. **Mathematical foundations**
 
 String theory remains one of the most active areas of theoretical physics, providing deep insights into quantum gravity, black holes, and the fundamental structure of spacetime. While experimental verification remains elusive, its mathematical richness and conceptual breakthroughs continue to influence many areas of physics and mathematics.
+
+## See Also
+
+### Foundational Topics:
+- [Quantum Mechanics](quantum-mechanics.html) - Quantum foundations essential for string theory
+- [Quantum Field Theory](quantum-field-theory.html) - The starting point for string interactions
+- [Relativity](relativity.html) - General relativity and spacetime geometry
+
+### Related Topics:
+- [Statistical Mechanics](statistical-mechanics.html) - Black hole thermodynamics and entropy
+- [Condensed Matter Physics](condensed-matter.html) - AdS/CMT correspondence applications
+- [Computational Physics](computational-physics.html) - Numerical methods in string theory

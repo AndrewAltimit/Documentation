@@ -234,7 +234,7 @@ GPT-3 contains 175 billion parameters and demonstrates strong performance on a w
 
 GPT-4 is a multimodal model (text and images) with significantly enhanced capabilities over GPT-3.5. While the exact parameter count remains undisclosed, it demonstrates improved reasoning, reduced hallucinations, and better instruction following. GPT-4 Turbo (November 2023) added a 128K context window, function calling, and improved performance.
 
-**Recent Developments (2024)**
+**Recent Developments**
 
 - **Claude 3 (Anthropic)**: Family of models (Haiku, Sonnet, Opus) with strong performance across benchmarks
 - **Gemini (Google)**: Multimodal models processing text, images, audio, and video natively
@@ -349,7 +349,7 @@ With ChatGPT plugins, users can:
 
 ### Running your own LLM Chatbot
 
-**Popular Options for Self-Hosting (2024):**
+**Popular Options for Self-Hosting:**
 
 1. **Ollama**: Simple local LLM runner
    ```bash
@@ -454,7 +454,7 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 
 ## Looking Ahead
 
-**Current State (2024)**
+**Current State**
 
 The AI landscape has evolved dramatically:
 - **Multimodal Models**: GPT-4V, Gemini, and Claude 3 can process images, with video capabilities emerging
@@ -476,3 +476,23 @@ As the workplace evolves, so should our skills. To remain relevant in the job ma
 **Advocate for responsible AI development and implementation**
 
 Finally, it's important for us to advocate for the responsible development and implementation of AI. This means ensuring that AI systems are transparent, fair, and accountable. By pushing for ethical AI, we can work towards a future where AI benefits everyone, without exacerbating inequalities or causing undue harm.
+
+## Related AI Documentation
+
+### Foundation Knowledge
+- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Start here if you need the basics
+- [AI Fundamentals - Complete](ai.html) - Comprehensive technical reference
+- [AI Mathematics](../advanced/ai-mathematics.html) - Statistical learning theory
+
+### Practical Applications
+- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models
+- [ComfyUI Guide](../ai-ml/comfyui-guide.html) - Node-based AI workflows
+- [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom styles
+
+### Related Technologies
+- [Quantum Computing](quantumcomputing.html) - Quantum machine learning
+- [Database Design](database-design.html) - Vector databases for AI applications
+- [AWS](aws.html) - Cloud infrastructure for AI/ML
+
+### Hub Page
+- [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources

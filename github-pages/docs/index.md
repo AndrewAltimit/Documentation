@@ -21,7 +21,7 @@ Browse all available documentation organized by category. Use the search functio
 
 ### Development & Version Control
 - [Git Version Control](technology/git.html) - Core concepts and workflows
-- [Git Command Reference](technology/git-reference.html) - Comprehensive command guide (2024)
+- [Git Command Reference](technology/git-reference.html) - Comprehensive command guide
 - [Branching Strategies](technology/branching.html) - Git workflow patterns
 - [Database Design](technology/database-design.html) - Relational and NoSQL patterns
 
@@ -105,9 +105,8 @@ Browse all available documentation organized by category. Use the search functio
 ## 🔍 Can't Find What You Need?
 
 1. Try our [search function](../search.html) for quick access
-2. Check the [getting started guide](../getting-started.html) for navigation help
-3. Browse the [topic map](topic-map.html) for visual organization
-4. Visit section-specific index pages for detailed subcategories:
+2. Browse the [topic map](topic-map.html) for visual organization
+3. Visit section-specific index pages for detailed subcategories:
    - [AI/ML Hub](ai-ml/index.html) - Generative AI and machine learning
    - [Artificial Intelligence Hub](artificial-intelligence/index.html) - Comprehensive AI resources
    - [Quantum Computing Hub](quantum-computing/index.html) - Quantum computing from basics to research

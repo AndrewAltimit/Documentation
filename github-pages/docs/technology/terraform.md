@@ -17,7 +17,7 @@ toc_icon: "cog"
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Terraform revolutionizes infrastructure management by treating your servers, networks, and services as code. Instead of manually clicking through cloud provider interfaces or writing fragile scripts, you describe what you want in simple configuration files, and Terraform figures out how to make it happen. This declarative approach brings the reliability and predictability of software engineering to infrastructure operations. In 2024, with the emergence of OpenTofu and enhanced cloud-native features, Infrastructure as Code has become even more powerful and accessible.</p>
+  <p class="lead-text">Terraform revolutionizes infrastructure management by treating your servers, networks, and services as code. Instead of manually clicking through cloud provider interfaces or writing fragile scripts, you describe what you want in simple configuration files, and Terraform figures out how to make it happen. This declarative approach brings the reliability and predictability of software engineering to infrastructure operations. With the emergence of OpenTofu and enhanced cloud-native features, Infrastructure as Code has become even more powerful and accessible.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -61,7 +61,7 @@ terraform version
 # + provider registry.terraform.io/hashicorp/random v3.6.0
 ```
 
-### OpenTofu Alternative (2024)
+### OpenTofu Alternative
 
 OpenTofu is the open-source fork of Terraform, maintaining compatibility while adding new features:
 
@@ -125,7 +125,7 @@ resource "aws_s3_bucket" "my_first_bucket" {
   }
 }
 
-# Enable versioning (best practice for 2024)
+# Enable versioning (best practice)
 resource "aws_s3_bucket_versioning" "my_bucket_versioning" {
   bucket = aws_s3_bucket.my_first_bucket.id
   
@@ -2492,6 +2492,7 @@ module "application" {
 
 #### 2. GitOps Workflow at Scale
 
+{% raw %}
 ```yaml
 # .github/workflows/terraform-enterprise.yml
 name: Terraform Enterprise Workflow
@@ -2513,50 +2514,51 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v3
-      
+
       - id: set-matrix
         run: |
           # Detect which Terraform configurations changed
-          CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | 
-            grep '^terraform/' | 
-            cut -d'/' -f1-3 | 
-            sort -u | 
+          CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} |
+            grep '^terraform/' |
+            cut -d'/' -f1-3 |
+            sort -u |
             jq -R -s -c 'split("\n") | map(select(length > 0))')
-          
+
           echo "::set-output name=matrix::${CHANGED_DIRS}"
-  
+
   plan:
     needs: detect-changes
     strategy:
       matrix:
         directory: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
       max-parallel: 10  # Limit concurrent runs
-    
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.TERRAFORM_ROLE_ARN }}
           aws-region: us-east-1
-      
+
       - name: Terraform Plan
         working-directory: ${{ matrix.directory }}
         run: |
           terraform init
           terraform plan -out=tfplan
-          
+
           # Cost estimation
           infracost breakdown --path tfplan --format json > cost-estimate.json
-          
+
           # Security scanning
           checkov -f tfplan --output json > security-scan.json
-          
+
           # Post results to PR
           gh pr comment --body "$(cat cost-estimate.json security-scan.json | jq -s '.')"
 ```
+{% endraw %}
 
 #### 3. Module Versioning and Dependency Management
 
@@ -3579,7 +3581,7 @@ class NeuralInfrastructureOptimizer:
             state = next_state
 ```
 
-## Terraform in 2024: Latest Updates and Features
+## Terraform: Latest Updates and Features
 
 ### Terraform 1.7 Features
 - **Test Framework GA**: Native testing framework for modules
@@ -3594,11 +3596,11 @@ OpenTofu, the open-source fork, has introduced:
 - **Community-driven Features**: Faster feature development
 - **License Freedom**: MPL 2.0 license
 
-### Cloud Provider Updates (2024)
+### Cloud Provider Updates
 
 #### AWS Provider 5.x
 ```hcl
-# New resources for 2024
+# Recent new resources
 resource "aws_bedrock_model" "claude" {
   model_id = "anthropic.claude-v3"
   # AI model management
@@ -3633,7 +3635,7 @@ resource "google_vertex_ai_endpoint" "prediction" {
 }
 ```
 
-### Modern Best Practices (2024)
+### Modern Best Practices
 
 #### 1. Policy as Code Integration
 ```hcl
@@ -3710,7 +3712,7 @@ As you grow with Terraform, you'll find that understanding these foundations hel
 - Optimize performance at scale
 - Build more reliable infrastructure
 
-The future of infrastructure is code, and Terraform provides both the practical tools and theoretical framework to build it. With the emergence of OpenTofu and AI-assisted infrastructure, 2024 marks an exciting evolution in the Infrastructure as Code landscape.
+The future of infrastructure is code, and Terraform provides both the practical tools and theoretical framework to build it. With the emergence of OpenTofu and AI-assisted infrastructure, we're seeing an exciting evolution in the Infrastructure as Code landscape.
 
 ## References and Further Reading
 

@@ -17,9 +17,10 @@ Welcome to our comprehensive technology documentation hub. Here you'll find in-d
 - [CI/CD](ci-cd.html) - Continuous Integration and Deployment pipelines best practices
 
 ## Development & Version Control
-- [Git Fundamentals](git-crash-course.html) - Core concepts and essential workflows
-- [Git Command Reference](git-reference.html) - Comprehensive command reference with 2024 updates
-- [Branching Strategies](branching.html) - Git workflow patterns and team collaboration
+- [Git Version Control](git.html) - In-depth Git internals and architecture
+- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
+- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
 - [Database Design](database-design.html) - Relational and NoSQL architecture patterns
 
 ## Networking & Security
@@ -35,28 +36,20 @@ Welcome to our comprehensive technology documentation hub. Here you'll find in-d
 - [AI Fundamentals - Complete](ai.html) - Comprehensive technical overview with latest developments
 - [AI Deep Dive - Advanced](ai-lecture-2023.html) - Research papers, transformers, and implementation
 
-## Build Systems & DevOps Tools
+## Build Systems
 - [Please Build](please-build.html) - High-performance polyglot build system
-- [GitHub Actions](../devops/github-actions.html) - CI/CD automation workflows
-- [Jenkins](../devops/jenkins.html) - Extensible automation server
-- [Ansible](../devops/ansible.html) - Infrastructure automation
 
 ## Additional Resources
 - [AI/ML Hub](../ai-ml/index.html) - Specialized machine learning documentation
 - [Reference Sheets](../reference/index.html) - Quick reference materials and cheat sheets
-- [DevOps Tools](../devops/index.html) - Comprehensive DevOps toolchain guides
-- [Cloud Platforms](../cloud/index.html) - Multi-cloud architecture and services
+- [Distributed Systems](../distributed-systems/index.html) - Architecture and implementation patterns
+- [Quantum Computing Hub](../quantum-computing/index.html) - Quantum theory to programming
 
-## Recent Updates (2024)
+## Recent Updates (2025)
 
 ### Featured Content
-- **Kubernetes**: Updated with latest v1.29 features and production patterns
-- **Git**: Enhanced with 2024 security practices and AI integration
+- **Kubernetes**: Updated with latest v1.30+ features and production patterns
+- **Git**: Enhanced with security practices and AI integration
 - **Terraform**: Expanded with OpenTofu migration guide
 - **Quantum Computing**: Added NISQ algorithms and cloud platform guides
-
-### Coming Soon
-- WebAssembly and Edge Computing
-- Platform Engineering Best Practices
-- FinOps and Cloud Cost Optimization
-- Green Computing and Sustainable IT
+- **Docker**: Comprehensive containerization guide with Docker Compose patterns

@@ -367,7 +367,7 @@ INCLUDE (total, status);
 CREATE INDEX idx_active_users ON users(email) WHERE active = true;
 ```
 
-**Modern Index Types (2024)**:
+**Modern Index Types**:
 - **BRIN (Block Range Index)**: For time-series data
 - **GIN/GiST**: For JSON, arrays, full-text search
 - **Vector Indexes**: For AI/ML embeddings (pgvector, Pinecone)
@@ -382,7 +382,7 @@ Indexes aren't free:
 
 Rule of thumb: Index based on read patterns, but don't index everything!
 
-**AI-Assisted Index Recommendations (2024)**:
+**AI-Assisted Index Recommendations**:
 Modern databases now use machine learning to suggest indexes:
 - **PostgreSQL**: pg_stat_statements + ML advisors
 - **MySQL**: Performance Schema with AI insights
@@ -2521,7 +2521,7 @@ Whether you're building a small app or a global platform, understanding how data
 
 The field continues to evolve rapidly, with machine learning, new hardware, and distributed systems pushing the boundaries of what's possible. But the core principles—organizing data efficiently, managing concurrent access, and ensuring reliability—remain timeless.
 
-### Current Trends (2024)
+### Current Trends
 
 **AI-Native Databases**: 
 - Vector databases for AI/ML (Pinecone, Weaviate, Qdrant)

@@ -51,11 +51,13 @@ docker pull <registry>/<image>:<tag> # Pull from custom registry
 ```
 
 ### Listing Images
+{% raw %}
 ```bash
 docker images                        # List all images
 docker images -a                     # Include intermediate images
 docker image ls --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 ```
+{% endraw %}
 
 ### Removing Images
 ```bash
@@ -321,7 +323,7 @@ export DOCKER_HOST=tcp://remote-host:2375
 docker ps  # Commands now execute on remote host
 ```
 
-## Docker 2024 Updates
+## Docker Updates
 
 ### New Features
 - **Docker Scout**: Integrated vulnerability scanning and SBOM analysis
@@ -339,6 +341,12 @@ docker ps  # Commands now execute on remote host
 - **Colima**: Lightweight Docker Desktop alternative for macOS
 - **Rancher Desktop**: Kubernetes-focused container management
 - **OrbStack**: Fast, efficient Docker Desktop alternative
+
+## Related Docker Documentation
+
+- [Containers - Complete Guide](docker.html) - In-depth container concepts, networking, and orchestration
+- [Kubernetes](kubernetes.html) - Container orchestration at scale
+- [CI/CD Pipelines](ci-cd.html) - Docker in continuous integration workflows
 
 ## Additional Resources
 

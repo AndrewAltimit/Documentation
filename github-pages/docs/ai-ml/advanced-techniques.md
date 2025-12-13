@@ -696,7 +696,7 @@ class GenerationProfiler:
         }
 ```
 
-## Cutting-Edge Techniques (2024)
+## Cutting-Edge Techniques
 
 ### Differential Diffusion
 

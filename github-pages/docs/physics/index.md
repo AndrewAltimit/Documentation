@@ -68,7 +68,7 @@ General Relativity ────────────────────�
 
 Each field builds upon and connects to others, creating a rich tapestry of physical understanding.
 
-## Recent Updates (2024)
+## Recent Updates (2025)
 
 - **Quantum Field Theory**: Added sections on gauge theories and renormalization
 - **String Theory**: Updated with latest developments in holography

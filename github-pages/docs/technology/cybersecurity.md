@@ -374,7 +374,7 @@ But implementing secure authentication is complex. This is where protocols like 
 
 JWTs solved a major problem in web applications: how to maintain user sessions without storing state on the server.
 
-**Important Security Update (2024)**: Many JWT libraries had critical vulnerabilities. Always:
+**Important Security Update**: Many JWT libraries had critical vulnerabilities. Always:
 - Use strong, unique secrets (256+ bits)
 - Validate the 'alg' header to prevent algorithm confusion attacks
 - Set and validate expiration times
@@ -432,7 +432,7 @@ Understanding who secures what is crucial:
 
 In the cloud, Identity and Access Management (IAM) is your most critical security control. A misconfigured IAM policy can expose your entire infrastructure.
 
-**Modern IAM Practices (2024)**:
+**Modern IAM Practices**:
 - **Zero Trust Architecture**: Never trust, always verify
 - **Just-In-Time Access**: Temporary elevated privileges
 - **Passwordless Authentication**: Passkeys, FIDO2 standards
@@ -469,7 +469,7 @@ In the cloud, Identity and Access Management (IAM) is your most critical securit
 
 Containers add another layer of complexity. You're not just securing an application—you're securing the entire environment it runs in.
 
-**2024 Container Security Best Practices**:
+**Container Security Best Practices**:
 - **Software Bill of Materials (SBOM)**: Required by many regulations
 - **Sigstore**: Sign and verify container images
 - **Distroless images**: Reduce attack surface
@@ -511,7 +511,7 @@ The weakest link in any security system is often the human element. Attackers kn
 
 **Defense**: Security awareness training and technical controls like email authentication (SPF, DKIM, DMARC).
 
-**AI-Powered Attacks (2024)**:
+**AI-Powered Attacks**:
 - **Deepfake voice cloning**: CEO fraud using synthetic voices
 - **AI-generated phishing**: Personalized at scale using LLMs
 - **Business Email Compromise (BEC)**: $2.9 billion in losses (2023)
@@ -904,7 +904,7 @@ Every incident is a learning opportunity:
 
 A Security Information and Event Management system is like having thousands of security cameras with an AI watching them all.
 
-**Next-Gen SIEM (2024)**:
+**Next-Gen SIEM**:
 - **XDR (Extended Detection and Response)**: Unified security across endpoints, network, cloud
 - **SOAR Integration**: Automated response to incidents
 - **ML-Powered Analytics**: Behavioral baselines, anomaly detection
@@ -986,7 +986,7 @@ Compliance isn't just bureaucracy—it's security with consequences. Understandi
 
 The EU's General Data Protection Regulation changed how we think about data.
 
-**Global Privacy Landscape (2024)**:
+**Global Privacy Landscape**:
 - **EU**: GDPR fines exceeded €2 billion total
 - **US**: State laws proliferating (California CPRA, Virginia VCDPA)
 - **India**: DPDP Act 2023 implementation
@@ -1410,7 +1410,7 @@ class BlockchainCA:
 - **"The Tangled Web"** - Michal Zalewski
 - **Academic conferences**: IEEE S&P, USENIX Security, CCS, NDSS
 
-### Staying Current (2024 Resources)
+### Staying Current
 - **Krebs on Security** - Brian Krebs' security journalism
 - **Schneier on Security** - Bruce Schneier's blog
 - **Google Project Zero** - Cutting-edge vulnerability research
@@ -1418,7 +1418,7 @@ class BlockchainCA:
 - **SANS Internet Storm Center** - Real-time threat intelligence
 - **Security podcasts**: Darknet Diaries, Security Now, Risky Business, The CyberWire
 
-### Emerging Threats (2024)
+### Emerging Threats
 - **AI-Powered Attacks**: Automated vulnerability discovery, deepfakes, prompt injection
 - **Ransomware Evolution**: Double/triple extortion, RaaS sophistication
 - **Cloud Security**: Misconfigurations remain #1 issue

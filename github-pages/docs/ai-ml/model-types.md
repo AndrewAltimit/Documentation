@@ -354,7 +354,7 @@ LyCORIS (LoRA beYond Conventional) methods offer more sophisticated adaptations:
 5. **IA3**: Few-parameter adaptation through rescaling
 6. **Lokr**: Combination of LoRA and LoKr benefits
 
-### New LoRA Technologies (2024)
+### New LoRA Technologies
 
 1. **LCM-LoRA**: Enables 4-8 step generation on any SDXL model
 2. **HyperDream**: LoRA with hypernetwork properties

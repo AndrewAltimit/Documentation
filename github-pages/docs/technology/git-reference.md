@@ -438,6 +438,13 @@ git secrets --register-aws          # Register AWS patterns
 git secrets --scan                  # Scan for secrets
 ```
 
+## Related Git Documentation
+
+- [Git Version Control](git.html) - Deep dive into Git internals and architecture
+- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
+- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
+
 ## Additional Resources
 
 - [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide

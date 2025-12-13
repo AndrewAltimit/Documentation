@@ -326,7 +326,7 @@ This allows:
 - Gradual rollouts
 - Quick rollbacks without redeployment
 
-**Popular Feature Flag Services (2024):**
+**Popular Feature Flag Services:**
 - **LaunchDarkly**: Enterprise-grade feature management
 - **Unleash**: Open-source feature toggle service
 - **Split.io**: Feature flags with built-in experimentation
@@ -470,11 +470,12 @@ jobs:
 
 Choosing the right branching strategy depends on your team's needs, project requirements, and deployment practices. Start simple and add complexity only when needed. Remember that the best strategy is one that your team can follow consistently.
 
-## Related Topics
+## Related Git Documentation
 
-- [Git Internals](/docs/technology/git/) - Understanding Git's object model and internal mechanisms
-- [CI/CD Practices](/docs/technology/ci-cd/) - Automating your development workflow
-- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing large-scale projects
+- [Git Version Control](git.html) - Deep dive into Git internals and architecture
+- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
+- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
+- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
 
 ## References
 

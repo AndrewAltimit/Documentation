@@ -10,7 +10,7 @@ toc_icon: "cog"
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Every time you open a web page, send a message, or stream a video, data travels through an intricate network of connections. Understanding how these networks function is essential for anyone working with technology—from developers optimizing applications to administrators ensuring reliable service. In 2024, with the rise of edge computing, 5G networks, and AI-driven network management, networking knowledge is more crucial than ever.
+Every time you open a web page, send a message, or stream a video, data travels through an intricate network of connections. Understanding how these networks function is essential for anyone working with technology—from developers optimizing applications to administrators ensuring reliable service. With the rise of edge computing, 5G networks, and AI-driven network management, networking knowledge is more crucial than ever.
 
 ## The Journey of a Network Packet
 
@@ -1138,7 +1138,7 @@ Networking continues to evolve rapidly. Let's explore the cutting-edge technolog
 
 ### SDN: Networks Become Programmable
 
-Traditional networks are like city streets with fixed traffic lights. SDN makes networks programmable, like having smart traffic lights that adapt to real-time conditions. In 2024, SDN has evolved beyond data centers to enable 5G network slicing, edge computing orchestration, and AI-driven network optimization.
+Traditional networks are like city streets with fixed traffic lights. SDN makes networks programmable, like having smart traffic lights that adapt to real-time conditions. SDN has evolved beyond data centers to enable 5G network slicing, edge computing orchestration, and AI-driven network optimization.
 
 **Components**:
 - Controller: Centralized management (ONOS, OpenDaylight)
@@ -1636,7 +1636,7 @@ Collect traffic flow data.
 - Use caching where possible
 - Regular capacity planning
 
-## The Cutting Edge: Research Changing Networking (2024)
+## The Cutting Edge: Research Changing Networking
 
 The internet was designed for connecting computers. Today's challenges—content delivery, IoT, quantum computing, AI inference at the edge—require fundamentally new approaches. Recent developments include deterministic networking for industrial IoT, network digital twins, and AI-native protocols.
 
@@ -1818,7 +1818,7 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 - **Jacobson et al. (2009)** - "Networking Named Content"  
   *Why it matters:* Proposed focusing on what we want, not where it is
 
-### What's Next: Active Research Areas (2024)
+### What's Next: Active Research Areas
 
 **Making Networks Smarter:**
 - **AI-Native Networks**: Self-optimizing networks using transformer models and reinforcement learning
@@ -1847,7 +1847,7 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 - **Blockchain-Based Networking**: Decentralized DNS, routing security
 - **Neuromorphic Networking**: Brain-inspired packet processing
 
-## 2024 Networking Trends
+## Current Networking Trends
 
 ### QUIC and HTTP/3 Adoption
 - Major websites now use HTTP/3 by default
@@ -1881,5 +1881,3 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 - [Docker](docker.html) - Container networking, overlay networks
 - [Kubernetes](kubernetes.html) - Cluster networking, CNI plugins
 - [Quantum Computing](quantumcomputing.html) - Quantum networking and QKD
-- [5G Technology](../telecom/5g.html) - Next-generation mobile networks
-- [Edge Computing](../cloud/edge-computing.html) - Distributed computing at the network edge

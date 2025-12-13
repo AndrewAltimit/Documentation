@@ -415,7 +415,7 @@ def custom_edge_detection(image):
 
 ## Model Compatibility
 
-### Recent Developments (2024)
+### Recent Developments
 
 #### New Control Types
 - **QR Code Control**: Generate scannable QR codes in artistic styles

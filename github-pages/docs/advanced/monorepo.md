@@ -735,7 +735,7 @@ package-lock.json merge=ours
 - Built-in TypeScript support
 - Compatible with existing tools
 
-### PNPM Catalogs (2024)
+### PNPM Catalogs
 
 **Centralized Dependency Management**:
 ```yaml

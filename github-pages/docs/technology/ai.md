@@ -1346,7 +1346,7 @@ What started as a theoretical curiosity has become one of the most versatile too
 - **Super-Resolution**: Enhancing image quality and resolution
 - **Medical Imaging**: Generating synthetic medical data, denoising scans
 
-#### Beyond Images (2024 State-of-the-Art)
+#### Beyond Images (State-of-the-Art)
 - **Audio Generation**: MusicGen, AudioCraft, Stable Audio, Suno AI
 - **Video Generation**: Runway Gen-2, Pika Labs, Stable Video Diffusion, OpenAI Sora (preview)
 - **3D Generation**: DreamGaussian, Wonder3D, Instant3D, TripoSR
@@ -1398,7 +1398,7 @@ As AI systems become more powerful, researchers are discovering surprising patte
 - **Loss Prediction**: L = E + A/N^α + B/D^β 
 - **Optimal Ratio**: ~20 tokens per parameter (being challenged by models like Llama 3)
 - **Compute-Optimal**: Balance model size and training data
-- **2024 Update**: Llama 3 trained on 15T tokens (100x parameters), suggesting benefits beyond Chinchilla optimal
+- **Note**: Llama 3 trained on 15T tokens (100x parameters), suggesting benefits beyond Chinchilla optimal
 
 **Key findings:**
 - Most models are significantly undertrained
@@ -1583,7 +1583,7 @@ Ensuring AI systems are safe and secure:
 - **IEEE Standards**: Technical standards for ethical AI design
 - **Company Principles**: Google's AI Principles, Microsoft's Responsible AI
 
-#### Government Regulations (Updated 2024)
+#### Government Regulations
 - **EU AI Act**: Passed in March 2024, world's first comprehensive AI law
 - **US Executive Order on AI**: October 2023 order on safe, secure, and trustworthy AI
 - **China's AI Regulations**: Interim measures for generative AI services (2023)
@@ -1764,3 +1764,18 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [Database Design](database-design.html) - Vector databases for AI
 - [Networking](networking.html) - Distributed training infrastructure
 - [AWS](aws.html) - Cloud platforms for AI/ML workloads
+
+## Related AI Documentation
+
+### Different Depth Levels
+- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
+- [AI Deep Dive](ai-lecture-2023.html) - Research-level content on transformers and LLMs
+- [AI Mathematics](../advanced/ai-mathematics.html) - Theoretical foundations and proofs
+
+### Practical Generative AI
+- [AI/ML Documentation Hub](../ai-ml/index.html) - Comprehensive generative AI guides
+- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation
+- [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom applications
+
+### Navigation
+- [AI Documentation Hub](../artificial-intelligence/index.html) - Complete index of all AI resources

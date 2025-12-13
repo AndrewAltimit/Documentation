@@ -403,7 +403,7 @@ response = requests.post("http://localhost:8190/mcp/tool", json={
 })
 ```
 
-## Specialized LoRA Types (2024)
+## Specialized LoRA Types
 
 ### LCM-LoRA Training
 

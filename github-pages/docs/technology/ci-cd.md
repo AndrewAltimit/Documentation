@@ -163,7 +163,7 @@ jobs:
         pytest
 ```
 
-**2024 GitHub Actions Features:**
+**Recent GitHub Actions Features:**
 - **Larger runners**: Up to 64 vCPUs and 256 GB RAM
 - **GPU runners**: NVIDIA GPU support for ML workloads
 - **Arm64 runners**: Native ARM architecture support
@@ -721,7 +721,7 @@ update-manifest:
        # GitOps operator automatically rolls back
    ```
 
-**Modern GitOps Tools (2024):**
+**Modern GitOps Tools:**
 - **ArgoCD**: Most popular, great UI, multi-cluster support
 - **Flux v2**: GitOps toolkit, native Kubernetes controller
 - **Rancher Fleet**: Multi-cluster GitOps at scale
@@ -858,6 +858,7 @@ jobs:
 **Challenge**: Coordinate deployment of 50+ services
 
 **Solution**:
+{% raw %}
 ```yaml
 # Monorepo CI/CD
 name: Microservices Pipeline
@@ -890,7 +891,7 @@ jobs:
         run: |
           cd services/${{ matrix.service }}
           docker build -t ${{ matrix.service }}:$GITHUB_SHA .
-          
+
       - name: Deploy Service
         run: |
           helm upgrade --install ${{ matrix.service }} \
@@ -898,6 +899,7 @@ jobs:
             --set image.tag=$GITHUB_SHA \
             --wait --timeout=5m
 ```
+{% endraw %}
 
 ### Example 3: Mobile App Deployment
 
@@ -1033,7 +1035,7 @@ multi-cloud-deploy:
 
 ## Resources and Further Learning
 
-### Essential Tools (2024)
+### Essential Tools
 - **Pipeline Syntax Validators**: 
   - GitHub Actions playground
   - GitLab CI Lint
@@ -1060,7 +1062,7 @@ multi-cloud-deploy:
 - "Modern Software Engineering" by David Farley (2022)
 - "The Phoenix Project" & "The Unicorn Project" by Gene Kim
 
-### Online Learning (2024)
+### Online Learning
 - **DevOps with GitLab CI** - GitLab's official course
 - **GitHub Actions Deep Dive** - A Cloud Guru
 - **Jenkins 2023 Masterclass** - Udemy
@@ -1071,7 +1073,7 @@ multi-cloud-deploy:
 - DevOps Weekly Newsletter
 - CI/CD Collective Forum
 
-### Emerging Trends in CI/CD (2024)
+### Emerging Trends in CI/CD
 
 1. **AI-Powered CI/CD**
    - Predictive test selection
@@ -1098,3 +1100,11 @@ multi-cloud-deploy:
    - Sustainability metrics
 
 Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn't perfection—it's progress.
+
+## Related Technology Documentation
+
+- [Git Version Control](git.html) - Version control fundamentals
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
+- [Docker](docker.html) - Containerization for consistent builds
+- [Kubernetes](kubernetes.html) - Container orchestration and deployments
+- [Terraform](terraform.html) - Infrastructure as code

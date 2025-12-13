@@ -287,6 +287,16 @@ Ready to dive deeper? Start with these guides:
 2. **[ComfyUI Guide](comfyui-guide.html)** - Master workflow creation
 3. **[LoRA Training](lora-training.html)** - Create your own models
 
+## Related AI Documentation
+
+For theoretical foundations and broader AI concepts:
+
+- [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - No-math introduction to AI
+- [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical reference
+- [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research topics
+- [AI Mathematics](../advanced/ai-mathematics.html) - Statistical learning theory
+- [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
+
 <div class="code-example bg-yellow-000" markdown="1">
 **Note**: This documentation assumes you have access to NVIDIA GPUs. While some models can run on CPU or Apple Silicon, performance will be significantly slower and some features may not be available.
 </div>

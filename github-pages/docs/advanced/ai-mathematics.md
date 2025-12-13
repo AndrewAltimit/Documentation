@@ -222,7 +222,7 @@ $$O(\log n) \text{ layers, } O(n^2) \text{ parameters}$$
 - **Circuits Framework**: Identifies computational subgraphs
 - **Scaling Monosemanticity**: Sparse autoencoders reveal interpretable features
 
-## Emerging Topics (2024)
+## Emerging Topics
 
 ### Diffusion Models Theory
 

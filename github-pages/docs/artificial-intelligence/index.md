@@ -145,6 +145,35 @@ Generative AI creates new content including images, text, audio, and video.
 - [Advanced AI Lecture](../technology/ai-lecture-2023.html) - Research-level content
 - [Advanced Techniques](../ai-ml/advanced-techniques.html) - State-of-the-art methods
 
+## Learning Paths
+
+Choose a path based on your goals:
+
+### 🎯 Path 1: AI Fundamentals (Theory-Focused)
+**For:** Understanding how AI works conceptually and mathematically
+
+1. [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(Start here - no math required)*
+2. [AI Fundamentals - Complete](../technology/ai.html) *(Technical deep-dive)*
+3. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Transformers, LLMs, research)*
+4. [AI Mathematics](../advanced/ai-mathematics.html) *(Statistical learning theory)*
+
+### 🎨 Path 2: Generative AI (Practice-Focused)
+**For:** Creating images, training models, building AI applications
+
+1. [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) *(Core concepts)*
+2. [ComfyUI Guide](../ai-ml/comfyui-guide.html) *(Workflow creation)*
+3. [Model Types](../ai-ml/model-types.html) *(LoRAs, VAEs, etc.)*
+4. [LoRA Training](../ai-ml/lora-training.html) *(Train custom models)*
+5. [Advanced Techniques](../ai-ml/advanced-techniques.html) *(Professional workflows)*
+
+### 🔬 Path 3: Research Track
+**For:** Those pursuing AI research or advanced development
+
+1. [AI Fundamentals - Complete](../technology/ai.html) *(Foundation)*
+2. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Modern architectures)*
+3. [AI Mathematics](../advanced/ai-mathematics.html) *(Theoretical foundations)*
+4. [Quantum Computing](../quantum-computing/index.html) *(Quantum ML)*
+
 ## Related Topics
 
 ### Infrastructure & Tools

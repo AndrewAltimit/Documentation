@@ -14,7 +14,7 @@ toc_icon: "cog"
 
 Imagine if a computer could explore multiple solutions to a problem simultaneously, rather than checking each possibility one by one. This is the fundamental promise of quantum computing - a revolutionary approach that harnesses the strange behaviors of quantum mechanics to process information in ways classical computers cannot.
 
-As of 2024, we've entered the era of practical quantum advantage, with systems from IBM, Google, and others demonstrating real-world applications in drug discovery, materials science, and optimization. While still in the "Noisy Intermediate-Scale Quantum" (NISQ) era, quantum computers are transitioning from laboratory curiosities to practical tools.
+We've entered the era of practical quantum advantage, with systems from IBM, Google, and others demonstrating real-world applications in drug discovery, materials science, and optimization. While still in the "Noisy Intermediate-Scale Quantum" (NISQ) era, quantum computers are transitioning from laboratory curiosities to practical tools.
 
 While your laptop or smartphone uses bits that must be either 0 or 1, quantum computers use quantum bits (qubits) that can exist in a "superposition" - being both 0 and 1 at the same time. This isn't just a quirky physics fact; it's the key to solving certain problems exponentially faster than any classical computer ever could.
 
@@ -763,14 +763,14 @@ print(qc)
 
 This simple circuit demonstrates superposition (Hadamard gate) and entanglement (CNOT gate) - the key ingredients of quantum computing.
 
-### Cloud Quantum Computing: Access Without Building (2024)
+### Cloud Quantum Computing: Access Without Building
 
 Quantum computing has become increasingly accessible through cloud platforms:
 
 **IBM Quantum Network**: 
 - Free access to 5-127 qubit devices
 - Qiskit Runtime for optimized execution
-- 1000+ qubit systems coming in 2024
+- 1000+ qubit systems now available
 
 **Amazon Braket**: 
 - Access to IonQ (trapped ion), Rigetti (superconducting), QuEra (neutral atom)
@@ -787,7 +787,7 @@ Quantum computing has become increasingly accessible through cloud platforms:
 - Q# programming language
 - Resource estimation tools
 
-**Other Platforms (2024)**:
+**Other Platforms**:
 - **Quantinuum**: Up to 56 qubit trapped-ion systems
 - **PsiQuantum**: Building utility-scale photonic quantum computers
 - **Xanadu Cloud**: Photonic quantum computing with Strawberry Fields
@@ -893,7 +893,7 @@ Whether you're a student, developer, researcher, or simply curious, there's neve
 
 The quantum revolution isn't coming - it's here. And you can be part of it.
 
-## Quantum Computing in 2024: State of the Field
+## Quantum Computing: Current State of the Field
 
 ### Recent Breakthroughs
 
@@ -905,7 +905,7 @@ The quantum revolution isn't coming - it's here. And you can be part of it.
 
 **QuEra's Analog Quantum Computing (2024)**: 256-qubit neutral atom system for optimization problems.
 
-### Industry Applications (2024)
+### Industry Applications
 
 **Drug Discovery**:
 - Menten AI and IBM: Quantum-enhanced drug design
@@ -922,7 +922,7 @@ The quantum revolution isn't coming - it's here. And you can be part of it.
 - BASF: Catalyst design with quantum simulation
 - Boeing: Quantum algorithms for materials discovery
 
-### Quantum Software Stack (2024)
+### Quantum Software Stack
 
 ```python
 # Modern quantum development stack
@@ -941,7 +941,7 @@ sampler = Sampler(backend)
 estimator = Estimator(backend)
 ```
 
-### Quantum Programming Frameworks (2024)
+### Quantum Programming Frameworks
 
 **Production-Ready**:
 - **Qiskit 1.0**: IBM's framework with stability guarantees

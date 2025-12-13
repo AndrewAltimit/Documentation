@@ -755,3 +755,18 @@ S_A = Area(γ_A)/(4G_N)
 4. **Cosmology:** Early universe, dark sector
 
 Quantum Field Theory represents our deepest understanding of the fundamental forces and particles of nature. It has achieved remarkable experimental success while pointing toward new physics beyond the Standard Model. The framework continues to evolve as we probe higher energies, develop new mathematical tools, and seek to unify all forces including gravity. The interplay between theory, experiment, and computation drives the field forward, revealing ever-deeper connections between physics, mathematics, and the nature of reality itself.
+
+## See Also
+
+### Foundational Topics:
+- [Quantum Mechanics](quantum-mechanics.html) - The non-relativistic foundation for QFT
+- [Relativity](relativity.html) - Special relativity underpins Lorentz-invariant field theories
+- [Classical Mechanics](classical-mechanics.html) - Lagrangian and Hamiltonian formulations
+
+### Applications and Extensions:
+- [Condensed Matter Physics](condensed-matter.html) - Field theoretic methods in many-body systems
+- [Statistical Mechanics](statistical-mechanics.html) - Finite temperature field theory and phase transitions
+- [String Theory](string-theory.html) - Extensions beyond point particles to quantum gravity
+
+### Computational Methods:
+- [Computational Physics](computational-physics.html) - Lattice QCD and numerical field theory methods

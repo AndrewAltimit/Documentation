@@ -18,7 +18,7 @@ toc_icon: "cog"
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments. As of 2024, Kubernetes v1.29 introduces enhanced security features, improved performance, and better AI/ML workload support.</p>
+  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments. Kubernetes v1.30+ introduces enhanced security features, improved performance, and better AI/ML workload support.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -51,7 +51,7 @@ This guide covers Kubernetes comprehensively across the following topics:
 6. **Configuration & Security** - Production configurations
 7. **Advanced Topics** - Complex deployment scenarios
 8. **Real-World Applications** - Implementation case studies
-9. **2024 Updates** - Recent features and changes
+9. **Latest Updates** - Recent features and changes
 
 ## Quick Start Guide
 
@@ -1766,6 +1766,7 @@ mychart/
 ### Advanced Helm Patterns
 
 #### Template Functions and Pipelines
+{% raw %}
 ```yaml
 # templates/deployment.yaml
 apiVersion: apps/v1
@@ -1799,8 +1800,10 @@ spec:
         {{- end }}
         {{- end }}
 ```
+{% endraw %}
 
 #### Helm Hooks for Lifecycle Management
+{% raw %}
 ```yaml
 # templates/job-db-migrate.yaml
 apiVersion: batch/v1
@@ -1824,6 +1827,7 @@ spec:
         - "-database={{ .Values.database.url }}"
         - "up"
 ```
+{% endraw %}
 
 #### Managing Dependencies
 ```yaml
@@ -3094,7 +3098,7 @@ hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
 ```
 
-## Kubernetes 2024 Updates: Latest Features and Best Practices
+## Kubernetes Updates: Latest Features and Best Practices
 
 ### What's New in Kubernetes v1.29 (Mandala)
 1. **ReadinessGates for Jobs**: Better job lifecycle management
@@ -3109,7 +3113,7 @@ dnsPolicy: ClusterFirstWithHostNet
 3. **Persistent Volume Last Phase Transition Time**: Better storage monitoring
 4. **Non-Graceful Node Shutdown**: Improved failure handling
 
-### Enhanced Security Features (2024)
+### Enhanced Security Features
 ```yaml
 # Pod Security Standards (enforced by default)
 apiVersion: v1

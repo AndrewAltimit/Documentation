@@ -1248,7 +1248,7 @@ networks:
     driver: bridge</code></pre>
     
     <h4>Network Policies and Firewalls</h4>
-    <pre><code class="language-bash"># Implement network policies with iptables
+    {% raw %}<pre><code class="language-bash"># Implement network policies with iptables
 docker run -d --name restricted-app my-app
 
 # Get container IP
@@ -1259,7 +1259,7 @@ sudo iptables -I DOCKER-USER -s $CONTAINER_IP -j DROP
 sudo iptables -I DOCKER-USER -s $CONTAINER_IP -d 10.0.0.0/8 -j ACCEPT
 
 # Allow only specific ports
-sudo iptables -I DOCKER-USER -p tcp --dport 443 -j ACCEPT</code></pre>
+sudo iptables -I DOCKER-USER -p tcp --dport 443 -j ACCEPT</code></pre>{% endraw %}
   </div>
 </div>
 
@@ -1494,7 +1494,7 @@ docker trust inspect --pretty my-registry/my-app:latest</code></pre>
   
   <div class="debug-techniques">
     <h4>Container Won't Start</h4>
-    <pre><code class="language-bash"># Check container logs
+    {% raw %}<pre><code class="language-bash"># Check container logs
 docker logs container-name
 
 # View detailed container info
@@ -1507,7 +1507,7 @@ docker inspect container-name --format='{{.State.ExitCode}}'
 docker run -it --entrypoint /bin/sh my-image
 
 # Override CMD for debugging
-docker run -it my-image /bin/bash -c "echo 'Debug mode'; /app/start.sh"</code></pre>
+docker run -it my-image /bin/bash -c "echo 'Debug mode'; /app/start.sh"</code></pre>{% endraw %}
     
     <h4>Connectivity Issues</h4>
     <pre><code class="language-bash"># Test container networking
@@ -1609,7 +1609,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 CMD ["node", "server.js"]</code></pre>
     
     <h4>Monitor Container Health</h4>
-    <pre><code class="language-bash"># Check health status
+    {% raw %}<pre><code class="language-bash"># Check health status
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # Inspect health check results
@@ -1628,7 +1628,7 @@ while true; do
 done
 EOF
 chmod +x monitor.sh
-./monitor.sh my-app</code></pre>
+./monitor.sh my-app</code></pre>{% endraw %}
   </div>
 </div>
 
@@ -3142,7 +3142,7 @@ The container landscape continues to evolve rapidly:
 - **Emerging**: WebAssembly offers new possibilities for lightweight, secure containers
 - **Future**: Hybrid approaches combining traditional containers and WASM
 
-### Docker Updates (2024)
+### Docker Updates
 
 **Docker Desktop Enhancements**:
 - **Docker Scout**: Built-in vulnerability scanning and SBOM generation
@@ -3181,6 +3181,14 @@ As you continue your Docker journey:
 - Choose the right tool for each job
 
 The future of application deployment is containerized, and you're now equipped with the knowledge to be part of that future.
+
+## Related Docker Documentation
+
+- [Docker Essentials](docker-essentials.html) - Quick reference and command cheat sheet
+- [Kubernetes](kubernetes.html) - Container orchestration at scale
+- [Terraform](terraform.html) - Infrastructure as code for container deployments
+- [CI/CD Pipelines](ci-cd.html) - Docker in continuous integration workflows
+- [AWS](aws.html) - ECS, EKS, and cloud container services
 
 <div class="cta-section">
   <h3><i class="fas fa-rocket"></i> Ready to Start?</h3>

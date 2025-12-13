@@ -1183,3 +1183,20 @@ Checksum
 3. Want/have exchange
 4. Pack transmission
 5. Reference update
+
+## Related Git Documentation
+
+### Quick References
+- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
+- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
+
+### Related Technologies
+- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
+- [Docker](docker.html) - Containerized development workflows
+- [Kubernetes](kubernetes.html) - GitOps and deployment strategies
+
+### External Resources
+- [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide
+- [Git Documentation](https://git-scm.com/docs) - Official reference
+- [GitHub Skills](https://skills.github.com/) - Interactive tutorials
