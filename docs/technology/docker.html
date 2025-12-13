@@ -2077,7 +2077,7 @@ networks:
 docker run -d --name restricted-app my-app
 
 # Get container IP
-CONTAINER_IP=$(docker inspect -f '' restricted-app)
+CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' restricted-app)
 
 # Add iptables rules to restrict access
 sudo iptables -I DOCKER-USER -s $CONTAINER_IP -j DROP
@@ -2326,7 +2326,7 @@ docker logs container-name
 docker inspect container-name
 
 # Check exit code
-docker inspect container-name --format=''
+docker inspect container-name --format='{{.State.ExitCode}}'
 
 # Debug with interactive shell
 docker run -it --entrypoint /bin/sh my-image
@@ -2435,16 +2435,16 @@ CMD ["node", "server.js"]</code></pre>
     
     <h4>Monitor Container Health</h4>
     <pre><code class="language-bash"># Check health status
-docker ps --format "table \t"
+docker ps --format "table {{.Names}}\t{{.Status}}"
 
 # Inspect health check results
-docker inspect --format='' container-name | jq .
+docker inspect --format='{{json .State.Health}}' container-name | jq .
 
 # Custom monitoring script
 cat &gt; monitor.sh &lt;&lt; 'EOF'
 #!/bin/bash
 while true; do
-  STATUS=$(docker inspect --format='' $1)
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' $1)
   echo "$(date): Container $1 health: $STATUS"
   if [ "$STATUS" != "healthy" ]; then
     docker logs --tail 50 $1
@@ -3967,7 +3967,7 @@ world service {
   <li><strong>Future</strong>: Hybrid approaches combining traditional containers and WASM</li>
 </ul>
 
-<h3 id="docker-updates-2024">Docker Updates (2024)</h3>
+<h3 id="docker-updates">Docker Updates</h3>
 
 <p><strong>Docker Desktop Enhancements</strong>:</p>
 <ul>
@@ -4016,6 +4016,16 @@ world service {
 </ul>
 
 <p>The future of application deployment is containerized, and you’re now equipped with the knowledge to be part of that future.</p>
+
+<h2 id="related-docker-documentation">Related Docker Documentation</h2>
+
+<ul>
+  <li><a href="docker-essentials.html">Docker Essentials</a> - Quick reference and command cheat sheet</li>
+  <li><a href="kubernetes.html">Kubernetes</a> - Container orchestration at scale</li>
+  <li><a href="terraform.html">Terraform</a> - Infrastructure as code for container deployments</li>
+  <li><a href="ci-cd.html">CI/CD Pipelines</a> - Docker in continuous integration workflows</li>
+  <li><a href="aws.html">AWS</a> - ECS, EKS, and cloud container services</li>
+</ul>
 
 <div class="cta-section">
   <h3><i class="fas fa-rocket"></i> Ready to Start?</h3>

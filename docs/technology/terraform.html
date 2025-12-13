@@ -756,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Terraform revolutionizes infrastructure management by treating your servers, networks, and services as code. Instead of manually clicking through cloud provider interfaces or writing fragile scripts, you describe what you want in simple configuration files, and Terraform figures out how to make it happen. This declarative approach brings the reliability and predictability of software engineering to infrastructure operations. In 2024, with the emergence of OpenTofu and enhanced cloud-native features, Infrastructure as Code has become even more powerful and accessible.</p>
+  <p class="lead-text">Terraform revolutionizes infrastructure management by treating your servers, networks, and services as code. Instead of manually clicking through cloud provider interfaces or writing fragile scripts, you describe what you want in simple configuration files, and Terraform figures out how to make it happen. This declarative approach brings the reliability and predictability of software engineering to infrastructure operations. With the emergence of OpenTofu and enhanced cloud-native features, Infrastructure as Code has become even more powerful and accessible.</p>
   
   <div class="key-insights">
     <div class="insight-card">
@@ -807,7 +807,7 @@ terraform version
 <span class="c"># + provider registry.terraform.io/hashicorp/random v3.6.0</span>
 </code></pre></div></div>
 
-<h3 id="opentofu-alternative-2024">OpenTofu Alternative (2024)</h3>
+<h3 id="opentofu-alternative">OpenTofu Alternative</h3>
 
 <p>OpenTofu is the open-source fork of Terraform, maintaining compatibility while adding new features:</p>
 
@@ -868,7 +868,7 @@ tofu version
   <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="c1"># Enable versioning (best practice for 2024)</span>
+<span class="c1"># Enable versioning (best practice)</span>
 <span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"my_bucket_versioning"</span> <span class="p">{</span>
   <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">my_first_bucket</span><span class="p">.</span><span class="nx">id</span>
   
@@ -3286,50 +3286,50 @@ terraform plan
   <span class="na">detect-changes</span><span class="pi">:</span>
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
     <span class="na">outputs</span><span class="pi">:</span>
-      <span class="na">matrix</span><span class="pi">:</span> <span class="s">$</span>
+      <span class="na">matrix</span><span class="pi">:</span> <span class="s">${{ steps.set-matrix.outputs.matrix }}</span>
     <span class="na">steps</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
-      
+
       <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">set-matrix</span>
         <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
           <span class="s"># Detect which Terraform configurations changed</span>
-          <span class="s">CHANGED_DIRS=$(git diff --name-only $ $ | </span>
-            <span class="s">grep '^terraform/' | </span>
-            <span class="s">cut -d'/' -f1-3 | </span>
-            <span class="s">sort -u | </span>
+          <span class="s">CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} |</span>
+            <span class="s">grep '^terraform/' |</span>
+            <span class="s">cut -d'/' -f1-3 |</span>
+            <span class="s">sort -u |</span>
             <span class="s">jq -R -s -c 'split("\n") | map(select(length &gt; 0))')</span>
-          
+
           <span class="s">echo "::set-output name=matrix::${CHANGED_DIRS}"</span>
-  
+
   <span class="na">plan</span><span class="pi">:</span>
     <span class="na">needs</span><span class="pi">:</span> <span class="s">detect-changes</span>
     <span class="na">strategy</span><span class="pi">:</span>
       <span class="na">matrix</span><span class="pi">:</span>
-        <span class="na">directory</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">directory</span><span class="pi">:</span> <span class="s">${{ fromJson(needs.detect-changes.outputs.matrix) }}</span>
       <span class="na">max-parallel</span><span class="pi">:</span> <span class="m">10</span>  <span class="c1"># Limit concurrent runs</span>
-    
+
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
     <span class="na">steps</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
-      
+
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure AWS Credentials</span>
         <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v2</span>
         <span class="na">with</span><span class="pi">:</span>
-          <span class="na">role-to-assume</span><span class="pi">:</span> <span class="s">$</span>
+          <span class="na">role-to-assume</span><span class="pi">:</span> <span class="s">${{ secrets.TERRAFORM_ROLE_ARN }}</span>
           <span class="na">aws-region</span><span class="pi">:</span> <span class="s">us-east-1</span>
-      
+
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Plan</span>
-        <span class="na">working-directory</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">working-directory</span><span class="pi">:</span> <span class="s">${{ matrix.directory }}</span>
         <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
           <span class="s">terraform init</span>
           <span class="s">terraform plan -out=tfplan</span>
-          
+
           <span class="s"># Cost estimation</span>
           <span class="s">infracost breakdown --path tfplan --format json &gt; cost-estimate.json</span>
-          
+
           <span class="s"># Security scanning</span>
           <span class="s">checkov -f tfplan --output json &gt; security-scan.json</span>
-          
+
           <span class="s"># Post results to PR</span>
           <span class="s">gh pr comment --body "$(cat cost-estimate.json security-scan.json | jq -s '.')"</span>
 </code></pre></div></div>
@@ -4384,7 +4384,7 @@ terraform show <span class="nt">-json</span> | jq <span class="s1">'.values.root
             <span class="n">state</span> <span class="o">=</span> <span class="n">next_state</span>
 </code></pre></div></div>
 
-<h2 id="terraform-in-2024-latest-updates-and-features">Terraform in 2024: Latest Updates and Features</h2>
+<h2 id="terraform-latest-updates-and-features">Terraform: Latest Updates and Features</h2>
 
 <h3 id="terraform-17-features">Terraform 1.7 Features</h3>
 <ul>
@@ -4411,10 +4411,10 @@ terraform show <span class="nt">-json</span> | jq <span class="s1">'.values.root
 <strong>License Freedom</strong>: MPL 2.0 license</li>
 </ul>
 
-<h3 id="cloud-provider-updates-2024">Cloud Provider Updates (2024)</h3>
+<h3 id="cloud-provider-updates">Cloud Provider Updates</h3>
 
 <h4 id="aws-provider-5x">AWS Provider 5.x</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># New resources for 2024</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Recent new resources</span>
 <span class="nx">resource</span> <span class="s2">"aws_bedrock_model"</span> <span class="s2">"claude"</span> <span class="p">{</span>
   <span class="nx">model_id</span> <span class="o">=</span> <span class="s2">"anthropic.claude-v3"</span>
   <span class="c1"># AI model management</span>
@@ -4447,7 +4447,7 @@ terraform show <span class="nt">-json</span> | jq <span class="s1">'.values.root
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="modern-best-practices-2024">Modern Best Practices (2024)</h3>
+<h3 id="modern-best-practices">Modern Best Practices</h3>
 
 <h4 id="1-policy-as-code-integration">1. Policy as Code Integration</h4>
 <div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sentinel policy example</span>
@@ -4538,7 +4538,7 @@ terraform show <span class="nt">-json</span> | jq <span class="s1">'.values.root
   <li>Build more reliable infrastructure</li>
 </ul>
 
-<p>The future of infrastructure is code, and Terraform provides both the practical tools and theoretical framework to build it. With the emergence of OpenTofu and AI-assisted infrastructure, 2024 marks an exciting evolution in the Infrastructure as Code landscape.</p>
+<p>The future of infrastructure is code, and Terraform provides both the practical tools and theoretical framework to build it. With the emergence of OpenTofu and AI-assisted infrastructure, we’re seeing an exciting evolution in the Infrastructure as Code landscape.</p>
 
 <h2 id="references-and-further-reading">References and Further Reading</h2>
 

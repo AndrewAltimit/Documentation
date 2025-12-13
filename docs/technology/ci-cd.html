@@ -923,7 +923,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="s">pytest</span>
 </code></pre></div></div>
 
-<p><strong>2024 GitHub Actions Features:</strong></p>
+<p><strong>Recent GitHub Actions Features:</strong></p>
 <ul>
   <li>
 <strong>Larger runners</strong>: Up to 64 vCPUs and 256 GB RAM</li>
@@ -1532,7 +1532,7 @@ develop  → development/
   </li>
 </ol>
 
-<p><strong>Modern GitOps Tools (2024):</strong></p>
+<p><strong>Modern GitOps Tools:</strong></p>
 <ul>
   <li>
 <strong>ArgoCD</strong>: Most popular, great UI, multi-cluster support</li>
@@ -1670,6 +1670,7 @@ develop  → development/
 <p><strong>Challenge</strong>: Coordinate deployment of 50+ services</p>
 
 <p><strong>Solution</strong>:</p>
+
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Monorepo CI/CD</span>
 <span class="na">name</span><span class="pi">:</span> <span class="s">Microservices Pipeline</span>
 
@@ -1680,7 +1681,7 @@ develop  → development/
 <span class="na">jobs</span><span class="pi">:</span>
   <span class="na">detect-changes</span><span class="pi">:</span>
     <span class="na">outputs</span><span class="pi">:</span>
-      <span class="na">services</span><span class="pi">:</span> <span class="s">$</span>
+      <span class="na">services</span><span class="pi">:</span> <span class="s">${{ steps.filter.outputs.changes }}</span>
     <span class="na">steps</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">dorny/paths-filter@v2</span>
         <span class="na">id</span><span class="pi">:</span> <span class="s">filter</span>
@@ -1695,17 +1696,17 @@ develop  → development/
     <span class="na">needs</span><span class="pi">:</span> <span class="s">detect-changes</span>
     <span class="na">strategy</span><span class="pi">:</span>
       <span class="na">matrix</span><span class="pi">:</span>
-        <span class="na">service</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">service</span><span class="pi">:</span> <span class="s">${{ fromJson(needs.detect-changes.outputs.services) }}</span>
     <span class="na">steps</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build Service</span>
         <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">cd services/$</span>
-          <span class="s">docker build -t $:$GITHUB_SHA .</span>
-          
+          <span class="s">cd services/${{ matrix.service }}</span>
+          <span class="s">docker build -t ${{ matrix.service }}:$GITHUB_SHA .</span>
+
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy Service</span>
         <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">helm upgrade --install $ \</span>
-            <span class="s">./charts/$ \</span>
+          <span class="s">helm upgrade --install ${{ matrix.service }} \</span>
+            <span class="s">./charts/${{ matrix.service }} \</span>
             <span class="s">--set image.tag=$GITHUB_SHA \</span>
             <span class="s">--wait --timeout=5m</span>
 </code></pre></div></div>
@@ -1864,7 +1865,7 @@ develop  → development/
 
 <h2 id="resources-and-further-learning">Resources and Further Learning</h2>
 
-<h3 id="essential-tools-2024">Essential Tools (2024)</h3>
+<h3 id="essential-tools">Essential Tools</h3>
 <ul>
   <li>
 <strong>Pipeline Syntax Validators</strong>:
@@ -1911,7 +1912,7 @@ develop  → development/
   <li>“The Phoenix Project” &amp; “The Unicorn Project” by Gene Kim</li>
 </ul>
 
-<h3 id="online-learning-2024">Online Learning (2024)</h3>
+<h3 id="online-learning">Online Learning</h3>
 <ul>
   <li>
 <strong>DevOps with GitLab CI</strong> - GitLab’s official course</li>
@@ -1930,7 +1931,7 @@ develop  → development/
   <li>CI/CD Collective Forum</li>
 </ul>
 
-<h3 id="emerging-trends-in-cicd-2024">Emerging Trends in CI/CD (2024)</h3>
+<h3 id="emerging-trends-in-cicd">Emerging Trends in CI/CD</h3>
 
 <ol>
   <li>
@@ -1972,6 +1973,21 @@ develop  → development/
 </ol>
 
 <p>Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn’t perfection—it’s progress.</p>
+
+<h2 id="related-technology-documentation">Related Technology Documentation</h2>
+
+<ul>
+  <li>
+<a href="git.html">Git Version Control</a> - Version control fundamentals</li>
+  <li>
+<a href="branching.html">Branching Strategies</a> - Git Flow, GitHub Flow, and team workflows</li>
+  <li>
+<a href="docker.html">Docker</a> - Containerization for consistent builds</li>
+  <li>
+<a href="kubernetes.html">Kubernetes</a> - Container orchestration and deployments</li>
+  <li>
+<a href="terraform.html">Terraform</a> - Infrastructure as code</li>
+</ul>
 
       </section>
     </div>
