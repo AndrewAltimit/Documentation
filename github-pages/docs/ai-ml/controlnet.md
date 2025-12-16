@@ -635,3 +635,15 @@ class InteractiveControl:
 ControlNet transforms diffusion models from probabilistic generators into precision tools. By understanding the various control types and their optimal applications, you can achieve unprecedented control over AI image generation while maintaining the creative capabilities of the base models.
 
 The key to mastery is experimentation: try different preprocessors, adjust strengths, and combine controls creatively. As the technology evolves, ControlNet continues to bridge the gap between artistic vision and AI capabilities.
+
+---
+
+## See Also
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Understanding the base generation process
+- [ComfyUI Guide](comfyui-guide.html) - Integrate ControlNet into advanced workflows
+- [LoRA Training](lora-training.html) - Combine LoRAs with ControlNet for custom styles
+- [Advanced Techniques](advanced-techniques.html) - Multi-control and expert patterns
+- [Model Types](model-types.html) - ControlNet model types and compatibility
+- [Base Models Comparison](base-models-comparison.html) - ControlNet support across models
+- [AI Fundamentals](../technology/ai.html) - Core neural network concepts
+- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index

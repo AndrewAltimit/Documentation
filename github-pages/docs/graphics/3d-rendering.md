@@ -7,7 +7,9 @@ toc_label: "On This Page"
 toc_icon: "cube"
 ---
 
-3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.
+<div class="hub-intro">
+  <p class="lead">3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.</p>
+</div>
 
 ## The Rendering Pipeline
 
@@ -406,9 +408,19 @@ Reduce draw calls:
 - **GPU Instancing**: Single draw call, multiple instances
 - **Indirect Drawing**: GPU-driven draw commands
 
-## Related Documentation
+## Recent Updates (2025)
 
-- [Game Development](../gamedev/index.html) - Game design and development
-- [Unreal Engine](../technology/unreal.html) - UE5 rendering features
-- [Performance Optimization](../optimization/index.html) - Profiling and optimization
-- [VR/AR Development](../vr-ar/index.html) - Immersive rendering requirements
+- **Ray Tracing Advances**: Updated coverage of hardware-accelerated ray tracing and path tracing techniques
+- **Neural Rendering**: New section on NeRF, Gaussian Splatting, and neural radiance fields
+- **Mesh Shaders**: Modern GPU-driven geometry processing with mesh and task shaders
+- **UE5 Nanite/Lumen**: Cross-linked with Unreal Engine documentation for virtualized geometry and global illumination
+- **Vulkan/DirectX 12**: Updated modern graphics API best practices
+
+---
+
+## See Also
+- [Game Development](../gamedev/index.html) - Game engines, physics, and multiplayer systems
+- [Performance Optimization](../optimization/index.html) - GPU profiling and optimization techniques
+- [Unreal Engine](../technology/unreal.html) - UE5 Nanite, Lumen, and MetaSounds
+- [VR/AR Development](../vr-ar/index.html) - Immersive rendering and XR techniques
+- [Physics Documentation](../physics/index.html) - Mathematical foundations

@@ -404,8 +404,26 @@ where p = honest mining power, q = attacker power, z = confirmations
 
 *Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](/docs/distributed-systems/).*
 
-## Related Advanced Topics
+## See Also
 
-- [AI Mathematics](/docs/advanced/ai-mathematics/) - For distributed ML systems
-- [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/) - Quantum distributed computing
-- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing distributed system codebases
+### Distributed Systems Documentation
+- **[Distributed Systems Hub](../distributed-systems/index.html)** - Comprehensive practical guide to building distributed systems
+- **[Kubernetes](../technology/kubernetes.html)** - Container orchestration implementation
+- **[Docker](../technology/docker.html)** - Containerization for distributed applications
+- **[AWS Cloud Services](../technology/aws.html)** - Cloud infrastructure for distributed systems
+
+### Related Advanced Topics
+- **[AI Mathematics](../advanced/ai-mathematics.html)** - Mathematical foundations for distributed machine learning systems
+- **[Quantum Algorithms](../advanced/quantum-algorithms-research.html)** - Quantum distributed computing and Byzantine agreement
+- **[Monorepo Strategies](../advanced/monorepo.html)** - Managing distributed system codebases at scale
+
+### Theoretical Foundations
+- **CAP Theorem** - Consistency, availability, and partition tolerance trade-offs
+- **FLP Impossibility** - Fundamental limits of distributed consensus
+- **Byzantine Fault Tolerance** - Handling arbitrary failures in distributed systems
+- **Consensus Algorithms** - Paxos, Raft, and modern variants
+
+### Performance and Optimization
+- **[Performance Optimization](../optimization/index.html)** - Optimizing distributed systems
+- **Complexity Analysis** - Time and message complexity bounds
+- **Scalability Theory** - Theoretical limits of distributed coordination

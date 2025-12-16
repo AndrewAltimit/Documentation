@@ -689,3 +689,15 @@ response = requests.post("http://localhost:8005/mcp/tool", json={
 ComfyUI's node-based approach offers unparalleled control over the image generation process. While the learning curve is steeper than traditional UIs, the flexibility and power it provides make it the tool of choice for advanced users and those seeking to push the boundaries of AI image generation.
 
 Start with simple workflows and gradually incorporate more complex nodes and techniques. The visual nature of ComfyUI makes it excellent for understanding how different components interact, leading to better results and deeper knowledge of the generation process.
+
+---
+
+## See Also
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts behind the generation process
+- [ControlNet](controlnet.html) - Add precision control to ComfyUI workflows
+- [LoRA Training](lora-training.html) - Train custom LoRAs for use in ComfyUI
+- [Model Types](model-types.html) - Understanding models, LoRAs, and VAEs
+- [Base Models Comparison](base-models-comparison.html) - Choosing the right base model
+- [Advanced Techniques](advanced-techniques.html) - Expert workflow patterns
+- [Output Formats](output-formats.html) - Image formats and optimization
+- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
