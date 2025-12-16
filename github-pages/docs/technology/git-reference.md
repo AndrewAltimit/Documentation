@@ -453,3 +453,10 @@ git secrets --scan                  # Scan for secrets
 - [GitHub Skills](https://skills.github.com/) - Interactive tutorials
 - [Atlassian Git Tutorial](https://www.atlassian.com/git) - Visual guides
 - [Git Flight Rules](https://github.com/k88hudson/git-flight-rules) - What to do when things go wrong
+
+---
+
+## See Also
+- [Git Version Control](git.html) - Git architecture, internals, and distributed version control theory
+- [Branching Strategies](branching.html) - Workflow patterns including Git Flow, GitHub Flow, and trunk-based development
+- [CI/CD](ci-cd.html) - Automating Git workflows with continuous integration and deployment pipelines
