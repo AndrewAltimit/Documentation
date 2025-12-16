@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="AWS Security & Identity">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/security.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AWS Security & Identity">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>AWS Security & Identity | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               class="active">
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">AWS Security & Identity</h1>
+      </header>
+
+      <section class="page__content">
+        <h1 id="aws-security--identity">AWS Security &amp; Identity</h1>
+
+<p>Security in AWS isn’t a feature you add later - it’s woven into every decision from day one. This guide covers IAM, Security Hub, KMS, WAF, and security best practices.</p>
+
+<h2 id="security-your-first-and-constant-priority">Security: Your First and Constant Priority</h2>
+
+<p>Security in AWS isn’t a feature you add later - it’s woven into every decision from day one. The good news? AWS provides powerful tools that make security easier than traditional on-premise setups.</p>
+
+<h3 id="the-security-mindset-evolution">The Security Mindset Evolution</h3>
+
+<p>Your security journey typically progresses through these stages:</p>
+
+<ol>
+  <li><strong>Basic Protection</strong>: Strong passwords, MFA, and basic IAM policies</li>
+  <li><strong>Defense in Depth</strong>: Network isolation, encryption, and logging</li>
+  <li><strong>Automated Compliance</strong>: Continuous monitoring and automated remediation</li>
+  <li><strong>Zero Trust Architecture</strong>: Assume breach, verify everything</li>
+</ol>
+
+<h3 id="core-security-principles-that-save-you-later">Core Security Principles That Save You Later</h3>
+
+<h4 id="principle-of-least-privilege">Principle of Least Privilege</h4>
+<p>Give users and services only the permissions they need, nothing more. It’s tempting to grant broad permissions for convenience, but this creates massive risk.</p>
+
+<p><strong>Example progression</strong>:</p>
+<ul>
+  <li>Bad: Give developers AdministratorAccess</li>
+  <li>Better: Create a PowerUserAccess role without IAM permissions</li>
+  <li>Best: Custom policies granting exactly what each team needs</li>
+</ul>
+
+<h4 id="encryption-everywhere">Encryption Everywhere</h4>
+<p>AWS makes encryption easy - use it for everything:</p>
+<ul>
+  <li><strong>At Rest</strong>: S3, EBS, RDS all support transparent encryption</li>
+  <li><strong>In Transit</strong>: TLS/SSL for all communications</li>
+  <li><strong>Key Management</strong>: AWS KMS handles the complexity of key rotation</li>
+</ul>
+
+<p><strong>Real-world scenario</strong>: A healthcare startup encrypts patient data by default. When they undergo HIPAA compliance audit, encryption is already in place, saving months of remediation work.</p>
+
+<h3 id="security-hub-your-compliance-command-center">Security Hub: Your Compliance Command Center</h3>
+
+<p>Security Hub continuously monitors your AWS environment against industry standards (CIS, PCI-DSS, HIPAA). Instead of manual security reviews, you get real-time compliance scores.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># security-hub.tf - Security Hub configuration and custom checks</span>
+
+<span class="c1"># Enable Security Hub</span>
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_account"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="nx">aws_organizations_organization</span><span class="p">.</span><span class="nx">main</span>
+  <span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Enable security standards</span>
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"cis"</span> <span class="p">{</span>
+  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/cis-aws-foundations-benchmark/v/1.4.0"</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"pci_dss"</span> <span class="p">{</span>
+  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/pci-dss/v/3.2.1"</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"aws_foundational"</span> <span class="p">{</span>
+  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/aws-foundational-security-best-practices/v/1.0.0"</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Custom Security Hub action</span>
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_action_target"</span> <span class="s2">"remediate"</span> <span class="p">{</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"Remediate"</span>
+  <span class="nx">identifier</span>  <span class="o">=</span> <span class="s2">"Remediate"</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Trigger automated remediation"</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Lambda for custom security checks</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"security_checker"</span> <span class="p">{</span>
+  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"security_checker.zip"</span>
+  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-custom-security-checks"</span>
+  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">security_checker</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
+  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.9"</span>
+  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">900</span>
+  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">3008</span>
+  
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">SECURITY_HUB_PRODUCT_ARN</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}:${data.aws_caller_identity.current.account_id}:product/${data.aws_caller_identity.current.account_id}/default"</span>
+      <span class="nx">ENVIRONMENT</span>              <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">vpc_config</span> <span class="p">{</span>
+    <span class="nx">subnet_ids</span>         <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">private_subnet_ids</span>
+    <span class="nx">security_group_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># EventBridge rule to trigger security checks</span>
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"security_checks"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-security-checks"</span>
+  <span class="nx">description</span>         <span class="o">=</span> <span class="s2">"Trigger custom security checks"</span>
+  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"rate(6 hours)"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"security_checker"</span> <span class="p">{</span>
+  <span class="nx">rule</span>      <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">security_checks</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">target_id</span> <span class="o">=</span> <span class="s2">"SecurityChecker"</span>
+  <span class="nx">arn</span>       <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">security_checker</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+<span class="c1"># Config Rules for compliance</span>
+<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"encrypted_volumes"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-encrypted-volumes"</span>
+  
+  <span class="nx">source</span> <span class="p">{</span>
+    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
+    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"ENCRYPTED_VOLUMES"</span>
+  <span class="p">}</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"restricted_ssh"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-restricted-ssh"</span>
+  
+  <span class="nx">source</span> <span class="p">{</span>
+    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
+    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"INCOMING_SSH_DISABLED"</span>
+  <span class="p">}</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"s3_bucket_encryption"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-s3-bucket-encryption"</span>
+  
+  <span class="nx">source</span> <span class="p">{</span>
+    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
+    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"S3_BUCKET_SERVER_SIDE_ENCRYPTION_ENABLED"</span>
+  <span class="p">}</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Custom Config rule with Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"custom_security_check"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-custom-security-check"</span>
+  
+  <span class="nx">source</span> <span class="p">{</span>
+    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"LAMBDA"</span>
+    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">config_rule_evaluator</span><span class="p">.</span><span class="nx">arn</span>
+    
+    <span class="nx">source_detail</span> <span class="p">{</span>
+      <span class="nx">message_type</span> <span class="o">=</span> <span class="s2">"ConfigurationItemChangeNotification"</span>
+    <span class="p">}</span>
+    
+    <span class="nx">source_detail</span> <span class="p">{</span>
+      <span class="nx">message_type</span> <span class="o">=</span> <span class="s2">"OversizedConfigurationItemChangeNotification"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># GuardDuty configuration</span>
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_detector"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">enable</span>                       <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">finding_publishing_frequency</span> <span class="o">=</span> <span class="s2">"FIFTEEN_MINUTES"</span>
+  
+  <span class="nx">datasources</span> <span class="p">{</span>
+    <span class="nx">s3_logs</span> <span class="p">{</span>
+      <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+    <span class="nx">kubernetes</span> <span class="p">{</span>
+      <span class="nx">audit_logs</span> <span class="p">{</span>
+        <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="nx">malware_protection</span> <span class="p">{</span>
+      <span class="nx">scan_ec2_instance_with_findings</span> <span class="p">{</span>
+        <span class="nx">ebs_volumes</span> <span class="p">{</span>
+          <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># GuardDuty threat intelligence sets</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"threat_intel"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.environment}-threat-intel-${data.aws_caller_identity.current.account_id}"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"threat_intel"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">threat_intel</span><span class="p">.</span><span class="nx">id</span>
+  
+  <span class="nx">versioning_configuration</span> <span class="p">{</span>
+    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_s3_object"</span> <span class="s2">"threat_list"</span> <span class="p">{</span>
+  <span class="nx">bucket</span>  <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">threat_intel</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">key</span>     <span class="o">=</span> <span class="s2">"threat-lists/malicious-ips.txt"</span>
+  <span class="nx">content</span> <span class="o">=</span> <span class="nx">file</span><span class="p">(</span><span class="s2">"${path.module}/threat-lists/malicious-ips.txt"</span><span class="p">)</span>
+  <span class="nx">etag</span>    <span class="o">=</span> <span class="nx">filemd5</span><span class="p">(</span><span class="s2">"${path.module}/threat-lists/malicious-ips.txt"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_threatintelset"</span> <span class="s2">"malicious_ips"</span> <span class="p">{</span>
+  <span class="nx">activate</span>    <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">detector_id</span> <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">format</span>      <span class="o">=</span> <span class="s2">"TXT"</span>
+  <span class="nx">location</span>    <span class="o">=</span> <span class="s2">"s3://${aws_s3_bucket.threat_intel.id}/${aws_s3_object.threat_list.key}"</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"malicious-ips"</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_s3_object</span><span class="p">.</span><span class="nx">threat_list</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># GuardDuty member accounts</span>
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_member"</span> <span class="s2">"member_accounts"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">member_accounts</span>
+  
+  <span class="nx">account_id</span>                 <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">account_id</span>
+  <span class="nx">detector_id</span>                <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">email</span>                      <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">email</span>
+  <span class="nx">invite</span>                     <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">invitation_message</span>         <span class="o">=</span> <span class="s2">"You are invited to join GuardDuty"</span>
+  <span class="nx">disable_email_notification</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="p">}</span>
+
+<span class="c1"># Inspector v2</span>
+<span class="nx">resource</span> <span class="s2">"aws_inspector2_enabler"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">account_ids</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">account_id</span><span class="p">]</span>
+  <span class="nx">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"EC2"</span><span class="p">,</span> <span class="s2">"ECR"</span><span class="p">,</span> <span class="s2">"LAMBDA"</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Macie for S3 data protection</span>
+<span class="nx">resource</span> <span class="s2">"aws_macie2_account"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">finding_publishing_frequency</span> <span class="o">=</span> <span class="s2">"FIFTEEN_MINUTES"</span>
+  <span class="nx">status</span>                       <span class="o">=</span> <span class="s2">"ENABLED"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_macie2_classification_job"</span> <span class="s2">"s3_scan"</span> <span class="p">{</span>
+  <span class="nx">job_type</span> <span class="o">=</span> <span class="s2">"ONE_TIME"</span>
+  <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"${var.environment}-s3-sensitive-data-scan"</span>
+  
+  <span class="nx">s3_job_definition</span> <span class="p">{</span>
+    <span class="nx">bucket_definitions</span> <span class="p">{</span>
+      <span class="nx">account_id</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">account_id</span>
+      <span class="nx">buckets</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_macie2_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Access Analyzer</span>
+<span class="nx">resource</span> <span class="s2">"aws_accessanalyzer_analyzer"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">analyzer_name</span> <span class="o">=</span> <span class="s2">"${var.environment}-access-analyzer"</span>
+  <span class="nx">type</span>          <span class="o">=</span> <span class="s2">"ACCOUNT"</span>  <span class="c1"># or "ORGANIZATION"</span>
+  
+  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Systems Manager compliance</span>
+<span class="nx">resource</span> <span class="s2">"aws_ssm_association"</span> <span class="s2">"patch_baseline"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"AWS-RunPatchBaseline"</span>
+  
+  <span class="nx">targets</span> <span class="p">{</span>
+    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"tag:Environment"</span>
+    <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">environment</span><span class="p">]</span>
+  <span class="p">}</span>
+  
+  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"cron(0 2 ? * SUN *)"</span>
+  
+  <span class="nx">parameters</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">Operation</span>    <span class="o">=</span> <span class="s2">"Install"</span>
+    <span class="nx">RebootOption</span> <span class="o">=</span> <span class="s2">"RebootIfNeeded"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># KMS key policies for security</span>
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"kms_key_policy"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">sid</span>    <span class="o">=</span> <span class="s2">"Enable IAM User Permissions"</span>
+    <span class="nx">effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
+    
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"AWS"</span>
+      <span class="nx">identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"</span><span class="p">]</span>
+    <span class="p">}</span>
+    
+    <span class="nx">actions</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"kms:*"</span><span class="p">]</span>
+    <span class="nx">resources</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
+  <span class="p">}</span>
+  
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">sid</span>    <span class="o">=</span> <span class="s2">"Allow use of the key for encryption"</span>
+    <span class="nx">effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
+    
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"Service"</span>
+      <span class="nx">identifiers</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"logs.${var.aws_region}.amazonaws.com"</span><span class="p">,</span>
+        <span class="s2">"s3.amazonaws.com"</span><span class="p">,</span>
+        <span class="s2">"rds.amazonaws.com"</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+    
+    <span class="nx">actions</span> <span class="o">=</span> <span class="p">[</span>
+      <span class="s2">"kms:Decrypt"</span><span class="p">,</span>
+      <span class="s2">"kms:GenerateDataKey"</span><span class="p">,</span>
+      <span class="s2">"kms:CreateGrant"</span><span class="p">,</span>
+      <span class="s2">"kms:DescribeKey"</span>
+    <span class="p">]</span>
+    
+    <span class="nx">resources</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
+    
+    <span class="nx">condition</span> <span class="p">{</span>
+      <span class="nx">test</span>     <span class="o">=</span> <span class="s2">"StringEquals"</span>
+      <span class="nx">variable</span> <span class="o">=</span> <span class="s2">"kms:ViaService"</span>
+      <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"s3.${var.aws_region}.amazonaws.com"</span><span class="p">,</span>
+        <span class="s2">"rds.${var.aws_region}.amazonaws.com"</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_kms_key"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">description</span>             <span class="o">=</span> <span class="s2">"${var.environment} master key"</span>
+  <span class="nx">deletion_window_in_days</span> <span class="o">=</span> <span class="mi">30</span>
+  <span class="nx">enable_key_rotation</span>     <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">policy</span>                  <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">kms_key_policy</span><span class="p">.</span><span class="nx">json</span>
+  
+  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Security automation with EventBridge and Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"security_findings"</span> <span class="p">{</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"${var.environment}-security-findings"</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Capture Security Hub findings for automated remediation"</span>
+  
+  <span class="nx">event_pattern</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">source</span>      <span class="o">=</span> <span class="p">[</span><span class="s2">"aws.securityhub"</span><span class="p">]</span>
+    <span class="nx">detail-type</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Security Hub Findings - Imported"</span><span class="p">]</span>
+    <span class="nx">detail</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">findings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">Severity</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">Label</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CRITICAL"</span><span class="p">,</span> <span class="s2">"HIGH"</span><span class="p">]</span>
+        <span class="p">}</span>
+        <span class="nx">Workflow</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">Status</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"NEW"</span><span class="p">]</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"remediation"</span> <span class="p">{</span>
+  <span class="nx">rule</span>      <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">security_findings</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">target_id</span> <span class="o">=</span> <span class="s2">"RemediationFunction"</span>
+  <span class="nx">arn</span>       <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">auto_remediation</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"auto_remediation"</span> <span class="p">{</span>
+  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"auto_remediation.zip"</span>
+  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-security-auto-remediation"</span>
+  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">remediation</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
+  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.9"</span>
+  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">300</span>
+  
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">ENVIRONMENT</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># WAF rules for application protection</span>
+<span class="nx">resource</span> <span class="s2">"aws_wafv2_web_acl"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"${var.environment}-waf-acl"</span>
+  <span class="nx">scope</span> <span class="o">=</span> <span class="s2">"REGIONAL"</span>  <span class="c1"># or "CLOUDFRONT"</span>
+  
+  <span class="nx">default_action</span> <span class="p">{</span>
+    <span class="nx">allow</span> <span class="p">{}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">rule</span> <span class="p">{</span>
+    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"RateLimitRule"</span>
+    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">1</span>
+    
+    <span class="nx">statement</span> <span class="p">{</span>
+      <span class="nx">rate_based_statement</span> <span class="p">{</span>
+        <span class="nx">limit</span>              <span class="o">=</span> <span class="mi">2000</span>
+        <span class="nx">aggregate_key_type</span> <span class="o">=</span> <span class="s2">"IP"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">action</span> <span class="p">{</span>
+      <span class="nx">block</span> <span class="p">{}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">visibility_config</span> <span class="p">{</span>
+      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"RateLimitRule"</span>
+      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">rule</span> <span class="p">{</span>
+    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"ManagedRuleGroup"</span>
+    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">2</span>
+    
+    <span class="nx">override_action</span> <span class="p">{</span>
+      <span class="nx">none</span> <span class="p">{}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">statement</span> <span class="p">{</span>
+      <span class="nx">managed_rule_group_statement</span> <span class="p">{</span>
+        <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"AWSManagedRulesKnownBadInputsRuleSet"</span>
+        <span class="nx">vendor_name</span> <span class="o">=</span> <span class="s2">"AWS"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">visibility_config</span> <span class="p">{</span>
+      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"ManagedRuleGroup"</span>
+      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="nx">visibility_config</span> <span class="p">{</span>
+    <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-waf-acl"</span>
+    <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+  
+  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="see-also">See Also</h2>
+
+<ul>
+  <li><a href="index.html">AWS Hub</a> - Overview of all AWS documentation</li>
+  <li><a href="compute.html">Compute Services</a> - EC2 and Lambda security configurations</li>
+  <li><a href="../networking.html">Networking</a> - VPC security and WAF integration</li>
+  <li><a href="infrastructure.html">Infrastructure &amp; Operations</a> - Security automation and compliance monitoring</li>
+  <li><a href="../cybersecurity.html">Cybersecurity Guide</a> - General security concepts</li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

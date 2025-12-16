@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Docker: Advanced Patterns">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/advanced.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker: Advanced Patterns">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Docker: Advanced Patterns | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               class="active">
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Docker: Advanced Patterns</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="real-world-examples-and-case-studies">Real-World Examples and Case Studies</h2>
+
+<div class="case-studies-section">
+  <h3><i class="fas fa-building"></i> Enterprise Microservices Architecture</h3>
+  
+  <div class="case-study">
+    <h4>E-Commerce Platform Migration</h4>
+    <p class="case-intro">A major e-commerce company migrated from monolithic architecture to Docker-based microservices, achieving 70% reduction in deployment time and 50% infrastructure cost savings.</p>
+    
+    <pre><code class="language-yaml"># docker-compose.production.yml
+version: '3.8'
+
+services:
+  # API Gateway
+  gateway:
+    image: company/api-gateway:${VERSION}
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    ports:
+      - "443:443"
+    environment:
+      - RATE_LIMIT=1000
+      - JWT_SECRET_FILE=/run/secrets/jwt_key
+    secrets:
+      - jwt_key
+    networks:
+      - frontend
+      - backend
+
+  # Product Service
+  product-service:
+    image: company/product-service:${VERSION}
+    deploy:
+      replicas: 5
+      update_config:
+        parallelism: 2
+        delay: 10s
+        failure_action: rollback
+    environment:
+      - DB_HOST=product-db
+      - CACHE_HOST=redis-product
+    depends_on:
+      - product-db
+      - redis-product
+    networks:
+      - backend
+
+  # Order Service
+  order-service:
+    image: company/order-service:${VERSION}
+    deploy:
+      replicas: 3
+    environment:
+      - DB_HOST=order-db
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - order-db
+      - kafka
+    networks:
+      - backend
+
+  # Databases
+  product-db:
+    image: postgres:15-alpine
+    volumes:
+      - product-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    networks:
+      - backend
+
+  order-db:
+    image: postgres:15-alpine
+    volumes:
+      - order-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    networks:
+      - backend
+
+  # Caching
+  redis-product:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
+    deploy:
+      replicas: 2
+    networks:
+      - backend
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+    depends_on:
+      - zookeeper
+    networks:
+      - backend
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: overlay
+    encrypted: true
+  backend:
+    driver: overlay
+    encrypted: true
+    internal: true
+
+volumes:
+  product-data:
+    driver: local
+  order-data:
+    driver: local
+
+secrets:
+  db_password:
+    external: true
+  jwt_key:
+    external: true</code></pre>
+    
+    <h4>Implementation Highlights</h4>
+    <ul>
+      <li><strong>Service Mesh:</strong> Implemented Istio for advanced traffic management and observability</li>
+      <li><strong>Auto-scaling:</strong> Used Kubernetes HPA with custom metrics for demand-based scaling</li>
+      <li><strong>Zero-downtime:</strong> Achieved through rolling updates and health checks</li>
+      <li><strong>Security:</strong> Implemented mutual TLS between services and secret rotation</li>
+      <li><strong>Monitoring:</strong> Full observability with Prometheus, Grafana, and distributed tracing</li>
+    </ul>
+  </div>
+  
+  <h3><i class="fas fa-robot"></i> ML Pipeline Architecture</h3>
+  
+  <div class="ml-case-study">
+    <h4>Containerized ML Model Serving</h4>
+    <pre><code class="language-dockerfile"># Dockerfile for ML model serving
+FROM python:3.10-slim AS builder
+
+# Install build dependencies
+RUN apt-get update &amp;&amp; apt-get install -y \
+    build-essential \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.10-slim
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install runtime dependencies
+RUN apt-get update &amp;&amp; apt-get install -y \
+    libgomp1 \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 mluser
+USER mluser
+
+# Copy model and application
+WORKDIR /app
+COPY --chown=mluser:mluser model/ ./model/
+COPY --chown=mluser:mluser src/ ./src/
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD python -c "import requests; requests.get('http://localhost:8080/health').raise_for_status()"
+
+# Serve model
+EXPOSE 8080
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "src.app:app"]</code></pre>
+    
+    <h4>Training Pipeline</h4>
+    <pre><code class="language-yaml"># kubernetes-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-training-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: training
+        image: company/ml-training:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 2
+            memory: 32Gi
+            cpu: 8
+          requests:
+            nvidia.com/gpu: 2
+            memory: 16Gi
+            cpu: 4
+        volumeMounts:
+        - name: dataset
+          mountPath: /data
+        - name: model-output
+          mountPath: /output
+        env:
+        - name: EPOCHS
+          value: "100"
+        - name: BATCH_SIZE
+          value: "64"
+        - name: LEARNING_RATE
+          value: "0.001"
+      volumes:
+      - name: dataset
+        persistentVolumeClaim:
+          claimName: training-dataset
+      - name: model-output
+        persistentVolumeClaim:
+          claimName: model-storage
+      restartPolicy: OnFailure
+      nodeSelector:
+        gpu-type: nvidia-v100</code></pre>
+  </div>
+</div>
+
+<h2 id="advanced-docker-patterns-and-techniques">Advanced Docker Patterns and Techniques</h2>
+
+<div class="advanced-patterns-section">
+  <h3><i class="fas fa-puzzle-piece"></i> Design Patterns for Production</h3>
+  
+  <div class="pattern-grid">
+    <div class="pattern-card">
+      <h4><i class="fas fa-sync-alt"></i> Sidecar Pattern</h4>
+      <p>Deploy helper containers alongside your main application container</p>
+      <pre><code class="language-yaml"># Logging sidecar example
+version: '3.8'
+services:
+  app:
+    image: my-app:latest
+    volumes:
+      - logs:/var/log/app
+      
+  log-forwarder:
+    image: fluent/fluent-bit:latest
+    volumes:
+      - logs:/var/log/app:ro
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      
+volumes:
+  logs:</code></pre>
+    </div>
+    
+    <div class="pattern-card">
+      <h4><i class="fas fa-shield-alt"></i> Ambassador Pattern</h4>
+      <p>Proxy container that handles external communication</p>
+      <pre><code class="language-yaml"># Service mesh ambassador
+services:
+  app:
+    image: my-app:latest
+    network_mode: "service:envoy"
+    
+  envoy:
+    image: envoyproxy/envoy:v1.22-latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml</code></pre>
+    </div>
+    
+    <div class="pattern-card">
+      <h4><i class="fas fa-code-branch"></i> Adapter Pattern</h4>
+      <p>Standardize output from different containers</p>
+      <pre><code class="language-yaml"># Metrics adapter example
+services:
+  legacy-app:
+    image: legacy-app:latest
+    
+  metrics-adapter:
+    image: prom-exporter:latest
+    environment:
+      - LEGACY_APP_URL=http://legacy-app:8080
+      - METRICS_PATH=/legacy/stats
+    ports:
+      - "9090:9090"</code></pre>
+    </div>
+  </div>
+  
+  <h3><i class="fas fa-lock"></i> Advanced Security Patterns</h3>
+  
+  <div class="security-patterns">
+    <h4>Distroless Images</h4>
+    <pre><code class="language-dockerfile"># Multi-stage build with distroless
+FROM golang:1.20 AS builder
+WORKDIR /app
+COPY . .
+RUN CGO_ENABLED=0 go build -o myapp .
+
+# Distroless image - no shell, package manager, or utilities
+FROM gcr.io/distroless/static:nonroot
+COPY --from=builder /app/myapp /
+USER nonroot:nonroot
+ENTRYPOINT ["/myapp"]</code></pre>
+    
+    <h4>Runtime Security with Falco</h4>
+    <pre><code class="language-yaml"># falco-rules.yaml
+- rule: Unauthorized Process in Container
+  desc: Detect unauthorized process execution
+  condition: &gt;
+    container and
+    not proc.name in (allowed_processes) and
+    not container.image.repository in (trusted_images)
+  output: &gt;
+    Unauthorized process in container 
+    (user=%user.name command=%proc.cmdline container=%container.name)
+  priority: WARNING</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-compress-alt"></i> Image Optimization Techniques</h3>
+  
+  <div class="optimization-techniques">
+    <h4>Advanced Multi-Stage Patterns</h4>
+    <pre><code class="language-dockerfile"># Parallel multi-stage builds
+# syntax=docker/dockerfile:1
+FROM node:18 AS frontend-builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM golang:1.20 AS backend-builder
+WORKDIR /app
+COPY backend/go.* ./
+RUN go mod download
+COPY backend/ ./
+RUN go build -ldflags="-s -w" -o server .
+
+FROM alpine:3.18
+RUN apk add --no-cache ca-certificates
+COPY --from=backend-builder /app/server /
+COPY --from=frontend-builder /app/dist /static
+EXPOSE 8080
+CMD ["/server"]</code></pre>
+    
+    <h4>Layer Caching Strategies</h4>
+    <pre><code class="language-dockerfile"># Dependency caching with BuildKit
+# syntax=docker/dockerfile:1
+FROM python:3.11-slim
+
+# Cache mount for pip
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install numpy pandas scikit-learn
+
+# Bind mount for development
+RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
+    --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /tmp/requirements.txt</code></pre>
+  </div>
+</div>
+
+<p>While Docker and traditional container runtimes have revolutionized application deployment, the technology continues to evolve. One of the most promising developments is the emergence of WebAssembly as a potential container runtime alternative. This represents a significant shift in how we think about application isolation and portability.</p>
+
+<h2 id="future-of-container-runtimes-webassembly">Future of Container Runtimes: WebAssembly</h2>
+
+<h3 id="wasmwasi-as-container-runtime-alternative">WASM/WASI as Container Runtime Alternative</h3>
+
+<p>WebAssembly (WASM) and the WebAssembly System Interface (WASI) represent a potential paradigm shift in container technology, offering a lightweight, secure, and portable alternative to traditional container runtimes. Unlike traditional containers that share the host kernel, WebAssembly provides a completely sandboxed execution environment that can run anywhere - from browsers to servers to edge devices.</p>
+
+<h4 id="understanding-webassembly">Understanding WebAssembly</h4>
+
+<p>To appreciate why WebAssembly is relevant to containerization, let’s examine its core characteristics that make it suitable as a container runtime alternative:</p>
+
+<p><strong>Core Characteristics:</strong></p>
+<ul>
+  <li><strong>Binary Instruction Format</strong>: Designed for stack-based virtual machines</li>
+  <li><strong>Near-Native Performance</strong>: Compiles to machine code with minimal overhead</li>
+  <li><strong>Language Agnostic</strong>: Supports C/C++, Rust, Go, and many other languages</li>
+  <li><strong>Sandboxed Execution</strong>: Strong security guarantees through capability-based security</li>
+  <li><strong>Platform Independent</strong>: True write-once, run-anywhere portability</li>
+</ul>
+
+<h4 id="wasi-webassembly-system-interface">WASI (WebAssembly System Interface)</h4>
+
+<p>WASI provides a standardized system interface for WebAssembly modules:</p>
+
+<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Example WASI application in Rust</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="n">env</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">std</span><span class="p">::</span><span class="n">fs</span><span class="p">;</span>
+
+<span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// WASI provides standard file system access</span>
+    <span class="k">let</span> <span class="n">args</span><span class="p">:</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nn">env</span><span class="p">::</span><span class="nf">args</span><span class="p">()</span><span class="nf">.collect</span><span class="p">();</span>
+    
+    <span class="k">if</span> <span class="n">args</span><span class="nf">.len</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">{</span>
+        <span class="k">match</span> <span class="nn">fs</span><span class="p">::</span><span class="nf">read_to_string</span><span class="p">(</span><span class="o">&amp;</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="p">{</span>
+            <span class="nf">Ok</span><span class="p">(</span><span class="n">contents</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nd">println!</span><span class="p">(</span><span class="s">"File contents: {}"</span><span class="p">,</span> <span class="n">contents</span><span class="p">),</span>
+            <span class="nf">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">=&gt;</span> <span class="nd">eprintln!</span><span class="p">(</span><span class="s">"Error reading file: {}"</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>WASI Capabilities:</strong></p>
+<ul>
+  <li><strong>File System Access</strong>: Sandboxed file operations</li>
+  <li><strong>Network Access</strong>: Controlled socket operations</li>
+  <li><strong>Environment Variables</strong>: Secure environment access</li>
+  <li><strong>Random Number Generation</strong>: Cryptographically secure randomness</li>
+  <li><strong>Clock Access</strong>: Time and timer functionality</li>
+</ul>
+
+<p>While WASI provides essential system interfaces, some applications require more extensive POSIX compatibility. This is where WASIX comes in.</p>
+
+<h4 id="wasix-extended-wasi">WASIX: Extended WASI</h4>
+
+<p>WASIX extends WASI with additional POSIX compatibility:</p>
+
+<ul>
+  <li><strong>Threading Support</strong>: Full POSIX threads</li>
+  <li><strong>Process Forking</strong>: Fork/exec capabilities</li>
+  <li><strong>Signals</strong>: POSIX signal handling</li>
+  <li><strong>Sockets</strong>: Extended networking support</li>
+  <li><strong>Shared Memory</strong>: Inter-process communication</li>
+</ul>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// WASIX example with threading</span>
+<span class="cp">#include</span> <span class="cpf">&lt;pthread.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span><span class="o">*</span> <span class="nf">worker</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span> <span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"Worker thread: %ld</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">arg</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">pthread_t</span> <span class="kr">thread</span><span class="p">;</span>
+    <span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="kr">thread</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">)</span><span class="mi">42</span><span class="p">);</span>
+    <span class="n">pthread_join</span><span class="p">(</span><span class="kr">thread</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>With these extended capabilities, WebAssembly becomes viable for a broader range of applications. But how do we actually run WebAssembly modules as containers? This is where specialized runtimes like crun come into play.</p>
+
+<h4 id="crun-webassembly-container-runtime">crun: WebAssembly Container Runtime</h4>
+
+<p>crun is an OCI-compliant container runtime that supports WebAssembly:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Running WASM containers with crun</span>
+<span class="nb">sudo </span>crun <span class="nt">--runtime</span><span class="o">=</span>/usr/bin/crun-wasm run wasm-container
+
+<span class="c"># Container configuration for WASM</span>
+<span class="o">{</span>
+  <span class="s2">"ociVersion"</span>: <span class="s2">"1.0.2"</span>,
+  <span class="s2">"process"</span>: <span class="o">{</span>
+    <span class="s2">"args"</span>: <span class="o">[</span><span class="s2">"app.wasm"</span><span class="o">]</span>,
+    <span class="s2">"env"</span>: <span class="o">[</span><span class="s2">"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"</span><span class="o">]</span>,
+    <span class="s2">"cwd"</span>: <span class="s2">"/"</span>
+  <span class="o">}</span>,
+  <span class="s2">"root"</span>: <span class="o">{</span>
+    <span class="s2">"path"</span>: <span class="s2">"rootfs"</span>
+  <span class="o">}</span>,
+  <span class="s2">"annotations"</span>: <span class="o">{</span>
+    <span class="s2">"module.wasm.image/variant"</span>: <span class="s2">"compat"</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>Now that we’ve seen how WebAssembly can function as a container runtime, let’s examine the compelling advantages it offers over traditional container technologies.</p>
+
+<h3 id="advantages-of-wasm-containers">Advantages of WASM Containers</h3>
+
+<h4 id="1-startup-performance">1. <strong>Startup Performance</strong></h4>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Performance comparison
+</span><span class="n">startup_times</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">docker_container</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span>      <span class="c1"># seconds
+</span>    <span class="sh">"</span><span class="s">firecracker_vm</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">,</span>      <span class="c1"># seconds
+</span>    <span class="sh">"</span><span class="s">wasm_module</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.001</span>          <span class="c1"># seconds (1ms)
+</span><span class="p">}</span>
+
+<span class="n">memory_overhead</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">docker_container</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>       <span class="c1"># MB
+</span>    <span class="sh">"</span><span class="s">firecracker_vm</span><span class="sh">"</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>        <span class="c1"># MB
+</span>    <span class="sh">"</span><span class="s">wasm_module</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span>              <span class="c1"># MB
+</span><span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="2-security-model">2. <strong>Security Model</strong></h4>
+
+<p>WASM provides strong isolation through:</p>
+
+<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Capability-based security model</span>
+<span class="k">use</span> <span class="nn">wasi</span><span class="p">::{</span><span class="n">Errno</span><span class="p">,</span> <span class="n">Fd</span><span class="p">};</span>
+
+<span class="c1">// WASM modules must be explicitly granted capabilities</span>
+<span class="k">fn</span> <span class="nf">open_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="o">&amp;</span><span class="nb">str</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">Fd</span><span class="p">,</span> <span class="n">Errno</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="c1">// Only works if file access capability was granted</span>
+    <span class="k">unsafe</span> <span class="p">{</span> <span class="nn">wasi</span><span class="p">::</span><span class="nf">path_open</span><span class="p">(</span>
+        <span class="mi">3</span><span class="p">,</span>  <span class="c1">// Directory file descriptor</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Dirflags</span>
+        <span class="n">path</span><span class="p">,</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Open flags</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Rights base</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Rights inheriting</span>
+        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Fd flags</span>
+    <span class="p">)</span> <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="3-resource-efficiency">3. <strong>Resource Efficiency</strong></h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Resource comparison</span>
+<span class="na">traditional_container</span><span class="pi">:</span>
+  <span class="na">cpu_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5-10%"</span>
+  <span class="na">memory_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50-200MB"</span>
+  <span class="na">disk_footprint</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100MB-1GB"</span>
+  
+<span class="na">wasm_container</span><span class="pi">:</span>
+  <span class="na">cpu_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;1%"</span>
+  <span class="na">memory_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1-5MB"</span>
+  <span class="na">disk_footprint</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1-10MB"</span>
+</code></pre></div></div>
+
+<p>These advantages make WebAssembly particularly attractive for modern cloud-native applications. But how do we manage WebAssembly containers at scale? The answer lies in integrating with existing orchestration platforms.</p>
+
+<h3 id="wasm-container-orchestration">WASM Container Orchestration</h3>
+
+<h4 id="kubernetes-integration">Kubernetes Integration</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">wasm-app</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">module.wasm.image/variant</span><span class="pi">:</span> <span class="s2">"</span><span class="s">compat-smart"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">wasmtime</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/wasm-app:latest</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10Mi"</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100m"</span>
+</code></pre></div></div>
+
+<h4 id="krustlet-kubernetes-kubelet-for-wasm">Krustlet: Kubernetes Kubelet for WASM</h4>
+
+<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Krustlet provider implementation</span>
+<span class="k">use</span> <span class="nn">kubelet</span><span class="p">::</span><span class="n">Provider</span><span class="p">;</span>
+
+<span class="k">struct</span> <span class="n">WasmProvider</span> <span class="p">{</span>
+    <span class="n">runtime</span><span class="p">:</span> <span class="nn">wasmtime</span><span class="p">::</span><span class="n">Engine</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">impl</span> <span class="n">Provider</span> <span class="k">for</span> <span class="n">WasmProvider</span> <span class="p">{</span>
+    <span class="k">async</span> <span class="k">fn</span> <span class="nf">add</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">pod</span><span class="p">:</span> <span class="n">Pod</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="k">let</span> <span class="n">module</span> <span class="o">=</span> <span class="k">self</span><span class="nf">.fetch_wasm_module</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pod</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+        <span class="k">let</span> <span class="n">instance</span> <span class="o">=</span> <span class="k">self</span><span class="py">.runtime</span><span class="nf">.instantiate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">module</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+        <span class="n">instance</span><span class="nf">.run</span><span class="p">()</span><span class="k">.await</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>While the integration with Kubernetes and other orchestration platforms is promising, it’s important to understand where WebAssembly containers excel and where traditional containers might still be the better choice.</p>
+
+<h3 id="use-cases-and-limitations">Use Cases and Limitations</h3>
+
+<p><strong>Ideal Use Cases:</strong></p>
+<ul>
+  <li><strong>Edge Computing</strong>: Ultra-low latency requirements</li>
+  <li><strong>Serverless Functions</strong>: Fast cold starts</li>
+  <li><strong>Plugin Systems</strong>: Secure, sandboxed extensions</li>
+  <li><strong>IoT Devices</strong>: Minimal resource footprint</li>
+  <li><strong>Multi-tenant Platforms</strong>: Strong isolation guarantees</li>
+</ul>
+
+<p><strong>Current Limitations:</strong></p>
+<ul>
+  <li><strong>Ecosystem Maturity</strong>: Tooling still evolving</li>
+  <li><strong>Language Support</strong>: Not all languages compile efficiently to WASM</li>
+  <li><strong>System Calls</strong>: Limited compared to native containers</li>
+  <li><strong>Debugging</strong>: More challenging than traditional containers</li>
+</ul>
+
+<p>Despite these limitations, many organizations are exploring WebAssembly for specific workloads. If you’re considering this transition, here’s a practical approach to migration.</p>
+
+<h3 id="migration-path">Migration Path</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Gradual migration strategy
+</span><span class="k">class</span> <span class="nc">ContainerMigrationStrategy</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">assess_workload</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">app</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Determine if app is suitable for WASM</span><span class="sh">"""</span>
+        <span class="n">criteria</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">"</span><span class="s">stateless</span><span class="sh">"</span><span class="p">:</span> <span class="n">app</span><span class="p">.</span><span class="nf">is_stateless</span><span class="p">(),</span>
+            <span class="sh">"</span><span class="s">cpu_bound</span><span class="sh">"</span><span class="p">:</span> <span class="n">app</span><span class="p">.</span><span class="nf">is_cpu_intensive</span><span class="p">(),</span>
+            <span class="sh">"</span><span class="s">small_footprint</span><span class="sh">"</span><span class="p">:</span> <span class="n">app</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">50</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">,</span>  <span class="c1"># 50MB
+</span>            <span class="sh">"</span><span class="s">supported_language</span><span class="sh">"</span><span class="p">:</span> <span class="n">app</span><span class="p">.</span><span class="n">language</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">"</span><span class="s">rust</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">c</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">],</span>
+        <span class="p">}</span>
+        
+        <span class="n">score</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">criteria</span><span class="p">.</span><span class="nf">values</span><span class="p">())</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="mf">0.7</span>  <span class="c1"># 70% criteria met
+</span>    
+    <span class="k">def</span> <span class="nf">migrate_to_wasm</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">app</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Step-by-step migration</span><span class="sh">"""</span>
+        <span class="n">steps</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">compile_to_wasm</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">add_wasi_bindings</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">test_functionality</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">optimize_performance</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">deploy_hybrid</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">monitor_and_validate</span><span class="p">,</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">complete_migration</span>
+        <span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">steps</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nf">step</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">rollback</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>To make informed decisions about migration, it’s essential to understand the real-world performance characteristics of WebAssembly containers compared to traditional Docker containers.</p>
+
+<h3 id="performance-benchmarks">Performance Benchmarks</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Real-world performance comparison
+</span><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+<span class="n">benchmarks</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">HTTP Request Handler</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1200</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">},</span>
+        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+    <span class="p">},</span>
+    <span class="sh">"</span><span class="s">Image Processing</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1500</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">},</span>
+        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">20</span><span class="p">}</span>
+    <span class="p">},</span>
+    <span class="sh">"</span><span class="s">API Gateway</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
+        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>These benchmarks demonstrate WebAssembly’s strengths in startup time and memory efficiency. As the technology matures, we can expect even more improvements. Let’s look at what’s on the horizon.</p>
+
+<h3 id="future-developments">Future Developments</h3>
+
+<p><strong>Component Model:</strong></p>
+<pre><code class="language-wit">// WebAssembly Interface Types (WIT)
+interface http-handler {
+  use types.{request, response}
+  
+  handle: func(req: request) -&gt; response
+}
+
+world service {
+  import wasi:filesystem/types
+  import wasi:sockets/tcp
+  
+  export http-handler
+}
+</code></pre>
+
+<p><strong>WASM-native Development:</strong></p>
+<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Future: Direct WASM targeting without WASI</span>
+<span class="nd">#[no_std]</span>
+<span class="nd">#[wasm_module]</span>
+<span class="k">pub</span> <span class="k">mod</span> <span class="n">app</span> <span class="p">{</span>
+    <span class="nd">#[wasm_export]</span>
+    <span class="k">pub</span> <span class="k">fn</span> <span class="nf">handle_request</span><span class="p">(</span><span class="n">ptr</span><span class="p">:</span> <span class="o">*</span><span class="k">const</span> <span class="nb">u8</span><span class="p">,</span> <span class="n">len</span><span class="p">:</span> <span class="nb">usize</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Vec</span><span class="o">&lt;</span><span class="nb">u8</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="c1">// Direct memory manipulation</span>
+        <span class="c1">// No system calls needed</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="bringing-it-all-together">Bringing It All Together</h2>
+
+<p>This comprehensive journey through Docker and container technology has taken us from fundamental concepts to advanced production patterns. We’ve explored:</p>
+
+<h3 id="what-weve-covered">What We’ve Covered</h3>
+
+<ol>
+  <li>
+    <p><strong>Why Docker Matters</strong>: Understanding the real problems Docker solves - from “it works on my machine” to efficient resource utilization</p>
+  </li>
+  <li>
+    <p><strong>Practical Examples</strong>: Real-world Docker usage patterns and commands</p>
+  </li>
+  <li><strong>Deep Technical Knowledge</strong>:
+    <ul>
+      <li>Container vs VM architecture</li>
+      <li>Docker’s internal architecture (OCI runtime, containerd, CNI)</li>
+      <li>Storage options (volumes, bind mounts, tmpfs)</li>
+      <li>Networking drivers (bridge, host, overlay, macvlan)</li>
+      <li>Security best practices and hardening techniques</li>
+    </ul>
+  </li>
+  <li><strong>Production Readiness</strong>:
+    <ul>
+      <li>Performance optimization strategies</li>
+      <li>Docker Swarm orchestration</li>
+      <li>CI/CD integration patterns</li>
+      <li>Real-world case studies and design patterns</li>
+    </ul>
+  </li>
+  <li><strong>The Future</strong>: WebAssembly as a next-generation container runtime</li>
+</ol>
+
+<h3 id="key-takeaways-for-different-audiences">Key Takeaways for Different Audiences</h3>
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4><i class="fas fa-book"></i> Getting Started</h4>
+    <ul>
+      <li>Start with the crash course - get hands-on immediately</li>
+      <li>Master the basic commands before diving deep</li>
+      <li>Use Docker Compose for multi-container apps</li>
+      <li>Always follow security best practices from day one</li>
+    </ul>
+  </div>
+  
+  <div class="takeaway-card">
+    <h4><i class="fas fa-code"></i> For Developers</h4>
+    <ul>
+      <li>Optimize Dockerfiles for build caching</li>
+      <li>Use multi-stage builds to reduce image size</li>
+      <li>Implement proper health checks</li>
+      <li>Integrate Docker into your CI/CD pipeline</li>
+    </ul>
+  </div>
+  
+  <div class="takeaway-card">
+    <h4><i class="fas fa-server"></i> For DevOps/SRE</h4>
+    <ul>
+      <li>Master networking for service mesh architectures</li>
+      <li>Implement comprehensive monitoring and logging</li>
+      <li>Use orchestration for high availability</li>
+      <li>Plan for security at every layer</li>
+    </ul>
+  </div>
+  
+  <div class="takeaway-card">
+    <h4><i class="fas fa-building"></i> For Architects</h4>
+    <ul>
+      <li>Design with microservices patterns in mind</li>
+      <li>Consider WebAssembly for edge computing</li>
+      <li>Plan for scalability and resilience</li>
+      <li>Balance complexity with operational overhead</li>
+    </ul>
+  </div>
+</div>
+
+<h3 id="your-next-steps">Your Next Steps</h3>
+
+<ol>
+  <li><strong>Practice</strong>: Build and deploy a real application using Docker</li>
+  <li><strong>Experiment</strong>: Try different networking modes and storage options</li>
+  <li><strong>Secure</strong>: Implement security scanning in your workflow</li>
+  <li><strong>Scale</strong>: Deploy a multi-node Swarm cluster or explore Kubernetes</li>
+  <li><strong>Innovate</strong>: Experiment with WebAssembly for suitable workloads</li>
+</ol>
+
+<h3 id="the-container-ecosystem-evolution">The Container Ecosystem Evolution</h3>
+
+<p>The container landscape continues to evolve rapidly:</p>
+
+<ul>
+  <li><strong>Today</strong>: Docker dominates with mature tooling and vast ecosystem</li>
+  <li><strong>Emerging</strong>: WebAssembly offers new possibilities for lightweight, secure containers</li>
+  <li><strong>Future</strong>: Hybrid approaches combining traditional containers and WASM</li>
+</ul>
+
+<h3 id="docker-updates">Docker Updates</h3>
+
+<p><strong>Docker Desktop Enhancements</strong>:</p>
+<ul>
+  <li><strong>Docker Scout</strong>: Built-in vulnerability scanning and SBOM generation</li>
+  <li><strong>Docker Build Cloud</strong>: Remote builders for faster CI/CD</li>
+  <li><strong>Docker Extensions</strong>: Ecosystem of third-party tools</li>
+  <li><strong>Compose Watch</strong>: Automatic sync for development</li>
+</ul>
+
+<p><strong>Container Runtime Evolution</strong>:</p>
+<ul>
+  <li><strong>containerd 2.0</strong>: Improved performance and features</li>
+  <li><strong>BuildKit</strong>: Default builder with enhanced caching</li>
+  <li><strong>Docker Init</strong>: AI-powered Dockerfile generation</li>
+  <li><strong>Attestations</strong>: Supply chain security with SLSA</li>
+</ul>
+
+<p><strong>Alternative Runtimes</strong>:</p>
+<ul>
+  <li><strong>Podman</strong>: Daemonless, rootless containers</li>
+  <li><strong>Colima</strong>: Lightweight Docker Desktop alternative for Mac</li>
+  <li><strong>Rancher Desktop</strong>: Kubernetes-focused container management</li>
+  <li><strong>OrbStack</strong>: Fast, lightweight Docker Desktop alternative</li>
+</ul>
+
+<p>Remember, containerization is not just about technology - it’s about enabling:</p>
+<ul>
+  <li>Faster development cycles</li>
+  <li>More reliable deployments</li>
+  <li>Better resource utilization</li>
+  <li>Improved team collaboration</li>
+  <li>Greater application portability</li>
+</ul>
+
+<h3 id="final-thoughts">Final Thoughts</h3>
+
+<p>Docker has fundamentally changed how we build, ship, and run applications. Whether you’re containerizing a simple web app or architecting a complex microservices platform, the principles remain constant: consistency, isolation, and portability.</p>
+
+<p>As you continue your Docker journey:</p>
+<ul>
+  <li>Stay curious about new developments</li>
+  <li>Share knowledge with your team</li>
+  <li>Contribute to the community</li>
+  <li>Always consider security and performance</li>
+  <li>Choose the right tool for each job</li>
+</ul>
+
+<p>The future of application deployment is containerized, and you’re now equipped with the knowledge to be part of that future.</p>
+
+<h2 id="related-docker-documentation">Related Docker Documentation</h2>
+
+<ul>
+  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick reference and command cheat sheet</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration at scale</li>
+  <li><a href="../terraform/">Terraform</a> - Infrastructure as code for container deployments</li>
+  <li><a href="../ci-cd.html">CI/CD Pipelines</a> - Docker in continuous integration workflows</li>
+  <li><a href="../aws/">AWS</a> - ECS, EKS, and cloud container services</li>
+</ul>
+
+<div class="cta-section">
+  <h3><i class="fas fa-rocket"></i> Ready to Start?</h3>
+  <p>Begin with a simple <code>docker run hello-world</code> and build from there. The container revolution awaits!</p>
+</div>
+
+<hr />
+
+<h2 id="see-also">See Also</h2>
+<ul>
+  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick reference and command cheat sheet</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration at scale</li>
+  <li><a href="../ci-cd.html">CI/CD</a> - Docker in continuous integration workflows</li>
+  <li><a href="../aws/">AWS</a> - ECS, EKS, and cloud container services</li>
+  <li><a href="../terraform/">Terraform</a> - Infrastructure as Code for container deployments</li>
+  <li><a href="../networking.html">Networking</a> - Network concepts and container networking</li>
+  <li><a href="../../distributed-systems/index.html">Distributed Systems</a> - Distributed computing principles</li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

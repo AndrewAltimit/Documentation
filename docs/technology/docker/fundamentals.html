@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Docker: Fundamentals">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/fundamentals.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker: Fundamentals">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Docker: Fundamentals | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               class="active">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Docker: Fundamentals</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="why-docker-the-problems-it-solves">Why Docker? The Problems It Solves</h2>
+
+<div class="problems-section">
+  <h3><i class="fas fa-exclamation-triangle"></i> Common Development Challenges</h3>
+  
+  <div class="problem-grid">
+    <div class="problem-item">
+      <i class="fas fa-puzzle-piece"></i>
+      <h4>Dependency Hell</h4>
+      <p>Different projects require different versions of libraries, languages, and tools, leading to conflicts and complex virtual environment management.</p>
+    </div>
+    
+    <div class="problem-item">
+      <i class="fas fa-exchange-alt"></i>
+      <h4>Environment Parity</h4>
+      <p>Code that works perfectly on a developer's laptop fails in production due to OS differences, missing dependencies, or configuration mismatches.</p>
+    </div>
+    
+    <div class="problem-item">
+      <i class="fas fa-clock"></i>
+      <h4>Onboarding Time</h4>
+      <p>New team members spend days setting up development environments, installing tools, and troubleshooting configuration issues.</p>
+    </div>
+    
+    <div class="problem-item">
+      <i class="fas fa-server"></i>
+      <h4>Resource Efficiency</h4>
+      <p>Traditional VMs consume significant resources, limiting the number of applications that can run on a single server.</p>
+    </div>
+  </div>
+  
+  <h3><i class="fas fa-check-circle"></i> How Docker Solves These Problems</h3>
+  
+  <div class="solution-grid">
+    <div class="solution-item">
+      <i class="fas fa-cube"></i>
+      <h4>Isolated Environments</h4>
+      <p>Each container has its own filesystem, network, and process space, eliminating conflicts between applications.</p>
+    </div>
+    
+    <div class="solution-item">
+      <i class="fas fa-copy"></i>
+      <h4>Reproducible Builds</h4>
+      <p>Dockerfiles define exact steps to build an environment, ensuring consistency across all stages of development.</p>
+    </div>
+    
+    <div class="solution-item">
+      <i class="fas fa-play-circle"></i>
+      <h4>Instant Setup</h4>
+      <p>New developers can start with a simple `docker run` command, eliminating complex installation procedures.</p>
+    </div>
+    
+    <div class="solution-item">
+      <i class="fas fa-layer-group"></i>
+      <h4>Efficient Layering</h4>
+      <p>Docker's layer system shares common components between containers, dramatically reducing disk usage and memory overhead.</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="essential-docker-commands">Essential Docker Commands</h2>
+
+<div class="commands-section">
+  <h3><i class="fas fa-terminal"></i> Core Operations</h3>
+  
+  <p class="intro-text">These fundamental Docker commands demonstrate the core concepts and operations.</p>
+  
+  <div class="command-examples">
+    <div class="example-section">
+      <h4>Running Containers</h4>
+      <p>Let's start with the classic "Hello World" using Docker:</p>
+      <pre><code class="language-bash"># Pull and run an Ubuntu container
+docker run -it ubuntu:22.04 bash
+
+# Inside the container, you're in a minimal Ubuntu system
+cat /etc/os-release
+echo "Hello from inside a container!"
+exit</code></pre>
+      <p class="explanation">This command downloads Ubuntu 22.04 image and starts an interactive bash session. The `-it` flags make it interactive with a terminal.</p>
+    </div>
+    
+    <div class="example-section">
+      <h4>Web Server Deployment</h4>
+      <p>Deploy a web server with a single command:</p>
+      <pre><code class="language-bash"># Run Nginx web server
+docker run -d -p 8080:80 --name my-web nginx
+
+# Check it's running
+docker ps
+
+# Visit http://localhost:8080 in your browser
+
+# View the logs
+docker logs my-web
+
+# Stop and remove
+docker stop my-web
+docker rm my-web</code></pre>
+      <p class="explanation">The `-d` flag runs in detached mode (background), `-p 8080:80` maps port 8080 on your host to port 80 in the container.</p>
+    </div>
+    
+    <div class="example-section">
+      <h4>Building Custom Images</h4>
+      <p>Create a simple Python web application:</p>
+      <pre><code class="language-bash"># Create a directory for your app
+mkdir my-python-app &amp;&amp; cd my-python-app
+
+# Create a simple Flask app
+cat &gt; app.py &lt;&lt; 'EOF'
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return "<h1>Hello from Dockerized Python!</h1>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+EOF
+
+# Create requirements.txt
+echo "flask==3.0.0" &gt; requirements.txt
+
+# Create Dockerfile
+cat &gt; Dockerfile &lt;&lt; 'EOF'
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+EXPOSE 5000
+CMD ["python", "app.py"]
+EOF
+
+# Build the image
+docker build -t my-python-app .
+
+# Run your app
+docker run -d -p 5000:5000 --name my-app my-python-app
+
+# Test it
+curl http://localhost:5000</code></pre>
+      <p class="explanation">This example demonstrates the complete workflow: creating an app, defining its environment in a Dockerfile, building an image, and running a container.</p>
+    </div>
+    
+    <div class="example-section">
+      <h4>Using Docker Compose</h4>
+      <p>Deploy a multi-container application:</p>
+      <pre><code class="language-yaml"># Create docker-compose.yml
+cat &gt; docker-compose.yml &lt;&lt; 'EOF'
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+EOF
+
+# Update app.py to use Redis
+cat &gt; app.py &lt;&lt; 'EOF'
+from flask import Flask
+import redis
+import os
+
+app = Flask(__name__)
+r = redis.Redis(host=os.getenv('REDIS_HOST', 'localhost'), port=6379)
+
+@app.route('/')
+def hello():
+    visits = r.incr('visits')
+    return f"<h1>Hello! This page has been visited {visits} times.</h1>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+EOF
+
+# Update requirements.txt
+echo -e "flask==3.0.0\nredis==5.0.1" &gt; requirements.txt
+
+# Start the application stack
+docker-compose up -d
+
+# Check both services are running
+docker-compose ps
+
+# View logs from all services
+docker-compose logs -f</code></pre>
+      <p class="explanation">Docker Compose orchestrates multiple containers, handling networking, dependencies, and environment configuration automatically.</p>
+    </div>
+  </div>
+  
+  <div class="command-summary">
+    <h3><i class="fas fa-lightbulb"></i> Key Takeaways</h3>
+    <ul>
+      <li><strong>Images</strong> are blueprints; <strong>containers</strong> are running instances</li>
+      <li><strong>Dockerfiles</strong> define how to build images reproducibly</li>
+      <li><strong>Port mapping</strong> connects container services to your host</li>
+      <li><strong>Docker Compose</strong> manages multi-container applications</li>
+      <li><strong>Volumes</strong> persist data beyond container lifecycle</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="understanding-container-technology">Understanding Container Technology</h2>
+
+<p>Before diving into Docker’s specific implementation, it’s essential to understand how containers differ from traditional virtualization approaches. This comparison will help you appreciate why containers have become the preferred choice for modern application deployment.</p>
+
+<h3 id="containers-vs-virtual-machines">Containers vs Virtual Machines</h3>
+
+<div class="comparison-section">
+  <p class="section-intro">Containers are lightweight, resource-efficient, and portable, making them suitable for modern, scalable applications. Virtual machines provide strong isolation, full OS support, and hardware emulation but can be resource-intensive and slower to start up.</p>
+  
+  <div class="architecture-comparison">
+    <div class="architecture-diagram">
+      <svg viewBox="0 0 600 350">
+        <!-- Container Architecture -->
+        <g id="container-arch">
+          <text x="150" y="20" text-anchor="middle" font-size="14" font-weight="bold">Container Architecture</text>
+          
+          <!-- Hardware -->
+          <rect x="50" y="300" width="200" height="40" fill="#34495e" />
+          <text x="150" y="325" text-anchor="middle" font-size="11" fill="white">Hardware</text>
+          
+          <!-- Host OS -->
+          <rect x="50" y="250" width="200" height="40" fill="#3498db" />
+          <text x="150" y="275" text-anchor="middle" font-size="11" fill="white">Host OS + Kernel</text>
+          
+          <!-- Container Runtime -->
+          <rect x="50" y="200" width="200" height="40" fill="#e74c3c" />
+          <text x="150" y="225" text-anchor="middle" font-size="11" fill="white">Container Runtime</text>
+          
+          <!-- Containers -->
+          <rect x="60" y="80" width="55" height="110" fill="#2ecc71" opacity="0.7" stroke="#27ae60" stroke-width="2" />
+          <text x="87" y="100" text-anchor="middle" font-size="9" fill="white">App A</text>
+          <text x="87" y="115" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+          
+          <rect x="125" y="80" width="55" height="110" fill="#f39c12" opacity="0.7" stroke="#d68910" stroke-width="2" />
+          <text x="152" y="100" text-anchor="middle" font-size="9" fill="white">App B</text>
+          <text x="152" y="115" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+          
+          <rect x="190" y="80" width="55" height="110" fill="#9b59b6" opacity="0.7" stroke="#8e44ad" stroke-width="2" />
+          <text x="217" y="100" text-anchor="middle" font-size="9" fill="white">App C</text>
+          <text x="217" y="115" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+        </g>
+        
+        <!-- VM Architecture -->
+        <g id="vm-arch" transform="translate(300,0)">
+          <text x="150" y="20" text-anchor="middle" font-size="14" font-weight="bold">Virtual Machine Architecture</text>
+          
+          <!-- Hardware -->
+          <rect x="50" y="300" width="200" height="40" fill="#34495e" />
+          <text x="150" y="325" text-anchor="middle" font-size="11" fill="white">Hardware</text>
+          
+          <!-- Host OS -->
+          <rect x="50" y="250" width="200" height="40" fill="#3498db" />
+          <text x="150" y="275" text-anchor="middle" font-size="11" fill="white">Host OS</text>
+          
+          <!-- Hypervisor -->
+          <rect x="50" y="200" width="200" height="40" fill="#e74c3c" />
+          <text x="150" y="225" text-anchor="middle" font-size="11" fill="white">Hypervisor</text>
+          
+          <!-- VMs -->
+          <rect x="60" y="50" width="55" height="140" fill="#2ecc71" opacity="0.7" stroke="#27ae60" stroke-width="2" />
+          <text x="87" y="70" text-anchor="middle" font-size="9" fill="white">App A</text>
+          <text x="87" y="85" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+          <rect x="65" y="120" width="45" height="25" fill="#27ae60" opacity="0.5" />
+          <text x="87" y="137" text-anchor="middle" font-size="8" fill="white">Guest OS</text>
+          
+          <rect x="125" y="50" width="55" height="140" fill="#f39c12" opacity="0.7" stroke="#d68910" stroke-width="2" />
+          <text x="152" y="70" text-anchor="middle" font-size="9" fill="white">App B</text>
+          <text x="152" y="85" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+          <rect x="130" y="120" width="45" height="25" fill="#d68910" opacity="0.5" />
+          <text x="152" y="137" text-anchor="middle" font-size="8" fill="white">Guest OS</text>
+          
+          <rect x="190" y="50" width="55" height="140" fill="#9b59b6" opacity="0.7" stroke="#8e44ad" stroke-width="2" />
+          <text x="217" y="70" text-anchor="middle" font-size="9" fill="white">App C</text>
+          <text x="217" y="85" text-anchor="middle" font-size="8" fill="white">Bins/Libs</text>
+          <rect x="195" y="120" width="45" height="25" fill="#8e44ad" opacity="0.5" />
+          <text x="217" y="137" text-anchor="middle" font-size="8" fill="white">Guest OS</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons-comparison">
+  <div class="container-pros-cons">
+    <h3><i class="fas fa-box"></i> Container Pros/Cons</h3>
+    
+    <div class="pros-cons-grid">
+      <div class="pros-section">
+        <h4><i class="fas fa-check-circle"></i> Pros</h4>
+        <div class="pro-item">
+          <i class="fas fa-feather-alt"></i>
+          <div>
+            <strong>Lightweight</strong>
+            <p>Share the host OS kernel, minimal overhead</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-rocket"></i>
+          <div>
+            <strong>Fast startup</strong>
+            <p>Start in seconds for rapid deployment</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-chart-line"></i>
+          <div>
+            <strong>Resource efficiency</strong>
+            <p>Higher density on single host</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-ship"></i>
+          <div>
+            <strong>Portability</strong>
+            <p>Consistent deployment across environments</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <strong>Process Isolation</strong>
+            <p>Applications run without interference</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="cons-section">
+        <h4><i class="fas fa-times-circle"></i> Cons</h4>
+        <div class="con-item">
+          <i class="fas fa-link"></i>
+          <div>
+            <strong>Kernel dependency</strong>
+            <p>Limited cross-platform compatibility</p>
+          </div>
+        </div>
+        <div class="con-item">
+          <i class="fas fa-lock-open"></i>
+          <div>
+            <strong>Security boundaries</strong>
+            <p>Weaker isolation than VMs</p>
+          </div>
+        </div>
+        <div class="con-item">
+          <i class="fas fa-ban"></i>
+          <div>
+            <strong>Limited applications</strong>
+            <p>Not suitable for kernel modifications</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="vm-pros-cons">
+    <h3><i class="fas fa-desktop"></i> Virtual Machine Pros/Cons</h3>
+    
+    <div class="pros-cons-grid">
+      <div class="pros-section">
+        <h4><i class="fas fa-check-circle"></i> Pros</h4>
+        <div class="pro-item">
+          <i class="fas fa-lock"></i>
+          <div>
+            <strong>Strong isolation</strong>
+            <p>Complete OS separation for security</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-layer-group"></i>
+          <div>
+            <strong>Full OS support</strong>
+            <p>Run any OS version or distribution</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-microchip"></i>
+          <div>
+            <strong>Hardware emulation</strong>
+            <p>Support legacy and platform-specific apps</p>
+          </div>
+        </div>
+        <div class="pro-item">
+          <i class="fas fa-history"></i>
+          <div>
+            <strong>Mature ecosystem</strong>
+            <p>Extensive tooling and management</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="cons-section">
+        <h4><i class="fas fa-times-circle"></i> Cons</h4>
+        <div class="con-item">
+          <i class="fas fa-weight-hanging"></i>
+          <div>
+            <strong>Resource-intensive</strong>
+            <p>Full OS stack overhead</p>
+          </div>
+        </div>
+        <div class="con-item">
+          <i class="fas fa-hourglass-half"></i>
+          <div>
+            <strong>Slow startup</strong>
+            <p>Minutes to boot and initialize</p>
+          </div>
+        </div>
+        <div class="con-item">
+          <i class="fas fa-database"></i>
+          <div>
+            <strong>Storage overhead</strong>
+            <p>Duplicated OS and libraries</p>
+          </div>
+        </div>
+        <div class="con-item">
+          <i class="fas fa-random"></i>
+          <div>
+            <strong>Deployment complexity</strong>
+            <p>Manual dependency management</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 id="container-consistency">Container Consistency</h3>
+
+<ul>
+  <li><strong>Application dependencies:</strong> Containers bundle all required libraries and dependencies, ensuring that the application runs consistently across different environments.</li>
+  <li><strong>Configuration:</strong> Containers encapsulate the application’s configuration, making it easy to reproduce and share across teams and environments.</li>
+  <li><strong>Isolation:</strong> Containers provide process isolation, so applications running in separate containers won’t interfere with one another.</li>
+  <li><strong>Portability:</strong> Containers can run on any system with container runtime support, regardless of the host’s underlying hardware or operating system.</li>
+</ul>
+
+<h3 id="container-inconsistency">Container Inconsistency</h3>
+
+<ul>
+  <li><strong>Kernel differences:</strong> Containers share the host’s kernel, which means that they are susceptible to inconsistencies stemming from kernel differences. For example, a container running on a host with an older kernel version may not have access to newer kernel features. Additionally, certain system calls or kernel modules may not be available or compatible across different host systems.</li>
+  <li><strong>Host-specific resources:</strong> Containers can access host resources like filesystems, devices, and network interfaces. However, these resources may not be consistent across different host systems, leading to potential inconsistencies in container behavior.</li>
+  <li><strong>Resource limits and constraints:</strong> Containers can be limited in terms of resources, such as CPU, memory, or I/O. These limits may vary between host systems and can impact the consistency of container performance.</li>
+  <li><strong>Platform-specific features:</strong> Some features, such as hardware acceleration, are platform-specific and may not be consistently available across different host systems. As a result, containers relying on these features may experience inconsistent behavior.</li>
+</ul>
+
+<p>While containers provide a high level of consistency for application dependencies, configuration, isolation, and portability, they can be susceptible to inconsistencies due to kernel differences, host-specific resources, resource limits, and platform-specific features. To minimize these inconsistencies, it is essential to understand the requirements of your application and ensure that the host systems are compatible with the desired container environment.</p>
+
+<p>Now that we understand the fundamental concepts of containerization and its trade-offs, let’s explore how Docker implements these concepts through its architecture. Understanding Docker’s internal architecture will help you make better decisions when building and deploying containerized applications.</p>
+
+<h3 id="docker-architecture-deep-dive">Docker Architecture Deep Dive</h3>
+
+<h3 id="container-runtime-architecture">Container Runtime Architecture</h3>
+
+<p>Docker uses a layered architecture to manage containers:</p>
+
+<h3 id="oci-open-container-initiative-runtime">OCI (Open Container Initiative) Runtime</h3>
+
+<p>The low-level container runtime follows the OCI specification:</p>
+
+<p><strong>Key Components</strong>:</p>
+<ul>
+  <li><strong>OCI Bundle</strong>: Directory with <code class="language-plaintext highlighter-rouge">config.json</code> and <code class="language-plaintext highlighter-rouge">rootfs/</code></li>
+  <li><strong>Runtime Spec</strong>: JSON configuration defining container properties</li>
+  <li><strong>Lifecycle</strong>: Create, start, kill, delete operations</li>
+</ul>
+
+<p><strong>Container Configuration</strong>:</p>
+<ul>
+  <li><strong>Process</strong>: Command, environment, working directory, capabilities</li>
+  <li><strong>Root Filesystem</strong>: Mount points and readonly settings</li>
+  <li><strong>Namespaces</strong>: PID, Network, IPC, UTS, Mount, User, Cgroup isolation</li>
+  <li><strong>Resources</strong>: Memory, CPU, PID limits, block I/O controls</li>
+  <li><strong>Security</strong>: Seccomp profiles, masked paths, readonly paths</li>
+</ul>
+
+<p><strong>Resource Management</strong>:</p>
+<ul>
+  <li>Memory limits and reservations</li>
+  <li>CPU shares, quotas, and cpuset assignment</li>
+  <li>Process ID limits</li>
+  <li>Block I/O weight and throttling</li>
+  <li>Network class IDs and priorities</li>
+</ul>
+
+<h3 id="containerd-integration">Containerd Integration</h3>
+
+<p>High-level container management daemon:</p>
+
+<p><strong>Architecture</strong>:</p>
+<ul>
+  <li><strong>gRPC API</strong>: Remote procedure calls for container operations</li>
+  <li><strong>Namespaces</strong>: Logical grouping of containers and images</li>
+  <li><strong>Snapshots</strong>: Filesystem snapshots for container rootfs</li>
+  <li><strong>Content Store</strong>: Storage for image layers and manifests</li>
+</ul>
+
+<p><strong>Key Operations</strong>:</p>
+<ul>
+  <li>Pull images from registries</li>
+  <li>Create containers from images</li>
+  <li>Manage container lifecycle (start, stop, pause, resume)</li>
+  <li>Execute commands in running containers</li>
+  <li>Stream logs and attach to containers</li>
+</ul>
+
+<blockquote>
+  <p><strong>Note</strong>: The OCI runtime and containerd integration involve low-level container management through the Container Runtime Interface (CRI).</p>
+</blockquote>
+
+<h2 id="docker-network-architecture">Docker Network Architecture</h2>
+
+<h3 id="container-network-interface-cni">Container Network Interface (CNI)</h3>
+
+<p>Standard for container networking plugins:</p>
+
+<p><strong>CNI Specification</strong>:</p>
+<ul>
+  <li><strong>ADD</strong>: Connect container to network</li>
+  <li><strong>DEL</strong>: Disconnect container from network</li>
+  <li><strong>CHECK</strong>: Verify container connectivity</li>
+  <li><strong>VERSION</strong>: Report plugin version</li>
+</ul>
+
+<p><strong>Network Configuration</strong>:</p>
+<ul>
+  <li>Create veth (virtual ethernet) pairs</li>
+  <li>Configure network namespaces</li>
+  <li>Assign IP addresses and routes</li>
+  <li>Setup DNS configuration</li>
+</ul>
+
+<h3 id="docker-bridge-network-driver">Docker Bridge Network Driver</h3>
+
+<p>Default network driver for containers:</p>
+
+<p><strong>Components</strong>:</p>
+<ul>
+  <li><strong>Linux Bridge</strong>: Virtual switch for container communication</li>
+  <li><strong>veth Pairs</strong>: Virtual cable connecting container to bridge</li>
+  <li><strong>iptables Rules</strong>: NAT and packet filtering</li>
+  <li><strong>IP Address Management</strong>: Allocation and tracking</li>
+</ul>
+
+<p><strong>Network Isolation</strong>:</p>
+<ul>
+  <li>Network namespaces per container</li>
+  <li>Bridge isolation between networks</li>
+  <li>ICC (Inter-Container Communication) control</li>
+  <li>Port mapping and exposure</li>
+</ul>
+
+<h3 id="ip-address-management-ipam">IP Address Management (IPAM)</h3>
+
+<p>Manages IP allocation for containers:</p>
+
+<p><strong>Features</strong>:</p>
+<ul>
+  <li>Subnet management</li>
+  <li>Dynamic IP allocation</li>
+  <li>Address release and reuse</li>
+  <li>Conflict prevention</li>
+  <li>Gateway reservation</li>
+</ul>
+
+<blockquote>
+  <p><strong>Note</strong>: Docker networking uses the Container Network Interface (CNI) for managing network namespaces and virtual interfaces.</p>
+</blockquote>
+
+<p>With a solid understanding of Docker’s architecture, let’s move to the practical aspects of using Docker in your development workflow.</p>
+
+<h2 id="docker-in-practice">Docker in Practice</h2>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

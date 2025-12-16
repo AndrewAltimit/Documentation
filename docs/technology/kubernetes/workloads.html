@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Kubernetes: Workloads & Storage">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/workloads.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes: Workloads & Storage">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Kubernetes: Workloads & Storage | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html">
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html">
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html">
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html">
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/">
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html">
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html">
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html">
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html">
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html">
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html">
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/">
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html">
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html">
+                              State &amp; Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html">
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/">
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html" class="active">
+                              Workloads &amp; Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html">
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/">
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html">
+                              Storage &amp; Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html">
+                              Dockerfiles &amp; CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html">
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html">
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html">
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html">
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html">
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html">
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html">
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html">
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html">
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html">
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html">
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html">
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html">
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html">
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html">
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html">
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html">
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html">
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html">
+                      <span class="nav__sub-title">3D Graphics &amp; Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html">
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html">
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html">
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html">
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html">
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html">
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html">
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html">
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html">
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html">
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html">
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html">
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html">
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html">
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html">
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html">
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html">
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html">
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html">
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html">
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html">
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/">
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/">
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/">
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/">
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html">
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references">
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants">
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures">
+                      <span class="nav__sub-title">Algorithms &amp; Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns">
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts">
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists">
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Kubernetes: Workloads &amp; Storage</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="storage-persistent-data-in-an-ephemeral-world">Storage: Persistent Data in an Ephemeral World</h2>
+
+<p>Containers are ephemeral by design, but real applications need persistent storage. Kubernetes abstracts storage complexity through a plugin system that works with everything from local disks to cloud storage services. Let’s explore how Kubernetes manages storage, starting with the architectural foundation.</p>
+
+<h3 id="container-storage-interface-csi-architecture">Container Storage Interface (CSI) Architecture</h3>
+
+<p>The Container Storage Interface (CSI) is like a universal adapter that allows any storage system to work with Kubernetes. Before CSI, each storage vendor needed to maintain code within Kubernetes itself. Now, storage providers can develop independent plugins that follow the CSI specification, making the ecosystem more flexible and maintainable.</p>
+
+<h4 id="csi-components-and-workflow">CSI Components and Workflow</h4>
+
+<pre><code class="language-mermaid">graph TD
+    A[User creates PVC] --&gt; B[PV Controller]
+    B --&gt; C[CSI External Provisioner]
+    C --&gt; D[CSI Controller Plugin]
+    D --&gt; E[Storage System API]
+    E --&gt; F[Volume Created]
+    F --&gt; G[PV Bound to PVC]
+    G --&gt; H[Pod Scheduled]
+    H --&gt; I[Kubelet]
+    I --&gt; J[CSI Node Plugin]
+    J --&gt; K[Volume Mounted to Pod]
+</code></pre>
+
+<h4 id="implementing-a-csi-driver">Implementing a CSI Driver</h4>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// CSI Controller Service - Manages volumes at cluster level</span>
+<span class="k">type</span> <span class="n">ControllerServer</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="c">// Volume lifecycle operations</span>
+    <span class="n">CreateVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">CreateVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">CreateVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">DeleteVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">DeleteVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">DeleteVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Snapshot operations</span>
+    <span class="n">CreateSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">CreateSnapshotRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">CreateSnapshotResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">DeleteSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">DeleteSnapshotRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">DeleteSnapshotResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Volume attachment</span>
+    <span class="n">ControllerPublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerPublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerPublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">ControllerUnpublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerUnpublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerUnpublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Capabilities</span>
+    <span class="n">ControllerGetCapabilities</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">ControllerGetCapabilitiesRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">ControllerGetCapabilitiesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c">// CSI Node Service - Manages volumes on individual nodes</span>
+<span class="k">type</span> <span class="n">NodeServer</span> <span class="k">interface</span> <span class="p">{</span>
+    <span class="c">// Node operations</span>
+    <span class="n">NodeStageVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeStageVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeStageVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeUnstageVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeUnstageVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeUnstageVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Mount operations</span>
+    <span class="n">NodePublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodePublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodePublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeUnpublishVolume</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeUnpublishVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeUnpublishVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    
+    <span class="c">// Node info</span>
+    <span class="n">NodeGetInfo</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetInfoRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetInfoResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+    <span class="n">NodeGetCapabilities</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="o">*</span><span class="n">NodeGetCapabilitiesRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">NodeGetCapabilitiesResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c">// Example CSI Driver Implementation</span>
+<span class="k">type</span> <span class="n">MyCSIDriver</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">name</span>     <span class="kt">string</span>
+    <span class="n">nodeID</span>   <span class="kt">string</span>
+    <span class="n">version</span>  <span class="kt">string</span>
+    <span class="n">endpoint</span> <span class="kt">string</span>
+    
+    <span class="c">// Storage backend client</span>
+    <span class="n">storageClient</span> <span class="n">StorageClient</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">d</span> <span class="o">*</span><span class="n">MyCSIDriver</span><span class="p">)</span> <span class="n">CreateVolume</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="o">*</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Validate request</span>
+    <span class="k">if</span> <span class="n">req</span><span class="o">.</span><span class="n">Name</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">status</span><span class="o">.</span><span class="n">Error</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">InvalidArgument</span><span class="p">,</span> <span class="s">"Volume name required"</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Check if volume already exists</span>
+    <span class="n">vol</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">d</span><span class="o">.</span><span class="n">storageClient</span><span class="o">.</span><span class="n">GetVolume</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">{</span><span class="n">Volume</span><span class="o">:</span> <span class="n">vol</span><span class="p">},</span> <span class="no">nil</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Create volume with requested capacity</span>
+    <span class="n">capacity</span> <span class="o">:=</span> <span class="n">req</span><span class="o">.</span><span class="n">CapacityRange</span><span class="o">.</span><span class="n">RequiredBytes</span>
+    <span class="n">vol</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">storageClient</span><span class="o">.</span><span class="n">CreateVolume</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="n">capacity</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">Parameters</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">status</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">Internal</span><span class="p">,</span> <span class="s">"Failed to create volume: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateVolumeResponse</span><span class="p">{</span>
+        <span class="n">Volume</span><span class="o">:</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">Volume</span><span class="p">{</span>
+            <span class="n">VolumeId</span><span class="o">:</span>      <span class="n">vol</span><span class="o">.</span><span class="n">ID</span><span class="p">,</span>
+            <span class="n">CapacityBytes</span><span class="o">:</span> <span class="n">vol</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+            <span class="n">VolumeContext</span><span class="o">:</span> <span class="n">req</span><span class="o">.</span><span class="n">Parameters</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="csi-driver-deployment">CSI Driver Deployment</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CSI Driver DaemonSet</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">csi-driver-node</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">hostNetwork</span><span class="pi">:</span> <span class="kc">true</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">csi-driver</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/csi-driver:v1.0.0</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--endpoint=$(CSI_ENDPOINT)"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--nodeid=$(NODE_NAME)"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">CSI_ENDPOINT</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">unix:///csi/csi.sock</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NODE_NAME</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">fieldRef</span><span class="pi">:</span>
+              <span class="na">fieldPath</span><span class="pi">:</span> <span class="s">spec.nodeName</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">plugin-dir</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/csi</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pods-mount-dir</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/pods</span>
+          <span class="na">mountPropagation</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Bidirectional"</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">node-driver-registrar</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.5.0</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--csi-address=$(ADDRESS)"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ADDRESS</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">/csi/csi.sock</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DRIVER_REG_SOCK_PATH</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/plugins/csi-driver/csi.sock</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">plugin-dir</span>
+        <span class="na">hostPath</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/plugins/csi-driver</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">DirectoryOrCreate</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pods-mount-dir</span>
+        <span class="na">hostPath</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">/var/lib/kubelet/pods</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">Directory</span>
+</code></pre></div></div>
+
+<h3 id="understanding-storage-orchestration">Understanding Storage Orchestration</h3>
+
+<p>Behind the scenes, Kubernetes manages storage through a sophisticated state machine that ensures data integrity and availability. This orchestration handles everything from provisioning new volumes to managing failures and ensuring data consistency across replicas. Let’s peek under the hood to understand how Kubernetes keeps your data safe.</p>
+
+<h4 id="volume-lifecycle-state-machine">Volume Lifecycle State Machine</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">import</span> <span class="n">asyncio</span>
+
+<span class="k">class</span> <span class="nc">VolumeState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">PENDING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">pending</span><span class="sh">"</span>
+    <span class="n">PROVISIONING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">provisioning</span><span class="sh">"</span>
+    <span class="n">AVAILABLE</span> <span class="o">=</span> <span class="sh">"</span><span class="s">available</span><span class="sh">"</span>
+    <span class="n">BINDING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">binding</span><span class="sh">"</span>
+    <span class="n">BOUND</span> <span class="o">=</span> <span class="sh">"</span><span class="s">bound</span><span class="sh">"</span>
+    <span class="n">RELEASING</span> <span class="o">=</span> <span class="sh">"</span><span class="s">releasing</span><span class="sh">"</span>
+    <span class="n">FAILED</span> <span class="o">=</span> <span class="sh">"</span><span class="s">failed</span><span class="sh">"</span>
+    <span class="n">DELETED</span> <span class="o">=</span> <span class="sh">"</span><span class="s">deleted</span><span class="sh">"</span>
+
+<span class="k">class</span> <span class="nc">VolumeLifecycleManager</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Manages volume state transitions with formal verification</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="c1"># State transition graph
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">transitions</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">PENDING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">BINDING</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">BINDING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">RELEASING</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">RELEASING</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">AVAILABLE</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">FAILED</span><span class="p">:</span> <span class="p">{</span><span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">},</span>
+            <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">:</span> <span class="nf">set</span><span class="p">()</span>
+        <span class="p">}</span>
+        
+        <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">state_lock</span> <span class="o">=</span> <span class="n">asyncio</span><span class="p">.</span><span class="nc">Lock</span><span class="p">()</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">transition_volume</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">Atomically transition volume state with validation</span><span class="sh">"""</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">self</span><span class="p">.</span><span class="n">state_lock</span><span class="p">:</span>
+            <span class="n">current_state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">PENDING</span><span class="p">)</span>
+            
+            <span class="c1"># Verify transition is valid
+</span>            <span class="k">if</span> <span class="n">new_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">transitions</span><span class="p">[</span><span class="n">current_state</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Invalid transition: </span><span class="si">{</span><span class="n">current_state</span><span class="si">}</span><span class="s"> → </span><span class="si">{</span><span class="n">new_state</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            
+            <span class="c1"># Perform state transition
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">volumes</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_state</span>
+            
+            <span class="c1"># Trigger side effects
+</span>            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_handle_state_change</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="n">current_state</span><span class="p">,</span> <span class="n">new_state</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="bp">True</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_handle_state_change</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+                                  <span class="n">old_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">,</span> 
+                                  <span class="n">new_state</span><span class="p">:</span> <span class="n">VolumeState</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Handle side effects of state transitions</span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">PROVISIONING</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_provision_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">BOUND</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_attach_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">new_state</span> <span class="o">==</span> <span class="n">VolumeState</span><span class="p">.</span><span class="n">DELETED</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">_cleanup_volume</span><span class="p">(</span><span class="n">volume_id</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="advanced-storage-patterns-building-resilient-systems">Advanced Storage Patterns: Building Resilient Systems</h3>
+
+<p>As applications scale, storage needs become more complex. Modern distributed systems require sophisticated replication strategies to ensure data availability and consistency. These patterns show how Kubernetes can orchestrate complex storage topologies that rival traditional enterprise storage systems.</p>
+
+<h4 id="distributed-volume-replication">Distributed Volume Replication</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">VolumeReplica</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Represents a replica of a volume</span><span class="sh">"""</span>
+    <span class="n">node_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">replica_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">state</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># primary, secondary, syncing
+</span>    <span class="n">last_sync</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">checksum</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="k">class</span> <span class="nc">DistributedVolumeManager</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Manages distributed volume replication with consistency guarantees</span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">replication_factor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span> <span class="o">=</span> <span class="n">replication_factor</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">VolumeReplica</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">replication_factor</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    
+    <span class="k">def</span> <span class="nf">calculate_placement</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">
+        Deterministic replica placement using consistent hashing
+        with failure domain awareness
+        </span><span class="sh">"""</span>
+        <span class="c1"># Sort nodes for deterministic ordering
+</span>        <span class="n">sorted_nodes</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span>
+        
+        <span class="c1"># Use consistent hashing for placement
+</span>        <span class="n">placements</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span><span class="p">):</span>
+            <span class="n">hash_input</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">volume_id</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+            <span class="n">hash_value</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">hash_input</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">(),</span> <span class="mi">16</span><span class="p">)</span>
+            <span class="n">node_index</span> <span class="o">=</span> <span class="n">hash_value</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">)</span>
+            
+            <span class="c1"># Ensure replicas are on different nodes
+</span>            <span class="n">selected_node</span> <span class="o">=</span> <span class="n">sorted_nodes</span><span class="p">[</span><span class="n">node_index</span><span class="p">]</span>
+            <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">selected_node</span> <span class="ow">in</span> <span class="n">placements</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">):</span>
+                <span class="n">node_index</span> <span class="o">=</span> <span class="p">(</span><span class="n">node_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">sorted_nodes</span><span class="p">)</span>
+                <span class="n">selected_node</span> <span class="o">=</span> <span class="n">sorted_nodes</span><span class="p">[</span><span class="n">node_index</span><span class="p">]</span>
+                <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+            
+            <span class="k">if</span> <span class="n">selected_node</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">placements</span><span class="p">:</span>
+                <span class="n">placements</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">selected_node</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">placements</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">replication_factor</span><span class="p">]</span>
+    
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">write_with_quorum</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Write data to volume with quorum consensus
+        </span><span class="sh">"""</span>
+        <span class="n">replicas</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">volume_id</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">replicas</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Insufficient replicas for quorum: </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">replicas</span><span class="p">)</span><span class="si">}</span><span class="s"> &lt; </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        
+        <span class="c1"># Parallel writes to all replicas
+</span>        <span class="n">write_tasks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">replicas</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">replica</span><span class="p">.</span><span class="n">state</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">"</span><span class="s">primary</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">secondary</span><span class="sh">"</span><span class="p">]:</span>
+                <span class="n">write_tasks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">_write_to_replica</span><span class="p">(</span><span class="n">replica</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+        
+        <span class="c1"># Wait for quorum
+</span>        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="p">.</span><span class="nf">gather</span><span class="p">(</span><span class="o">*</span><span class="n">write_tasks</span><span class="p">,</span> <span class="n">return_exceptions</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">successful_writes</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">successful_writes</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">quorum_size</span>
+</code></pre></div></div>
+
+<h3 id="storage-performance-optimization">Storage Performance Optimization</h3>
+
+<p>Storage performance can make or break application responsiveness. Kubernetes provides mechanisms to optimize I/O patterns, implement quality of service guarantees, and ensure fair resource allocation among competing workloads. These optimizations become critical when running databases and other I/O-intensive applications.</p>
+
+<h4 id="io-scheduler-and-cache-management">I/O Scheduler and Cache Management</h4>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
+<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+<span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Deque</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">IORequest</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Represents an I/O request with QoS parameters</span><span class="sh">"""</span>
+    <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">volume_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">length</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># read, write
+</span>    <span class="n">priority</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">deadline</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">submitted_at</span><span class="p">:</span> <span class="nb">float</span>
+    
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># For priority queue ordering
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">deadline</span> <span class="o">&lt;</span> <span class="n">other</span><span class="p">.</span><span class="n">deadline</span>
+
+<span class="k">class</span> <span class="nc">StorageScheduler</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">
+    Advanced I/O scheduler implementing deadline-aware scheduling
+    with fairness guarantees
+    </span><span class="sh">"""</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">queue_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">queue_depth</span> <span class="o">=</span> <span class="n">queue_depth</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Min-heap by deadline
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Deque</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Token bucket for fairness
+</span>        
+    <span class="k">def</span> <span class="nf">submit_request</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">IORequest</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Submit I/O request with deadline and priority</span><span class="sh">"""</span>
+        <span class="c1"># Add to priority queue
+</span>        <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
+        
+        <span class="c1"># Add to per-volume queue for fairness
+</span>        <span class="k">if</span> <span class="n">request</span><span class="p">.</span><span class="n">volume_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="nf">deque</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Initial tokens
+</span>        
+        <span class="n">self</span><span class="p">.</span><span class="n">volume_queues</span><span class="p">[</span><span class="n">request</span><span class="p">.</span><span class="n">volume_id</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">get_next_request</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IORequest</span><span class="p">]:</span>
+        <span class="sh">"""</span><span class="s">
+        Get next request using Earliest Deadline First (EDF)
+        with token-based fairness
+        </span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        
+        <span class="c1"># Check deadline violations
+</span>        <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+        <span class="k">while</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">:</span>
+            <span class="n">candidate</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="c1"># Check if volume has tokens (fairness)
+</span>            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">candidate</span><span class="p">.</span><span class="n">volume_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Deduct token and process request
+</span>                <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">candidate</span><span class="p">.</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">return</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Move to next deadline
+</span>                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">)</span>
+                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">pending_requests</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+                <span class="k">break</span>
+        
+        <span class="c1"># Replenish tokens periodically
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_replenish_tokens</span><span class="p">()</span>
+        
+        <span class="k">return</span> <span class="bp">None</span>
+    
+    <span class="k">def</span> <span class="nf">_replenish_tokens</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Token bucket algorithm for fairness</span><span class="sh">"""</span>
+        <span class="k">for</span> <span class="n">volume_id</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span>
+                <span class="n">self</span><span class="p">.</span><span class="n">volume_tokens</span><span class="p">[</span><span class="n">volume_id</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="mi">10</span>  <span class="c1"># Max tokens
+</span>            <span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="storage-classes-defining-your-storage-tiers">Storage Classes: Defining Your Storage Tiers</h3>
+
+<p>Just as cloud providers offer different storage tiers (standard, premium, archive), Kubernetes Storage Classes let you define different categories of storage with varying performance characteristics, redundancy levels, and features. This abstraction allows developers to request storage by characteristics rather than specific implementations.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">high-performance-replicated</span>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">csi.storage.k8s.io/advanced-driver</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="c1"># Performance tier</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">nvme-ssd</span>
+  <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50000"</span>
+  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000Mi"</span>
+  
+  <span class="c1"># Replication settings</span>
+  <span class="na">replicationFactor</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3"</span>
+  <span class="na">replicationMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">synchronous"</span>  <span class="c1"># synchronous, asynchronous</span>
+  <span class="na">consistencyLevel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">strong"</span>      <span class="c1"># strong, eventual</span>
+  
+  <span class="c1"># Data protection</span>
+  <span class="na">encryption</span><span class="pi">:</span> <span class="s2">"</span><span class="s">aes-256-gcm"</span>
+  <span class="na">checksumAlgorithm</span><span class="pi">:</span> <span class="s2">"</span><span class="s">crc32c"</span>
+  
+  <span class="c1"># Advanced features</span>
+  <span class="na">deduplication</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">compression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">lz4"</span>
+  <span class="na">snapshotSchedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">*/6</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>  <span class="c1"># Every 6 hours</span>
+  
+  <span class="c1"># QoS settings</span>
+  <span class="na">qosClass</span><span class="pi">:</span> <span class="s2">"</span><span class="s">guaranteed"</span>
+  <span class="na">minIOPS</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10000"</span>
+  <span class="na">maxIOPS</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50000"</span>
+  <span class="na">burstDuration</span><span class="pi">:</span> <span class="s2">"</span><span class="s">60s"</span>
+  
+<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">WaitForFirstConsumer</span>
+</code></pre></div></div>
+
+<h3 id="volume-snapshots-point-in-time-backups">Volume Snapshots: Point-in-Time Backups</h3>
+
+<p>Snapshots provide point-in-time copies of volumes, essential for backup strategies and data protection. The Volume Snapshot Controller manages this lifecycle, coordinating with storage providers to create, manage, and restore from snapshots. Here’s how this controller orchestrates snapshot operations:</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// VolumeSnapshotController manages snapshot lifecycle</span>
+<span class="k">type</span> <span class="n">VolumeSnapshotController</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">client</span>           <span class="n">kubernetes</span><span class="o">.</span><span class="n">Interface</span>
+    <span class="n">snapshotClient</span>   <span class="n">snapclient</span><span class="o">.</span><span class="n">Interface</span>
+    <span class="n">csiClient</span>        <span class="n">csi</span><span class="o">.</span><span class="n">ControllerClient</span>
+    <span class="n">queue</span>            <span class="n">workqueue</span><span class="o">.</span><span class="n">RateLimitingInterface</span>
+    <span class="n">snapshotStore</span>    <span class="n">cache</span><span class="o">.</span><span class="n">Store</span>
+    <span class="n">volumeStore</span>      <span class="n">cache</span><span class="o">.</span><span class="n">Store</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span><span class="n">VolumeSnapshotController</span><span class="p">)</span> <span class="n">syncSnapshot</span><span class="p">(</span><span class="n">key</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">namespace</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">cache</span><span class="o">.</span><span class="n">SplitMetaNamespaceKey</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="n">snapshot</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">snapshotStore</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="n">vs</span> <span class="o">:=</span> <span class="n">snapshot</span><span class="o">.</span><span class="p">(</span><span class="o">*</span><span class="n">v1</span><span class="o">.</span><span class="n">VolumeSnapshot</span><span class="p">)</span>
+    
+    <span class="k">switch</span> <span class="n">vs</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">Phase</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotPending</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">createSnapshot</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotCreating</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">checkSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotReady</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">bindSnapshotContent</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="k">case</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotFailed</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">handleSnapshotFailure</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span><span class="n">VolumeSnapshotController</span><span class="p">)</span> <span class="n">createSnapshot</span><span class="p">(</span><span class="n">vs</span> <span class="o">*</span><span class="n">v1</span><span class="o">.</span><span class="n">VolumeSnapshot</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c">// Get source PVC</span>
+    <span class="n">pvc</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">getPVC</span><span class="p">(</span><span class="n">vs</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Source</span><span class="o">.</span><span class="n">PersistentVolumeClaimName</span><span class="p">,</span> <span class="n">vs</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Get CSI driver from PV</span>
+    <span class="n">pv</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">getPV</span><span class="p">(</span><span class="n">pvc</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">VolumeName</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Create snapshot via CSI</span>
+    <span class="n">req</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">csi</span><span class="o">.</span><span class="n">CreateSnapshotRequest</span><span class="p">{</span>
+        <span class="n">SourceVolumeId</span><span class="o">:</span> <span class="n">pv</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">CSI</span><span class="o">.</span><span class="n">VolumeHandle</span><span class="p">,</span>
+        <span class="n">Name</span><span class="o">:</span>          <span class="n">vs</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span>
+        <span class="n">Parameters</span><span class="o">:</span>    <span class="n">vs</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Parameters</span><span class="p">,</span>
+    <span class="p">}</span>
+    
+    <span class="n">resp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">c</span><span class="o">.</span><span class="n">csiClient</span><span class="o">.</span><span class="n">CreateSnapshot</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">TODO</span><span class="p">(),</span> <span class="n">req</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">updateSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotFailed</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">Error</span><span class="p">())</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Update status</span>
+    <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">updateSnapshotStatus</span><span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">v1</span><span class="o">.</span><span class="n">SnapshotCreating</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">Snapshot</span><span class="o">.</span><span class="n">SnapshotId</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="configuration-management-fine-tuning-your-applications">Configuration Management: Fine-Tuning Your Applications</h2>
+
+<p>Running applications efficiently in Kubernetes requires careful resource management and configuration. Let’s explore how to ensure your applications get the resources they need while preventing any single application from monopolizing the cluster.</p>
+
+<h3 id="resource-management-the-right-sized-container">Resource Management: The Right-Sized Container</h3>
+
+<p>Just like you wouldn’t use a semi-truck for grocery shopping or a bicycle for moving furniture, containers need appropriately sized resource allocations. Resource requests and limits help Kubernetes make intelligent scheduling decisions and prevent resource starvation.</p>
+
+<p><strong>Resource Requests and Limits:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">resource-demo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
+</code></pre></div></div>
+
+<h3 id="horizontal-pod-autoscaling-responding-to-load">Horizontal Pod Autoscaling: Responding to Load</h3>
+
+<p>Traffic patterns are rarely constant. Horizontal Pod Autoscaling (HPA) automatically adjusts the number of pod replicas based on observed metrics like CPU usage or custom metrics from your application. It’s like having an intelligent traffic controller that adds more lanes during rush hour and removes them when traffic is light.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling/v2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HorizontalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-hpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">scaleTargetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+  <span class="na">minReplicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">metrics</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
+    <span class="na">resource</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">70</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
+    <span class="na">resource</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">80</span>
+</code></pre></div></div>
+
+<h3 id="vertical-pod-autoscaling-right-sizing-resources">Vertical Pod Autoscaling: Right-Sizing Resources</h3>
+
+<p>While HPA adds more pods, Vertical Pod Autoscaling (VPA) adjusts the resource requests and limits of individual pods based on actual usage. Think of it as an intelligent resource manager that learns from your application’s behavior and continuously optimizes resource allocation.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+  <span class="na">updatePolicy</span><span class="pi">:</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span>
+</code></pre></div></div>
+
+<h2 id="security-protecting-your-cluster-and-applications">Security: Protecting Your Cluster and Applications</h2>
+
+<p>Kubernetes security is multi-layered, protecting everything from cluster access to pod-to-pod communication. Let’s explore the key security features that help you build defense in depth.</p>
+
+<h3 id="role-based-access-control-rbac-who-can-do-what">Role-Based Access Control (RBAC): Who Can Do What</h3>
+
+<p>RBAC implements the principle of least privilege by defining who can perform which actions on what resources. It’s like having a sophisticated keycard system where each person only has access to the rooms they need for their job.</p>
+
+<p><strong>Role Definition:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
+<span class="na">rules</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
+  <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
+  <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">get"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">watch"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">list"</span><span class="pi">]</span>
+</code></pre></div></div>
+
+<p><strong>RoleBinding:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">read-pods</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="na">subjects</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">User</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">jane</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+</code></pre></div></div>
+
+<h3 id="pod-security-standards-container-hardening">Pod Security Standards: Container Hardening</h3>
+
+<p>Running containers with root privileges or unnecessary capabilities is like leaving your house doors unlocked. Pod Security Standards enforce security best practices at the pod level, ensuring containers run with minimal privileges and follow security hardening guidelines.</p>
+
+<p><strong>Pod Security Policy Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodSecurityPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">restricted</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">privileged</span><span class="pi">:</span> <span class="kc">false</span>
+  <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>
+  <span class="na">requiredDropCapabilities</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ALL</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">configMap'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">emptyDir'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">projected'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">secret'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">downwardAPI'</span>
+    <span class="pi">-</span> <span class="s1">'</span><span class="s">persistentVolumeClaim'</span>
+  <span class="na">runAsUser</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">MustRunAsNonRoot'</span>
+  <span class="na">seLinux</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">RunAsAny'</span>
+  <span class="na">fsGroup</span><span class="pi">:</span>
+    <span class="na">rule</span><span class="pi">:</span> <span class="s1">'</span><span class="s">RunAsAny'</span>
+</code></pre></div></div>
+
+<h3 id="service-accounts-identity-for-applications">Service Accounts: Identity for Applications</h3>
+
+<p>Just as users need identities to access the cluster, applications need service accounts to interact with the Kubernetes API. Service accounts provide a way for pods to authenticate and authorize their actions, enabling sophisticated automation and integration patterns.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-service-account</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">app-service-account</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+</code></pre></div></div>
+
+<h2 id="observability-knowing-your-applications-health">Observability: Knowing Your Applications’ Health</h2>
+
+<p>You can’t fix what you can’t see. Kubernetes provides comprehensive observability features that help you understand application health, troubleshoot issues, and ensure reliability. Let’s explore how to make your applications observable and debuggable.</p>
+
+<h3 id="liveness-and-readiness-probes-health-checks-that-matter">Liveness and Readiness Probes: Health Checks That Matter</h3>
+
+<p>Probes are like regular medical checkups for your applications. Liveness probes detect when an application is broken and needs restarting, while readiness probes determine when an application is ready to receive traffic. Together, they ensure only healthy instances serve requests.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-pod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+    <span class="na">livenessProbe</span><span class="pi">:</span>
+      <span class="na">httpGet</span><span class="pi">:</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/health</span>
+        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">30</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">readinessProbe</span><span class="pi">:</span>
+      <span class="na">httpGet</span><span class="pi">:</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/ready</span>
+        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<h3 id="monitoring-with-prometheus-metrics-that-drive-decisions">Monitoring with Prometheus: Metrics That Drive Decisions</h3>
+
+<p>Prometheus has become the de facto standard for Kubernetes monitoring, providing a powerful time-series database and query language. By exposing metrics from your applications and using ServiceMonitors, you create a comprehensive monitoring system that can alert on issues before users notice them.</p>
+
+<p><strong>ServiceMonitor Example:</strong></p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-metrics</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>
+  <span class="na">endpoints</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>
+    <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/metrics</span>
+</code></pre></div></div>
+
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Kubernetes: Advanced Topics">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/advanced.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes: Advanced Topics">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Kubernetes: Advanced Topics | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               class="active">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Kubernetes: Advanced Topics</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="advanced-topics-taking-kubernetes-to-production">Advanced Topics: Taking Kubernetes to Production</h2>
+
+<h3 id="custom-resource-definitions-crds-and-operators">Custom Resource Definitions (CRDs) and Operators</h3>
+
+<p>Kubernetes is extensible by design. Custom Resource Definitions allow you to create new resource types, while Operators encode operational knowledge into software. Together, they enable Kubernetes to manage complex stateful applications as naturally as it manages stateless ones.</p>
+
+<h4 id="creating-a-custom-resource">Creating a Custom Resource</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apiextensions.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CustomResourceDefinition</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">databases.example.com</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">group</span><span class="pi">:</span> <span class="s">example.com</span>
+  <span class="na">versions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v1</span>
+    <span class="na">served</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">storage</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">schema</span><span class="pi">:</span>
+      <span class="na">openAPIV3Schema</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+        <span class="na">properties</span><span class="pi">:</span>
+          <span class="na">spec</span><span class="pi">:</span>
+            <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+            <span class="na">properties</span><span class="pi">:</span>
+              <span class="na">engine</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+                <span class="na">enum</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">postgres"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">mysql"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">mongodb"</span><span class="pi">]</span>
+              <span class="na">version</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+              <span class="na">replicas</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">integer</span>
+                <span class="na">minimum</span><span class="pi">:</span> <span class="m">1</span>
+              <span class="na">backup</span><span class="pi">:</span>
+                <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+                <span class="na">properties</span><span class="pi">:</span>
+                  <span class="na">enabled</span><span class="pi">:</span>
+                    <span class="na">type</span><span class="pi">:</span> <span class="s">boolean</span>
+                  <span class="na">schedule</span><span class="pi">:</span>
+                    <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
+  <span class="na">scope</span><span class="pi">:</span> <span class="s">Namespaced</span>
+  <span class="na">names</span><span class="pi">:</span>
+    <span class="na">plural</span><span class="pi">:</span> <span class="s">databases</span>
+    <span class="na">singular</span><span class="pi">:</span> <span class="s">database</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Database</span>
+</code></pre></div></div>
+
+<h4 id="building-an-operator">Building an Operator</h4>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Simplified operator logic</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span><span class="n">DatabaseReconciler</span><span class="p">)</span> <span class="n">Reconcile</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="p">(</span><span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Fetch the Database instance</span>
+    <span class="n">database</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">examplev1</span><span class="o">.</span><span class="n">Database</span><span class="p">{}</span>
+    <span class="n">err</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">req</span><span class="o">.</span><span class="n">NamespacedName</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">client</span><span class="o">.</span><span class="n">IgnoreNotFound</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Ensure StatefulSet exists</span>
+    <span class="n">statefulSet</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">statefulSetForDatabase</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">statefulSet</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">errors</span><span class="o">.</span><span class="n">IsAlreadyExists</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">err</span>
+    <span class="p">}</span>
+    
+    <span class="c">// Ensure backup CronJob exists if enabled</span>
+    <span class="k">if</span> <span class="n">database</span><span class="o">.</span><span class="n">Spec</span><span class="o">.</span><span class="n">Backup</span><span class="o">.</span><span class="n">Enabled</span> <span class="p">{</span>
+        <span class="n">cronJob</span> <span class="o">:=</span> <span class="n">r</span><span class="o">.</span><span class="n">backupCronJobForDatabase</span><span class="p">(</span><span class="n">database</span><span class="p">)</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cronJob</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">errors</span><span class="o">.</span><span class="n">IsAlreadyExists</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="n">err</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">{},</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="service-mesh-advanced-networking-with-istio">Service Mesh: Advanced Networking with Istio</h3>
+
+<p>As microservices architectures grow, managing service-to-service communication becomes complex. Service meshes like Istio provide a dedicated infrastructure layer for handling service communications, offering features like traffic management, security, and observability without changing application code.</p>
+
+<h4 id="istio-architecture">Istio Architecture</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Virtual Service for canary deployment</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualService</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reviews</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hosts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">reviews</span>
+  <span class="na">http</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">headers</span><span class="pi">:</span>
+        <span class="na">end-user</span><span class="pi">:</span>
+          <span class="na">exact</span><span class="pi">:</span> <span class="s">jason</span>
+    <span class="na">route</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v2</span>
+  <span class="pi">-</span> <span class="na">route</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v1</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">75</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+        <span class="na">subset</span><span class="pi">:</span> <span class="s">v2</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">25</span>
+</code></pre></div></div>
+
+<h4 id="circuit-breaking-and-retry-logic">Circuit Breaking and Retry Logic</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DestinationRule</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reviews</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">host</span><span class="pi">:</span> <span class="s">reviews</span>
+  <span class="na">trafficPolicy</span><span class="pi">:</span>
+    <span class="na">connectionPool</span><span class="pi">:</span>
+      <span class="na">tcp</span><span class="pi">:</span>
+        <span class="na">maxConnections</span><span class="pi">:</span> <span class="m">100</span>
+      <span class="na">http</span><span class="pi">:</span>
+        <span class="na">http1MaxPendingRequests</span><span class="pi">:</span> <span class="m">50</span>
+        <span class="na">http2MaxRequests</span><span class="pi">:</span> <span class="m">100</span>
+    <span class="na">outlierDetection</span><span class="pi">:</span>
+      <span class="na">consecutiveErrors</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+      <span class="na">baseEjectionTime</span><span class="pi">:</span> <span class="s">30s</span>
+      <span class="na">minHealthPercent</span><span class="pi">:</span> <span class="m">50</span>
+  <span class="na">subsets</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v1</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">v1</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">v2</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">v2</span>
+</code></pre></div></div>
+
+<h3 id="gitops-declarative-continuous-deployment">GitOps: Declarative Continuous Deployment</h3>
+
+<p>GitOps uses Git as the single source of truth for declarative infrastructure and applications. Tools like ArgoCD or Flux monitor Git repositories and automatically sync the cluster state with the desired state defined in Git.</p>
+
+<h4 id="argocd-application">ArgoCD Application</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Application</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">myapp</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">argocd</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">project</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">repoURL</span><span class="pi">:</span> <span class="s">https://github.com/myorg/myapp</span>
+    <span class="na">targetRevision</span><span class="pi">:</span> <span class="s">HEAD</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">k8s</span>
+  <span class="na">destination</span><span class="pi">:</span>
+    <span class="na">server</span><span class="pi">:</span> <span class="s">https://kubernetes.default.svc</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">syncPolicy</span><span class="pi">:</span>
+    <span class="na">automated</span><span class="pi">:</span>
+      <span class="na">prune</span><span class="pi">:</span> <span class="kc">true</span>
+      <span class="na">selfHeal</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">syncOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">CreateNamespace=true</span>
+</code></pre></div></div>
+
+<h3 id="multi-tenancy-sharing-clusters-safely">Multi-Tenancy: Sharing Clusters Safely</h3>
+
+<p>Running multiple teams or applications on the same cluster requires careful isolation. Kubernetes provides several mechanisms for multi-tenancy, from simple namespace isolation to virtual clusters.</p>
+
+<h4 id="hierarchical-namespaces">Hierarchical Namespaces</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hnc.x-k8s.io/v1alpha2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HierarchicalConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">hierarchy</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parent</span><span class="pi">:</span> <span class="s">organization-root</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hnc.x-k8s.io/v1alpha2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">SubnamespaceAnchor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-frontend</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceQuota</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-quota</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-platform</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hard</span><span class="pi">:</span>
+    <span class="na">requests.cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span>
+    <span class="na">requests.memory</span><span class="pi">:</span> <span class="s">200Gi</span>
+    <span class="na">persistentvolumeclaims</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+</code></pre></div></div>
+
+<h3 id="advanced-scheduling-placing-pods-intelligently">Advanced Scheduling: Placing Pods Intelligently</h3>
+
+<p>Kubernetes’ scheduler is highly configurable, allowing you to influence pod placement based on various criteria. This becomes crucial for performance optimization, compliance requirements, and cost management.</p>
+
+<h4 id="custom-scheduler-configuration">Custom Scheduler Configuration</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubescheduler.config.k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KubeSchedulerConfiguration</span>
+<span class="na">profiles</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">schedulerName</span><span class="pi">:</span> <span class="s">custom-scheduler</span>
+  <span class="na">plugins</span><span class="pi">:</span>
+    <span class="na">score</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+        <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeAffinity</span>
+        <span class="na">weight</span><span class="pi">:</span> <span class="m">2</span>
+    <span class="na">filter</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeAffinity</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodePorts</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeVolumeLimits</span>
+  <span class="na">pluginConfig</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NodeResourcesFit</span>
+    <span class="na">args</span><span class="pi">:</span>
+      <span class="na">scoringStrategy</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">MostAllocated</span>
+        <span class="na">resources</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">1</span>
+</code></pre></div></div>
+
+<h4 id="pod-topology-spread-constraints">Pod Topology Spread Constraints</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web-app</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">6</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">topologySpreadConstraints</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
+        <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s">DoNotSchedule</span>
+        <span class="na">labelSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">app</span><span class="pi">:</span> <span class="s">web-app</span>
+      <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">topology.kubernetes.io/zone</span>
+        <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s">DoNotSchedule</span>
+        <span class="na">labelSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">app</span><span class="pi">:</span> <span class="s">web-app</span>
+</code></pre></div></div>
+
+<h3 id="cluster-api-kubernetes-for-managing-kubernetes">Cluster API: Kubernetes for Managing Kubernetes</h3>
+
+<p>Cluster API brings declarative, Kubernetes-style APIs to cluster creation, configuration, and management. It’s like using Kubernetes to manage Kubernetes clusters themselves.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cluster.x-k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterNetwork</span><span class="pi">:</span>
+    <span class="na">pods</span><span class="pi">:</span>
+      <span class="na">cidrBlocks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">10.96.0.0/12</span>
+    <span class="na">services</span><span class="pi">:</span>
+      <span class="na">cidrBlocks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">10.244.0.0/16</span>
+  <span class="na">controlPlaneRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">controlplane.cluster.x-k8s.io/v1beta1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">KubeadmControlPlane</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster-control-plane</span>
+  <span class="na">infrastructureRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">infrastructure.cluster.x-k8s.io/v1beta1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">AWSCluster</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+</code></pre></div></div>
+
+<h2 id="production-best-practices-real-world-lessons">Production Best Practices: Real-World Lessons</h2>
+
+<h3 id="high-availability-patterns">High Availability Patterns</h3>
+
+<ol>
+  <li><strong>Control Plane HA</strong>:
+    <ul>
+      <li>Run 3 or 5 master nodes (odd numbers for quorum)</li>
+      <li>Use external etcd cluster for large deployments</li>
+      <li>Place masters in different availability zones</li>
+    </ul>
+  </li>
+  <li><strong>Application HA</strong>:
+    <ul>
+      <li>Use PodDisruptionBudgets to prevent accidental outages</li>
+      <li>Implement proper health checks</li>
+      <li>Use anti-affinity rules to spread pods across nodes</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="cost-optimization-strategies">Cost Optimization Strategies</h3>
+
+<ol>
+  <li><strong>Resource Right-Sizing</strong>:
+    <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use VPA recommendations</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetRef</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">updatePolicy</span><span class="pi">:</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Off"</span>  <span class="c1"># Just recommendations</span>
+</code></pre></div>    </div>
+  </li>
+  <li><strong>Spot Instance Integration</strong>:
+```yaml
+    <h1 id="node-selector-for-spot-instances">Node selector for spot instances</h1>
+    <p>nodeSelector:
+  node.kubernetes.io/lifecycle: spot
+tolerations:</p>
+    <ul>
+      <li>key: spot
+operator: Equal
+value: “true”
+effect: NoSchedule
+```</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="security-hardening-checklist">Security Hardening Checklist</h3>
+
+<ul class="task-list">
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Enable RBAC and remove default service account permissions</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement Pod Security Standards/Policies</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Use network policies for micro-segmentation</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Enable audit logging</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Scan images for vulnerabilities</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Rotate certificates regularly</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement admission webhooks for policy enforcement</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Use service mesh for mTLS between services</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Implement secrets management (Sealed Secrets, Vault)</li>
+  <li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled="disabled" />Regular security updates and patches</li>
+</ul>
+
+<h3 id="disaster-recovery-planning">Disaster Recovery Planning</h3>
+
+<ol>
+  <li><strong>Backup Strategy</strong>:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Velero backup example</span>
+velero backup create production-backup <span class="se">\</span>
+  <span class="nt">--include-namespaces</span> production <span class="se">\</span>
+  <span class="nt">--snapshot-volumes</span> <span class="se">\</span>
+  <span class="nt">--ttl</span> 720h
+</code></pre></div>    </div>
+  </li>
+  <li><strong>Multi-Region Failover</strong>:
+    <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Federation v2 example</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">types.kubefed.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">FederatedDeployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">placement</span><span class="pi">:</span>
+    <span class="na">clusters</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-east-1</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-west-2</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eu-west-1</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h2 id="common-pitfalls-and-how-to-avoid-them">Common Pitfalls and How to Avoid Them</h2>
+
+<h3 id="1-resource-limits-not-set">1. Resource Limits Not Set</h3>
+<p><strong>Problem</strong>: Pods consume all available resources
+<strong>Solution</strong>: Always set resource requests and limits</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">resources</span><span class="pi">:</span>
+  <span class="na">requests</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250m"</span>
+  <span class="na">limits</span><span class="pi">:</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
+</code></pre></div></div>
+
+<h3 id="2-using-latest-tag">2. Using Latest Tag</h3>
+<p><strong>Problem</strong>: Unpredictable deployments
+<strong>Solution</strong>: Use specific image tags</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+
+<span class="c1"># Good</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s">myapp:v1.2.3</span>
+</code></pre></div></div>
+
+<h3 id="3-not-using-health-checks">3. Not Using Health Checks</h3>
+<p><strong>Problem</strong>: Unhealthy pods receive traffic
+<strong>Solution</strong>: Implement proper probes</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">livenessProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/health</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">30</span>
+  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+<span class="na">readinessProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span>
+    <span class="na">path</span><span class="pi">:</span> <span class="s">/ready</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<h3 id="4-ignoring-pod-disruption-budgets">4. Ignoring Pod Disruption Budgets</h3>
+<p><strong>Problem</strong>: All pods deleted during updates
+<strong>Solution</strong>: Define PDBs</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodDisruptionBudget</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-pdb</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">minAvailable</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>
+</code></pre></div></div>
+
+<h3 id="5-not-planning-for-node-failures">5. Not Planning for Node Failures</h3>
+<p><strong>Problem</strong>: Single point of failure
+<strong>Solution</strong>: Use node anti-affinity</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">affinity</span><span class="pi">:</span>
+  <span class="na">podAntiAffinity</span><span class="pi">:</span>
+    <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">labelSelector</span><span class="pi">:</span>
+        <span class="na">matchExpressions</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">app</span>
+          <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+          <span class="na">values</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">myapp</span>
+      <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
+</code></pre></div></div>
+
+<h2 id="kubernetes-ecosystem-essential-tools">Kubernetes Ecosystem: Essential Tools</h2>
+
+<h3 id="development-tools">Development Tools</h3>
+<ul>
+  <li><strong>Skaffold</strong>: Continuous development for Kubernetes</li>
+  <li><strong>Tilt</strong>: Multi-service dev environment</li>
+  <li><strong>Telepresence</strong>: Local development with remote cluster</li>
+  <li><strong>k9s</strong>: Terminal UI for Kubernetes</li>
+</ul>
+
+<h3 id="monitoring-and-observability">Monitoring and Observability</h3>
+<ul>
+  <li><strong>Prometheus + Grafana</strong>: Metrics and visualization</li>
+  <li><strong>Elastic Stack</strong>: Log aggregation</li>
+  <li><strong>Jaeger</strong>: Distributed tracing</li>
+  <li><strong>Kube-state-metrics</strong>: Cluster state metrics</li>
+</ul>
+
+<h3 id="security-tools">Security Tools</h3>
+<ul>
+  <li><strong>Falco</strong>: Runtime security</li>
+  <li><strong>OPA (Open Policy Agent)</strong>: Policy enforcement</li>
+  <li><strong>Kubesec</strong>: Security risk analysis</li>
+  <li><strong>kube-bench</strong>: CIS benchmark checks</li>
+</ul>
+
+<h3 id="cicd-integration">CI/CD Integration</h3>
+<ul>
+  <li><strong>Tekton</strong>: Cloud-native CI/CD</li>
+  <li><strong>Jenkins X</strong>: Kubernetes-native CI/CD</li>
+  <li><strong>Spinnaker</strong>: Multi-cloud continuous delivery</li>
+</ul>
+
+<h2 id="performance-tuning-making-kubernetes-fly">Performance Tuning: Making Kubernetes Fly</h2>
+
+<h3 id="etcd-optimization">etcd Optimization</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Defragmentation</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl defrag <span class="nt">--endpoints</span><span class="o">=</span>https://127.0.0.1:2379
+
+<span class="c"># Compaction</span>
+<span class="nv">rev</span><span class="o">=</span><span class="si">$(</span><span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl endpoint status <span class="nt">--write-out</span><span class="o">=</span><span class="s2">"json"</span> | jq <span class="nt">-r</span> <span class="s1">'.[0].Status.header.revision'</span><span class="si">)</span>
+<span class="nv">ETCDCTL_API</span><span class="o">=</span>3 etcdctl compact <span class="nv">$rev</span>
+</code></pre></div></div>
+
+<h3 id="api-server-tuning">API Server Tuning</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubeadm.k8s.io/v1beta3</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterConfiguration</span>
+<span class="na">apiServer</span><span class="pi">:</span>
+  <span class="na">extraArgs</span><span class="pi">:</span>
+    <span class="na">max-requests-inflight</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span>
+    <span class="na">max-mutating-requests-inflight</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500"</span>
+    <span class="na">default-watch-cache-size</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500"</span>
+    <span class="na">event-ttl</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1h"</span>
+</code></pre></div></div>
+
+<h3 id="network-performance">Network Performance</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable host networking for performance-critical pods</span>
+<span class="na">hostNetwork</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">dnsPolicy</span><span class="pi">:</span> <span class="s">ClusterFirstWithHostNet</span>
+</code></pre></div></div>
+
+<h2 id="kubernetes-updates-latest-features-and-best-practices">Kubernetes Updates: Latest Features and Best Practices</h2>
+
+<h3 id="whats-new-in-kubernetes-v129-mandala">What’s New in Kubernetes v1.29 (Mandala)</h3>
+<ol>
+  <li><strong>ReadinessGates for Jobs</strong>: Better job lifecycle management</li>
+  <li><strong>Sidecar Containers</strong>: Native support for sidecar patterns</li>
+  <li><strong>In-Place Pod Vertical Scaling</strong>: Resize pods without restart</li>
+  <li><strong>CEL for Admission Control</strong>: Common Expression Language support</li>
+  <li><strong>Structured Authentication Configuration</strong>: Enhanced security</li>
+</ol>
+
+<h3 id="whats-new-in-kubernetes-v128-planternetes">What’s New in Kubernetes v1.28 (Planternetes)</h3>
+<ol>
+  <li><strong>Cgroups v2 GA</strong>: Better resource isolation</li>
+  <li><strong>Mixed CPUs Support</strong>: Heterogeneous CPU architectures</li>
+  <li><strong>Persistent Volume Last Phase Transition Time</strong>: Better storage monitoring</li>
+  <li><strong>Non-Graceful Node Shutdown</strong>: Improved failure handling</li>
+</ol>
+
+<h3 id="enhanced-security-features">Enhanced Security Features</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pod Security Standards (enforced by default)</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">pod-security.kubernetes.io/enforce</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/audit</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/warn</span><span class="pi">:</span> <span class="s">restricted</span>
+</code></pre></div></div>
+
+<h3 id="aiml-workload-support">AI/ML Workload Support</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GPU scheduling improvements</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ml-training</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pytorch</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
+    <span class="na">env</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NVIDIA_VISIBLE_DEVICES</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">all"</span>
+</code></pre></div></div>
+
+<h3 id="gateway-api-v10-ga">Gateway API v1.0 (GA)</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Modern ingress replacement</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prod-gateway</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">gatewayClassName</span><span class="pi">:</span> <span class="s">nginx</span>
+  <span class="na">listeners</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">HTTPS</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
+    <span class="na">tls</span><span class="pi">:</span>
+      <span class="na">certificateRefs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">prod-cert</span>
+</code></pre></div></div>
+
+<h3 id="performance-improvements">Performance Improvements</h3>
+<ul>
+  <li><strong>Improved etcd performance</strong>: 30% faster for large clusters</li>
+  <li><strong>API Priority and Fairness</strong>: Better request handling</li>
+  <li><strong>Efficient SELinux relabeling</strong>: Faster pod startup</li>
+  <li><strong>Memory manager improvements</strong>: Better NUMA awareness</li>
+</ul>
+
+<h2 id="future-of-kubernetes-whats-next">Future of Kubernetes: What’s Next?</h2>
+
+<h3 id="emerging-trends-2024-2025">Emerging Trends (2024-2025)</h3>
+<ol>
+  <li><strong>Serverless on Kubernetes</strong>: Knative 1.12+, OpenFaaS, KEDA 2.13</li>
+  <li><strong>Edge Computing</strong>: K3s, KubeEdge, Akri for leaf devices</li>
+  <li><strong>WebAssembly</strong>: Running Wasm workloads with runwasi</li>
+  <li><strong>AI/ML Workloads</strong>: Kubeflow 1.8, MLOps pipelines, Ray on K8s</li>
+  <li><strong>eBPF Integration</strong>: Cilium, Pixie for advanced observability</li>
+  <li><strong>Platform Engineering</strong>: Backstage, Crossplane for developer portals</li>
+  <li><strong>FinOps</strong>: Cost optimization with Kubecost, OpenCost</li>
+</ol>
+
+<h3 id="kubernetes-alternatives-and-when-to-use-them">Kubernetes Alternatives and When to Use Them</h3>
+<ul>
+  <li><strong>Docker Swarm</strong>: Simple container orchestration</li>
+  <li><strong>Nomad</strong>: Simpler alternative for mixed workloads</li>
+  <li><strong>Amazon ECS</strong>: AWS-native container orchestration</li>
+  <li><strong>Cloud Run</strong>: Serverless containers</li>
+</ul>
+
+<p>Choose Kubernetes when you need:</p>
+<ul>
+  <li>Multi-cloud portability</li>
+  <li>Complex application architectures</li>
+  <li>Fine-grained control</li>
+  <li>Large ecosystem of tools</li>
+</ul>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Kubernetes has revolutionized how we deploy and manage applications, but mastery requires understanding both its power and complexity. This guide has taken you from basic concepts to advanced production patterns. Remember:</p>
+
+<ol>
+  <li>Start simple, add complexity gradually</li>
+  <li>Automate everything possible</li>
+  <li>Monitor and observe religiously</li>
+  <li>Security is not optional</li>
+  <li>Practice disaster recovery before you need it</li>
+</ol>
+
+<p>The Kubernetes ecosystem continues to evolve rapidly. Stay curious, keep learning, and remember that even experts were beginners once. Whether you’re deploying your first pod or architecting multi-region clusters, Kubernetes provides the foundation for modern cloud-native applications.</p>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+  <li><a href="../docker/">Docker</a> - Container fundamentals and image creation</li>
+  <li><a href="../aws/">AWS</a> - Managed Kubernetes services (EKS)</li>
+  <li><a href="../terraform/">Terraform</a> - Infrastructure as Code for Kubernetes</li>
+  <li><a href="../networking.html">Networking</a> - Network concepts and protocols</li>
+  <li><a href="../database-design.html">Database Design</a> - Stateful applications in Kubernetes</li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

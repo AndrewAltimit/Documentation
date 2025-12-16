@@ -1,0 +1,2765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Terraform: Enterprise Patterns">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/terraform/patterns.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Terraform: Enterprise Patterns">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Terraform: Enterprise Patterns | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               class="active">
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Terraform: Enterprise Patterns</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="real-world-case-studies">Real-World Case Studies</h2>
+
+<h3 id="learning-from-production-deployments">Learning from Production Deployments</h3>
+
+<p>These case studies showcase how organizations solve real infrastructure challenges with Terraform. Each example includes the problem, solution, and lessons learned.</p>
+
+<h3 id="case-study-1-multi-region-disaster-recovery">Case Study 1: Multi-Region Disaster Recovery</h3>
+
+<p><strong>Challenge</strong>: A financial services company needed to implement disaster recovery across three AWS regions with automatic failover capabilities.</p>
+
+<p><strong>Solution Architecture</strong>:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Multi-region infrastructure with automatic failover</span>
+<span class="nx">module</span> <span class="s2">"primary_region"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-infrastructure"</span>
+  
+  <span class="nx">region</span>      <span class="o">=</span> <span class="s2">"us-east-1"</span>
+  <span class="nx">environment</span> <span class="o">=</span> <span class="s2">"production"</span>
+  <span class="nx">role</span>        <span class="o">=</span> <span class="s2">"primary"</span>
+  
+  <span class="nx">vpc_cidr</span> <span class="o">=</span> <span class="s2">"10.0.0.0/16"</span>
+  
+  <span class="c1"># Database configuration</span>
+  <span class="nx">database_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">instance_class</span>    <span class="o">=</span> <span class="s2">"db.r5.2xlarge"</span>
+    <span class="nx">allocated_storage</span> <span class="o">=</span> <span class="mi">500</span>
+    <span class="nx">multi_az</span>          <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">backup_retention</span>  <span class="o">=</span> <span class="mi">30</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Enable cross-region replication</span>
+  <span class="nx">replication_regions</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"us-west-2"</span><span class="p">,</span> <span class="s2">"eu-west-1"</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"dr_region_west"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-infrastructure"</span>
+  
+  <span class="nx">region</span>      <span class="o">=</span> <span class="s2">"us-west-2"</span>
+  <span class="nx">environment</span> <span class="o">=</span> <span class="s2">"production"</span>
+  <span class="nx">role</span>        <span class="o">=</span> <span class="s2">"standby"</span>
+  
+  <span class="nx">vpc_cidr</span> <span class="o">=</span> <span class="s2">"10.1.0.0/16"</span>
+  
+  <span class="c1"># Read replica configuration</span>
+  <span class="nx">database_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">source_db_identifier</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary_region</span><span class="p">.</span><span class="nx">db_instance_id</span>
+    <span class="nx">instance_class</span>       <span class="o">=</span> <span class="s2">"db.r5.xlarge"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Global Route53 health checks and failover</span>
+<span class="nx">resource</span> <span class="s2">"aws_route53_health_check"</span> <span class="s2">"primary"</span> <span class="p">{</span>
+  <span class="nx">fqdn</span>              <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary_region</span><span class="p">.</span><span class="nx">alb_dns_name</span>
+  <span class="nx">port</span>              <span class="o">=</span> <span class="mi">443</span>
+  <span class="nx">type</span>              <span class="o">=</span> <span class="s2">"HTTPS"</span>
+  <span class="nx">resource_path</span>     <span class="o">=</span> <span class="s2">"/health"</span>
+  <span class="nx">failure_threshold</span> <span class="o">=</span> <span class="mi">3</span>
+  <span class="nx">request_interval</span>  <span class="o">=</span> <span class="mi">30</span>
+<span class="err">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_route53_record"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">zone_id</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_route53_zone</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">zone_id</span>
+  <span class="nx">name</span>    <span class="o">=</span> <span class="s2">"app.${data.aws_route53_zone.main.name}"</span>
+  <span class="nx">type</span>    <span class="o">=</span> <span class="s2">"A"</span>
+  
+  <span class="nx">set_identifier</span> <span class="o">=</span> <span class="s2">"primary"</span>
+  
+  <span class="nx">failover_routing_policy</span> <span class="p">{</span>
+    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"PRIMARY"</span>
+  <span class="p">}</span>
+  
+  <span class="nx">alias</span> <span class="p">{</span>
+    <span class="nx">name</span>                   <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary_region</span><span class="p">.</span><span class="nx">alb_dns_name</span>
+    <span class="nx">zone_id</span>                <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary_region</span><span class="p">.</span><span class="nx">alb_zone_id</span>
+    <span class="nx">evaluate_target_health</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+  
+  <span class="nx">health_check_id</span> <span class="o">=</span> <span class="nx">aws_route53_health_check</span><span class="err">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">id</span>
+<span class="p">}</span>
+
+<span class="c1"># Automated failover testing</span>
+<span class="nx">resource</span> <span class="s2">"null_resource"</span> <span class="s2">"failover_test"</span> <span class="p">{</span>
+  <span class="nx">triggers</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">quarterly</span> <span class="o">=</span> <span class="nx">formatdate</span><span class="p">(</span><span class="s2">"YYYY-QQ"</span><span class="p">,</span> <span class="nx">timestamp</span><span class="p">())</span>
+  <span class="p">}</span>
+  
+  <span class="nx">provisioner</span> <span class="s2">"local-exec"</span> <span class="p">{</span>
+    <span class="nx">command</span> <span class="o">=</span> <span class="o">&lt;&lt;-</span><span class="nx">EOT</span>
+      <span class="c1"># Simulate primary region failure</span>
+      <span class="nx">aws</span> <span class="nx">route53</span> <span class="nx">change-resource-record-sets</span> <span class="p">\</span>
+        <span class="o">--</span><span class="nx">hosted-zone-id</span> <span class="nx">$</span><span class="p">{</span><span class="nx">data</span><span class="p">.</span><span class="nx">aws_route53_zone</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">zone_id</span><span class="p">}</span> <span class="p">\</span>
+        <span class="o">--</span><span class="nx">change-batch</span> <span class="nx">file</span><span class="o">:</span><span class="c1">//failover-test.json</span>
+      
+      <span class="c1"># Wait for DNS propagation</span>
+      <span class="nx">sleep</span> <span class="mi">60</span>
+      
+      <span class="c1"># Run health checks</span>
+      <span class="p">./</span><span class="nx">scripts</span><span class="o">/</span><span class="nx">verify-failover</span><span class="p">.</span><span class="nx">sh</span>
+    <span class="nx">EOT</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ul>
+  <li>Use modules to ensure consistency across regions</li>
+  <li>Implement automated failover testing</li>
+  <li>Consider RTO/RPO requirements in architecture</li>
+  <li>Monitor cross-region replication lag</li>
+</ul>
+
+<h3 id="case-study-2-kubernetes-platform-for-1000-developers">Case Study 2: Kubernetes Platform for 1000+ Developers</h3>
+
+<p><strong>Challenge</strong>: A tech company needed to provide self-service Kubernetes clusters for over 1000 developers while maintaining security and cost control.</p>
+
+<p><strong>Solution Architecture</strong>:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Platform module for self-service Kubernetes</span>
+<span class="nx">module</span> <span class="s2">"developer_platform"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/k8s-platform"</span>
+  
+  <span class="c1"># Dynamic cluster creation based on team requests</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">team_clusters</span>
+  
+  <span class="nx">cluster_name</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+  <span class="nx">team_config</span>  <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+  
+  <span class="c1"># Standardized node groups</span>
+  <span class="nx">node_groups</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">general</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">instance_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"m5.large"</span><span class="p">,</span> <span class="s2">"m5.xlarge"</span><span class="p">]</span>
+      <span class="nx">min_size</span>       <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">min_nodes</span>
+      <span class="nx">max_size</span>       <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">max_nodes</span>
+      <span class="nx">desired_size</span>   <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">min_nodes</span>
+      
+      <span class="c1"># Spot instances for cost optimization</span>
+      <span class="nx">capacity_type</span> <span class="o">=</span> <span class="s2">"SPOT"</span>
+      
+      <span class="c1"># Auto-scaling based on metrics</span>
+      <span class="nx">scaling_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
+        <span class="nx">metrics</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"cpu"</span><span class="p">,</span> <span class="s2">"memory"</span><span class="p">]</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Security policies</span>
+  <span class="nx">security_policies</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">pod_security_standard</span> <span class="o">=</span> <span class="s2">"restricted"</span>
+    <span class="nx">network_policies</span>      <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">admission_controllers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"PodSecurity"</span><span class="p">,</span> <span class="s2">"ResourceQuota"</span><span class="p">]</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Cost controls</span>
+  <span class="nx">cost_controls</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">namespace_quotas</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">cpu_limit</span>    <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">cpu_quota</span>
+      <span class="nx">memory_limit</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">memory_quota</span>
+      <span class="nx">pvc_limit</span>    <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">storage_quota</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># Automatic cluster hibernation</span>
+    <span class="nx">hibernation_schedule</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">hibernation_schedule</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Developer tools</span>
+  <span class="nx">addons</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">ingress_nginx</span>    <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">cert_manager</span>     <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">external_dns</span>     <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">metrics_server</span>   <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">cluster_autoscaler</span> <span class="o">=</span> <span class="kc">true</span>
+    
+    <span class="c1"># Observability stack</span>
+    <span class="nx">prometheus</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">enabled</span>              <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">retention_days</span>       <span class="o">=</span> <span class="mi">30</span>
+      <span class="nx">persistent_volume_size</span> <span class="o">=</span> <span class="s2">"100Gi"</span>
+    <span class="p">}</span>
+    
+    <span class="nx">grafana</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">oauth_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">client_id</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">oauth_client_id</span>
+        <span class="nx">allowed_domains</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"company.com"</span><span class="p">]</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Centralized platform monitoring</span>
+<span class="nx">module</span> <span class="s2">"platform_monitoring"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/monitoring"</span>
+  
+  <span class="nx">clusters</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">developer_platform</span>
+  
+  <span class="nx">alerts</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">cluster_health</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">unhealthy_nodes</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">threshold</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="nx">severity</span>  <span class="o">=</span> <span class="s2">"warning"</span>
+      <span class="p">}</span>
+      
+      <span class="nx">api_server_errors</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">threshold</span> <span class="o">=</span> <span class="mi">50</span>
+        <span class="nx">window</span>    <span class="o">=</span> <span class="s2">"5m"</span>
+        <span class="nx">severity</span>  <span class="o">=</span> <span class="s2">"critical"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">cost_alerts</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">daily_spend_threshold</span> <span class="o">=</span> <span class="mi">1000</span>
+      <span class="nx">forecast_alert_days</span>   <span class="o">=</span> <span class="mi">7</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Self-service portal backend</span>
+<span class="nx">resource</span> <span class="s2">"aws_api_gateway_rest_api"</span> <span class="s2">"platform_api"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"k8s-platform-api"</span>
+  
+  <span class="nx">endpoint_configuration</span> <span class="p">{</span>
+    <span class="nx">types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"REGIONAL"</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"cluster_provisioner"</span> <span class="p">{</span>
+  <span class="nx">function_name</span> <span class="o">=</span> <span class="s2">"k8s-cluster-provisioner"</span>
+  <span class="nx">role</span>          <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">provisioner</span><span class="p">.</span><span class="nx">arn</span>
+  
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">TERRAFORM_WORKSPACE_PREFIX</span> <span class="o">=</span> <span class="s2">"team-clusters"</span>
+      <span class="nx">STATE_BUCKET</span>              <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">terraform_state</span><span class="p">.</span><span class="nx">id</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ul>
+  <li>Standardization enables self-service</li>
+  <li>Cost controls are essential at scale</li>
+  <li>Namespace isolation provides security</li>
+  <li>Monitoring must be built-in from day one</li>
+</ul>
+
+<h3 id="case-study-3-compliance-driven-healthcare-infrastructure">Case Study 3: Compliance-Driven Healthcare Infrastructure</h3>
+
+<p><strong>Challenge</strong>: A healthcare provider needed HIPAA-compliant infrastructure with audit trails and encryption everywhere.</p>
+
+<p><strong>Solution Architecture</strong>:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># HIPAA-compliant infrastructure module</span>
+<span class="nx">module</span> <span class="s2">"hipaa_vpc"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/compliant-network"</span>
+  
+  <span class="nx">vpc_cidr</span> <span class="o">=</span> <span class="s2">"10.0.0.0/16"</span>
+  
+  <span class="c1"># Flow logs for compliance</span>
+  <span class="nx">flow_logs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">enabled</span>              <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">retention_days</span>       <span class="o">=</span> <span class="mi">2555</span>  <span class="c1"># 7 years for HIPAA</span>
+    <span class="nx">traffic_type</span>         <span class="o">=</span> <span class="s2">"ALL"</span>
+    <span class="nx">encryption_key_arn</span>   <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">flow_logs</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># No internet access for data subnets</span>
+  <span class="nx">subnet_types</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">public</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">cidrs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"10.0.1.0/24"</span><span class="p">,</span> <span class="s2">"10.0.2.0/24"</span><span class="p">]</span>
+      <span class="nx">nat_gateway</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+    <span class="nx">private</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">cidrs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"10.0.10.0/24"</span><span class="p">,</span> <span class="s2">"10.0.11.0/24"</span><span class="p">]</span>
+      <span class="nx">nat_gateway</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+    <span class="nx">data</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">cidrs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"10.0.20.0/24"</span><span class="p">,</span> <span class="s2">"10.0.21.0/24"</span><span class="p">]</span>
+      <span class="nx">nat_gateway</span> <span class="o">=</span> <span class="kc">false</span>  <span class="c1"># No internet access</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Encrypted data storage</span>
+<span class="nx">module</span> <span class="s2">"patient_data_storage"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/encrypted-storage"</span>
+  
+  <span class="nx">bucket_name</span> <span class="o">=</span> <span class="s2">"patient-records-${data.aws_caller_identity.current.account_id}"</span>
+  
+  <span class="c1"># Encryption configuration</span>
+  <span class="nx">encryption</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">algorithm</span> <span class="o">=</span> <span class="s2">"aws:kms"</span>
+    <span class="nx">kms_key_id</span> <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">patient_data</span><span class="p">.</span><span class="nx">arn</span>
+    
+    <span class="c1"># Enforce encryption</span>
+    <span class="nx">bucket_key_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">deny_unencrypted_uploads</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Access logging</span>
+  <span class="nx">logging</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">target_bucket</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">audit_logs</span><span class="p">.</span><span class="nx">bucket_id</span>
+    <span class="nx">target_prefix</span> <span class="o">=</span> <span class="s2">"s3-access/patient-records/"</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Lifecycle policies</span>
+  <span class="nx">lifecycle_rules</span> <span class="o">=</span> <span class="p">[{</span>
+    <span class="nx">id</span> <span class="o">=</span> <span class="s2">"archive-old-records"</span>
+    
+    <span class="nx">transition</span> <span class="o">=</span> <span class="p">[{</span>
+      <span class="nx">days</span> <span class="o">=</span> <span class="mi">90</span>
+      <span class="nx">storage_class</span> <span class="o">=</span> <span class="s2">"GLACIER"</span>
+    <span class="p">}]</span>
+    
+    <span class="c1"># Never delete patient records</span>
+    <span class="nx">expiration</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">expired_object_delete_marker</span> <span class="o">=</span> <span class="kc">false</span>
+    <span class="p">}</span>
+  <span class="p">}]</span>
+  
+  <span class="c1"># Object lock for immutability</span>
+  <span class="nx">object_lock</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">mode</span>    <span class="o">=</span> <span class="s2">"COMPLIANCE"</span>
+    <span class="nx">days</span>    <span class="o">=</span> <span class="mi">2555</span>  <span class="c1"># 7 years</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Audit trail configuration</span>
+<span class="nx">resource</span> <span class="s2">"aws_cloudtrail"</span> <span class="s2">"audit"</span> <span class="p">{</span>
+  <span class="nx">name</span>           <span class="o">=</span> <span class="s2">"hipaa-audit-trail"</span>
+  <span class="nx">s3_bucket_name</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">audit_logs</span><span class="p">.</span><span class="nx">bucket_id</span>
+  
+  <span class="c1"># Log all data events</span>
+  <span class="nx">event_selector</span> <span class="p">{</span>
+    <span class="nx">read_write_type</span>           <span class="o">=</span> <span class="s2">"All"</span>
+    <span class="nx">include_management_events</span> <span class="o">=</span> <span class="kc">true</span>
+    
+    <span class="nx">data_resource</span> <span class="p">{</span>
+      <span class="nx">type</span>   <span class="o">=</span> <span class="s2">"AWS::S3::Object"</span>
+      <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arn:aws:s3:::patient-records-*/*"</span><span class="p">]</span>
+    <span class="p">}</span>
+    
+    <span class="nx">data_resource</span> <span class="p">{</span>
+      <span class="nx">type</span>   <span class="o">=</span> <span class="s2">"AWS::RDS::DBCluster"</span>
+      <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arn:aws:rds:*:*:cluster:patient-*"</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Integrity validation</span>
+  <span class="nx">enable_log_file_validation</span> <span class="o">=</span> <span class="kc">true</span>
+  
+  <span class="c1"># Encryption</span>
+  <span class="nx">kms_key_id</span> <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">cloudtrail</span><span class="p">.</span><span class="nx">arn</span>
+  
+  <span class="c1"># Insights for anomaly detection</span>
+  <span class="nx">insight_selector</span> <span class="p">{</span>
+    <span class="nx">insight_type</span> <span class="o">=</span> <span class="s2">"ApiCallRateInsight"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Compliance validation</span>
+<span class="nx">resource</span> <span class="s2">"null_resource"</span> <span class="s2">"compliance_check"</span> <span class="p">{</span>
+  <span class="nx">triggers</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">daily</span> <span class="o">=</span> <span class="nx">formatdate</span><span class="p">(</span><span class="s2">"YYYY-MM-DD"</span><span class="p">,</span> <span class="nx">timestamp</span><span class="p">())</span>
+  <span class="p">}</span>
+  
+  <span class="nx">provisioner</span> <span class="s2">"local-exec"</span> <span class="p">{</span>
+    <span class="nx">command</span> <span class="o">=</span> <span class="o">&lt;&lt;-</span><span class="nx">EOT</span>
+      <span class="c1"># Run compliance checks</span>
+      <span class="nx">aws</span> <span class="nx">securityhub</span> <span class="nx">get-compliance-summary</span>
+      
+      <span class="c1"># Check encryption status</span>
+      <span class="nx">aws</span> <span class="nx">s3api</span> <span class="nx">list-buckets</span> <span class="o">--</span><span class="nx">query</span> <span class="s1">'Buckets[].Name'</span> <span class="o">|</span> <span class="err">\</span>
+        <span class="nx">xargs</span> <span class="o">-</span><span class="nx">I</span> <span class="p">{}</span> <span class="nx">aws</span> <span class="nx">s3api</span> <span class="nx">get-bucket-encryption</span> <span class="o">--</span><span class="nx">bucket</span> <span class="p">{}</span>
+      
+      <span class="c1"># Verify access patterns</span>
+      <span class="err">.</span><span class="o">/</span><span class="nx">scripts</span><span class="o">/</span><span class="nx">audit-access-patterns</span><span class="p">.</span><span class="nx">py</span>
+    <span class="nx">EOT</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ul>
+  <li>Compliance requires defense in depth</li>
+  <li>Automate compliance checking</li>
+  <li>Immutable audit logs are critical</li>
+  <li>Encryption must be enforced, not optional</li>
+</ul>
+
+<h3 id="case-study-4-microservices-migration">Case Study 4: Microservices Migration</h3>
+
+<p><strong>Challenge</strong>: Migrate a monolithic application to microservices architecture with zero downtime.</p>
+
+<p><strong>Solution Architecture</strong>:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Strangler fig pattern implementation</span>
+<span class="nx">module</span> <span class="s2">"microservices_platform"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/microservices"</span>
+  
+  <span class="c1"># API Gateway for routing</span>
+  <span class="nx">api_gateway</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"api-router"</span>
+    
+    <span class="c1"># Route configuration for gradual migration</span>
+    <span class="nx">routes</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="c1"># Legacy monolith handles most routes initially</span>
+      <span class="s2">"/*"</span> <span class="p">=</span> <span class="p">{</span>
+        <span class="nx">target_type</span> <span class="o">=</span> <span class="s2">"alb"</span>
+        <span class="nx">target_arn</span>  <span class="o">=</span> <span class="nx">aws_lb</span><span class="p">.</span><span class="nx">monolith</span><span class="p">.</span><span class="nx">arn</span>
+        <span class="nx">weight</span>      <span class="o">=</span> <span class="mi">90</span>
+      <span class="p">}</span>
+      
+      <span class="c1"># New microservices get specific routes</span>
+      <span class="s2">"/api/users/*"</span> <span class="p">=</span> <span class="p">{</span>
+        <span class="nx">target_type</span> <span class="o">=</span> <span class="s2">"lambda"</span>
+        <span class="nx">target_arn</span>  <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">user_service</span><span class="p">.</span><span class="nx">function_arn</span>
+        <span class="nx">weight</span>      <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Canary deployment</span>
+      <span class="p">}</span>
+      
+      <span class="s2">"/api/orders/*"</span> <span class="p">=</span> <span class="p">{</span>
+        <span class="nx">target_type</span> <span class="o">=</span> <span class="s2">"ecs"</span>
+        <span class="nx">target_arn</span>  <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">order_service</span><span class="p">.</span><span class="nx">target_group_arn</span>
+        <span class="nx">weight</span>      <span class="o">=</span> <span class="mi">10</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Service mesh for inter-service communication</span>
+  <span class="nx">service_mesh</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"microservices-mesh"</span>
+    
+    <span class="nx">virtual_services</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">user_service</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">provider</span> <span class="o">=</span> <span class="s2">"lambda"</span>
+        <span class="nx">retries</span>  <span class="o">=</span> <span class="mi">3</span>
+        <span class="nx">timeout</span>  <span class="o">=</span> <span class="s2">"30s"</span>
+      <span class="p">}</span>
+      
+      <span class="nx">order_service</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">provider</span> <span class="o">=</span> <span class="s2">"ecs"</span>
+        <span class="nx">retries</span>  <span class="o">=</span> <span class="mi">3</span>
+        <span class="nx">timeout</span>  <span class="o">=</span> <span class="s2">"30s"</span>
+        
+        <span class="c1"># Circuit breaker</span>
+        <span class="nx">outlier_detection</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">consecutive_errors</span> <span class="o">=</span> <span class="mi">5</span>
+          <span class="nx">interval</span>           <span class="o">=</span> <span class="s2">"30s"</span>
+          <span class="nx">base_ejection_duration</span> <span class="o">=</span> <span class="s2">"30s"</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Progressive rollout controller</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"rollout_controller"</span> <span class="p">{</span>
+  <span class="nx">function_name</span> <span class="o">=</span> <span class="s2">"progressive-rollout"</span>
+  
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">METRICS_NAMESPACE</span> <span class="o">=</span> <span class="s2">"Microservices/Migration"</span>
+      <span class="nx">ERROR_THRESHOLD</span>   <span class="o">=</span> <span class="s2">"5"</span>  <span class="c1"># Percentage</span>
+      <span class="nx">ROLLBACK_ENABLED</span>  <span class="o">=</span> <span class="s2">"true"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Monitoring for migration</span>
+<span class="nx">module</span> <span class="s2">"migration_monitoring"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/monitoring"</span>
+  
+  <span class="nx">dashboards</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">migration_progress</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">widgets</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nx">type</span> <span class="o">=</span> <span class="s2">"metric"</span>
+          <span class="nx">properties</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nx">metrics</span> <span class="o">=</span> <span class="p">[</span>
+              <span class="p">[</span><span class="s2">"AWS/ApiGateway"</span><span class="p">,</span> <span class="s2">"Count"</span><span class="p">,</span> <span class="p">{</span><span class="nx">stat</span> <span class="o">=</span> <span class="s2">"Sum"</span><span class="p">,</span> <span class="nx">label</span> <span class="o">=</span> <span class="s2">"Total Requests"</span><span class="p">}],</span>
+              <span class="p">[</span><span class="s2">"."</span><span class="p">,</span> <span class="s2">"."</span><span class="p">,</span> <span class="p">{</span><span class="nx">stat</span> <span class="o">=</span> <span class="s2">"Sum"</span><span class="p">,</span> <span class="nx">label</span> <span class="o">=</span> <span class="s2">"Monolith Requests"</span><span class="p">,</span> <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span><span class="nx">Target</span> <span class="o">=</span> <span class="s2">"monolith"</span><span class="p">}}],</span>
+              <span class="p">[</span><span class="s2">"."</span><span class="p">,</span> <span class="s2">"."</span><span class="p">,</span> <span class="p">{</span><span class="nx">stat</span> <span class="o">=</span> <span class="s2">"Sum"</span><span class="p">,</span> <span class="nx">label</span> <span class="o">=</span> <span class="s2">"Microservice Requests"</span><span class="p">,</span> <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span><span class="nx">Target</span> <span class="o">=</span> <span class="s2">"microservices"</span><span class="p">}}]</span>
+            <span class="p">]</span>
+            <span class="nx">period</span> <span class="o">=</span> <span class="mi">300</span>
+            <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
+            <span class="nx">title</span>  <span class="o">=</span> <span class="s2">"Traffic Distribution"</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>Lessons Learned</strong>:</p>
+<ul>
+  <li>Gradual migration reduces risk</li>
+  <li>Monitoring is crucial during transition</li>
+  <li>Rollback capability is essential</li>
+  <li>Service mesh simplifies communication</li>
+</ul>
+
+<h3 id="best-practices-from-the-field">Best Practices from the Field</h3>
+
+<p>Based on these case studies, here are the key patterns for success:</p>
+
+<ol>
+  <li><strong>Module Design</strong>
+    <ul>
+      <li>Create opinionated modules with sensible defaults</li>
+      <li>Use composition over inheritance</li>
+      <li>Version modules independently</li>
+    </ul>
+  </li>
+  <li><strong>State Management</strong>
+    <ul>
+      <li>Split state by service/team boundary</li>
+      <li>Use state locking always</li>
+      <li>Regular state backups</li>
+    </ul>
+  </li>
+  <li><strong>Security</strong>
+    <ul>
+      <li>Principle of least privilege</li>
+      <li>Encryption by default</li>
+      <li>Audit everything</li>
+    </ul>
+  </li>
+  <li><strong>Operations</strong>
+    <ul>
+      <li>Automate testing and validation</li>
+      <li>Progressive rollouts</li>
+      <li>Comprehensive monitoring</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="performance-at-scale">Performance at Scale</h2>
+
+<h3 id="when-terraform-gets-slow">When Terraform Gets Slow</h3>
+
+<p>As infrastructure grows, Terraform operations can slow down. Common bottlenecks include:</p>
+<ul>
+  <li><strong>Large State Files</strong>: State with thousands of resources</li>
+  <li><strong>API Rate Limits</strong>: Cloud providers throttling requests</li>
+  <li><strong>Sequential Dependencies</strong>: Resources that must be created one by one</li>
+  <li><strong>Network Latency</strong>: Remote state operations</li>
+</ul>
+
+<p>Understanding Terraform’s execution model helps optimize performance:</p>
+
+<h3 id="parallel-execution-and-resource-batching">Parallel Execution and Resource Batching</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Terraform's parallel execution engine</span>
+<span class="k">type</span> <span class="n">ParallelExecutor</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">maxConcurrency</span> <span class="kt">int</span>
+    <span class="n">semaphore</span>      <span class="k">chan</span> <span class="k">struct</span><span class="p">{}</span>
+    <span class="n">errorGroup</span>     <span class="o">*</span><span class="n">errgroup</span><span class="o">.</span><span class="n">Group</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span><span class="n">ParallelExecutor</span><span class="p">)</span> <span class="n">ExecutePlan</span><span class="p">(</span><span class="n">plan</span> <span class="o">*</span><span class="n">Plan</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c">// Build execution graph</span>
+    <span class="n">graph</span> <span class="o">:=</span> <span class="n">plan</span><span class="o">.</span><span class="n">BuildDependencyGraph</span><span class="p">()</span>
+    
+    <span class="c">// Get parallel execution levels</span>
+    <span class="n">levels</span> <span class="o">:=</span> <span class="n">graph</span><span class="o">.</span><span class="n">GetParallelLevels</span><span class="p">()</span>
+    
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">level</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">levels</span> <span class="p">{</span>
+        <span class="c">// Execute all resources in this level in parallel</span>
+        <span class="n">g</span><span class="p">,</span> <span class="n">ctx</span> <span class="o">:=</span> <span class="n">errgroup</span><span class="o">.</span><span class="n">WithContext</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">())</span>
+        
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">resource</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">level</span> <span class="p">{</span>
+            <span class="n">resource</span> <span class="o">:=</span> <span class="n">resource</span> <span class="c">// Capture loop variable</span>
+            
+            <span class="n">g</span><span class="o">.</span><span class="n">Go</span><span class="p">(</span><span class="k">func</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+                <span class="c">// Acquire semaphore</span>
+                <span class="k">select</span> <span class="p">{</span>
+                <span class="k">case</span> <span class="n">e</span><span class="o">.</span><span class="n">semaphore</span> <span class="o">&lt;-</span> <span class="k">struct</span><span class="p">{}{}</span><span class="o">:</span>
+                    <span class="k">defer</span> <span class="k">func</span><span class="p">()</span> <span class="p">{</span> <span class="o">&lt;-</span><span class="n">e</span><span class="o">.</span><span class="n">semaphore</span> <span class="p">}()</span>
+                <span class="k">case</span> <span class="o">&lt;-</span><span class="n">ctx</span><span class="o">.</span><span class="n">Done</span><span class="p">()</span><span class="o">:</span>
+                    <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Err</span><span class="p">()</span>
+                <span class="p">}</span>
+                
+                <span class="c">// Execute resource operation</span>
+                <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">executeResource</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+            <span class="p">})</span>
+        <span class="p">}</span>
+        
+        <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">g</span><span class="o">.</span><span class="n">Wait</span><span class="p">();</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">err</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="c">// Batching API calls for performance</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span><span class="n">ParallelExecutor</span><span class="p">)</span> <span class="n">executeResource</span><span class="p">(</span><span class="n">r</span> <span class="o">*</span><span class="n">Resource</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">switch</span> <span class="n">r</span><span class="o">.</span><span class="n">Type</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="s">"aws_instance"</span><span class="o">:</span>
+        <span class="c">// Batch EC2 operations</span>
+        <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">batchEC2Operations</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="k">case</span> <span class="s">"aws_security_group_rule"</span><span class="o">:</span>
+        <span class="c">// Batch security group rules</span>
+        <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">batchSecurityGroupRules</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="k">default</span><span class="o">:</span>
+        <span class="k">return</span> <span class="n">e</span><span class="o">.</span><span class="n">executeSingle</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="state-performance-optimization">State Performance Optimization</h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Optimize state operations with partial updates</span>
+<span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">experiments</span> <span class="o">=</span> <span class="p">[</span><span class="nx">module_variable_optional_attrs</span><span class="p">]</span>
+  
+  <span class="c1"># Configure backend with performance optimizations</span>
+  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
+    <span class="c1"># Enable state compression</span>
+    <span class="nx">compress</span> <span class="o">=</span> <span class="kc">true</span>
+    
+    <span class="c1"># Partial state updates (reduces lock time)</span>
+    <span class="nx">enable_partial_updates</span> <span class="o">=</span> <span class="kc">true</span>
+    
+    <span class="c1"># Async state uploads</span>
+    <span class="nx">async_upload</span> <span class="o">=</span> <span class="kc">true</span>
+    
+    <span class="c1"># Connection pooling</span>
+    <span class="nx">max_connections</span> <span class="o">=</span> <span class="mi">100</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Resource targeting for large infrastructures</span>
+<span class="nx">resource</span> <span class="s2">"null_resource"</span> <span class="s2">"targeted_apply"</span> <span class="p">{</span>
+  <span class="nx">provisioner</span> <span class="s2">"local-exec"</span> <span class="p">{</span>
+    <span class="nx">command</span> <span class="o">=</span> <span class="o">&lt;&lt;-</span><span class="nx">EOT</span>
+      <span class="c1"># Apply only specific resources</span>
+      <span class="nx">terraform</span> <span class="nx">apply</span> <span class="o">-</span><span class="nx">target</span><span class="o">=</span><span class="nx">module</span><span class="err">.</span><span class="nx">critical_path</span>
+      
+      <span class="c1"># Then apply dependent resources</span>
+      <span class="nx">terraform</span> <span class="nx">apply</span> <span class="o">-</span><span class="nx">target</span><span class="o">=</span><span class="nx">module</span><span class="p">.</span><span class="nx">dependent_resources</span>
+      
+      <span class="c1"># Finally, full apply</span>
+      <span class="nx">terraform</span> <span class="nx">apply</span>
+    <span class="nx">EOT</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="terraform-at-scale-enterprise-patterns">Terraform at Scale: Enterprise Patterns</h2>
+
+<h3 id="managing-infrastructure-for-large-organizations">Managing Infrastructure for Large Organizations</h3>
+
+<p>When Terraform grows from managing dozens to thousands of resources across multiple teams and accounts, new challenges emerge. This section covers battle-tested patterns for enterprise-scale Terraform deployments.</p>
+
+<h3 id="organizational-structure">Organizational Structure</h3>
+
+<h4 id="multi-account-strategy">Multi-Account Strategy</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Organization structure for 500+ AWS accounts</span>
+<span class="nx">module</span> <span class="s2">"aws_organization"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/organization"</span>
+  
+  <span class="nx">organizational_units</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">security</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Security"</span>
+      <span class="nx">accounts</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">audit</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">email</span> <span class="o">=</span> <span class="s2">"aws-audit@company.com"</span>
+          <span class="nx">tags</span>  <span class="o">=</span> <span class="p">{</span> <span class="nx">Purpose</span> <span class="o">=</span> <span class="s2">"Centralized logging and compliance"</span> <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="nx">incident_response</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">email</span> <span class="o">=</span> <span class="s2">"aws-ir@company.com"</span>
+          <span class="nx">tags</span>  <span class="o">=</span> <span class="p">{</span> <span class="nx">Purpose</span> <span class="o">=</span> <span class="s2">"Security incident response"</span> <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">production</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Production"</span>
+      <span class="nx">scp_policies</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"production_guardrails"</span><span class="p">]</span>
+      
+      <span class="nx">child_ous</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">production_us</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Production US"</span>
+          <span class="nx">accounts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nx">prod_us_app1</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">email</span> <span class="o">=</span> <span class="s2">"prod-us-app1@company.com"</span> <span class="p">}</span>
+            <span class="nx">prod_us_app2</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">email</span> <span class="o">=</span> <span class="s2">"prod-us-app2@company.com"</span> <span class="p">}</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="nx">production_eu</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Production EU"</span>
+          <span class="nx">accounts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nx">prod_eu_app1</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">email</span> <span class="o">=</span> <span class="s2">"prod-eu-app1@company.com"</span> <span class="p">}</span>
+            <span class="nx">prod_eu_app2</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">email</span> <span class="o">=</span> <span class="s2">"prod-eu-app2@company.com"</span> <span class="p">}</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="nx">development</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Development"</span>
+      <span class="nx">scp_policies</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"development_guardrails"</span><span class="p">]</span>
+      
+      <span class="nx">accounts</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">for</span> <span class="nx">i</span> <span class="nx">in</span> <span class="nx">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">51</span><span class="p">)</span> <span class="o">:</span> <span class="s2">"dev_team_${i}"</span> <span class="p">=</span><span class="o">&gt;</span> <span class="p">{</span>
+          <span class="nx">email</span> <span class="o">=</span> <span class="s2">"dev-team-${i}@company.com"</span>
+          <span class="nx">tags</span>  <span class="o">=</span> <span class="p">{</span> <span class="nx">Team</span> <span class="o">=</span> <span class="s2">"team-${i}"</span> <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Service Control Policies</span>
+  <span class="nx">scp_policies</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">production_guardrails</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"ProductionGuardrails"</span>
+      <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Baseline security controls for production"</span>
+      <span class="nx">policy</span>      <span class="o">=</span> <span class="nx">file</span><span class="p">(</span><span class="s2">"policies/production_guardrails.json"</span><span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="nx">development_guardrails</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"DevelopmentGuardrails"</span>
+      <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Flexible controls for development"</span>
+      <span class="nx">policy</span>      <span class="o">=</span> <span class="nx">file</span><span class="p">(</span><span class="s2">"policies/development_guardrails.json"</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="team-based-module-registry">Team-Based Module Registry</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Private module registry structure</span>
+<span class="nx">module</span> <span class="s2">"module_registry"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/registry"</span>
+  
+  <span class="nx">modules</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Core platform modules (centrally managed)</span>
+    <span class="s2">"terraform-aws-vpc"</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">team</span>        <span class="o">=</span> <span class="s2">"platform"</span>
+      <span class="nx">repository</span>  <span class="o">=</span> <span class="s2">"github.com/company/terraform-aws-vpc"</span>
+      <span class="nx">maintainers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"platform-team@company.com"</span><span class="p">]</span>
+      
+      <span class="nx">versions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"v1.0.0"</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">supported</span> <span class="o">=</span> <span class="kc">false</span><span class="p">,</span> <span class="nx">deprecated</span> <span class="o">=</span> <span class="kc">true</span> <span class="p">}</span>
+        <span class="s2">"v2.0.0"</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">supported</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>  <span class="nx">recommended</span> <span class="o">=</span> <span class="kc">false</span> <span class="p">}</span>
+        <span class="s2">"v3.0.0"</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">supported</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>  <span class="nx">recommended</span> <span class="o">=</span> <span class="kc">true</span> <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># Team-specific modules</span>
+    <span class="s2">"terraform-aws-microservice"</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">team</span>        <span class="o">=</span> <span class="s2">"app-team-1"</span>
+      <span class="nx">repository</span>  <span class="o">=</span> <span class="s2">"github.com/company/terraform-aws-microservice"</span>
+      <span class="nx">maintainers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"app-team-1@company.com"</span><span class="p">]</span>
+      
+      <span class="c1"># Automated testing requirements</span>
+      <span class="nx">test_requirements</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">unit_tests</span>        <span class="o">=</span> <span class="kc">true</span>
+        <span class="nx">integration_tests</span> <span class="o">=</span> <span class="kc">true</span>
+        <span class="nx">security_scan</span>     <span class="o">=</span> <span class="kc">true</span>
+        <span class="nx">cost_estimation</span>   <span class="o">=</span> <span class="kc">true</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Governance policies</span>
+  <span class="nx">policies</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">module_requirements</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">must_have_tests</span>     <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">must_have_examples</span>  <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">must_have_changelog</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">semantic_versioning</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+    
+    <span class="nx">deprecation_policy</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">notice_period_days</span> <span class="o">=</span> <span class="mi">90</span>
+      <span class="nx">sunset_period_days</span> <span class="o">=</span> <span class="mi">180</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="scaling-patterns">Scaling Patterns</h3>
+
+<h4 id="1-hierarchical-state-management">1. Hierarchical State Management</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Root configuration that manages account-level resources</span>
+<span class="c1"># terraform/accounts/production-us/main.tf</span>
+<span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
+    <span class="nx">bucket</span>         <span class="o">=</span> <span class="s2">"company-terraform-state"</span>
+    <span class="nx">key</span>            <span class="o">=</span> <span class="s2">"accounts/production-us/terraform.tfstate"</span>
+    <span class="nx">region</span>         <span class="o">=</span> <span class="s2">"us-east-1"</span>
+    <span class="nx">dynamodb_table</span> <span class="o">=</span> <span class="s2">"terraform-state-lock"</span>
+    
+    <span class="c1"># Role assumption for state access</span>
+    <span class="nx">role_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:iam::${var.management_account_id}:role/TerraformStateAccess"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Layer 1: Account baseline</span>
+<span class="nx">module</span> <span class="s2">"account_baseline"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"git::https://github.com/company/terraform-aws-account-baseline.git?ref=v3.2.0"</span>
+  
+  <span class="nx">account_name</span> <span class="o">=</span> <span class="s2">"production-us"</span>
+  <span class="nx">account_id</span>   <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">account_id</span>
+  
+  <span class="c1"># Standardized account configuration</span>
+  <span class="nx">enable_cloudtrail</span>       <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">enable_config</span>          <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">enable_guardduty</span>       <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">enable_security_hub</span>    <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">enable_access_analyzer</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="err">}</span>
+
+<span class="c1"># Layer 2: Shared networking (separate state)</span>
+<span class="c1"># terraform/accounts/production-us/networking/main.tf</span>
+<span class="nx">data</span> <span class="s2">"terraform_remote_state"</span> <span class="s2">"account"</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="o">=</span> <span class="s2">"s3"</span>
+  <span class="nx">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"company-terraform-state"</span>
+    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"accounts/production-us/terraform.tfstate"</span>
+    <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"vpc"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"git::https://github.com/company/terraform-aws-vpc.git?ref=v3.0.0"</span>
+  
+  <span class="nx">vpc_cidr</span> <span class="o">=</span> <span class="s2">"10.100.0.0/16"</span>
+  
+  <span class="c1"># Reference account baseline outputs</span>
+  <span class="nx">flow_logs_bucket</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">terraform_remote_state</span><span class="p">.</span><span class="nx">account</span><span class="p">.</span><span class="nx">outputs</span><span class="p">.</span><span class="nx">flow_logs_bucket_id</span>
+<span class="p">}</span>
+
+<span class="c1"># Layer 3: Application infrastructure (team-owned)</span>
+<span class="c1"># terraform/teams/app-team-1/production/main.tf</span>
+<span class="nx">data</span> <span class="s2">"terraform_remote_state"</span> <span class="s2">"networking"</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="o">=</span> <span class="s2">"s3"</span>
+  <span class="nx">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"company-terraform-state"</span>
+    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"accounts/production-us/networking/terraform.tfstate"</span>
+    <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"application"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"../../../modules/standard-app"</span>
+  
+  <span class="nx">vpc_id</span>     <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">terraform_remote_state</span><span class="p">.</span><span class="nx">networking</span><span class="p">.</span><span class="nx">outputs</span><span class="p">.</span><span class="nx">vpc_id</span>
+  <span class="nx">subnet_ids</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">terraform_remote_state</span><span class="p">.</span><span class="nx">networking</span><span class="p">.</span><span class="nx">outputs</span><span class="p">.</span><span class="nx">private_subnet_ids</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="2-gitops-workflow-at-scale">2. GitOps Workflow at Scale</h4>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .github/workflows/terraform-enterprise.yml</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Enterprise Workflow</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">pull_request</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">terraform/**'</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">main</span>
+    <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">terraform/**'</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">detect-changes</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">outputs</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span> <span class="s">${{ steps.set-matrix.outputs.matrix }}</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">set-matrix</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s"># Detect which Terraform configurations changed</span>
+          <span class="s">CHANGED_DIRS=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} |</span>
+            <span class="s">grep '^terraform/' |</span>
+            <span class="s">cut -d'/' -f1-3 |</span>
+            <span class="s">sort -u |</span>
+            <span class="s">jq -R -s -c 'split("\n") | map(select(length &gt; 0))')</span>
+
+          <span class="s">echo "::set-output name=matrix::${CHANGED_DIRS}"</span>
+
+  <span class="na">plan</span><span class="pi">:</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="s">detect-changes</span>
+    <span class="na">strategy</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span>
+        <span class="na">directory</span><span class="pi">:</span> <span class="s">${{ fromJson(needs.detect-changes.outputs.matrix) }}</span>
+      <span class="na">max-parallel</span><span class="pi">:</span> <span class="m">10</span>  <span class="c1"># Limit concurrent runs</span>
+
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure AWS Credentials</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v2</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">role-to-assume</span><span class="pi">:</span> <span class="s">${{ secrets.TERRAFORM_ROLE_ARN }}</span>
+          <span class="na">aws-region</span><span class="pi">:</span> <span class="s">us-east-1</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Plan</span>
+        <span class="na">working-directory</span><span class="pi">:</span> <span class="s">${{ matrix.directory }}</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">terraform init</span>
+          <span class="s">terraform plan -out=tfplan</span>
+
+          <span class="s"># Cost estimation</span>
+          <span class="s">infracost breakdown --path tfplan --format json &gt; cost-estimate.json</span>
+
+          <span class="s"># Security scanning</span>
+          <span class="s">checkov -f tfplan --output json &gt; security-scan.json</span>
+
+          <span class="s"># Post results to PR</span>
+          <span class="s">gh pr comment --body "$(cat cost-estimate.json security-scan.json | jq -s '.')"</span>
+</code></pre></div></div>
+
+<h4 id="3-module-versioning-and-dependency-management">3. Module Versioning and Dependency Management</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># terraform/module-versions.tf</span>
+<span class="c1"># Centralized module version management</span>
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="c1"># Core module versions (centrally controlled)</span>
+  <span class="nx">core_modules</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">vpc_version</span>        <span class="o">=</span> <span class="s2">"v3.0.0"</span>
+    <span class="nx">security_version</span>   <span class="o">=</span> <span class="s2">"v2.5.0"</span>
+    <span class="nx">monitoring_version</span> <span class="o">=</span> <span class="s2">"v4.1.0"</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Team module versions (team-controlled with constraints)</span>
+  <span class="nx">team_modules</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">app_team_1</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">microservice_version</span> <span class="o">=</span> <span class="s2">"&gt;=v1.0.0, &lt;v2.0.0"</span>
+      <span class="nx">database_version</span>     <span class="o">=</span> <span class="s2">"~&gt;v1.5"</span>
+    <span class="p">}</span>
+    <span class="nx">app_team_2</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">microservice_version</span> <span class="o">=</span> <span class="s2">"&gt;=v2.0.0, &lt;v3.0.0"</span>
+      <span class="nx">database_version</span>     <span class="o">=</span> <span class="s2">"~&gt;v2.0"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Module version enforcement</span>
+<span class="nx">module</span> <span class="s2">"version_check"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/version-check"</span>
+  
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">team_modules</span>
+  
+  <span class="nx">team_name</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+  <span class="nx">versions</span>  <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+  
+  <span class="c1"># Automated compatibility checking</span>
+  <span class="nx">compatibility_matrix</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"microservice_v1"</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">compatible_with</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"database_v1"</span><span class="p">]</span>
+      <span class="nx">incompatible_with</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"database_v2"</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="s2">"microservice_v2"</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">compatible_with</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"database_v2"</span><span class="p">]</span>
+      <span class="nx">requires_migration_from</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"microservice_v1"</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h4 id="4-automated-governance-and-compliance">4. Automated Governance and Compliance</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Policy as Code for large-scale governance</span>
+<span class="nx">resource</span> <span class="s2">"opa_policy"</span> <span class="s2">"terraform_governance"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"terraform-governance"</span>
+  
+  <span class="c1"># Cost control policies</span>
+  <span class="nx">policy</span> <span class="o">=</span> <span class="o">&lt;&lt;-</span><span class="nx">EOF</span>
+    <span class="nx">package</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">cost</span>
+    
+    <span class="nx">deny</span><span class="p">[</span><span class="nx">msg</span><span class="p">]</span> <span class="p">{</span>
+      <span class="nx">resource</span> <span class="o">:=</span> <span class="nx">input</span><span class="p">.</span><span class="nx">resource_changes</span><span class="p">[</span><span class="nx">_</span><span class="p">]</span>
+      <span class="nx">resource</span><span class="p">.</span><span class="nx">type</span> <span class="o">==</span> <span class="s2">"aws_instance"</span>
+      <span class="nx">instance_type</span> <span class="o">:=</span> <span class="nx">resource</span><span class="p">.</span><span class="nx">change</span><span class="p">.</span><span class="nx">after</span><span class="p">.</span><span class="nx">instance_type</span>
+      
+      <span class="c1"># Define allowed instance types by environment</span>
+      <span class="nx">allowed_types</span> <span class="o">:=</span> <span class="p">{</span>
+        <span class="s2">"dev"</span><span class="o">:</span> <span class="p">[</span><span class="s2">"t3.micro"</span><span class="p">,</span> <span class="s2">"t3.small"</span><span class="p">],</span>
+        <span class="s2">"staging"</span><span class="o">:</span> <span class="p">[</span><span class="s2">"t3.medium"</span><span class="p">,</span> <span class="s2">"m5.large"</span><span class="p">],</span>
+        <span class="s2">"production"</span><span class="o">:</span> <span class="p">[</span><span class="s2">"m5.large"</span><span class="p">,</span> <span class="s2">"m5.xlarge"</span><span class="p">,</span> <span class="s2">"m5.2xlarge"</span><span class="p">]</span>
+      <span class="p">}</span>
+      
+      <span class="nx">environment</span> <span class="o">:=</span> <span class="nx">resource</span><span class="p">.</span><span class="nx">change</span><span class="p">.</span><span class="nx">after</span><span class="p">.</span><span class="nx">tags</span><span class="p">.</span><span class="nx">Environment</span>
+      <span class="nx">not</span> <span class="nx">instance_type</span> <span class="nx">in</span> <span class="nx">allowed_types</span><span class="p">[</span><span class="nx">environment</span><span class="p">]</span>
+      
+      <span class="nx">msg</span> <span class="o">:=</span> <span class="nx">sprintf</span><span class="err">(</span>
+        <span class="s2">"Instance type %s not allowed for environment %s"</span><span class="p">,</span>
+        <span class="p">[</span><span class="nx">instance_type</span><span class="p">,</span> <span class="nx">environment</span><span class="p">]</span>
+      <span class="p">)</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># Budget alerts</span>
+    <span class="nx">deny</span><span class="p">[</span><span class="nx">msg</span><span class="p">]</span> <span class="p">{</span>
+      <span class="nx">total_monthly_cost</span> <span class="o">:=</span> <span class="nx">sum</span><span class="p">([</span>
+        <span class="nx">cost</span> <span class="o">|</span>
+        <span class="nx">resource</span> <span class="o">:=</span> <span class="nx">input</span><span class="p">.</span><span class="nx">resource_changes</span><span class="p">[</span><span class="nx">_</span><span class="p">]</span><span class="err">;</span>
+        <span class="nx">cost</span> <span class="o">:=</span> <span class="nx">resource</span><span class="p">.</span><span class="nx">cost</span><span class="p">.</span><span class="nx">monthly</span>
+      <span class="p">])</span>
+      
+      <span class="nx">total_monthly_cost</span> <span class="o">&gt;</span> <span class="mi">10000</span>
+      <span class="nx">msg</span> <span class="o">:=</span> <span class="nx">sprintf</span><span class="p">(</span><span class="s2">"Monthly cost estimate $%v exceeds budget"</span><span class="p">,</span> <span class="p">[</span><span class="nx">total_monthly_cost</span><span class="p">])</span>
+    <span class="p">}</span>
+  <span class="nx">EOF</span>
+<span class="p">}</span>
+
+<span class="c1"># Automated remediation</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"compliance_enforcer"</span> <span class="p">{</span>
+  <span class="nx">function_name</span> <span class="o">=</span> <span class="s2">"terraform-compliance-enforcer"</span>
+  
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">POLICIES</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+        <span class="nx">enforce_tagging</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">required_tags</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Environment"</span><span class="p">,</span> <span class="s2">"Team"</span><span class="p">,</span> <span class="s2">"CostCenter"</span><span class="p">,</span> <span class="s2">"Application"</span><span class="p">]</span>
+          <span class="nx">remediation</span>   <span class="o">=</span> <span class="s2">"add_default_tags"</span>
+        <span class="p">}</span>
+        
+        <span class="nx">enforce_encryption</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"aws_s3_bucket"</span><span class="p">,</span> <span class="s2">"aws_rds_instance"</span><span class="p">,</span> <span class="s2">"aws_ebs_volume"</span><span class="p">]</span>
+          <span class="nx">remediation</span>    <span class="o">=</span> <span class="s2">"enable_encryption"</span>
+        <span class="p">}</span>
+        
+        <span class="nx">enforce_backup</span> <span class="o">=</span> <span class="p">{</span>
+          <span class="nx">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"aws_rds_instance"</span><span class="p">,</span> <span class="s2">"aws_dynamodb_table"</span><span class="p">]</span>
+          <span class="nx">remediation</span>    <span class="o">=</span> <span class="s2">"enable_backup"</span>
+        <span class="p">}</span>
+      <span class="p">})</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="team-collaboration-patterns">Team Collaboration Patterns</h3>
+
+<h4 id="self-service-infrastructure-platform">Self-Service Infrastructure Platform</h4>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Platform vending machine for teams</span>
+<span class="nx">module</span> <span class="s2">"infrastructure_platform"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/platform"</span>
+  
+  <span class="c1"># Team onboarding automation</span>
+  <span class="nx">teams</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"app-team-1"</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">aws_accounts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"dev-team1"</span><span class="p">,</span> <span class="s2">"staging-team1"</span><span class="p">,</span> <span class="s2">"prod-team1"</span><span class="p">]</span>
+      
+      <span class="nx">permissions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">dev</span>     <span class="o">=</span> <span class="p">[</span><span class="s2">"full_access"</span><span class="p">]</span>
+        <span class="nx">staging</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"deploy_only"</span><span class="p">]</span>
+        <span class="nx">prod</span>    <span class="o">=</span> <span class="p">[</span><span class="s2">"read_only"</span><span class="p">]</span>
+      <span class="p">}</span>
+      
+      <span class="c1"># Pre-approved resource quotas</span>
+      <span class="nx">quotas</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">max_instances</span>    <span class="o">=</span> <span class="mi">50</span>
+        <span class="nx">max_storage_gb</span>   <span class="o">=</span> <span class="mi">5000</span>
+        <span class="nx">max_monthly_cost</span> <span class="o">=</span> <span class="mi">10000</span>
+      <span class="p">}</span>
+      
+      <span class="c1"># Standardized tooling</span>
+      <span class="nx">enabled_tools</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"terraform_cloud_workspace"</span><span class="p">,</span>
+        <span class="s2">"github_repository"</span><span class="p">,</span>
+        <span class="s2">"datadog_dashboard"</span><span class="p">,</span>
+        <span class="s2">"pagerduty_service"</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Automated workspace provisioning</span>
+  <span class="nx">workspace_defaults</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">terraform_version</span> <span class="o">=</span> <span class="s2">"1.5.0"</span>
+    
+    <span class="c1"># Standard environment variables</span>
+    <span class="nx">env_vars</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">TF_LOG</span> <span class="o">=</span> <span class="s2">"INFO"</span>
+      <span class="nx">TF_CLI_ARGS_plan</span> <span class="o">=</span> <span class="s2">"-compact-warnings"</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># VCS integration</span>
+    <span class="nx">vcs_repo</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">identifier</span>     <span class="o">=</span> <span class="s2">"company/terraform-workspaces"</span>
+      <span class="nx">branch</span>         <span class="o">=</span> <span class="s2">"main"</span>
+      <span class="nx">oauth_token_id</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">github_oauth_token</span>
+    <span class="p">}</span>
+    
+    <span class="c1"># Notifications</span>
+    <span class="nx">notifications</span> <span class="o">=</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"slack"</span>
+        <span class="nx">url</span>          <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">slack_webhook_url</span>
+        <span class="nx">destination</span>  <span class="o">=</span> <span class="s2">"#terraform-notifications"</span>
+        <span class="nx">triggers</span>     <span class="o">=</span> <span class="p">[</span><span class="s2">"run:completed"</span><span class="p">,</span> <span class="s2">"run:errored"</span><span class="p">]</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="monitoring-and-observability-at-scale">Monitoring and Observability at Scale</h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Centralized Terraform observability</span>
+<span class="nx">module</span> <span class="s2">"terraform_observability"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/observability"</span>
+  
+  <span class="c1"># State file monitoring</span>
+  <span class="nx">state_monitoring</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">s3_bucket</span> <span class="o">=</span> <span class="s2">"company-terraform-state"</span>
+    
+    <span class="nx">alerts</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">large_state_file</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">threshold_mb</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="nx">severity</span>     <span class="o">=</span> <span class="s2">"warning"</span>
+      <span class="p">}</span>
+      
+      <span class="nx">state_lock_duration</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">threshold_minutes</span> <span class="o">=</span> <span class="mi">30</span>
+        <span class="nx">severity</span>          <span class="o">=</span> <span class="s2">"critical"</span>
+      <span class="p">}</span>
+      
+      <span class="nx">concurrent_modifications</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">threshold</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="nx">window</span>    <span class="o">=</span> <span class="s2">"5m"</span>
+        <span class="nx">severity</span>  <span class="o">=</span> <span class="s2">"warning"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  
+  <span class="c1"># Terraform run analytics</span>
+  <span class="nx">run_analytics</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">collect_metrics</span> <span class="o">=</span> <span class="p">[</span>
+      <span class="s2">"plan_duration"</span><span class="p">,</span>
+      <span class="s2">"apply_duration"</span><span class="p">,</span>
+      <span class="s2">"resource_count"</span><span class="p">,</span>
+      <span class="s2">"state_size"</span><span class="p">,</span>
+      <span class="s2">"cost_delta"</span>
+    <span class="p">]</span>
+    
+    <span class="nx">dashboards</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">executive</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">widgets</span> <span class="o">=</span> <span class="p">[</span>
+          <span class="s2">"total_resources_managed"</span><span class="p">,</span>
+          <span class="s2">"monthly_cost_trend"</span><span class="p">,</span>
+          <span class="s2">"deployment_frequency"</span><span class="p">,</span>
+          <span class="s2">"failure_rate"</span>
+        <span class="p">]</span>
+      <span class="p">}</span>
+      
+      <span class="nx">operations</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">widgets</span> <span class="o">=</span> <span class="p">[</span>
+          <span class="s2">"longest_running_applies"</span><span class="p">,</span>
+          <span class="s2">"most_changed_resources"</span><span class="p">,</span>
+          <span class="s2">"error_breakdown"</span><span class="p">,</span>
+          <span class="s2">"lock_contention"</span>
+        <span class="p">]</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="best-practices-for-scale">Best Practices for Scale</h3>
+
+<ol>
+  <li><strong>Standardization</strong>
+    <ul>
+      <li>Enforce module standards</li>
+      <li>Use consistent naming conventions</li>
+      <li>Implement resource tagging strategies</li>
+      <li>Create reference architectures</li>
+    </ul>
+  </li>
+  <li><strong>Automation</strong>
+    <ul>
+      <li>Automate testing at all levels</li>
+      <li>Implement policy as code</li>
+      <li>Use GitOps workflows</li>
+      <li>Enable self-service platforms</li>
+    </ul>
+  </li>
+  <li><strong>Governance</strong>
+    <ul>
+      <li>Implement cost controls</li>
+      <li>Enforce security policies</li>
+      <li>Track compliance metrics</li>
+      <li>Regular architecture reviews</li>
+    </ul>
+  </li>
+  <li><strong>Operations</strong>
+    <ul>
+      <li>Monitor state file health</li>
+      <li>Track deployment metrics</li>
+      <li>Implement break-glass procedures</li>
+      <li>Plan for disaster recovery</li>
+    </ul>
+  </li>
+</ol>
+
+<h2 id="security-and-compliance">Security and Compliance</h2>
+
+<h3 id="infrastructure-security-is-code-security">Infrastructure Security is Code Security</h3>
+
+<p>When infrastructure becomes code, security practices from software development apply:</p>
+<ul>
+  <li><strong>Code Review</strong>: Infrastructure changes go through pull requests</li>
+  <li><strong>Static Analysis</strong>: Tools scan for security issues before deployment</li>
+  <li><strong>Policy Enforcement</strong>: Automated checks ensure compliance</li>
+  <li><strong>Audit Trails</strong>: Version control provides complete history</li>
+</ul>
+
+<h3 id="policy-as-code-in-practice">Policy as Code in Practice</h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sentinel policy for compliance</span>
+<span class="nx">policy</span> <span class="s2">"require-encryption"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./policies/encryption.sentinel"</span>
+  
+  <span class="nx">enforcement_level</span> <span class="o">=</span> <span class="s2">"hard-mandatory"</span>
+<span class="p">}</span>
+
+<span class="c1"># OPA (Open Policy Agent) integration</span>
+<span class="nx">data</span> <span class="s2">"opa_policy_decision"</span> <span class="s2">"deployment"</span> <span class="p">{</span>
+  <span class="nx">input</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">terraform_plan</span> <span class="o">=</span> <span class="nx">jsondecode</span><span class="p">(</span><span class="nx">file</span><span class="p">(</span><span class="s2">"${path.module}/tfplan.json"</span><span class="p">))</span>
+    <span class="nx">user</span>           <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">arn</span>
+    <span class="nx">environment</span>    <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+  <span class="p">})</span>
+  
+  <span class="nx">query</span> <span class="o">=</span> <span class="s2">"data.terraform.authorization.allow"</span>
+  
+  <span class="nx">policy</span> <span class="o">=</span> <span class="nx">file</span><span class="p">(</span><span class="s2">"${path.module}/policies/deployment.rego"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1"># Automated security scanning</span>
+<span class="nx">resource</span> <span class="s2">"null_resource"</span> <span class="s2">"security_scan"</span> <span class="p">{</span>
+  <span class="nx">provisioner</span> <span class="s2">"local-exec"</span> <span class="p">{</span>
+    <span class="nx">command</span> <span class="o">=</span> <span class="o">&lt;&lt;-</span><span class="nx">EOT</span>
+      <span class="c1"># Checkov security scanning</span>
+      <span class="nx">checkov</span> <span class="o">-</span><span class="nx">f</span> <span class="nx">$</span><span class="p">{</span><span class="nx">path</span><span class="p">.</span><span class="nx">module</span><span class="p">}</span> <span class="o">--</span><span class="nx">framework</span> <span class="nx">terraform</span>
+      
+      <span class="c1"># tfsec static analysis</span>
+      <span class="nx">tfsec</span> <span class="nx">$</span><span class="p">{</span><span class="nx">path</span><span class="p">.</span><span class="nx">module</span><span class="p">}</span> <span class="o">--</span><span class="nx">minimum-severity</span> <span class="nx">HIGH</span>
+      
+      <span class="c1"># Terrascan policy enforcement</span>
+      <span class="nx">terrascan</span> <span class="nx">scan</span> <span class="o">-</span><span class="nx">i</span> <span class="nx">terraform</span> <span class="o">-</span><span class="nx">d</span> <span class="nx">$</span><span class="p">{</span><span class="nx">path</span><span class="p">.</span><span class="nx">module</span><span class="p">}</span>
+    <span class="nx">EOT</span>
+  <span class="err">}</span>
+  
+  <span class="nx">triggers</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">always_run</span> <span class="o">=</span> <span class="nx">timestamp</span><span class="p">()</span>
+  <span class="p">}</span>
+<span class="err">}</span>
+</code></pre></div></div>
+
+<h3 id="secret-management">Secret Management</h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Vault provider for dynamic secrets</span>
+<span class="nx">provider</span> <span class="s2">"vault"</span> <span class="p">{</span>
+  <span class="nx">address</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">vault_addr</span>
+  
+  <span class="nx">auth_login</span> <span class="p">{</span>
+    <span class="nx">path</span> <span class="o">=</span> <span class="s2">"auth/aws/login"</span>
+    
+    <span class="nx">parameters</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">role</span> <span class="o">=</span> <span class="s2">"terraform-${var.environment}"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Dynamic database credentials</span>
+<span class="nx">data</span> <span class="s2">"vault_database_creds"</span> <span class="s2">"db"</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="o">=</span> <span class="s2">"database"</span>
+  <span class="nx">role</span>    <span class="o">=</span> <span class="s2">"readonly"</span>
+<span class="p">}</span>
+
+<span class="c1"># AWS dynamic credentials</span>
+<span class="nx">data</span> <span class="s2">"vault_aws_access_credentials"</span> <span class="s2">"creds"</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="o">=</span> <span class="s2">"aws"</span>
+  <span class="nx">role</span>    <span class="o">=</span> <span class="s2">"deploy"</span>
+  <span class="nx">type</span>    <span class="o">=</span> <span class="s2">"sts"</span>
+<span class="p">}</span>
+
+<span class="c1"># Encrypted variable handling</span>
+<span class="nx">variable</span> <span class="s2">"sensitive_config"</span> <span class="p">{</span>
+  <span class="nx">type</span>      <span class="o">=</span> <span class="nx">string</span>
+  <span class="nx">sensitive</span> <span class="o">=</span> <span class="kc">true</span>
+  
+  <span class="nx">validation</span> <span class="p">{</span>
+    <span class="nx">condition</span> <span class="o">=</span> <span class="nx">can</span><span class="p">(</span><span class="nx">jsondecode</span><span class="p">(</span>
+      <span class="nx">data</span><span class="p">.</span><span class="nx">aws_kms_secrets</span><span class="p">.</span><span class="nx">decrypted</span><span class="p">.</span><span class="nx">plaintext</span><span class="p">[</span><span class="s2">"config"</span><span class="p">]</span>
+    <span class="p">))</span>
+    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Failed to decrypt sensitive configuration."</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="advanced-techniques-meta-programming">Advanced Techniques: Meta-Programming</h2>
+
+<h3 id="when-configuration-becomes-code">When Configuration Becomes Code</h3>
+
+<p>Sometimes static configuration isn’t enough. Real-world scenarios that push Terraform’s boundaries:</p>
+<ul>
+  <li><strong>Dynamic Environments</strong>: Creating resources based on external data</li>
+  <li><strong>Multi-Region Deployments</strong>: Replicating across arbitrary regions</li>
+  <li><strong>Tenant Isolation</strong>: Generating isolated infrastructure per customer</li>
+  <li><strong>Migration Automation</strong>: Transforming legacy infrastructure</li>
+</ul>
+
+<p>These scenarios require meta-programming - code that generates Terraform code:</p>
+
+<h3 id="dynamic-resource-generation">Dynamic Resource Generation</h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generate resources from external data</span>
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="c1"># Load configuration from external source</span>
+  <span class="nx">resource_definitions</span> <span class="o">=</span> <span class="nx">jsondecode</span><span class="p">(</span>
+    <span class="nx">data</span><span class="p">.</span><span class="nx">http</span><span class="p">.</span><span class="nx">resource_config</span><span class="p">.</span><span class="nx">response_body</span>
+  <span class="p">)</span>
+  
+  <span class="c1"># Transform into Terraform resources</span>
+  <span class="nx">generated_resources</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">for</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">config</span> <span class="nx">in</span> <span class="nx">local</span><span class="p">.</span><span class="nx">resource_definitions</span> <span class="o">:</span> <span class="nx">name</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="c1"># Meta-programming pattern</span>
+      <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">config</span><span class="p">.</span><span class="nx">instances</span>
+      
+      <span class="c1"># Dynamic block generation</span>
+      <span class="nx">dynamic</span> <span class="s2">"setting"</span> <span class="p">{</span>
+        <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">config</span><span class="p">.</span><span class="nx">settings</span>
+        <span class="nx">content</span> <span class="p">{</span>
+          <span class="nx">name</span>  <span class="o">=</span> <span class="nx">setting</span><span class="p">.</span><span class="nx">key</span>
+          <span class="nx">value</span> <span class="o">=</span> <span class="nx">setting</span><span class="p">.</span><span class="nx">value</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Code generation with templatefile</span>
+<span class="nx">resource</span> <span class="s2">"local_file"</span> <span class="s2">"generated_module"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">generated_resources</span>
+  
+  <span class="nx">filename</span> <span class="o">=</span> <span class="s2">"${path.module}/generated/${each.key}.tf"</span>
+  
+  <span class="nx">content</span> <span class="o">=</span> <span class="nx">templatefile</span><span class="p">(</span><span class="s2">"${path.module}/templates/resource.tftpl"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="nx">resource_type</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">type</span>
+    <span class="nx">resource_name</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+    <span class="nx">configuration</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="c1"># Terraform CDK example</span>
+<span class="c1"># typescript</span>
+<span class="nx">import</span> <span class="p">{</span> <span class="nx">Construct</span> <span class="p">}</span> <span class="nx">from</span> <span class="s1">'constructs'</span><span class="err">;</span>
+<span class="nx">import</span> <span class="p">{</span> <span class="nx">App</span><span class="p">,</span> <span class="nx">TerraformStack</span><span class="p">,</span> <span class="nx">TerraformOutput</span> <span class="p">}</span> <span class="nx">from</span> <span class="s1">'cdktf'</span><span class="err">;</span>
+<span class="nx">import</span> <span class="p">{</span> <span class="nx">AwsProvider</span> <span class="p">}</span> <span class="nx">from</span> <span class="s1">'@cdktf/provider-aws'</span><span class="err">;</span>
+
+<span class="nx">class</span> <span class="nx">MetaProgrammingStack</span> <span class="nx">extends</span> <span class="nx">TerraformStack</span> <span class="p">{</span>
+  <span class="nx">constructor</span><span class="p">(</span><span class="nx">scope</span><span class="o">:</span> <span class="nx">Construct</span><span class="p">,</span> <span class="nx">name</span><span class="o">:</span> <span class="nx">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">super</span><span class="p">(</span><span class="nx">scope</span><span class="p">,</span> <span class="nx">name</span><span class="p">)</span><span class="err">;</span>
+    
+    <span class="nx">new</span> <span class="nx">AwsProvider</span><span class="p">(</span><span class="nx">this</span><span class="p">,</span> <span class="s1">'aws'</span><span class="p">,</span> <span class="p">{</span>
+      <span class="nx">region</span><span class="o">:</span> <span class="s1">'us-east-1'</span>
+    <span class="p">})</span><span class="err">;</span>
+    
+    <span class="c1">// Generate resources programmatically</span>
+    <span class="nx">const</span> <span class="nx">resources</span> <span class="o">=</span> <span class="nx">this</span><span class="p">.</span><span class="nx">generateResources</span><span class="p">()</span><span class="err">;</span>
+    
+    <span class="nx">resources</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">resource</span><span class="p">,</span> <span class="nx">index</span><span class="p">)</span> <span class="p">=</span><span class="o">&gt;</span> <span class="p">{</span>
+      <span class="nx">new</span> <span class="nx">resource</span><span class="p">.</span><span class="nx">type</span><span class="p">(</span><span class="nx">this</span><span class="p">,</span> <span class="err">`</span><span class="nx">resource-$</span><span class="p">{</span><span class="nx">index</span><span class="p">}</span><span class="err">`</span><span class="p">,</span> <span class="nx">resource</span><span class="p">.</span><span class="nx">config</span><span class="p">)</span><span class="err">;</span>
+    <span class="p">})</span><span class="err">;</span>
+  <span class="p">}</span>
+  
+  <span class="nx">private</span> <span class="nx">generateResources</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// Complex logic for resource generation</span>
+    <span class="nx">return</span> <span class="nx">configurations</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">config</span> <span class="o">=&gt;</span> <span class="p">({</span>
+      <span class="nx">type</span><span class="o">:</span> <span class="nx">this</span><span class="p">.</span><span class="nx">resolveResourceType</span><span class="p">(</span><span class="nx">config</span><span class="p">),</span>
+      <span class="nx">config</span><span class="o">:</span> <span class="nx">this</span><span class="p">.</span><span class="nx">transformConfig</span><span class="p">(</span><span class="nx">config</span><span class="p">)</span>
+    <span class="p">}))</span><span class="err">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="testing-infrastructure-code">Testing Infrastructure Code</h2>
+
+<h3 id="why-testing-matters-more-than-ever">Why Testing Matters More Than Ever</h3>
+
+<p>Infrastructure failures are immediately visible and often catastrophic. Testing infrastructure code is no longer optional when:</p>
+<ul>
+  <li><strong>Downtime Costs</strong>: Minutes of downtime can cost thousands</li>
+  <li><strong>Security Breaches</strong>: Misconfigurations lead to data exposure</li>
+  <li><strong>Compliance Violations</strong>: Failed audits have legal consequences</li>
+  <li><strong>Team Scale</strong>: Multiple teams depend on shared modules</li>
+</ul>
+
+<h3 id="testing-pyramid-for-infrastructure">Testing Pyramid for Infrastructure</h3>
+
+<ol>
+  <li><strong>Unit Tests</strong>: Validate module logic and calculations</li>
+  <li><strong>Contract Tests</strong>: Ensure modules meet their interfaces</li>
+  <li><strong>Integration Tests</strong>: Verify resources work together</li>
+  <li><strong>Compliance Tests</strong>: Check security and regulatory requirements</li>
+</ol>
+
+<h3 id="contract-testing-in-practice">Contract Testing in Practice</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Contract tests for modules</span>
+<span class="k">func</span> <span class="n">TestModuleContract</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">tests</span> <span class="o">:=</span> <span class="p">[]</span><span class="k">struct</span> <span class="p">{</span>
+        <span class="n">name</span>     <span class="kt">string</span>
+        <span class="n">module</span>   <span class="kt">string</span>
+        <span class="n">contract</span> <span class="n">ModuleContract</span>
+    <span class="p">}{</span>
+        <span class="p">{</span>
+            <span class="n">name</span><span class="o">:</span>   <span class="s">"networking-module-contract"</span><span class="p">,</span>
+            <span class="n">module</span><span class="o">:</span> <span class="s">"./modules/networking"</span><span class="p">,</span>
+            <span class="n">contract</span><span class="o">:</span> <span class="n">ModuleContract</span><span class="p">{</span>
+                <span class="n">RequiredInputs</span><span class="o">:</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">"vpc_cidr"</span><span class="p">,</span> <span class="s">"availability_zones"</span><span class="p">},</span>
+                <span class="n">RequiredOutputs</span><span class="o">:</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">"vpc_id"</span><span class="p">,</span> <span class="s">"subnet_ids"</span><span class="p">,</span> <span class="s">"nat_gateway_ids"</span><span class="p">},</span>
+                <span class="n">ResourceTypes</span><span class="o">:</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">"aws_vpc"</span><span class="p">,</span> <span class="s">"aws_subnet"</span><span class="p">,</span> <span class="s">"aws_nat_gateway"</span><span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">tt</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">tests</span> <span class="p">{</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">tt</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="k">func</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+            <span class="c">// Parse module</span>
+            <span class="n">module</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">tfconfig</span><span class="o">.</span><span class="n">LoadModule</span><span class="p">(</span><span class="n">tt</span><span class="o">.</span><span class="n">module</span><span class="p">)</span>
+            <span class="n">require</span><span class="o">.</span><span class="n">NoError</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            
+            <span class="c">// Verify contract</span>
+            <span class="n">tt</span><span class="o">.</span><span class="n">contract</span><span class="o">.</span><span class="n">Verify</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+        <span class="p">})</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c">// Property-based testing</span>
+<span class="k">func</span> <span class="n">TestInfrastructureProperties</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">quick</span><span class="o">.</span><span class="n">Check</span><span class="p">(</span><span class="k">func</span><span class="p">(</span><span class="n">instanceCount</span> <span class="kt">int</span><span class="p">,</span> <span class="n">azCount</span> <span class="kt">int</span><span class="p">)</span> <span class="kt">bool</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="n">instanceCount</span> <span class="o">&lt;</span> <span class="m">0</span> <span class="o">||</span> <span class="n">azCount</span> <span class="o">&lt;</span> <span class="m">0</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="no">true</span> <span class="c">// Skip invalid inputs</span>
+        <span class="p">}</span>
+        
+        <span class="c">// Apply terraform with generated inputs</span>
+        <span class="n">opts</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">WithDefaultRetryableErrors</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">terraform</span><span class="o">.</span><span class="n">Options</span><span class="p">{</span>
+            <span class="n">TerraformDir</span><span class="o">:</span> <span class="s">"./test"</span><span class="p">,</span>
+            <span class="n">Vars</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}{</span>
+                <span class="s">"instance_count"</span><span class="o">:</span> <span class="n">instanceCount</span> <span class="o">%</span> <span class="m">10</span><span class="p">,</span> <span class="c">// Limit for testing</span>
+                <span class="s">"az_count"</span><span class="o">:</span>       <span class="n">azCount</span> <span class="o">%</span> <span class="m">3</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">})</span>
+        
+        <span class="k">defer</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Destroy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+        <span class="n">terraform</span><span class="o">.</span><span class="n">InitAndApply</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+        
+        <span class="c">// Verify properties</span>
+        <span class="n">actualInstances</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">OutputList</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">,</span> <span class="s">"instance_ids"</span><span class="p">)</span>
+        <span class="n">actualAZs</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">OutputList</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">,</span> <span class="s">"availability_zones"</span><span class="p">)</span>
+        
+        <span class="c">// Property: instance count matches input</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">actualInstances</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">instanceCount</span> <span class="o">%</span> <span class="m">10</span><span class="p">)</span>
+    <span class="p">},</span> <span class="no">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="compliance-testing">Compliance Testing</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pytest</span>
+<span class="kn">from</span> <span class="n">terraform_compliance.common</span> <span class="kn">import</span> <span class="n">Validator</span>
+
+<span class="k">class</span> <span class="nc">TestCompliance</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Automated compliance testing for Terraform configurations</span><span class="sh">"""</span>
+    
+    <span class="nd">@pytest.mark.compliance</span>
+    <span class="k">def</span> <span class="nf">test_encryption_requirements</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">terraform_plan</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Ensure all storage resources are encrypted</span><span class="sh">"""</span>
+        <span class="n">validator</span> <span class="o">=</span> <span class="nc">Validator</span><span class="p">(</span><span class="n">terraform_plan</span><span class="p">)</span>
+        
+        <span class="c1"># Check S3 buckets
+</span>        <span class="n">s3_buckets</span> <span class="o">=</span> <span class="n">validator</span><span class="p">.</span><span class="nf">select_resources</span><span class="p">(</span><span class="sh">"</span><span class="s">aws_s3_bucket</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bucket</span> <span class="ow">in</span> <span class="n">s3_buckets</span><span class="p">:</span>
+            <span class="n">encryption</span> <span class="o">=</span> <span class="n">validator</span><span class="p">.</span><span class="nf">select_related</span><span class="p">(</span>
+                <span class="n">bucket</span><span class="p">,</span> 
+                <span class="sh">"</span><span class="s">aws_s3_bucket_server_side_encryption_configuration</span><span class="sh">"</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">encryption</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Bucket </span><span class="si">{</span><span class="n">bucket</span><span class="p">[</span><span class="sh">'</span><span class="s">address</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s"> missing encryption</span><span class="sh">"</span>
+        
+        <span class="c1"># Check EBS volumes
+</span>        <span class="n">ebs_volumes</span> <span class="o">=</span> <span class="n">validator</span><span class="p">.</span><span class="nf">select_resources</span><span class="p">(</span><span class="sh">"</span><span class="s">aws_ebs_volume</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">volume</span> <span class="ow">in</span> <span class="n">ebs_volumes</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">volume</span><span class="p">[</span><span class="sh">'</span><span class="s">values</span><span class="sh">'</span><span class="p">].</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">encrypted</span><span class="sh">'</span><span class="p">,</span> <span class="bp">False</span><span class="p">),</span> \
+                <span class="sa">f</span><span class="sh">"</span><span class="s">EBS volume </span><span class="si">{</span><span class="n">volume</span><span class="p">[</span><span class="sh">'</span><span class="s">address</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s"> not encrypted</span><span class="sh">"</span>
+    
+    <span class="nd">@pytest.mark.compliance</span>
+    <span class="k">def</span> <span class="nf">test_network_isolation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">terraform_plan</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Verify network isolation requirements</span><span class="sh">"""</span>
+        <span class="n">validator</span> <span class="o">=</span> <span class="nc">Validator</span><span class="p">(</span><span class="n">terraform_plan</span><span class="p">)</span>
+        
+        <span class="c1"># No public IPs in production
+</span>        <span class="k">if</span> <span class="n">validator</span><span class="p">.</span><span class="nf">get_variable</span><span class="p">(</span><span class="sh">'</span><span class="s">environment</span><span class="sh">'</span><span class="p">)</span> <span class="o">==</span> <span class="sh">'</span><span class="s">production</span><span class="sh">'</span><span class="p">:</span>
+            <span class="n">instances</span> <span class="o">=</span> <span class="n">validator</span><span class="p">.</span><span class="nf">select_resources</span><span class="p">(</span><span class="sh">"</span><span class="s">aws_instance</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">instance</span> <span class="ow">in</span> <span class="n">instances</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="ow">not</span> <span class="n">instance</span><span class="p">[</span><span class="sh">'</span><span class="s">values</span><span class="sh">'</span><span class="p">].</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">associate_public_ip_address</span><span class="sh">'</span><span class="p">),</span> \
+                    <span class="sa">f</span><span class="sh">"</span><span class="s">Instance </span><span class="si">{</span><span class="n">instance</span><span class="p">[</span><span class="sh">'</span><span class="s">address</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s"> has public IP in production</span><span class="sh">"</span>
+</code></pre></div></div>
+
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

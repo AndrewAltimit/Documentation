@@ -1,0 +1,2294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Docker: Storage & Security">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/storage-security.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker: Storage & Security">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Docker: Storage & Security | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+  }
+  
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality
+  if (window.innerWidth <= 1023) {
+    if (!document.querySelector('.nav-toggle')) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'nav-toggle';
+      toggleBtn.innerHTML = '☰ Menu';
+      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+      document.body.appendChild(toggleBtn);
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.appendChild(overlay);
+      
+      toggleBtn.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+      });
+      
+      overlay.addEventListener('click', function() {
+        const sidebar = document.querySelector('.sidebar.sticky');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+      });
+    }
+  }
+  
+  // Handle window resize
+  let resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      const sidebar = document.querySelector('.sidebar.sticky');
+      const overlay = document.querySelector('.sidebar-overlay');
+      const toggle = document.querySelector('.nav-toggle');
+      
+      if (window.innerWidth > 1023) {
+        if (sidebar) sidebar.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (toggle) toggle.style.display = 'none';
+      } else {
+        if (toggle) toggle.style.display = 'block';
+      }
+    }, 250);
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <div id="main" role="main">
+  <aside class="sidebar sticky">
+    <nav class="nav__list">
+      
+        
+          <h3 class="nav__title">Navigation</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">🗺️ Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">🔍 Search</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">📋 Reference Index</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/infrastructure.html"
+                               >
+                              Infrastructure
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               class="active">
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/docker-essentials.html"
+                       >
+                      <span class="nav__sub-title">Docker Essentials</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git.html"
+                       >
+                      <span class="nav__sub-title">Git</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/git-reference.html"
+                       >
+                      <span class="nav__sub-title">Git Command Reference</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/branching.html"
+                       >
+                      <span class="nav__sub-title">Branching Strategies</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/database-design.html"
+                       >
+                      <span class="nav__sub-title">Database Design</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/networking.html"
+                       >
+                      <span class="nav__sub-title">Networking</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/cybersecurity.html"
+                       >
+                      <span class="nav__sub-title">Cybersecurity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ci-cd.html"
+                       >
+                      <span class="nav__sub-title">CI/CD</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/unreal.html"
+                       >
+                      <span class="nav__sub-title">Unreal Engine</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                       >
+                      <span class="nav__sub-title">AI Fundamentals (Simple)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                       >
+                      <span class="nav__sub-title">AI Lecture 2023</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/please-build.html"
+                       >
+                      <span class="nav__sub-title">Please Build</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Specialized Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/gamedev/index.html"
+                       >
+                      <span class="nav__sub-title">Game Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/graphics/3d-rendering.html"
+                       >
+                      <span class="nav__sub-title">3D Graphics & Rendering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/vr-ar/index.html"
+                       >
+                      <span class="nav__sub-title">VR/AR Development</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                       >
+                      <span class="nav__sub-title">Stable Diffusion Fundamentals</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                       >
+                      <span class="nav__sub-title">Base Models Comparison</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/model-types.html"
+                       >
+                      <span class="nav__sub-title">Model Types</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/lora-training.html"
+                       >
+                      <span class="nav__sub-title">LoRA Training</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/controlnet.html"
+                       >
+                      <span class="nav__sub-title">ControlNet Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                       >
+                      <span class="nav__sub-title">ComfyUI Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/output-formats.html"
+                       >
+                      <span class="nav__sub-title">Output Formats</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                       >
+                      <span class="nav__sub-title">Advanced Techniques</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/classical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Classical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/thermodynamics.html"
+                       >
+                      <span class="nav__sub-title">Thermodynamics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/statistical-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Statistical Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/relativity.html"
+                       >
+                      <span class="nav__sub-title">Relativity</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-mechanics.html"
+                       >
+                      <span class="nav__sub-title">Quantum Mechanics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/condensed-matter.html"
+                       >
+                      <span class="nav__sub-title">Condensed Matter Physics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                       >
+                      <span class="nav__sub-title">Quantum Field Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/string-theory.html"
+                       >
+                      <span class="nav__sub-title">String Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/physics/computational-physics.html"
+                       >
+                      <span class="nav__sub-title">Computational Physics</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Topics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        <h1 id="page-title" class="page__title">Docker: Storage & Security</h1>
+      </header>
+
+      <section class="page__content">
+        <h2 id="docker-in-practice">Docker in Practice</h2>
+
+<div class="docker-section">
+  <div class="docker-intro">
+    <p>Docker is a platform for developing, shipping, and running applications via containerization technology which packages applications and their dependencies into lightweight and portable containers that can run consistently across different environments.</p>
+    
+    <div class="docker-workflow">
+      <h3><i class="fas fa-cogs"></i> Docker Workflow</h3>
+      <svg viewBox="0 0 700 200" class="workflow-diagram">
+        <!-- Build Stage -->
+        <rect x="50" y="50" width="120" height="100" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2" />
+        <text x="110" y="80" text-anchor="middle" font-size="14" font-weight="bold">BUILD</text>
+        <rect x="70" y="95" width="80" height="40" fill="#2c3e50" />
+        <text x="110" y="120" text-anchor="middle" font-size="10" fill="white">Dockerfile</text>
+        
+        <!-- Arrow -->
+        <path d="M 175 100 L 225 100" stroke="#34495e" stroke-width="3" marker-end="url(#arrow)" />
+        <text x="200" y="90" text-anchor="middle" font-size="10">docker build</text>
+        
+        <!-- Ship Stage -->
+        <rect x="230" y="50" width="120" height="100" fill="#e74c3c" opacity="0.3" stroke="#c0392b" stroke-width="2" />
+        <text x="290" y="80" text-anchor="middle" font-size="14" font-weight="bold">SHIP</text>
+        <circle cx="290" cy="110" r="25" fill="#c0392b" />
+        <text x="290" y="115" text-anchor="middle" font-size="10" fill="white">Image</text>
+        
+        <!-- Registry -->
+        <rect x="380" y="30" width="140" height="140" fill="#f39c12" opacity="0.2" stroke="#d68910" stroke-width="2" />
+        <text x="450" y="55" text-anchor="middle" font-size="12">Docker Registry</text>
+        <rect x="400" y="70" width="40" height="30" fill="#d68910" opacity="0.5" />
+        <rect x="450" y="70" width="40" height="30" fill="#d68910" opacity="0.5" />
+        <rect x="400" y="110" width="40" height="30" fill="#d68910" opacity="0.5" />
+        <rect x="450" y="110" width="40" height="30" fill="#d68910" opacity="0.5" />
+        
+        <!-- Push arrow -->
+        <path d="M 315 100 Q 350 80, 375 100" stroke="#34495e" stroke-width="2" marker-end="url(#arrow)" />
+        <text x="345" y="75" text-anchor="middle" font-size="9">push</text>
+        
+        <!-- Pull arrow -->
+        <path d="M 520 100 Q 545 120, 545 150" stroke="#34495e" stroke-width="2" marker-end="url(#arrow)" />
+        <text x="535" y="125" text-anchor="middle" font-size="9">pull</text>
+        
+        <!-- Run Stage -->
+        <rect x="480" y="155" width="120" height="40" fill="#27ae60" opacity="0.3" stroke="#229954" stroke-width="2" />
+        <text x="540" y="180" text-anchor="middle" font-size="14" font-weight="bold">RUN</text>
+        <text x="620" y="175" font-size="10">Containers</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<h3 id="installing-docker">Installing Docker</h3>
+
+<div class="installation-guide">
+  <p class="install-intro">Docker installation varies by operating system. Here's a comprehensive guide for each platform:</p>
+  
+  <div class="install-tabs">
+    <h4><i class="fas fa-linux"></i> Linux Installation</h4>
+    
+    <div class="install-method">
+      <h5>Ubuntu/Debian Quick Install</h5>
+      <pre><code class="language-bash"># Update package index
+sudo apt-get update
+
+# Install prerequisites
+sudo apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+
+# Add Docker's official GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Set up the stable repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list &gt; /dev/null
+
+# Install Docker Engine
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Add your user to the docker group (logout/login required)
+sudo usermod -aG docker $USER
+
+# Verify installation
+docker --version
+docker compose version</code></pre>
+    </div>
+    
+    <div class="install-method">
+      <h5>Post-Installation Setup</h5>
+      <pre><code class="language-bash"># Configure Docker to start on boot
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Test Docker installation
+docker run hello-world
+
+# Configure Docker daemon (optional)
+sudo tee /etc/docker/daemon.json &lt;&lt; EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 64000,
+      "Soft": 64000
+    }
+  }
+}
+EOF
+
+sudo systemctl restart docker</code></pre>
+    </div>
+  </div>
+</div>
+
+<p>The first step in your Docker journey is installation. Docker provides packages for all major operating systems:</p>
+
+<ul>
+  <li><a href="https://docs.docker.com/engine/install/ubuntu/">Install Docker on Ubuntu</a></li>
+  <li><a href="https://docs.docker.com/engine/install/debian/">Install Docker on Debian</a></li>
+  <li><a href="https://docs.docker.com/engine/install/fedora/">Install Docker on Fedora</a></li>
+  <li><a href="https://docs.docker.com/engine/install/centos/">Install Docker on CentOS</a></li>
+  <li><a href="https://docs.docker.com/docker-for-windows/install/">Install Docker on Windows</a></li>
+  <li><a href="https://docs.docker.com/docker-for-mac/install/">Install Docker on macOS</a></li>
+</ul>
+
+<p>Once Docker is installed, you’ll interact with it primarily through the command-line interface. Let’s explore the essential commands that will become part of your daily workflow.</p>
+
+<h3 id="common-docker-cli-commands">Common Docker CLI Commands</h3>
+
+<div class="docker-commands">
+  <div class="command-category">
+    <h3><i class="fas fa-images"></i> Images</h3>
+    <div class="command-grid">
+      <div class="command-item">
+        <code>docker images</code>
+        <span>List all local images</span>
+      </div>
+      <div class="command-item">
+        <code>docker pull &lt;image&gt;:&lt;tag&gt;</code>
+        <span>Download image from registry</span>
+      </div>
+      <div class="command-item">
+        <code>docker rmi &lt;image&gt;:&lt;tag&gt;</code>
+        <span>Remove an image</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="command-category">
+    <h3><i class="fas fa-cube"></i> Containers</h3>
+    <div class="command-grid">
+      <div class="command-item">
+        <code>docker ps</code>
+        <span>List running containers</span>
+      </div>
+      <div class="command-item">
+        <code>docker ps -a</code>
+        <span>List all containers</span>
+      </div>
+      <div class="command-item">
+        <code>docker run -it --rm --name &lt;name&gt; &lt;image&gt;:&lt;tag&gt;</code>
+        <span>Run interactive container</span>
+      </div>
+      <div class="command-item">
+        <code>docker stop &lt;container&gt;</code>
+        <span>Stop a running container</span>
+      </div>
+      <div class="command-item">
+        <code>docker rm &lt;container&gt;</code>
+        <span>Remove a container</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="command-category">
+    <h3><i class="fas fa-file-alt"></i> Container Operations</h3>
+    <div class="command-grid">
+      <div class="command-item">
+        <code>docker logs &lt;container&gt;</code>
+        <span>View container logs</span>
+      </div>
+      <div class="command-item">
+        <code>docker exec -it &lt;container&gt; &lt;command&gt;</code>
+        <span>Execute command in container</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="command-category">
+    <h3><i class="fas fa-hammer"></i> Building &amp; Publishing</h3>
+    <div class="command-grid">
+      <div class="command-item">
+        <code>docker build -t &lt;image&gt;:&lt;tag&gt; .</code>
+        <span>Build image from Dockerfile</span>
+      </div>
+      <div class="command-item">
+        <code>docker push &lt;image&gt;:&lt;tag&gt;</code>
+        <span>Push image to registry</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="command-flow">
+    <h3><i class="fas fa-stream"></i> Common Workflow</h3>
+    <div class="workflow-commands">
+      <div class="workflow-item">
+        <code>docker build -t myapp:1.0 .</code>
+        <span>Build your application image</span>
+      </div>
+      <div class="workflow-item">
+        <code>docker run -d -p 8080:80 myapp:1.0</code>
+        <span>Run container in detached mode</span>
+      </div>
+      <div class="workflow-item">
+        <code>docker logs -f &lt;container_id&gt;</code>
+        <span>Monitor application logs</span>
+      </div>
+      <div class="workflow-item">
+        <code>docker push myapp:1.0</code>
+        <span>Share image via registry</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 id="docker-compose">Docker Compose</h3>
+
+<ul>
+  <li>Start a multi-container application: <code class="language-plaintext highlighter-rouge">docker-compose up -d</code></li>
+  <li>Stop a multi-container application: <code class="language-plaintext highlighter-rouge">docker-compose down</code></li>
+</ul>
+
+<h2 id="docker-storage-volumes-bind-mounts-and-tmpfs">Docker Storage: Volumes, Bind Mounts, and tmpfs</h2>
+
+<div class="storage-section">
+  <h3><i class="fas fa-database"></i> Understanding Docker Storage</h3>
+  
+  <p class="storage-intro">Docker provides three ways to persist data beyond the container lifecycle. Choosing the right storage option is crucial for application performance and data management.</p>
+  
+  <div class="storage-comparison">
+    <table class="storage-table">
+      <thead>
+        <tr>
+          <th>Storage Type</th>
+          <th>Use Case</th>
+          <th>Performance</th>
+          <th>Portability</th>
+          <th>Management</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Volumes</strong></td>
+          <td>Production data, databases, shared data between containers</td>
+          <td>Best (native to Docker)</td>
+          <td>High (managed by Docker)</td>
+          <td>Easy (Docker commands)</td>
+        </tr>
+        <tr>
+          <td><strong>Bind Mounts</strong></td>
+          <td>Development, config files, source code</td>
+          <td>Good (direct filesystem)</td>
+          <td>Low (host-dependent)</td>
+          <td>Manual (filesystem)</td>
+        </tr>
+        <tr>
+          <td><strong>tmpfs</strong></td>
+          <td>Temporary data, secrets, caches</td>
+          <td>Excellent (memory)</td>
+          <td>None (memory only)</td>
+          <td>Automatic (cleared on stop)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <h3><i class="fas fa-hdd"></i> Docker Volumes</h3>
+  
+  <div class="volume-examples">
+    <h4>Creating and Using Volumes</h4>
+    <pre><code class="language-bash"># Create a named volume
+docker volume create app-data
+
+# Inspect volume details
+docker volume inspect app-data
+
+# Run container with volume
+docker run -d \
+  --name postgres-db \
+  -v app-data:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=mysecret \
+  postgres:15
+
+# List all volumes
+docker volume ls
+
+# Remove unused volumes
+docker volume prune</code></pre>
+    
+    <h4>Volume Drivers and Options</h4>
+    <pre><code class="language-bash"># Create volume with specific driver
+docker volume create \
+  --driver local \
+  --opt type=nfs \
+  --opt o=addr=192.168.1.100,rw \
+  --opt device=:/path/to/nfs/share \
+  nfs-volume
+
+# Create volume with size limit (requires compatible driver)
+docker volume create \
+  --driver local \
+  --opt o=size=10G \
+  limited-volume</code></pre>
+    
+    <h4>Backup and Restore Volumes</h4>
+    <pre><code class="language-bash"># Backup a volume
+docker run --rm \
+  -v app-data:/source:ro \
+  -v $(pwd):/backup \
+  alpine \
+  tar czf /backup/app-data-backup.tar.gz -C /source .
+
+# Restore a volume
+docker run --rm \
+  -v app-data:/target \
+  -v $(pwd):/backup:ro \
+  alpine \
+  tar xzf /backup/app-data-backup.tar.gz -C /target</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-link"></i> Bind Mounts</h3>
+  
+  <div class="bind-mount-examples">
+    <h4>Development Workflow with Bind Mounts</h4>
+    <pre><code class="language-bash"># Mount source code for live development
+docker run -d \
+  --name dev-app \
+  -v $(pwd)/src:/app/src:ro \
+  -v $(pwd)/config.yml:/app/config.yml:ro \
+  -p 3000:3000 \
+  node:18 \
+  npm run dev
+
+# Mount with specific permissions
+docker run -d \
+  --name nginx-server \
+  -v $(pwd)/html:/usr/share/nginx/html:ro \
+  -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
+  -p 80:80 \
+  nginx:alpine</code></pre>
+    
+    <h4>Advanced Bind Mount Options</h4>
+    <pre><code class="language-bash"># Mount with custom propagation
+docker run -d \
+  --name shared-mount \
+  --mount type=bind,source=/host/shared,target=/container/shared,bind-propagation=rslave \
+  ubuntu:22.04
+
+# Read-only bind mount with consistency flag (macOS)
+docker run -d \
+  --name consistent-app \
+  -v $(pwd):/app:ro,cached \
+  my-app</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-memory"></i> tmpfs Mounts</h3>
+  
+  <div class="tmpfs-examples">
+    <h4>Using tmpfs for Sensitive Data</h4>
+    <pre><code class="language-bash"># Create tmpfs mount for secrets
+docker run -d \
+  --name secure-app \
+  --tmpfs /run/secrets:rw,size=10m,mode=0700 \
+  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
+  my-secure-app
+
+# Using --mount syntax
+docker run -d \
+  --name cache-app \
+  --mount type=tmpfs,destination=/app/cache,tmpfs-size=1g,tmpfs-mode=1777 \
+  my-app</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-share-alt"></i> Sharing Data Between Containers</h3>
+  
+  <div class="data-sharing-examples">
+    <h4>Volume Sharing Pattern</h4>
+    <pre><code class="language-bash"># Create shared volume
+docker volume create shared-data
+
+# Producer container
+docker run -d \
+  --name producer \
+  -v shared-data:/data \
+  busybox \
+  sh -c 'while true; do echo "$(date)" &gt;&gt; /data/log.txt; sleep 5; done'
+
+# Consumer container
+docker run -d \
+  --name consumer \
+  -v shared-data:/data:ro \
+  busybox \
+  sh -c 'tail -f /data/log.txt'
+
+# View consumer output
+docker logs -f consumer</code></pre>
+    
+    <h4>Data Container Pattern (Legacy)</h4>
+    <pre><code class="language-bash"># Create data container
+docker create -v /data --name data-container busybox
+
+# Use volumes from data container
+docker run -d \
+  --name app1 \
+  --volumes-from data-container \
+  my-app
+
+docker run -d \
+  --name app2 \
+  --volumes-from data-container \
+  my-app</code></pre>
+  </div>
+</div>
+
+<h2 id="docker-networking-in-depth">Docker Networking In-Depth</h2>
+
+<div class="networking-section">
+  <h3><i class="fas fa-network-wired"></i> Docker Network Architecture</h3>
+  
+  <p class="network-intro">Docker's networking subsystem is pluggable, using drivers to provide different networking capabilities. Understanding these drivers is essential for designing secure, scalable containerized applications.</p>
+  
+  <div class="network-drivers">
+    <h4>Network Driver Overview</h4>
+    
+    <div class="driver-grid">
+      <div class="driver-card">
+        <h5><i class="fas fa-bridge"></i> Bridge (default)</h5>
+        <p>Default network for standalone containers. Provides network isolation and automatic DNS resolution between containers.</p>
+        <code>docker network create --driver bridge my-bridge</code>
+      </div>
+      
+      <div class="driver-card">
+        <h5><i class="fas fa-server"></i> Host</h5>
+        <p>Removes network isolation between container and host. Container uses host's network directly.</p>
+        <code>docker run --network host nginx</code>
+      </div>
+      
+      <div class="driver-card">
+        <h5><i class="fas fa-layer-group"></i> Overlay</h5>
+        <p>Creates distributed networks among multiple Docker hosts. Used in Swarm mode for multi-host communication.</p>
+        <code>docker network create --driver overlay --attachable my-overlay</code>
+      </div>
+      
+      <div class="driver-card">
+        <h5><i class="fas fa-ethernet"></i> Macvlan</h5>
+        <p>Assigns MAC address to containers, making them appear as physical devices on the network.</p>
+        <code>docker network create -d macvlan --subnet=192.168.1.0/24 my-macvlan</code>
+      </div>
+      
+      <div class="driver-card">
+        <h5><i class="fas fa-ban"></i> None</h5>
+        <p>Disables all networking for the container. Used for maximum isolation.</p>
+        <code>docker run --network none alpine</code>
+      </div>
+    </div>
+  </div>
+  
+  <h3><i class="fas fa-project-diagram"></i> Bridge Networking Deep Dive</h3>
+  
+  <div class="bridge-networking">
+    <h4>Creating Custom Bridge Networks</h4>
+    <pre><code class="language-bash"># Create custom bridge with specific subnet
+docker network create \
+  --driver bridge \
+  --subnet=172.20.0.0/16 \
+  --ip-range=172.20.240.0/20 \
+  --gateway=172.20.0.1 \
+  --opt com.docker.network.bridge.name=docker-custom \
+  custom-bridge
+
+# Run containers on custom network
+docker run -d --name web --network custom-bridge nginx
+docker run -d --name db --network custom-bridge postgres
+
+# Containers can communicate using names
+docker exec web ping db</code></pre>
+    
+    <h4>Network Isolation and Security</h4>
+    <pre><code class="language-bash"># Create isolated networks for different apps
+docker network create frontend
+docker network create backend
+
+# Run frontend container
+docker run -d \
+  --name webapp \
+  --network frontend \
+  -p 80:80 \
+  nginx
+
+# Run backend container
+docker run -d \
+  --name api \
+  --network backend \
+  my-api
+
+# Connect API to frontend network for communication
+docker network connect frontend api
+
+# Now webapp can reach api, but they're still isolated from other containers</code></pre>
+    
+    <h4>DNS and Service Discovery</h4>
+    <pre><code class="language-bash"># Docker provides automatic DNS resolution
+docker run -d --name redis --network custom-bridge redis
+docker run -it --network custom-bridge alpine sh
+
+# Inside the alpine container:
+nslookup redis
+ping redis
+
+# Custom DNS configuration
+docker run -d \
+  --name custom-dns \
+  --network custom-bridge \
+  --dns 8.8.8.8 \
+  --dns 8.8.4.4 \
+  --dns-search example.com \
+  --hostname myapp \
+  --add-host db-server:172.20.0.5 \
+  my-app</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-globe"></i> Overlay Networking for Swarm</h3>
+  
+  <div class="overlay-networking">
+    <h4>Setting Up Overlay Network</h4>
+    <pre><code class="language-bash"># Initialize Swarm mode
+docker swarm init
+
+# Create overlay network
+docker network create \
+  --driver overlay \
+  --subnet=10.0.0.0/16 \
+  --opt encrypted \
+  secure-overlay
+
+# Deploy service using overlay network
+docker service create \
+  --name web \
+  --network secure-overlay \
+  --replicas 3 \
+  -p 80:80 \
+  nginx
+
+# Inspect network
+docker network inspect secure-overlay</code></pre>
+    
+    <h4>Multi-Host Communication</h4>
+    <pre><code class="language-bash"># On Swarm manager
+docker service create \
+  --name backend \
+  --network secure-overlay \
+  --replicas 2 \
+  my-backend
+
+docker service create \
+  --name frontend \
+  --network secure-overlay \
+  --replicas 3 \
+  --publish 8080:80 \
+  my-frontend
+
+# Services can communicate across hosts using service names
+# Load balancing is automatic</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-ethernet"></i> Macvlan Networking</h3>
+  
+  <div class="macvlan-networking">
+    <h4>Configuring Macvlan</h4>
+    <pre><code class="language-bash"># Create macvlan network
+docker network create -d macvlan \
+  --subnet=192.168.1.0/24 \
+  --gateway=192.168.1.1 \
+  -o parent=eth0 \
+  macvlan-net
+
+# Run container with specific IP
+docker run -d \
+  --name macvlan-container \
+  --network macvlan-net \
+  --ip 192.168.1.100 \
+  nginx
+
+# Container is now accessible on LAN as 192.168.1.100</code></pre>
+    
+    <h4>802.1q VLAN Trunking</h4>
+    <pre><code class="language-bash"># Create macvlan with VLAN
+docker network create -d macvlan \
+  --subnet=192.168.10.0/24 \
+  --gateway=192.168.10.1 \
+  -o parent=eth0.10 \
+  vlan10-net
+
+# Multiple VLANs
+docker network create -d macvlan \
+  --subnet=192.168.20.0/24 \
+  --gateway=192.168.20.1 \
+  -o parent=eth0.20 \
+  vlan20-net</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-chart-network"></i> Advanced Networking Patterns</h3>
+  
+  <div class="network-patterns">
+    <h4>Service Mesh Pattern</h4>
+    <pre><code class="language-yaml"># docker-compose.yml for service mesh
+version: '3.8'
+
+services:
+  proxy:
+    image: envoyproxy/envoy:v1.22-latest
+    networks:
+      - mesh
+    ports:
+      - "9901:9901"
+      - "10000:10000"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      
+  service-a:
+    build: ./service-a
+    networks:
+      - mesh
+    environment:
+      - SERVICE_NAME=service-a
+      - PROXY_ADDRESS=proxy:10000
+      
+  service-b:
+    build: ./service-b
+    networks:
+      - mesh
+    environment:
+      - SERVICE_NAME=service-b
+      - PROXY_ADDRESS=proxy:10000
+
+networks:
+  mesh:
+    driver: bridge</code></pre>
+    
+    <h4>Network Policies and Firewalls</h4>
+    <pre><code class="language-bash"># Implement network policies with iptables
+docker run -d --name restricted-app my-app
+
+# Get container IP
+CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' restricted-app)
+
+# Add iptables rules to restrict access
+sudo iptables -I DOCKER-USER -s $CONTAINER_IP -j DROP
+sudo iptables -I DOCKER-USER -s $CONTAINER_IP -d 10.0.0.0/8 -j ACCEPT
+
+# Allow only specific ports
+sudo iptables -I DOCKER-USER -p tcp --dport 443 -j ACCEPT</code></pre>
+  </div>
+</div>
+
+<h2 id="docker-security-best-practices">Docker Security Best Practices</h2>
+
+<div class="security-section">
+  <h3><i class="fas fa-shield-alt"></i> Container Security Fundamentals</h3>
+  
+  <p class="security-intro">Security should be built into your container strategy from the beginning. Docker provides multiple layers of security controls that, when properly configured, create a robust defense-in-depth approach.</p>
+  
+  <div class="security-principles">
+    <h4>Security Principles</h4>
+    
+    <div class="principle-grid">
+      <div class="principle-card">
+        <i class="fas fa-user-lock"></i>
+        <h5>Least Privilege</h5>
+        <p>Run containers with minimal permissions required for operation</p>
+      </div>
+      
+      <div class="principle-card">
+        <i class="fas fa-layer-group"></i>
+        <h5>Defense in Depth</h5>
+        <p>Multiple security layers from host to application</p>
+      </div>
+      
+      <div class="principle-card">
+        <i class="fas fa-shield-virus"></i>
+        <h5>Immutability</h5>
+        <p>Containers should be stateless and read-only where possible</p>
+      </div>
+      
+      <div class="principle-card">
+        <i class="fas fa-search"></i>
+        <h5>Vulnerability Scanning</h5>
+        <p>Regular scanning of images for known vulnerabilities</p>
+      </div>
+    </div>
+  </div>
+  
+  <h3><i class="fas fa-user-shield"></i> Running Containers Securely</h3>
+  
+  <div class="secure-runtime">
+    <h4>User and Permission Management</h4>
+    <pre><code class="language-dockerfile"># Dockerfile best practices
+FROM alpine:3.18
+
+# Create non-root user
+RUN addgroup -g 1000 -S appgroup &amp;&amp; \
+    adduser -u 1000 -S appuser -G appgroup
+
+# Install dependencies as root
+RUN apk add --no-cache python3 py3-pip
+
+# Copy and set ownership
+COPY --chown=appuser:appgroup . /app
+WORKDIR /app
+
+# Switch to non-root user
+USER appuser
+
+# Run as non-root
+CMD ["python3", "app.py"]</code></pre>
+    
+    <h4>Runtime Security Options</h4>
+    <pre><code class="language-bash"># Run with read-only root filesystem
+docker run -d \
+  --name secure-app \
+  --read-only \
+  --tmpfs /tmp \
+  --tmpfs /run \
+  my-app
+
+# Drop all capabilities and add only required ones
+docker run -d \
+  --name minimal-caps \
+  --cap-drop ALL \
+  --cap-add NET_BIND_SERVICE \
+  nginx
+
+# Run with security options
+docker run -d \
+  --name hardened-app \
+  --security-opt no-new-privileges \
+  --security-opt apparmor=docker-default \
+  --pids-limit 100 \
+  --memory 512m \
+  --cpus 0.5 \
+  my-app</code></pre>
+    
+    <h4>Seccomp Profiles</h4>
+    <pre><code class="language-json"># custom-seccomp.json
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "architectures": ["SCMP_ARCH_X86_64"],
+  "syscalls": [
+    {
+      "names": [
+        "accept", "bind", "connect", "listen",
+        "read", "write", "close", "exit"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}</code></pre>
+    <pre><code class="language-bash"># Apply custom seccomp profile
+docker run -d \
+  --name seccomp-app \
+  --security-opt seccomp=./custom-seccomp.json \
+  my-app</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-key"></i> Secrets Management</h3>
+  
+  <div class="secrets-management">
+    <h4>Docker Secrets (Swarm Mode)</h4>
+    <pre><code class="language-bash"># Create secrets
+echo "my-database-password" | docker secret create db_password -
+docker secret create ssl_cert ./cert.pem
+
+# Use secrets in service
+docker service create \
+  --name secure-db \
+  --secret db_password \
+  --secret ssl_cert \
+  postgres:15
+
+# Access secrets in container at /run/secrets/</code></pre>
+    
+    <h4>BuildKit Secrets (Build Time)</h4>
+    <pre><code class="language-dockerfile"># Dockerfile using BuildKit secrets
+# syntax=docker/dockerfile:1
+FROM alpine:3.18
+
+# Mount secret during build
+RUN --mount=type=secret,id=npm_token \
+    NPM_TOKEN=$(cat /run/secrets/npm_token) \
+    npm install --registry https://custom-registry.com</code></pre>
+    <pre><code class="language-bash"># Build with secret
+export DOCKER_BUILDKIT=1
+docker build \
+  --secret id=npm_token,src=./.npm-token \
+  -t my-app .</code></pre>
+    
+    <h4>Environment Variables Best Practices</h4>
+    <pre><code class="language-bash"># Use .env files (never commit to git)
+cat &gt; .env &lt;&lt; EOF
+DB_PASSWORD=supersecret
+API_KEY=abcd1234
+EOF
+
+# Run with env file
+docker run -d \
+  --name app \
+  --env-file .env \
+  my-app
+
+# Or use secrets from external sources
+docker run -d \
+  --name vault-app \
+  -e DB_PASSWORD="$(vault kv get -field=password secret/db)" \
+  my-app</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-search-plus"></i> Image Security Scanning</h3>
+  
+  <div class="image-scanning">
+    <h4>Vulnerability Scanning Tools</h4>
+    <pre><code class="language-bash"># Using Docker Scout (built-in)
+docker scout cves my-app:latest
+docker scout recommendations my-app:latest
+
+# Using Trivy
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image my-app:latest
+
+# Using Grype
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  anchore/grype my-app:latest</code></pre>
+    
+    <h4>Image Signing and Verification</h4>
+    <pre><code class="language-bash"># Enable Docker Content Trust
+export DOCKER_CONTENT_TRUST=1
+
+# Sign and push image
+docker trust sign my-registry/my-app:latest
+
+# Verify image signature
+docker trust inspect --pretty my-registry/my-app:latest</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-clipboard-check"></i> Security Compliance Checklist</h3>
+  
+  <div class="security-checklist">
+    <h4>Image Security</h4>
+    <ul>
+      <li>✓ Use minimal base images (alpine, distroless)</li>
+      <li>✓ Scan images for vulnerabilities regularly</li>
+      <li>✓ Don't store secrets in images</li>
+      <li>✓ Use specific version tags, not 'latest'</li>
+      <li>✓ Sign images with Docker Content Trust</li>
+      <li>✓ Remove unnecessary packages and files</li>
+    </ul>
+    
+    <h4>Runtime Security</h4>
+    <ul>
+      <li>✓ Run containers as non-root user</li>
+      <li>✓ Use read-only root filesystems</li>
+      <li>✓ Drop unnecessary capabilities</li>
+      <li>✓ Limit resources (memory, CPU, PIDs)</li>
+      <li>✓ Use security profiles (AppArmor, SELinux, Seccomp)</li>
+      <li>✓ Isolate containers with user namespaces</li>
+    </ul>
+    
+    <h4>Network Security</h4>
+    <ul>
+      <li>✓ Use custom bridge networks, not default</li>
+      <li>✓ Encrypt overlay network traffic</li>
+      <li>✓ Implement network segmentation</li>
+      <li>✓ Use TLS for container communication</li>
+      <li>✓ Restrict container-to-container communication</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="troubleshooting-common-docker-issues">Troubleshooting Common Docker Issues</h2>
+
+<div class="troubleshooting-section">
+  <h3><i class="fas fa-tools"></i> Debugging Containers</h3>
+  
+  <div class="debug-techniques">
+    <h4>Container Won't Start</h4>
+    <pre><code class="language-bash"># Check container logs
+docker logs container-name
+
+# View detailed container info
+docker inspect container-name
+
+# Check exit code
+docker inspect container-name --format='{{.State.ExitCode}}'
+
+# Debug with interactive shell
+docker run -it --entrypoint /bin/sh my-image
+
+# Override CMD for debugging
+docker run -it my-image /bin/bash -c "echo 'Debug mode'; /app/start.sh"</code></pre>
+    
+    <h4>Connectivity Issues</h4>
+    <pre><code class="language-bash"># Test container networking
+docker run --rm --network container:my-app nicolaka/netshoot
+
+# Inside netshoot container:
+ss -tulpn  # Check listening ports
+nslookup service-name  # Test DNS
+curl -v http://service-name:port  # Test connectivity
+
+# Check iptables rules
+sudo iptables -L -n -v | grep -i docker
+
+# Inspect network
+docker network inspect bridge</code></pre>
+    
+    <h4>Performance Problems</h4>
+    <pre><code class="language-bash"># Real-time container stats
+docker stats
+
+# Check container processes
+docker top container-name
+
+# Resource usage history
+docker system df
+docker system events --since 1h
+
+# Profile container
+docker run -d --name perf-test my-app
+docker exec perf-test cat /proc/1/status | grep -i memory
+docker exec perf-test ps aux</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-exclamation-circle"></i> Common Error Solutions</h3>
+  
+  <div class="error-solutions">
+    <h4>"Cannot connect to Docker daemon"</h4>
+    <pre><code class="language-bash"># Check if Docker is running
+sudo systemctl status docker
+
+# Start Docker if stopped
+sudo systemctl start docker
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in
+
+# Check permissions
+ls -la /var/run/docker.sock</code></pre>
+    
+    <h4>"No space left on device"</h4>
+    <pre><code class="language-bash"># Check disk usage
+df -h
+docker system df
+
+# Clean up unused resources
+docker system prune -a --volumes
+
+# Remove specific items
+docker image prune -a
+docker container prune
+docker volume prune
+docker network prune
+
+# Configure log rotation
+cat &gt; /etc/docker/daemon.json &lt;&lt; EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+sudo systemctl restart docker</code></pre>
+    
+    <h4>"Port already in use"</h4>
+    <pre><code class="language-bash"># Find process using port
+sudo lsof -i :8080
+sudo netstat -tulpn | grep :8080
+
+# Kill process or use different port
+docker run -d -p 8081:80 nginx</code></pre>
+  </div>
+  
+  <h3><i class="fas fa-heartbeat"></i> Health Checks and Monitoring</h3>
+  
+  <div class="health-monitoring">
+    <h4>Implementing Health Checks</h4>
+    <pre><code class="language-dockerfile"># Dockerfile with health check
+FROM node:18-alpine
+WORKDIR /app
+COPY . .
+RUN npm install
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node healthcheck.js || exit 1
+
+CMD ["node", "server.js"]</code></pre>
+    
+    <h4>Monitor Container Health</h4>
+    <pre><code class="language-bash"># Check health status
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Inspect health check results
+docker inspect --format='{{json .State.Health}}' container-name | jq .
+
+# Custom monitoring script
+cat &gt; monitor.sh &lt;&lt; 'EOF'
+#!/bin/bash
+while true; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' $1)
+  echo "$(date): Container $1 health: $STATUS"
+  if [ "$STATUS" != "healthy" ]; then
+    docker logs --tail 50 $1
+  fi
+  sleep 30
+done
+EOF
+chmod +x monitor.sh
+./monitor.sh my-app</code></pre>
+  </div>
+</div>
+
+<p>After mastering the basic Docker commands, the next crucial skill is creating your own Docker images. This is where Dockerfiles come in - they are the blueprint for building custom container images.</p>
+
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>
