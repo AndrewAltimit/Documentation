@@ -22,11 +22,11 @@ A comprehensive knowledge base covering infrastructure, software development, ph
 
 ### Infrastructure & DevOps
 
-- **[Terraform](docs/technology/terraform.html)** - Infrastructure as Code
+- **[Terraform](docs/technology/terraform/)** - Infrastructure as Code
 - **[Docker Essentials](docs/technology/docker-essentials.html)** - Container platform reference
-- **[Docker](docs/technology/docker.html)** - Containerization concepts and architecture
-- **[Kubernetes](docs/technology/kubernetes.html)** - Container orchestration
-- **[AWS](docs/technology/aws.html)** - Amazon Web Services cloud platform
+- **[Docker](docs/technology/docker/)** - Containerization concepts and architecture
+- **[Kubernetes](docs/technology/kubernetes/)** - Container orchestration
+- **[AWS](docs/technology/aws/)** - Amazon Web Services cloud platform
 - **[Networking](docs/technology/networking.html)** - Network fundamentals and protocols
 - **[CI/CD](docs/technology/ci-cd.html)** - Continuous Integration and Deployment
 
@@ -81,15 +81,15 @@ Essential references including:
 
 ### 🔬 [Advanced Research Topics](docs/advanced/index.html)
 Graduate-level content featuring:
-- [AI Mathematics](docs/advanced/ai-mathematics.html) - Statistical learning theory
-- [Distributed Systems Theory](docs/advanced/distributed-systems-theory.html) - Formal methods
-- [Quantum Algorithms Research](docs/advanced/quantum-algorithms-research.html) - Cutting-edge algorithms
+- [AI Mathematics](docs/advanced/ai-mathematics/) - Statistical learning theory
+- [Distributed Systems Theory](docs/advanced/distributed-systems-theory/) - Formal methods
+- [Quantum Algorithms Research](docs/advanced/quantum-algorithms-research/) - Cutting-edge algorithms
 
 ### 🌐 [Distributed Systems Hub](docs/distributed-systems/index.html)
 Architecture and implementation:
-- [Kubernetes](docs/technology/kubernetes.html) - Container orchestration
-- [Docker](docs/technology/docker.html) - Containerization fundamentals
-- [Distributed Systems Theory](docs/advanced/distributed-systems-theory.html)
+- [Kubernetes](docs/technology/kubernetes/) - Container orchestration
+- [Docker](docs/technology/docker/) - Containerization fundamentals
+- [Distributed Systems Theory](docs/advanced/distributed-systems-theory/)
 - Microservices, consensus algorithms, and fault tolerance
 
 ## Recent Updates (2025)

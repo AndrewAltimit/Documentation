@@ -13,7 +13,7 @@ The documentation is organized into several main sections, each serving differen
 
 ### 💻 [Technology Documentation](docs/index.html#technology)
 Comprehensive guides for modern software development:
-- **Infrastructure & DevOps**: [Terraform](docs/technology/terraform.html), [Docker](docs/technology/docker.html), [Kubernetes](docs/technology/kubernetes.html), [AWS](docs/technology/aws.html), [CI/CD pipelines](docs/technology/ci-cd.html)
+- **Infrastructure & DevOps**: [Terraform](docs/technology/terraform/), [Docker](docs/technology/docker/), [Kubernetes](docs/technology/kubernetes/), [AWS](docs/technology/aws/), [CI/CD pipelines](docs/technology/ci-cd.html)
 - **Development & Tools**: [Git workflows](docs/technology/git.html), [database design](docs/technology/database-design.html), [build systems](docs/technology/please-build.html)
 - **Networking & Security**: [TCP/IP](docs/technology/networking.html), protocols, [cybersecurity](docs/technology/cybersecurity.html) best practices
 - **Advanced Topics**: [Quantum computing](docs/technology/quantumcomputing.html), [AI/ML](docs/technology/ai.html), [distributed systems](docs/distributed-systems/index.html)
@@ -30,7 +30,7 @@ Specialized content for artificial intelligence:
 - **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/base-models-comparison.html#flux), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
 - **Model Training**: [LoRA fine-tuning](docs/ai-ml/lora-training.html), dataset preparation
 - **Practical Guides**: From beginner tutorials to [advanced techniques](docs/ai-ml/advanced-techniques.html)
-- **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics.html) and research papers
+- **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics/) and research papers
 
 ### 📚 [Reference Materials](docs/reference/index.html)
 Quick-access resources:
@@ -67,13 +67,13 @@ Depending on your goals:
 **Essential Pages**:
 - [Git Command Reference](docs/technology/git-reference.html) - Comprehensive Git guide with 2024 updates
 - [Docker Essentials](docs/technology/docker-essentials.html) - Container operations and best practices
-- [Kubernetes Guide](docs/technology/kubernetes.html) - Production-ready orchestration patterns
+- [Kubernetes Guide](docs/technology/kubernetes/) - Production-ready orchestration patterns
 - [CI/CD Pipelines](docs/technology/ci-cd.html) - Automation and deployment strategies
 
 ### 🧪 DevOps Engineers
 **Infrastructure Focus**:
-- [Terraform](docs/technology/terraform.html) - Infrastructure as Code with multi-cloud examples
-- [AWS Services](docs/technology/aws.html) - Comprehensive cloud platform guide
+- [Terraform](docs/technology/terraform/) - Infrastructure as Code with multi-cloud examples
+- [AWS Services](docs/technology/aws/) - Comprehensive cloud platform guide
 - [Networking](docs/technology/networking.html) - Modern network architecture
 - [Distributed Systems](docs/distributed-systems/index.html) - Scalability and fault tolerance
 
@@ -89,7 +89,7 @@ Depending on your goals:
 **Theoretical Foundations**:
 - [Quantum Mechanics](docs/physics/quantum-mechanics.html) - Wave functions to entanglement
 - [Quantum Computing](docs/technology/quantumcomputing.html) - From qubits to algorithms
-- [Advanced Mathematics](docs/advanced/ai-mathematics.html) - Graduate-level theory
+- [Advanced Mathematics](docs/advanced/ai-mathematics/) - Graduate-level theory
 - [Research Papers](docs/advanced/index.html) - Latest academic content
 
 ## Tips for Maximum Value

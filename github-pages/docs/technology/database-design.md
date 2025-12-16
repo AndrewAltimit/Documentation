@@ -2506,8 +2506,8 @@ class MiniSQL:
 Each project builds on the last, gradually introducing complexity!
 
 ## See Also
-- [AWS](aws.html) - Cloud database services and DynamoDB internals
-- [Docker](docker.html) - Containerizing databases
+- [AWS](aws/) - Cloud database services and DynamoDB internals
+- [Docker](docker/) - Containerizing databases
 - [Cybersecurity](cybersecurity.html) - Database security and encryption
 - [AI](ai.html) - Machine learning with databases and learned indexes
 - [Networking](networking.html) - Distributed database protocols

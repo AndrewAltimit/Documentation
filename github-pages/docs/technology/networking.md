@@ -1877,7 +1877,7 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 
 ## See Also
 - [Cybersecurity](cybersecurity.html) - Network security, zero trust architecture
-- [AWS](aws.html) - Cloud networking, VPC, Direct Connect
-- [Docker](docker.html) - Container networking, overlay networks
-- [Kubernetes](kubernetes.html) - Cluster networking, CNI plugins
+- [AWS](aws/) - Cloud networking, VPC, Direct Connect
+- [Docker](docker/) - Container networking, overlay networks
+- [Kubernetes](kubernetes/) - Cluster networking, CNI plugins
 - [Quantum Computing](quantumcomputing.html) - Quantum networking and QKD

@@ -37,10 +37,10 @@ The distributed systems landscape continues to evolve rapidly. Key developments 
 ## Quick Navigation
 
 ### Core Infrastructure
-- [**Kubernetes**](../technology/kubernetes.html) - Container orchestration and cluster management
-- [**Docker**](../technology/docker.html) - Containerization fundamentals and best practices
+- [**Kubernetes**](../technology/kubernetes/) - Container orchestration and cluster management
+- [**Docker**](../technology/docker/) - Containerization fundamentals and best practices
 - [**Docker Essentials**](../technology/docker-essentials.html) - Quick reference and commands
-- [**Distributed Systems Theory**](../advanced/distributed-systems-theory.html) - Formal foundations and impossibility results
+- [**Distributed Systems Theory**](../advanced/distributed-systems-theory/) - Formal foundations and impossibility results
 
 ### Key Concepts
 - **Consensus Algorithms** - Paxos, Raft, and Byzantine fault tolerance
@@ -996,16 +996,16 @@ class SecureClient:
 ## See Also
 
 ### Core Technology Pages
-- **[Kubernetes](../technology/kubernetes.html)** - Container orchestration and cluster management
-- **[Docker](../technology/docker.html)** - Containerization fundamentals and best practices
+- **[Kubernetes](../technology/kubernetes/)** - Container orchestration and cluster management
+- **[Docker](../technology/docker/)** - Containerization fundamentals and best practices
 - **[Docker Essentials](../technology/docker-essentials.html)** - Quick reference and essential commands
-- **[AWS Cloud Services](../technology/aws.html)** - Cloud infrastructure and distributed services at scale
+- **[AWS Cloud Services](../technology/aws/)** - Cloud infrastructure and distributed services at scale
 - **[CI/CD Pipelines](../technology/ci-cd.html)** - Continuous integration and deployment for distributed systems
 
 ### Advanced Topics
-- **[Distributed Systems Theory](../advanced/distributed-systems-theory.html)** - Formal foundations, impossibility results, and consensus proofs
-- **[AI Mathematics](../advanced/ai-mathematics.html)** - Mathematical foundations for distributed machine learning systems
-- **[Quantum Algorithms](../advanced/quantum-algorithms-research.html)** - Quantum distributed computing and networking
+- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** - Formal foundations, impossibility results, and consensus proofs
+- **[AI Mathematics](../advanced/ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
+- **[Quantum Algorithms](../advanced/quantum-algorithms-research/)** - Quantum distributed computing and networking
 
 ### Performance and Optimization
 - **[Performance Optimization](../optimization/index.html)** - Optimizing distributed systems performance

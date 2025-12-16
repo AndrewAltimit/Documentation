@@ -987,6 +987,6 @@ estimator = Estimator(backend)
 - [Statistical Mechanics](../physics/statistical-mechanics.html) - Quantum statistics
 - [Condensed Matter Physics](../physics/condensed-matter.html) - Quantum phenomena in materials
 - [String Theory](../physics/string-theory.html) - Quantum gravity approaches
-- [AWS](aws.html) - AWS Braket quantum computing service
+- [AWS](aws/) - AWS Braket quantum computing service
 - [AI](ai.html) - Quantum machine learning algorithms
 - [Cybersecurity](cybersecurity.html) - Post-quantum cryptography

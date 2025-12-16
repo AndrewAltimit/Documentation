@@ -24,10 +24,10 @@
         
         // Technology pages
         { url: 'docs/technology/index.html', title: 'Technology Overview', category: 'technology' },
-        { url: 'docs/technology/terraform.html', title: 'Terraform', category: 'technology' },
-        { url: 'docs/technology/docker.html', title: 'Docker Containers', category: 'technology' },
-        { url: 'docs/technology/aws.html', title: 'AWS', category: 'technology' },
-        { url: 'docs/technology/kubernetes.html', title: 'Kubernetes', category: 'technology' },
+        { url: 'docs/technology/terraform/', title: 'Terraform', category: 'technology' },
+        { url: 'docs/technology/docker/', title: 'Docker Containers', category: 'technology' },
+        { url: 'docs/technology/aws/', title: 'AWS', category: 'technology' },
+        { url: 'docs/technology/kubernetes/', title: 'Kubernetes', category: 'technology' },
         { url: 'docs/technology/database-design.html', title: 'Database Design', category: 'technology' },
         { url: 'docs/technology/networking.html', title: 'Networking', category: 'technology' },
         { url: 'docs/technology/cybersecurity.html', title: 'Cybersecurity', category: 'technology' },

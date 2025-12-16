@@ -344,8 +344,8 @@ docker ps  # Commands now execute on remote host
 
 ## Related Docker Documentation
 
-- [Containers - Complete Guide](docker.html) - In-depth container concepts, networking, and orchestration
-- [Kubernetes](kubernetes.html) - Container orchestration at scale
+- [Containers - Complete Guide](docker/) - In-depth container concepts, networking, and orchestration
+- [Kubernetes](kubernetes/) - Container orchestration at scale
 - [CI/CD Pipelines](ci-cd.html) - Docker in continuous integration workflows
 
 ## Additional Resources

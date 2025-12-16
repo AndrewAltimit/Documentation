@@ -39,7 +39,7 @@ Welcome to our comprehensive physics knowledge base. This collection covers fund
 
 ### Cross-Disciplinary Topics
 - **[Quantum Computing](../technology/quantumcomputing.html)** - Where physics meets computation
-- **[AI Mathematics](../advanced/ai-mathematics.html)** - Statistical mechanics connections to ML
+- **[AI Mathematics](../advanced/ai-mathematics/)** - Statistical mechanics connections to ML
 - **[Advanced Research Topics](../advanced/index.html)** - Graduate-level physics and mathematics
 
 ---

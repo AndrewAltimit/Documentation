@@ -1763,14 +1763,14 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [Cybersecurity](cybersecurity.html) - Adversarial ML and AI security
 - [Database Design](database-design.html) - Vector databases for AI
 - [Networking](networking.html) - Distributed training infrastructure
-- [AWS](aws.html) - Cloud platforms for AI/ML workloads
+- [AWS](aws/) - Cloud platforms for AI/ML workloads
 
 ## Related AI Documentation
 
 ### Different Depth Levels
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
 - [AI Deep Dive](ai-lecture-2023.html) - Research-level content on transformers and LLMs
-- [AI Mathematics](../advanced/ai-mathematics.html) - Theoretical foundations and proofs
+- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
 
 ### Practical Generative AI
 - [AI/ML Documentation Hub](../ai-ml/index.html) - Comprehensive generative AI guides
@@ -1787,5 +1787,5 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [AI Deep Dive](ai-lecture-2023.html) - Advanced concepts and research
 - [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Diffusion models
-- [AI Mathematics](../advanced/ai-mathematics.html) - Theoretical foundations
+- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning

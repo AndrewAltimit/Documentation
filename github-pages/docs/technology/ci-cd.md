@@ -1105,16 +1105,16 @@ Remember: CI/CD is a journey, not a destination. Start simple, measure everythin
 
 - [Git Version Control](git.html) - Version control fundamentals
 - [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
-- [Docker](docker.html) - Containerization for consistent builds
-- [Kubernetes](kubernetes.html) - Container orchestration and deployments
-- [Terraform](terraform.html) - Infrastructure as code
+- [Docker](docker/) - Containerization for consistent builds
+- [Kubernetes](kubernetes/) - Container orchestration and deployments
+- [Terraform](terraform/) - Infrastructure as code
 
 ---
 
 ## See Also
 - [Git Version Control](git.html) - Distributed version control system fundamentals
-- [Docker](docker.html) - Containerization for consistent build environments
-- [Kubernetes](kubernetes.html) - Container orchestration and automated deployments
-- [Terraform](terraform.html) - Infrastructure as code for automated provisioning
-- [AWS](aws.html) - Cloud deployment platforms and services
+- [Docker](docker/) - Containerization for consistent build environments
+- [Kubernetes](kubernetes/) - Container orchestration and automated deployments
+- [Terraform](terraform/) - Infrastructure as code for automated provisioning
+- [AWS](aws/) - Cloud deployment platforms and services
 - [Cybersecurity](cybersecurity.html) - Security best practices for CI/CD pipelines

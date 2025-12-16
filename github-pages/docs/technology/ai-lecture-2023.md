@@ -482,7 +482,7 @@ Finally, it's important for us to advocate for the responsible development and i
 ### Foundation Knowledge
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Start here if you need the basics
 - [AI Fundamentals - Complete](ai.html) - Comprehensive technical reference
-- [AI Mathematics](../advanced/ai-mathematics.html) - Statistical learning theory
+- [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory
 
 ### Practical Applications
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models
@@ -492,7 +492,7 @@ Finally, it's important for us to advocate for the responsible development and i
 ### Related Technologies
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning
 - [Database Design](database-design.html) - Vector databases for AI applications
-- [AWS](aws.html) - Cloud infrastructure for AI/ML
+- [AWS](aws/) - Cloud infrastructure for AI/ML
 
 ### Hub Page
 - [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
@@ -502,7 +502,7 @@ Finally, it's important for us to advocate for the responsible development and i
 ## See Also
 - [AI Fundamentals - Complete](ai.html) - Foundation concepts and comprehensive overview
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Beginner introduction without math
-- [AI Mathematics](../advanced/ai-mathematics.html) - Theoretical foundations and proofs
+- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
 - [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides and workflows
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models
