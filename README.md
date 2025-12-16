@@ -1,28 +1,40 @@
-# Documentation Repository
+# Andrew's Notebook
 
-This repository contains comprehensive technical documentation with three main components:
+Technical documentation repository hosting a GitHub Pages site covering physics, technology, and AI/ML topics.
 
-## 📁 github-pages/
-Contains the GitHub Pages website documentation for "Andrew's Notebook":
-- Public-facing technical wiki/knowledgebase covering physics and technology
-- Professional reference documentation with Jekyll-based web presentation
-- Topics include: Quantum Computing, AI/ML, Docker, Kubernetes, Terraform, AWS, Git, and more
-- Available at: https://andrewaltimit.github.io/Documentation/
+**Live Site:** https://andrewaltimit.github.io/Documentation/
 
-### Building the Site Locally
+## Overview
+
+This repository contains:
+
+- **GitHub Pages Site** - Public-facing technical wiki covering quantum computing, AI/ML, containerization, cloud infrastructure, and more
+- **MCP Tools** - Model Context Protocol servers for code quality, content creation, and AI integration
+- **CI/CD Infrastructure** - Container-first automation with self-hosted GitHub Actions runners
+
+## Repository Structure
+
+```
+Documentation/
+├── github-pages/          # Jekyll site source (docs, layouts, assets)
+├── tools/mcp/             # MCP server implementations
+├── automation/            # CI/CD scripts and analysis tools
+├── docker/                # Dockerfiles for all services
+├── development-docs/      # Internal docs for AI agents and processes
+├── examples/              # Example scripts and demos
+└── config/                # Configuration files
+```
+
+## Quick Start
+
+### Build the Site Locally
+
 ```bash
-# Using docker-compose (from repository root)
+# Using docker-compose (recommended)
 docker-compose run --rm jekyll
 
-# Or using Docker directly (from github-pages directory)
+# Serve locally at http://localhost:4000
 cd github-pages
-docker run --rm \
-  --volume="$PWD:/srv/jekyll:Z" \
-  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
-  jekyll/jekyll:4.2.2 \
-  jekyll build
-
-# Serve locally for testing (http://localhost:4000)
 docker run --rm \
   --volume="$PWD:/srv/jekyll:Z" \
   --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
@@ -31,48 +43,57 @@ docker run --rm \
   jekyll serve --host 0.0.0.0
 ```
 
-## 📁 development-docs/
-Contains internal documentation for AI agents and development processes:
+### Run Code Quality Checks
+
+```bash
+./automation/ci-cd/run-ci.sh full
+```
+
+## Documentation Topics
+
+### Physics
+- Quantum Mechanics and Quantum Field Theory
+- Special and General Relativity
+- Statistical Mechanics and Thermodynamics
+- Condensed Matter Physics
+
+### Technology
+- Docker and Kubernetes
+- Terraform and AWS
+- Git and Version Control
+- Database Design
+- Cybersecurity
+
+### AI/ML
+- Stable Diffusion and Diffusion Models
+- ComfyUI Workflows
+- LoRA Training
+- Transformer Architectures
+
+## MCP Tools
+
+FastAPI-based Model Context Protocol servers providing:
+
+| Tool | Description |
+|------|-------------|
+| mcp_core | Base MCP server framework |
+| mcp_content_creation | Manim animations and LaTeX compilation |
+| mcp_gemini | Gemini AI integration |
+| mcp_code_quality | Linting and formatting tools |
+
+## Development
+
+This project follows a container-first philosophy. All Python operations run in Docker containers to ensure consistency and reproducibility.
+
+Key files for contributors:
 - `CLAUDE.md` - Instructions for Claude Code AI assistant
-- `PROJECT_CONTEXT.md` - Project context for AI code review
-- `AI_AGENTS.md` - Documentation about the three AI agents (Claude, Gemini, Copilot)
-- `AI_TOOLKIT_COMFYUI_INTEGRATION_GUIDE.md` - AI toolkit and ComfyUI integration guide
-- `CONTAINERIZED_CI.md` - Container-first CI/CD documentation
-- `GEMINI_SETUP.md` - Gemini CLI setup and configuration
-- `LORA_TRANSFER_DOCUMENTATION.md` - LoRA model transfer documentation
-- `MCP_TOOLS.md` - Model Context Protocol tools documentation
-- `SELF_HOSTED_RUNNER_SETUP.md` - GitHub Actions self-hosted runner setup
+- `development-docs/` - Internal documentation and guides
+- `pyproject.toml` - Python tool configurations (black, ruff, mypy, etc.)
 
-## 🔧 MCP Server
-FastAPI-based Model Context Protocol server (port 8005) providing:
-- Code quality tools (format checking, linting, analysis)
-- AI integration tools (Gemini consultation, history management)
-- Content creation tools (Manim animations, LaTeX compilation)
-- Remote service integration (ComfyUI, AI Toolkit)
+## License
 
-## Other Key Directories
-- `docker/` - Dockerfiles for containerized services (python-ci, mcp-server, manim-latex, mcp-http-bridge)
-- `scripts/` - Utility scripts for CI/CD, development, and maintenance
-- `tools/` - Python tools including MCP server implementation and Gemini integration
-- `tests/` - Test suite for MCP tools and server functionality
-- `examples/` - Example scripts demonstrating tool usage and visualizations
-- `.github/workflows/` - GitHub Actions workflows for CI/CD
+See [LICENSE](LICENSE) for details.
 
-## Project Philosophy
-- **Container-First**: All Python operations run in Docker containers
-- **Professional Documentation**: Wiki-style technical reference (not tutorials)
-- **AI-Assisted Development**: Integrated AI agents for code review and documentation
-- **Automated Quality**: Comprehensive CI/CD with linting, testing, and security checks
+---
 
-## Recent Updates (2024-2025)
-- Transformed from tutorial platform to professional technical wiki
-- Enhanced visual documentation with diagrams, animations, and interactive elements
-- Implemented progressive documentation architecture
-- Fixed broken links and updated all content for accuracy
-- Added comprehensive physics visualizations and code examples
-
-## Important Notes
-- The GitHub Pages documentation is meant for public technical reference
-- The development documentation guides AI agents and internal processes
-- All Python operations should use the provided Docker containers
-- The project follows a single-maintainer model by @AndrewAltimit
+Maintained by [@AndrewAltimit](https://github.com/AndrewAltimit)

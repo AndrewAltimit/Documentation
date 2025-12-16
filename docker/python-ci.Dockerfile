@@ -38,30 +38,15 @@ COPY pyproject.toml /app/pyproject.toml
 COPY tools /app/tools
 COPY automation /app/automation
 
-# Install individual workspace packages in editable mode
-# Each package (mcp-core, mcp-gemini, github_agents, etc.) is independent
-COPY packages/github_agents /app/packages/github_agents
-COPY packages/sleeper_agents /app/packages/sleeper_agents
-COPY packages/economic_agents /app/packages/economic_agents
+# Install MCP packages that exist in this repo
 RUN pip install --no-cache-dir /app/tools/mcp/mcp_core && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_ai_toolkit && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_blender && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_code_quality && \
     pip install --no-cache-dir /app/tools/mcp/mcp_codex && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_comfyui && \
     pip install --no-cache-dir /app/tools/mcp/mcp_content_creation && \
     pip install --no-cache-dir /app/tools/mcp/mcp_crush && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_elevenlabs_speech && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_gaea2 && \
     pip install --no-cache-dir /app/tools/mcp/mcp_gemini && \
     pip install --no-cache-dir /app/tools/mcp/mcp_github_board && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_meme_generator && \
     pip install --no-cache-dir /app/tools/mcp/mcp_opencode && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_video_editor && \
-    pip install --no-cache-dir /app/tools/mcp/mcp_virtual_character && \
-    pip install --no-cache-dir /app/packages/github_agents && \
-    pip install --no-cache-dir /app/packages/sleeper_agents && \
-    pip install --no-cache-dir /app/packages/economic_agents
+    pip install --no-cache-dir /app/tools/mcp/mcp_agentcore_memory
 
 # Copy linting configuration files to both /workspace and /app
 # Note: Files are copied to both locations to support different tool contexts:
@@ -74,10 +59,6 @@ COPY .flake8 .pylintrc /app/
 # Duplicated to ensure tools can find configs regardless of working directory
 COPY pyproject.toml ./pyproject.toml
 COPY pyproject.toml /app/pyproject.toml
-# Create directory structure for package configs
-RUN mkdir -p packages/github_agents /app/packages/github_agents
-COPY packages/github_agents/pyproject.toml ./packages/github_agents/
-COPY packages/github_agents/pyproject.toml /app/packages/github_agents/
 
 # Python environment configuration to prevent cache issues
 ENV PYTHONUNBUFFERED=1 \

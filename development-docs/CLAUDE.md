@@ -91,8 +91,8 @@ curl http://localhost:8005/tools
 # Test with Python script
 python scripts/test-mcp-server.py
 
-# Run the main application
-python main.py
+# Run the MCP client example
+python examples/mcp-client-example.py
 
 # For local development without Docker (not recommended)
 # Requires Python 3.11+
@@ -203,7 +203,7 @@ The repository includes comprehensive CI/CD workflows:
    - Coverage reporting with pytest-cov (XML and terminal output)
    - No pytest cache to avoid permission issues (-p no:cacheprovider in pytest.ini)
 
-3. **Client Pattern** (`main.py`):
+3. **Client Pattern** (`examples/mcp-client-example.py`):
    - MCPClient class for interacting with MCP server
    - Example workflow demonstrating tool usage
    - Environment-based configuration
