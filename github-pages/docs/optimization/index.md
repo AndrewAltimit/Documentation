@@ -650,8 +650,8 @@ Alerts on:
 - [VR/AR Development](../vr-ar/index.html) - VR performance requirements and optimization strategies
 
 ### Systems and Infrastructure
-- [Docker](../technology/docker.html) - Container performance optimization
-- [Kubernetes](../technology/kubernetes.html) - Cluster performance and resource optimization
+- [Docker](../technology/docker/) - Container performance optimization
+- [Kubernetes](../technology/kubernetes/) - Cluster performance and resource optimization
 - [Distributed Systems Theory](../advanced/distributed-systems-theory/) - Theoretical foundations for distributed performance
 
 ### Cross-Cutting Topics

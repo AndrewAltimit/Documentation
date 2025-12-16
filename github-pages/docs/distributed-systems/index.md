@@ -37,8 +37,8 @@ The distributed systems landscape continues to evolve rapidly. Key developments 
 ## Quick Navigation
 
 ### Core Infrastructure
-- [**Kubernetes**](../technology/kubernetes.html) - Container orchestration and cluster management
-- [**Docker**](../technology/docker.html) - Containerization fundamentals and best practices
+- [**Kubernetes**](../technology/kubernetes/) - Container orchestration and cluster management
+- [**Docker**](../technology/docker/) - Containerization fundamentals and best practices
 - [**Docker Essentials**](../technology/docker-essentials.html) - Quick reference and commands
 - [**Distributed Systems Theory**](../advanced/distributed-systems-theory/) - Formal foundations and impossibility results
 
@@ -996,10 +996,10 @@ class SecureClient:
 ## See Also
 
 ### Core Technology Pages
-- **[Kubernetes](../technology/kubernetes.html)** - Container orchestration and cluster management
-- **[Docker](../technology/docker.html)** - Containerization fundamentals and best practices
+- **[Kubernetes](../technology/kubernetes/)** - Container orchestration and cluster management
+- **[Docker](../technology/docker/)** - Containerization fundamentals and best practices
 - **[Docker Essentials](../technology/docker-essentials.html)** - Quick reference and essential commands
-- **[AWS Cloud Services](../technology/aws.html)** - Cloud infrastructure and distributed services at scale
+- **[AWS Cloud Services](../technology/aws/)** - Cloud infrastructure and distributed services at scale
 - **[CI/CD Pipelines](../technology/ci-cd.html)** - Continuous integration and deployment for distributed systems
 
 ### Advanced Topics

@@ -492,7 +492,7 @@ Finally, it's important for us to advocate for the responsible development and i
 ### Related Technologies
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning
 - [Database Design](database-design.html) - Vector databases for AI applications
-- [AWS](aws.html) - Cloud infrastructure for AI/ML
+- [AWS](aws/) - Cloud infrastructure for AI/ML
 
 ### Hub Page
 - [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources

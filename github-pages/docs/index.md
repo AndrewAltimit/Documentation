@@ -37,11 +37,11 @@ toc: false  # Index pages typically don't need TOC
 ## 💻 Technology
 
 ### Infrastructure & DevOps
-- [Terraform](technology/terraform.html) - Infrastructure as Code for multi-cloud deployment
-- [Docker](technology/docker.html) - Comprehensive containerization guide
+- [Terraform](technology/terraform/) - Infrastructure as Code for multi-cloud deployment
+- [Docker](technology/docker/) - Comprehensive containerization guide
 - [Docker Essentials](technology/docker-essentials.html) - Quick reference for Docker commands
-- [Kubernetes](technology/kubernetes.html) - Production-grade container orchestration
-- [AWS](technology/aws.html) - Amazon Web Services comprehensive guide
+- [Kubernetes](technology/kubernetes/) - Production-grade container orchestration
+- [AWS](technology/aws/) - Amazon Web Services comprehensive guide
 - [CI/CD](technology/ci-cd.html) - Continuous Integration and Deployment pipelines
 
 ### Development & Version Control

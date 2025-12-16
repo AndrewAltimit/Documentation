@@ -177,9 +177,9 @@ Choose a path based on your goals:
 ## Related Topics
 
 ### Infrastructure & Tools
-- [Docker for AI/ML](../technology/docker.html)
+- [Docker for AI/ML](../technology/docker/)
 - [Docker Essentials](../technology/docker-essentials.html)
-- [Cloud Computing (AWS)](../technology/aws.html)
+- [Cloud Computing (AWS)](../technology/aws/)
 - [CI/CD for ML Pipelines](../technology/ci-cd.html)
 
 ### Theoretical Foundations

@@ -1763,7 +1763,7 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [Cybersecurity](cybersecurity.html) - Adversarial ML and AI security
 - [Database Design](database-design.html) - Vector databases for AI
 - [Networking](networking.html) - Distributed training infrastructure
-- [AWS](aws.html) - Cloud platforms for AI/ML workloads
+- [AWS](aws/) - Cloud platforms for AI/ML workloads
 
 ## Related AI Documentation
 

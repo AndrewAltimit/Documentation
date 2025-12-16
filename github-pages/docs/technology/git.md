@@ -1193,8 +1193,8 @@ Checksum
 
 ### Related Technologies
 - [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
-- [Docker](docker.html) - Containerized development workflows
-- [Kubernetes](kubernetes.html) - GitOps and deployment strategies
+- [Docker](docker/) - Containerized development workflows
+- [Kubernetes](kubernetes/) - GitOps and deployment strategies
 
 ### External Resources
 - [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide
@@ -1207,5 +1207,5 @@ Checksum
 - [Git Command Reference](git-reference.html) - Complete reference for Git commands and syntax
 - [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and trunk-based development
 - [CI/CD](ci-cd.html) - Continuous integration and deployment pipelines
-- [Docker](docker.html) - Containerization for consistent development environments
+- [Docker](docker/) - Containerization for consistent development environments
 - [Cybersecurity](cybersecurity.html) - Security practices for version control and secrets management

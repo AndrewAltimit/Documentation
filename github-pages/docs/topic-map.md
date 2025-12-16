@@ -36,7 +36,7 @@ toc: false
     <p>Explore intermediate topics:</p>
     <ul>
       <li><a href="technology/branching.html">Git Branching Strategies</a></li>
-      <li><a href="technology/docker.html">Docker Deep Dive</a></li>
+      <li><a href="technology/docker/">Docker Deep Dive</a></li>
       <li><a href="technology/database-design.html">Database Design Patterns</a></li>
       <li><a href="technology/ai.html">AI & Neural Networks</a></li>
     </ul>
@@ -47,7 +47,7 @@ toc: false
     <p>Dive into research-level content:</p>
     <ul>
       <li><a href="technology/git.html">Git Internals & Theory</a></li>
-      <li><a href="technology/kubernetes.html">Kubernetes Architecture</a></li>
+      <li><a href="technology/kubernetes/">Kubernetes Architecture</a></li>
       <li><a href="advanced/distributed-systems-theory/">Distributed Systems</a></li>
       <li><a href="technology/ai-lecture-2023.html">Advanced AI Theory</a></li>
     </ul>

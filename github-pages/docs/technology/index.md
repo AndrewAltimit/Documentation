@@ -28,13 +28,13 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 ## Modern Infrastructure
 
 ### Containerization & Orchestration
-- **[Docker](docker.html)** - Containerization technology and architecture fundamentals
+- **[Docker](docker/)** - Containerization technology and architecture fundamentals
 - **[Docker Essentials](docker-essentials.html)** - Container commands and operations reference
-- **[Kubernetes](kubernetes.html)** - Container orchestration at scale with production patterns
+- **[Kubernetes](kubernetes/)** - Container orchestration at scale with production patterns
 
 ### Cloud & Automation
-- **[AWS](aws.html)** - Amazon Web Services cloud platform comprehensive guide
-- **[Terraform](terraform.html)** - Infrastructure as Code platform for multi-cloud deployment
+- **[AWS](aws/)** - Amazon Web Services cloud platform comprehensive guide
+- **[Terraform](terraform/)** - Infrastructure as Code platform for multi-cloud deployment
 - **[CI/CD](ci-cd.html)** - Continuous Integration and Deployment pipelines best practices
 
 ## Advanced Topics
@@ -66,9 +66,9 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 
 **New to technology?** Start with [Networking](networking.html) and [Database Design](database-design.html) to build foundational knowledge.
 
-**Learning DevOps?** Follow this path: [Git](git.html) → [Docker](docker.html) → [CI/CD](ci-cd.html) → [Kubernetes](kubernetes.html) → [Terraform](terraform.html).
+**Learning DevOps?** Follow this path: [Git](git.html) → [Docker](docker/) → [CI/CD](ci-cd.html) → [Kubernetes](kubernetes/) → [Terraform](terraform/).
 
-**Cloud Engineer?** Focus on [AWS](aws.html), [Terraform](terraform.html), and [Kubernetes](kubernetes.html) for production infrastructure.
+**Cloud Engineer?** Focus on [AWS](aws/), [Terraform](terraform/), and [Kubernetes](kubernetes/) for production infrastructure.
 
 **Exploring AI?** Begin with [AI Fundamentals - Simplified](ai-fundamentals-simple.html), then explore the [AI/ML Hub](../ai-ml/index.html).
 
