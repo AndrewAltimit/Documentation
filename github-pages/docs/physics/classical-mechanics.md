@@ -71,9 +71,9 @@ The foundation of classical mechanics is built upon Newton's three laws of motio
 An object at rest stays at rest and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force.
 
 **Mathematical Expression:**
-```
-If ΣF = 0, then v = constant
-```
+$$
+If \Sigma F = 0, then v = constant
+$$
 
 #### Second Law (Law of Acceleration)
 
@@ -84,9 +84,9 @@ If ΣF = 0, then v = constant
 The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass.
 
 **Mathematical Expression:**
-```
+$$
 F = ma
-```
+$$
 Where:
 - F = net force (N)
 - m = mass (kg)
@@ -96,9 +96,9 @@ Where:
 For every action, there is an equal and opposite reaction.
 
 **Mathematical Expression:**
-```
+$$
 F₁₂ = -F₂₁
-```
+$$
 
 ### Why Newton's Laws Matter
 
@@ -139,10 +139,12 @@ The total energy of an isolated system remains constant over time.
 - **Elastic Potential Energy**: PE = ½kx²
 
 **Conservation Equation:**
-```
-E_initial = E_final
-KE_i + PE_i = KE_f + PE_f
-```
+$$
+\begin{aligned}
+E_{	ext{initial}} = E_{	ext{final}}
+KE_{	ext{i}} + PE_{	ext{i}} = KE_{	ext{f}} + PE_{	ext{f}}
+\end{aligned}
+$$
 
 #### Conservation of Momentum
 
@@ -160,22 +162,22 @@ KE_i + PE_i = KE_f + PE_f
 The total momentum of an isolated system remains constant.
 
 **Linear Momentum:**
-```
+$$
 p = mv
-```
+$$
 
 **Conservation Equation:**
-```
-Σp_initial = Σp_final
-```
+$$
+\Sigma p_{	ext{initial}} = \Sigma p_{	ext{final}}
+$$
 
 #### Conservation of Angular Momentum
 The total angular momentum of an isolated system remains constant.
 
 **Angular Momentum:**
-```
-L = Iω = r × p
-```
+$$
+L = I\omega  = r \times  p
+$$
 
 Where:
 - I = moment of inertia
@@ -227,26 +229,30 @@ Kinematics describes motion without asking "why?"—that's dynamics. It's like s
 For projectile motion under constant gravitational acceleration:
 
 **Horizontal Motion:**
-```
+$$
+\begin{aligned}
 x = v₀ₓt
 vₓ = v₀ₓ (constant)
-```
+\end{aligned}
+$$
 
 **Vertical Motion:**
-```
-y = v₀ᵧt - ½gt²
+$$
+\begin{aligned}
+y = v₀ᵧt - ½gt^2
 vᵧ = v₀ᵧ - gt
-```
+\end{aligned}
+$$
 
 **Range Formula:**
-```
-R = (v₀²sin(2θ))/g
-```
+$$
+R = (v₀^2sin(2\theta ))/g
+$$
 
 **Maximum Height:**
-```
-H = (v₀²sin²(θ))/(2g)
-```
+$$
+H = (v₀^2sin^2(\theta ))/(2g)
+$$
 
 ## Dynamics: Forces in Action
 
@@ -260,22 +266,22 @@ Dynamics bridges the gap between abstract forces and observable motion:
 
 **Work:** The energy transferred to or from an object via the application of force along a displacement.
 
-```
-W = F·d = Fd cos(θ)
-```
+$$
+W = F·d = Fd cos(\theta )
+$$
 
 For variable force:
-```
+$$
 W = ∫F·dr
-```
+$$
 
 ### Power
 
 Power is the rate at which work is done:
 
-```
+$$
 P = dW/dt = F·v
-```
+$$
 
 ### Simple Harmonic Motion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/matplotlib/matplotlib/blob/main/galleries/examples/animation/simple_anim.py"> Code: <b><i>SHM Animation with Matplotlib</i></b></a></p>
@@ -287,14 +293,14 @@ P = dW/dt = F·v
 Objects that experience a restoring force proportional to displacement exhibit simple harmonic motion.
 
 **Hooke's Law:**
-```
+$$
 F = -kx
-```
+$$
 
 **Equation of Motion:**
-```
-x(t) = A cos(ωt + φ)
-```
+$$
+x(t) = A cos(\omega t + φ)
+$$
 
 Where:
 - A = amplitude
@@ -302,9 +308,9 @@ Where:
 - φ = phase constant
 
 **Period:**
-```
-T = 2π/ω = 2π√(m/k)
-```
+$$
+T = 2\pi /\omega  = 2\pi √(m/k)
+$$
 
 ## Rotational Motion: Beyond Point Particles
 
@@ -367,9 +373,9 @@ Analogous to linear motion:
 The rotational equivalent of mass:
 
 **Point Mass:**
-```
-I = mr²
-```
+$$
+I = mr^2
+$$
 
 **Common Shapes:**
 - Solid sphere: I = (2/5)MR²
@@ -380,14 +386,14 @@ I = mr²
 
 The rotational equivalent of force:
 
-```
-τ = r × F = rF sin(θ)
-```
+$$
+\tau = r \times F = rF \sin(\theta)
+$$
 
 **Rotational Newton's Second Law:**
-```
-τ = Iα
-```
+$$
+\tau = I\alpha
+$$
 
 ## Gravitation: The First Unified Theory
 
@@ -411,9 +417,9 @@ Newton's greatest triumph wasn't just explaining how things move—it was recogn
 
 Every particle attracts every other particle with a force:
 
-```
-F = G(m₁m₂)/r²
-```
+$$
+F = \frac{Gm_1m_2}{r^2}
+$$
 
 Where:
 - G = 6.674 × 10⁻¹¹ N·m²/kg² (gravitational constant)
@@ -425,14 +431,14 @@ Where:
 For circular orbits:
 
 **Orbital Velocity:**
-```
-v = √(GM/r)
-```
+$$
+v = \sqrt{\frac{GM}{r}}
+$$
 
 **Orbital Period:**
-```
-T = 2π√(r³/GM)
-```
+$$
+T = 2\pi\sqrt{\frac{r^3}{GM}}
+$$
 
 This is Kepler's Third Law for circular orbits.
 
@@ -448,9 +454,9 @@ But real oscillations don't last forever...
 
 When friction is present:
 
-```
-mẍ + bẋ + kx = 0
-```
+$$
+m\ddot{x} + b\dot{x} + kx = 0
+$$
 
 Solutions depend on the damping coefficient b:
 - **Underdamped:** Oscillates with decreasing amplitude
@@ -460,14 +466,14 @@ Solutions depend on the damping coefficient b:
 ### Wave Motion
 
 **Wave Equation:**
-```
-∂²y/∂t² = v²(∂²y/∂x²)
-```
+$$
+\frac{\partial^2 y}{\partial t^2} = v^2 \frac{\partial^2 y}{\partial x^2}
+$$
 
 **Wave Speed:**
-```
-v = fλ
-```
+$$
+v = f\lambda
+$$
 
 Where:
 - f = frequency
@@ -487,18 +493,18 @@ Here's the profound insight: Nature is lazy. Among all possible paths between tw
 
 **Action:**
 
-```
-S = ∫_{t₁}^{t₂} L(q, q̇, t) dt
-```
+$$
+S = \int_{t_1}^{t_2} L(q, \dot{q}, t) \, dt
+$$
 
-Where L = T - V is the Lagrangian (kinetic minus potential energy).
+Where $L = T - V$ is the Lagrangian (kinetic minus potential energy).
 
 **The Magic:** This single principle replaces F = ma and automatically handles constraints!
 
 **Euler-Lagrange Equations:**
-```
-d/dt(∂L/∂q̇ᵢ) - ∂L/∂qᵢ = 0
-```
+$$
+\frac{d}{dt}\left(\frac{\partial L}{\partial \dot{q}_i}\right) - \frac{\partial L}{\partial q_i} = 0
+$$
 
 These equations provide a powerful alternative to Newton's laws. No constraint forces appear—they're automatically accounted for by choosing appropriate coordinates.
 
@@ -521,9 +527,9 @@ For a system with n degrees of freedom:
 **Holonomic constraints:** f(q₁, ..., qₙ, t) = 0
 
 **Modified Lagrangian with constraints:**
-```
-L' = L + Σᵢ λᵢfᵢ(q, t)
-```
+$$
+L' = L + \sum_i \lambda_i f_i(q, t)
+$$
 
 ### Noether's Theorem: The Deep Connection
 
@@ -539,10 +545,10 @@ Emmy Noether discovered one of the most profound results in physics: every symme
 | Gauge invariance | Charge |
 
 **Mathematical Statement:**
-If the action is invariant under qᵢ → qᵢ + εξᵢ(q), then:
-```
-Q = Σᵢ (∂L/∂q̇ᵢ)ξᵢ = constant
-```
+If the action is invariant under $q_i \to q_i + \varepsilon\xi_i(q)$, then:
+$$
+Q = \sum_i \frac{\partial L}{\partial \dot{q}_i}\xi_i = \text{constant}
+$$
 
 ### Example: Double Pendulum - Where Newton Struggles
 
@@ -584,24 +590,23 @@ Hamilton realized that instead of thinking about positions and velocities, we sh
 ### Hamilton's Equations: Beautiful Symmetry
 
 The Hamiltonian H typically represents total energy:
-```
-H(q, p, t) = Σᵢ pᵢq̇ᵢ - L(q, q̇, t)
-```
+$$
+H(q, p, t) = \sum_i p_i\dot{q}_i - L(q, \dot{q}, t)
+$$
 
 **Hamilton's Canonical Equations:**
-```
-q̇ᵢ = ∂H/∂pᵢ
-ṗᵢ = -∂H/∂qᵢ
-```
+$$
+\dot{q}_i = \frac{\partial H}{\partial p_i}, \quad \dot{p}_i = -\frac{\partial H}{\partial q_i}
+$$
 
 ### Phase Space: Where Physics Becomes Geometry
 
 In phase space, a system's state is a single point. As time evolves, this point traces a path. But here's the beautiful part: phase space has structure.
 
 **Liouville's Theorem:** Phase space volume is preserved by time evolution
-```
-dρ/dt + {ρ, H} = 0
-```
+$$
+\frac{d\rho}{dt} + \{\rho, H\} = 0
+$$
 
 This means if you start with a blob of initial conditions, the blob might deform and stretch, but its volume never changes. It's like incompressible fluid flow—a deep connection between mechanics and fluid dynamics!
 
@@ -609,9 +614,9 @@ This means if you start with a blob of initial conditions, the blob might deform
 
 Poisson brackets are to classical mechanics what commutators are to quantum mechanics. They encode how quantities change with time and relate to each other:
 
-```
-{f, g} = Σᵢ (∂f/∂qᵢ ∂g/∂pᵢ - ∂f/∂pᵢ ∂g/∂qᵢ)
-```
+$$
+\{f, g\} = \sum_i \left(\frac{\partial f}{\partial q_i}\frac{\partial g}{\partial p_i} - \frac{\partial f}{\partial p_i}\frac{\partial g}{\partial q_i}\right)
+$$
 
 **Properties:**
 - Antisymmetry: {f, g} = -{g, f}
@@ -623,21 +628,20 @@ Poisson brackets are to classical mechanics what commutators are to quantum mech
 ### Canonical Transformations
 
 Transformations preserving Hamilton's equations:
-```
-Q = Q(q, p, t)
-P = P(q, p, t)
-```
+$$
+Q = Q(q, p, t), \quad P = P(q, p, t)
+$$
 
 **Generating functions:**
-- Type 1: F₁(q, Q, t) → p = ∂F₁/∂q, P = -∂F₁/∂Q
-- Type 2: F₂(q, P, t) → p = ∂F₂/∂q, Q = ∂F₂/∂P
-- Type 3: F₃(p, Q, t) → q = -∂F₃/∂p, P = -∂F₃/∂Q
-- Type 4: F₄(p, P, t) → q = -∂F₄/∂p, Q = ∂F₄/∂P
+- Type 1: $F_1(q, Q, t) \rightarrow p = \partial F_1/\partial q$, $P = -\partial F_1/\partial Q$
+- Type 2: $F_2(q, P, t) \rightarrow p = \partial F_2/\partial q$, $Q = \partial F_2/\partial P$
+- Type 3: $F_3(p, Q, t) \rightarrow q = -\partial F_3/\partial p$, $P = -\partial F_3/\partial Q$
+- Type 4: $F_4(p, P, t) \rightarrow q = -\partial F_4/\partial p$, $Q = \partial F_4/\partial P$
 
 **Symplectic structure:** Canonical transformations preserve the 2-form:
-```
-ω = Σᵢ dpᵢ ∧ dqᵢ = Σᵢ dPᵢ ∧ dQᵢ
-```
+$$
+\omega = \sum_i dp_i \wedge dq_i = \sum_i dP_i \wedge dQ_i
+$$
 
 ### Action-Angle Variables
 
@@ -655,9 +659,9 @@ The Hamilton-Jacobi equation represents the culmination of classical mechanics. 
 ### Hamilton-Jacobi Equation
 
 The action S(q, t) satisfies:
-```
-∂S/∂t + H(q, ∂S/∂q, t) = 0
-```
+$$
+\frac{\partial S}{\partial t} + H\left(q, \frac{\partial S}{\partial q}, t\right) = 0
+$$
 
 **Complete solution:** S = S(q, α, t) + const
 
@@ -669,14 +673,14 @@ Where α are n constants of integration.
 ### Separation of Variables
 
 For separable systems:
-```
+$$
 S = W(q) - Et
-```
+$$
 
 **Time-independent HJ equation:**
-```
-H(q, ∂W/∂q) = E
-```
+$$
+H\left(q, \frac{\partial W}{\partial q}\right) = E
+$$
 
 ### The Bridge to Quantum Mechanics
 
@@ -687,9 +691,9 @@ Here's where Hamilton's genius shines. The mathematical structure of classical m
 - Trajectories → Probability amplitudes
 
 In the classical limit (ℏ → 0):
-```
-ψ = exp(iS/ℏ)
-```
+$$
+\psi = \exp(iS/\hbar)
+$$
 
 The quantum wave function reduces to classical action! This deep connection shows that classical and quantum mechanics aren't separate theories—they're different aspects of a unified framework.
 
@@ -704,9 +708,9 @@ For centuries after Newton, physicists believed the universe was deterministic�
 ### Lyapunov Exponents
 
 Measure of sensitivity to initial conditions:
-```
-λ = lim_{t→∞} (1/t) ln(|δZ(t)|/|δZ₀|)
-```
+$$
+\lambda = \lim_{t \to \infty} \frac{1}{t} \ln\left(\frac{|\delta Z(t)|}{|\delta Z_0|}\right)
+$$
 
 **Chaotic system:** At least one positive Lyapunov exponent.
 
@@ -744,11 +748,9 @@ Then most invariant tori with irrational frequency ratios persist.
 ### Strange Attractors
 
 **Lorenz system:**
-```
-ẋ = σ(y - x)
-ẏ = x(ρ - z) - y
-ż = xy - βz
-```
+$$
+\dot{x} = \sigma(y - x), \quad \dot{y} = x(\rho - z) - y, \quad \dot{z} = xy - \beta z
+$$
 
 **Properties:**
 - Fractal dimension
@@ -781,9 +783,9 @@ As we've climbed from Newton to Lagrange to Hamilton, we've increasingly seen th
 ### Geometric Phases
 
 **Berry phase:** For cyclic evolution:
-```
-γ = i∮ ⟨ψ|∇_R|ψ⟩ · dR
-```
+$$
+\gamma = i\oint \langle\psi|\nabla_R|\psi\rangle \cdot dR
+$$
 
 **Hannay angle:** Classical analog of Berry phase
 **Foucault pendulum:** Example of geometric phase
@@ -821,9 +823,9 @@ def verlet_integration(positions, velocities, forces, dt, mass):
 ### Plasma Physics
 
 **Vlasov equation:**
-```
-∂f/∂t + v·∇_x f + (q/m)(E + v×B)·∇_v f = 0
-```
+$$
+\frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla_x f + \frac{q}{m}(\mathbf{E} + \mathbf{v} \times \mathbf{B}) \cdot \nabla_v f = 0
+$$
 
 **Kinetic theory:** Bridge between particle and fluid descriptions
 
@@ -857,14 +859,14 @@ def stormer_verlet(q, p, H, dt):
 Remember how Lagrangian mechanics came from minimizing action? Variational integrators apply this principle directly to discrete time steps. Instead of discretizing differential equations (which can introduce errors), we discretize the action principle itself.
 
 The result: perfect conservation of discrete momentum and energy, even for very long simulations. This is how we can accurately simulate the solar system for millions of years!
-```
-S_d = Σₖ L_d(qₖ, qₖ₊₁, h)
-```
+$$
+S_d = \sum_k L_d(q_k, q_{k+1}, h)
+$$
 
 **Discrete Euler-Lagrange equations:**
-```
-D₂L_d(qₖ₋₁, qₖ) + D₁L_d(qₖ, qₖ₊₁) = 0
-```
+$$
+D_2 L_d(q_{k-1}, q_k) + D_1 L_d(q_k, q_{k+1}) = 0
+$$
 
 ## The Living Edge of Classical Mechanics
 
