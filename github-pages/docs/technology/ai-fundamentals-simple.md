@@ -208,7 +208,7 @@ Ready to go deeper? Here's your learning path:
 ### Level Up Your Knowledge
 - [AI Fundamentals - Complete](ai.html) - Technical details with mathematical foundations
 - [AI Deep Dive](ai-lecture-2023.html) - Research-level content on transformers and LLMs
-- [AI Mathematics](../advanced/ai-mathematics.html) - Statistical learning theory and proofs
+- [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory and proofs
 
 ### Build Something
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Generate images with AI

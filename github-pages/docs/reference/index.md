@@ -934,7 +934,7 @@ Phone: ^\+?1?\d{9,15}$
 - **[Docker Essentials](../technology/docker-essentials.html)** - Complete Docker reference
 - **[Terraform Documentation](../technology/terraform.html)** - Infrastructure as Code guide
 - **[AI/ML Model Reference](../ai-ml/model-types.html)** - Model architectures explained
-- **[Advanced Mathematics](../advanced/ai-mathematics.html)** - Graduate-level formulas
+- **[Advanced Mathematics](../advanced/ai-mathematics/)** - Graduate-level formulas
 
 ---
 

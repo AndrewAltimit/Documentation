@@ -112,9 +112,9 @@ toc: false  # Index pages typically don't need TOC
 
 ### Research & Advanced Topics
 - [Advanced Topics Hub](advanced/index.html) - Graduate-level mathematics and theory
-- [AI Mathematics](advanced/ai-mathematics.html) - Statistical learning theory
-- [Distributed Systems Theory](advanced/distributed-systems-theory.html) - Formal methods
-- [Quantum Algorithms Research](advanced/quantum-algorithms-research.html) - Cutting-edge algorithms
+- [AI Mathematics](advanced/ai-mathematics/) - Statistical learning theory
+- [Distributed Systems Theory](advanced/distributed-systems-theory/) - Formal methods
+- [Quantum Algorithms Research](advanced/quantum-algorithms-research/) - Cutting-edge algorithms
 
 ---
 

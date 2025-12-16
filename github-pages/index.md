@@ -81,15 +81,15 @@ Essential references including:
 
 ### 🔬 [Advanced Research Topics](docs/advanced/index.html)
 Graduate-level content featuring:
-- [AI Mathematics](docs/advanced/ai-mathematics.html) - Statistical learning theory
-- [Distributed Systems Theory](docs/advanced/distributed-systems-theory.html) - Formal methods
-- [Quantum Algorithms Research](docs/advanced/quantum-algorithms-research.html) - Cutting-edge algorithms
+- [AI Mathematics](docs/advanced/ai-mathematics/) - Statistical learning theory
+- [Distributed Systems Theory](docs/advanced/distributed-systems-theory/) - Formal methods
+- [Quantum Algorithms Research](docs/advanced/quantum-algorithms-research/) - Cutting-edge algorithms
 
 ### 🌐 [Distributed Systems Hub](docs/distributed-systems/index.html)
 Architecture and implementation:
 - [Kubernetes](docs/technology/kubernetes.html) - Container orchestration
 - [Docker](docs/technology/docker.html) - Containerization fundamentals
-- [Distributed Systems Theory](docs/advanced/distributed-systems-theory.html)
+- [Distributed Systems Theory](docs/advanced/distributed-systems-theory/)
 - Microservices, consensus algorithms, and fault tolerance
 
 ## Recent Updates (2025)

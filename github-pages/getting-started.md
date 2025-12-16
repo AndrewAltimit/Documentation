@@ -30,7 +30,7 @@ Specialized content for artificial intelligence:
 - **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/base-models-comparison.html#flux), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
 - **Model Training**: [LoRA fine-tuning](docs/ai-ml/lora-training.html), dataset preparation
 - **Practical Guides**: From beginner tutorials to [advanced techniques](docs/ai-ml/advanced-techniques.html)
-- **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics.html) and research papers
+- **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics/) and research papers
 
 ### 📚 [Reference Materials](docs/reference/index.html)
 Quick-access resources:
@@ -89,7 +89,7 @@ Depending on your goals:
 **Theoretical Foundations**:
 - [Quantum Mechanics](docs/physics/quantum-mechanics.html) - Wave functions to entanglement
 - [Quantum Computing](docs/technology/quantumcomputing.html) - From qubits to algorithms
-- [Advanced Mathematics](docs/advanced/ai-mathematics.html) - Graduate-level theory
+- [Advanced Mathematics](docs/advanced/ai-mathematics/) - Graduate-level theory
 - [Research Papers](docs/advanced/index.html) - Latest academic content
 
 ## Tips for Maximum Value

@@ -58,7 +58,7 @@ Whether you're exploring quantum concepts for the first time, writing your first
 - [**Quantum Information Theory**](#quantum-information-theory) - How quantum mechanics enables computation
 
 ### Quantum Algorithms
-- [**Advanced Quantum Algorithms Research**](../advanced/quantum-algorithms-research.html) - Rigorous theoretical foundations
+- [**Advanced Quantum Algorithms Research**](../advanced/quantum-algorithms-research/) - Rigorous theoretical foundations
 - [**Classical Quantum Algorithms**](#classical-quantum-algorithms) - Shor's, Grover's, and foundational algorithms
 - [**NISQ Era Algorithms**](#nisq-era-algorithms) - Variational algorithms for near-term devices
 
@@ -121,7 +121,7 @@ Choose your quantum journey based on your background and goals:
 1. Master [quantum mechanics](../physics/quantum-mechanics.html) - Deep foundation
 2. Study [quantum information theory](#quantum-information-theory) - Formal framework
 3. Analyze [classical quantum algorithms](#classical-quantum-algorithms) - Shor's, Grover's, QFT
-4. Dive into [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research.html) - Rigorous theory
+4. Dive into [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory
 5. Explore [quantum complexity theory](#research-topics) - Computational limits
 6. Investigate [error correction](#quantum-error-correction) - Fault tolerance
 7. Contribute to current [research areas](#research-topics) - Push boundaries
@@ -184,7 +184,7 @@ Choose your quantum journey based on your background and goals:
 ### 🔬 Research Topics
 
 **Theoretical Foundations:**
-- [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research.html)
+- [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/)
 - Quantum complexity theory
 - Quantum information theory
 

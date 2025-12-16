@@ -24,10 +24,10 @@ toc: false
     <h3>🚀 Complete Beginner?</h3>
     <p>Start with our 5-minute crash courses:</p>
     <ul>
-      <li><a href="../technology/git-reference.html">Git Quick Start</a></li>
-      <li><a href="../technology/docker-essentials.html">Docker Quick Start</a></li>
-      <li><a href="../technology/database-design.html">Database Basics</a></li>
-      <li><a href="../technology/ai-fundamentals-simple.html">AI for Beginners</a></li>
+      <li><a href="technology/git-reference.html">Git Quick Start</a></li>
+      <li><a href="technology/docker-essentials.html">Docker Quick Start</a></li>
+      <li><a href="technology/database-design.html">Database Basics</a></li>
+      <li><a href="technology/ai-fundamentals-simple.html">AI for Beginners</a></li>
     </ul>
   </div>
   
@@ -35,10 +35,10 @@ toc: false
     <h3>🎓 Have Some Experience?</h3>
     <p>Explore intermediate topics:</p>
     <ul>
-      <li><a href="../technology/branching.html">Git Branching Strategies</a></li>
-      <li><a href="../technology/docker.html">Docker Deep Dive</a></li>
-      <li><a href="../technology/database-design.html">Database Design Patterns</a></li>
-      <li><a href="../technology/ai.html">AI & Neural Networks</a></li>
+      <li><a href="technology/branching.html">Git Branching Strategies</a></li>
+      <li><a href="technology/docker.html">Docker Deep Dive</a></li>
+      <li><a href="technology/database-design.html">Database Design Patterns</a></li>
+      <li><a href="technology/ai.html">AI & Neural Networks</a></li>
     </ul>
   </div>
   
@@ -46,10 +46,10 @@ toc: false
     <h3>🧠 Ready for Advanced?</h3>
     <p>Dive into research-level content:</p>
     <ul>
-      <li><a href="../technology/git.html">Git Internals & Theory</a></li>
-      <li><a href="../technology/kubernetes.html">Kubernetes Architecture</a></li>
-      <li><a href="../advanced/distributed-systems-theory.html">Distributed Systems</a></li>
-      <li><a href="../technology/ai-lecture-2023.html">Advanced AI Theory</a></li>
+      <li><a href="technology/git.html">Git Internals & Theory</a></li>
+      <li><a href="technology/kubernetes.html">Kubernetes Architecture</a></li>
+      <li><a href="advanced/distributed-systems-theory/">Distributed Systems</a></li>
+      <li><a href="technology/ai-lecture-2023.html">Advanced AI Theory</a></li>
     </ul>
   </div>
 </div>
@@ -126,7 +126,7 @@ Shell  Branching Compose Jenkins   Helm    Prometheus
   <h2>Ready to Start Your Journey?</h2>
   <p>Pick a topic that interests you and dive in. Remember, every expert started exactly where you are now.</p>
   <a href="#quick-start-guides" class="btn btn-primary">Choose Your Starting Point</a>
-  <a href="../index.html" class="btn btn-secondary">Back to Documentation Home</a>
+  <a href="/index.html" class="btn btn-secondary">Back to Documentation Home</a>
 </div>
 
 <style>

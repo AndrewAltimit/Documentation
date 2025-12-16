@@ -43,7 +43,7 @@ toc_icon: "brain"
 - **New to AI?** → [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(No math required)*
 - **Ready for Technical Details?** → [AI Fundamentals - Complete](../technology/ai.html)
 - **Research & Implementation** → [AI Deep Dive - Advanced](../technology/ai-lecture-2023.html)
-- **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics.html)
+- **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics/)
 
 ### 🛠️ Practical AI/ML Tools
 Our comprehensive [AI/ML Documentation](../ai-ml/index.html) covers:
@@ -141,7 +141,7 @@ Generative AI creates new content including images, text, audio, and video.
 - [LoRA Training](../ai-ml/lora-training.html) - Model fine-tuning techniques
 
 ### 🎓 Advanced Topics
-- [AI Mathematics](../advanced/ai-mathematics.html) - Mathematical foundations
+- [AI Mathematics](../advanced/ai-mathematics/) - Mathematical foundations
 - [Advanced AI Lecture](../technology/ai-lecture-2023.html) - Research-level content
 - [Advanced Techniques](../ai-ml/advanced-techniques.html) - State-of-the-art methods
 
@@ -155,7 +155,7 @@ Choose a path based on your goals:
 1. [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(Start here - no math required)*
 2. [AI Fundamentals - Complete](../technology/ai.html) *(Technical deep-dive)*
 3. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Transformers, LLMs, research)*
-4. [AI Mathematics](../advanced/ai-mathematics.html) *(Statistical learning theory)*
+4. [AI Mathematics](../advanced/ai-mathematics/) *(Statistical learning theory)*
 
 ### 🎨 Path 2: Generative AI (Practice-Focused)
 **For:** Creating images, training models, building AI applications
@@ -171,7 +171,7 @@ Choose a path based on your goals:
 
 1. [AI Fundamentals - Complete](../technology/ai.html) *(Foundation)*
 2. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Modern architectures)*
-3. [AI Mathematics](../advanced/ai-mathematics.html) *(Theoretical foundations)*
+3. [AI Mathematics](../advanced/ai-mathematics/) *(Theoretical foundations)*
 4. [Quantum Computing](../quantum-computing/index.html) *(Quantum ML)*
 
 ## Related Topics
@@ -231,6 +231,6 @@ This documentation is continuously evolving. If you notice areas for improvement
   <div class="nav-card">
     <h3>🧠 Go Deeper</h3>
     <p>Explore advanced AI mathematics</p>
-    <a href="../advanced/ai-mathematics.html" class="btn btn-primary">Advanced Topics</a>
+    <a href="../advanced/ai-mathematics/" class="btn btn-primary">Advanced Topics</a>
   </div>
 </div>

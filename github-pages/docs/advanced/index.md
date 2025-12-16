@@ -22,7 +22,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Foundations of Machine Learning
 
-**[AI Mathematics: Theoretical Foundations](/docs/advanced/ai-mathematics.html)**
+**[AI Mathematics: Theoretical Foundations](/docs/advanced/ai-mathematics/)**
 - Computational learning theory (PAC learning, VC dimension, Rademacher complexity)
 - Statistical learning theory and generalization bounds
 - Optimization landscapes and convergence analysis
@@ -33,7 +33,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Distributed Computing Theory
 
-**[Distributed Systems Theory](/docs/advanced/distributed-systems-theory.html)**
+**[Distributed Systems Theory](/docs/advanced/distributed-systems-theory/)**
 - FLP impossibility theorem and consensus limitations
 - CAP theorem and consistency models
 - Byzantine fault tolerance and agreement protocols
@@ -44,7 +44,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Quantum Computing Foundations
 
-**[Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research.html)**
+**[Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research/)**
 - Quantum complexity theory and computational models
 - Quantum error correction codes and fault tolerance
 - Topological quantum computing approaches
@@ -112,13 +112,13 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Start with computational learning theory in [AI Mathematics](/docs/advanced/ai-mathematics.html)
+1. Start with computational learning theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
    - PAC learning framework and VC dimension
    - Rademacher complexity and uniform convergence
-2. Progress to [Distributed Systems Theory](/docs/advanced/distributed-systems-theory.html)
+2. Progress to [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/)
    - Consensus impossibility results
    - Byzantine fault tolerance protocols
-3. Explore complexity connections in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html)
+3. Explore complexity connections in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
    - BQP complexity class and quantum speedups
    - Quantum query complexity
 
@@ -129,13 +129,13 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Begin with measure-theoretic foundations in [AI Mathematics](/docs/advanced/ai-mathematics.html)
+1. Begin with measure-theoretic foundations in [AI Mathematics](/docs/advanced/ai-mathematics/)
    - Functional analysis in learning theory
    - Information-theoretic bounds
-2. Study topological and algebraic methods in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html)
+2. Study topological and algebraic methods in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
    - Topological quantum computing
    - Group representation theory in quantum circuits
-3. Examine logic and verification in [Distributed Systems](/docs/advanced/distributed-systems-theory.html)
+3. Examine logic and verification in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
    - Temporal logic specifications
    - Formal verification techniques
 
@@ -146,14 +146,14 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Start with [Quantum Algorithms](/docs/advanced/quantum-algorithms-research.html)
+1. Start with [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
    - Quantum error correction codes
    - Adiabatic quantum computing
    - NISQ algorithm development
-2. Connect to information theory in [AI Mathematics](/docs/advanced/ai-mathematics.html)
+2. Connect to information theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
    - Quantum information bounds
    - Statistical mechanics of learning
-3. Study fault tolerance in [Distributed Systems](/docs/advanced/distributed-systems-theory.html)
+3. Study fault tolerance in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
    - Classical error correction parallels
    - Distributed quantum computing
 

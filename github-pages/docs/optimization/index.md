@@ -652,7 +652,7 @@ Alerts on:
 ### Systems and Infrastructure
 - [Docker](../technology/docker.html) - Container performance optimization
 - [Kubernetes](../technology/kubernetes.html) - Cluster performance and resource optimization
-- [Distributed Systems Theory](../advanced/distributed-systems-theory.html) - Theoretical foundations for distributed performance
+- [Distributed Systems Theory](../advanced/distributed-systems-theory/) - Theoretical foundations for distributed performance
 
 ### Cross-Cutting Topics
 - [Advanced Research Topics](../advanced/index.html) - Graduate-level systems and theory
