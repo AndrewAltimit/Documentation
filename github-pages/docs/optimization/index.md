@@ -7,7 +7,124 @@ toc_label: "On This Page"
 toc_icon: "tachometer-alt"
 ---
 
+<div class="hub-intro">
+  <p class="lead">Master the art and science of performance optimization. From profiling-driven development to hardware-aware programming, learn systematic approaches to eliminate bottlenecks, achieve target frame rates, and build responsive applications that scale across platforms.</p>
+</div>
+
 Performance optimization is the systematic process of identifying and eliminating bottlenecks to achieve target frame rates, reduce latency, minimize memory usage, and improve overall application responsiveness. Effective optimization requires profiling-driven decisions, understanding hardware characteristics, and applying appropriate techniques at the right level of the software stack.
+
+## Learning Paths
+
+### Game/Real-time Developer Path
+**Goal**: Achieve consistent 60/90/120 FPS for smooth gameplay
+
+1. Start with **Profiling Best Practices** to establish baselines
+2. Master **CPU Optimization** techniques (cache optimization, multithreading)
+3. Deep dive into **GPU Optimization** (draw calls, shader optimization)
+4. Study **Memory Optimization** for streaming and asset management
+5. Apply **Platform-Specific Optimization** for target consoles/mobile
+
+**Key Focus**: Frame time budgets, low-level optimization, hardware awareness
+
+### Backend/Server Developer Path
+**Goal**: Maximize throughput and minimize latency under load
+
+1. Begin with **Algorithmic Optimization** for Big O improvements
+2. Study **CPU Optimization** for concurrent request handling
+3. Learn **Memory Optimization** for efficient data structures
+4. Explore **Profiling Best Practices** for production systems
+5. Implement **Continuous Performance Testing** in CI/CD
+
+**Key Focus**: Scalability, algorithmic complexity, distributed systems performance
+
+### Mobile Developer Path
+**Goal**: Balance performance with battery life and thermal constraints
+
+1. Understand **Mobile Optimization** power and thermal management
+2. Master **Memory Optimization** for constrained environments
+3. Study **GPU Optimization** for mobile GPUs (tile-based rendering)
+4. Learn **Algorithmic Optimization** to reduce computational load
+5. Focus on **Asset Memory** compression and streaming
+
+**Key Focus**: Power efficiency, memory constraints, thermal throttling
+
+### GPU/Graphics Programmer Path
+**Goal**: Push visual fidelity while maintaining performance
+
+1. Deep dive into **GPU Optimization** and profiling tools
+2. Master **Shader Optimization** and GPU bottleneck analysis
+3. Study **Draw Call Optimization** and modern rendering techniques
+4. Learn **Memory Optimization** for texture and mesh data
+5. Explore advanced techniques in our [3D Graphics & Rendering](../graphics/3d-rendering.html) guide
+
+**Key Focus**: Rendering pipelines, GPU architecture, graphics APIs
+
+## Getting Started
+
+### Prerequisites
+
+**Essential Knowledge:**
+- Basic understanding of your target platform architecture (CPU/GPU)
+- Familiarity with your development environment's debugging tools
+- Understanding of algorithmic complexity (Big O notation)
+- Basic statistics for interpreting profiling data
+
+**Recommended Background:**
+- Experience with the target language (C++, C#, Java, etc.)
+- Understanding of memory management concepts
+- Basic knowledge of multithreading and concurrency
+- Familiarity with graphics APIs (for graphics optimization)
+
+### Recommended Tools
+
+**CPU Profilers:**
+- Visual Studio Profiler (Windows)
+- Instruments (macOS/iOS)
+- perf (Linux)
+- VTune (Intel CPUs)
+- Superluminal (low overhead)
+
+**GPU Profilers:**
+- RenderDoc (cross-platform frame capture)
+- NVIDIA Nsight (NVIDIA GPUs)
+- AMD Radeon GPU Profiler (AMD GPUs)
+- PIX (Xbox/Windows)
+- Xcode GPU Debugger (Apple platforms)
+
+**Memory Profilers:**
+- Valgrind (Linux)
+- Address Sanitizer (cross-platform)
+- Visual Studio Memory Profiler
+- Instruments (macOS/iOS)
+
+### First Steps for Profiling
+
+**1. Define Your Performance Budget:**
+```
+Frame Rate Target → Frame Time Budget
+- 30 FPS → 33.33 ms per frame
+- 60 FPS → 16.67 ms per frame
+- 90 FPS → 11.11 ms per frame (VR)
+- 120 FPS → 8.33 ms per frame
+```
+
+**2. Profile Before Optimizing:**
+- Run your application in Release/Production configuration
+- Identify the actual bottleneck (don't assume)
+- Collect baseline metrics across multiple runs
+- Profile worst-case scenarios, not just average cases
+
+**3. Start with the Biggest Win:**
+- Fix algorithmic issues first (O(n²) → O(n log n))
+- Then optimize hot paths revealed by profiling
+- Avoid micro-optimizations until necessary
+- Always verify improvements with re-profiling
+
+**4. Document and Track:**
+- Record baseline performance metrics
+- Document each optimization attempt and result
+- Track performance over time in version control
+- Set up automated performance regression tests
 
 ## Optimization Philosophy
 
@@ -497,11 +614,50 @@ Alerts on:
 - Load time increase > 20%
 ```
 
+## Recent Updates (2025)
+
+**GPU Optimization:**
+- Added mesh shader techniques for modern rendering pipelines
+- Updated shader optimization guidelines for latest GPU architectures
+- New section on indirect drawing and GPU-driven rendering
+
+**CPU Optimization:**
+- Enhanced multithreading patterns with modern C++ examples
+- Added data-oriented design best practices
+- Updated cache optimization for current CPU microarchitectures
+
+**Profiling Tools:**
+- Added Superluminal to recommended profiler list
+- Updated platform profiler information for latest versions
+- New continuous performance testing integration examples
+
+**Platform-Specific:**
+- Updated mobile optimization for latest iOS/Android capabilities
+- Enhanced console optimization techniques for current-gen hardware
+- Added dynamic resolution scaling best practices
+
+**Memory Management:**
+- New asset streaming strategies for open-world games
+- Enhanced texture compression format recommendations
+- Updated memory profiling tool coverage
+
 ## Related Documentation
 
-- [Game Development](../gamedev/index.html) - Game development fundamentals
-- [3D Graphics & Rendering](../graphics/3d-rendering.html) - Rendering optimization
-- [Unreal Engine](../technology/unreal.html) - UE5 profiling tools
-- [VR/AR Development](../vr-ar/index.html) - VR performance requirements
-- [Docker](../technology/docker.html) - Container optimization
-- [Kubernetes](../technology/kubernetes.html) - Cluster optimization
+### Graphics and Game Development
+- [Game Development](../gamedev/index.html) - Game development fundamentals and workflows
+- [3D Graphics & Rendering](../graphics/3d-rendering.html) - Advanced rendering techniques and optimization
+- [Unreal Engine](../technology/unreal.html) - UE5 profiling tools and performance guidelines
+- [VR/AR Development](../vr-ar/index.html) - VR performance requirements and optimization strategies
+
+### Systems and Infrastructure
+- [Docker](../technology/docker.html) - Container performance optimization
+- [Kubernetes](../technology/kubernetes.html) - Cluster performance and resource optimization
+- [Distributed Systems Theory](../advanced/distributed-systems-theory.html) - Theoretical foundations for distributed performance
+
+### Cross-Cutting Topics
+- [Advanced Research Topics](../advanced/index.html) - Graduate-level systems and theory
+- [Quantum Computing](../technology/quantumcomputing.html) - Quantum algorithm optimization
+
+---
+
+*This performance optimization guide combines theoretical foundations with practical, production-tested techniques. For suggestions or contributions, visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation).*
