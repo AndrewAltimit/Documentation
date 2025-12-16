@@ -28,23 +28,17 @@ In QFT, fields are the fundamental objects, not particles. Particles are excitat
 Fields are quantized using creation (a†) and annihilation (a) operators:
 
 **Commutation relations (bosons):**
-```
-[a_k, a†_k'] = δ(k - k')
-[a_k, a_k'] = [a†_k, a†_k'] = 0
-```
+$$[a_k, a^\dagger_{k'}] = \delta(k - k')$$
+$$[a_k, a_{k'}] = [a^\dagger_k, a^\dagger_{k'}] = 0$$
 
 **Anticommutation relations (fermions):**
-```
-{a_k, a†_k'} = δ(k - k')
-{a_k, a_k'} = {a†_k, a†_k'} = 0
-```
+$$\{a_k, a^\dagger_{k'}\} = \delta(k - k')$$
+$$\{a_k, a_{k'}\} = \{a^\dagger_k, a^\dagger_{k'}\} = 0$$
 
 ### Vacuum State
 
 The vacuum |0⟩ is the state with no particles:
-```
-a_k|0⟩ = 0 for all k
-```
+$$a_k|0\rangle = 0 \text{ for all } k$$
 
 But the vacuum has non-zero energy due to quantum fluctuations.
 
@@ -55,46 +49,34 @@ But the vacuum has non-zero energy due to quantum fluctuations.
 The simplest quantum field describing spin-0 particles:
 
 **Lagrangian density:**
-```
-ℒ = ½(∂_μφ)(∂^μφ) - ½m²φ²
-```
+$$\mathcal{L} = \frac{1}{2}(\partial_\mu\phi)(\partial^\mu\phi) - \frac{1}{2}m^2\phi^2$$
 
 **Equation of motion:**
-```
-(□ + m²)φ = 0
-```
+$$(\Box + m^2)\phi = 0$$
 
-Where □ = ∂_μ∂^μ is the d'Alembertian operator.
+Where $\Box = \partial_\mu\partial^\mu$ is the d'Alembertian operator.
 
 ### Quantization
 
 **Field expansion:**
-```
-φ(x) = ∫ d³k/(2π)³√(2ω_k) [a_k e^(-ik·x) + a†_k e^(ik·x)]
-```
+$$\phi(x) = \int \frac{d^3k}{(2\pi)^3\sqrt{2\omega_k}} \left[a_k e^{-ik\cdot x} + a^\dagger_k e^{ik\cdot x}\right]$$
 
-Where ω_k = √(k² + m²)
+Where $\omega_k = \sqrt{k^2 + m^2}$
 
 ### Feynman Propagator
 
 The Green's function for the Klein-Gordon equation:
 
-```
-D_F(x - y) = ⟨0|T[φ(x)φ(y)]|0⟩ = ∫ d⁴k/(2π)⁴ × i/(k² - m² + iε) × e^(-ik·(x-y))
-```
+$$D_F(x - y) = \langle 0|T[\phi(x)\phi(y)]|0\rangle = \int \frac{d^4k}{(2\pi)^4} \frac{i}{k^2 - m^2 + i\varepsilon} e^{-ik\cdot(x-y)}$$
 
 **Derivation using contour integration:**
 The time-ordered product:
-```
-T[φ(x)φ(y)] = θ(x⁰ - y⁰)φ(x)φ(y) + θ(y⁰ - x⁰)φ(y)φ(x)
-```
+$$T[\phi(x)\phi(y)] = \theta(x^0 - y^0)\phi(x)\phi(y) + \theta(y^0 - x^0)\phi(y)\phi(x)$$
 
 Using the field expansion and performing the time integral with appropriate iε prescription leads to the momentum space propagator:
-```
-D̃_F(k) = i/(k² - m² + iε)
-```
+$$\tilde{D}_F(k) = \frac{i}{k^2 - m^2 + i\varepsilon}$$
 
-The iε prescription ensures causality and proper analytic continuation.
+The $i\varepsilon$ prescription ensures causality and proper analytic continuation.
 
 ## Dirac Field Theory
 
@@ -102,34 +84,26 @@ The iε prescription ensures causality and proper analytic continuation.
 
 Describes spin-½ fermions:
 
-```
-(iγ^μ∂_μ - m)ψ = 0
-```
+$$(i\gamma^\mu\partial_\mu - m)\psi = 0$$
 
 **Gamma matrices satisfy:**
-```
-{γ^μ, γ^ν} = 2g^μν
-```
+$$\{\gamma^\mu, \gamma^\nu\} = 2g^{\mu\nu}$$
 
 ### Dirac Lagrangian
 
-```
-ℒ = ψ̄(iγ^μ∂_μ - m)ψ
-```
+$$\mathcal{L} = \bar{\psi}(i\gamma^\mu\partial_\mu - m)\psi$$
 
-Where ψ̄ = ψ†γ⁰ is the Dirac adjoint.
+Where $\bar{\psi} = \psi^\dagger\gamma^0$ is the Dirac adjoint.
 
 ### Fermion Quantization
 
 **Field expansion:**
-```
-ψ(x) = Σ_s ∫ d³p/(2π)³√(2E_p) [b^s_p u^s(p)e^(-ip·x) + d^s†_p v^s(p)e^(ip·x)]
-```
+$$\psi(x) = \sum_s \int \frac{d^3p}{(2\pi)^3\sqrt{2E_p}} \left[b^s_p u^s(p)e^{-ip\cdot x} + d^{s\dagger}_p v^s(p)e^{ip\cdot x}\right]$$
 
 Where:
-- b^s_p annihilates electrons
-- d^s†_p creates positrons
-- u^s(p), v^s(p) are spinor solutions
+- $b^s_p$ annihilates electrons
+- $d^{s\dagger}_p$ creates positrons
+- $u^s(p), v^s(p)$ are spinor solutions
 
 ## Gauge Theories
 
@@ -138,55 +112,41 @@ Where:
 Local symmetries lead to gauge fields:
 
 **U(1) gauge transformation:**
-```
-ψ → e^(iα(x))ψ
-A_μ → A_μ - ∂_μα
-```
+$$\psi \to e^{i\alpha(x)}\psi$$
+$$A_\mu \to A_\mu - \partial_\mu\alpha$$
 
 ### Covariant Derivative
 
 To maintain gauge invariance:
-```
-D_μ = ∂_μ + igA_μ
-```
+$$D_\mu = \partial_\mu + igA_\mu$$
 
 ### Yang-Mills Theory
 
 Non-abelian gauge theories with gauge group SU(N):
 
 **Field strength tensor:**
-```
-F^a_μν = ∂_μA^a_ν - ∂_νA^a_μ + gf^{abc}A^b_μA^c_ν
-```
+$$F^a_{\mu\nu} = \partial_\mu A^a_\nu - \partial_\nu A^a_\mu + gf^{abc}A^b_\mu A^c_\nu$$
 
 **Yang-Mills Lagrangian:**
-```
-ℒ = -¼F^a_μνF^{aμν}
-```
+$$\mathcal{L} = -\frac{1}{4}F^a_{\mu\nu}F^{a\mu\nu}$$
 
 ## Quantum Electrodynamics (QED)
 
 ### QED Lagrangian
 
-```
-ℒ = ψ̄(iγ^μD_μ - m)ψ - ¼F_μνF^μν
-```
+$$\mathcal{L} = \bar{\psi}(i\gamma^\mu D_\mu - m)\psi - \frac{1}{4}F_{\mu\nu}F^{\mu\nu}$$
 
-Where D_μ = ∂_μ + ieA_μ
+Where $D_\mu = \partial_\mu + ieA_\mu$
 
 ### Feynman Rules for QED
 
-**Vertex factor:** -ieγ^μ
+**Vertex factor:** $-ie\gamma^\mu$
 
 **Electron propagator:**
-```
-S_F(p) = i/(p̸ - m + iε)
-```
+$$S_F(p) = \frac{i}{\not{p} - m + i\varepsilon}$$
 
 **Photon propagator:**
-```
-D^μν_F(k) = -ig^μν/(k² + iε)
-```
+$$D^{\mu\nu}_F(k) = \frac{-ig^{\mu\nu}}{k^2 + i\varepsilon}$$
 
 ### QED Processes
 
@@ -219,67 +179,55 @@ D^μν_F(k) = -ig^μν/(k² + iε)
 
 ### Gauge Groups
 
-```
-SU(3)_C × SU(2)_L × U(1)_Y
-```
+$$SU(3)_C \times SU(2)_L \times U(1)_Y$$
 
-- SU(3)_C: Color (strong force)
-- SU(2)_L: Weak isospin
-- U(1)_Y: Weak hypercharge
+- $SU(3)_C$: Color (strong force)
+- $SU(2)_L$: Weak isospin
+- $U(1)_Y$: Weak hypercharge
 
 ### Electroweak Unification
 
 The Weinberg-Salam model unifies electromagnetic and weak forces:
 
 **Before symmetry breaking:**
-- W^1_μ, W^2_μ, W^3_μ (SU(2) gauge bosons)
-- B_μ (U(1) gauge boson)
+- $W^1_\mu, W^2_\mu, W^3_\mu$ (SU(2) gauge bosons)
+- $B_\mu$ (U(1) gauge boson)
 
 **After Higgs mechanism:**
-- W±_μ = (W^1_μ ∓ iW^2_μ)/√2
-- Z_μ = W^3_μ cos θ_W - B_μ sin θ_W
-- A_μ = W^3_μ sin θ_W + B_μ cos θ_W
+- $W^\pm_\mu = (W^1_\mu \mp iW^2_\mu)/\sqrt{2}$
+- $Z_\mu = W^3_\mu \cos\theta_W - B_\mu \sin\theta_W$
+- $A_\mu = W^3_\mu \sin\theta_W + B_\mu \cos\theta_W$
 
-Where θ_W is the Weinberg angle.
+Where $\theta_W$ is the Weinberg angle.
 
 ## Quantum Chromodynamics (QCD)
 
 ### Color Charge
 
 Quarks carry color charge (red, green, blue):
-```
-q → U_{ij}q_j
-```
+$$q \to U_{ij}q_j$$
 
-Where U ∈ SU(3) is a color transformation.
+Where $U \in SU(3)$ is a color transformation.
 
 ### QCD Lagrangian
 
-```
-ℒ = Σ_q q̄_i(iγ^μD_μ^{ij} - mδ^{ij})q_j - ¼G^a_μνG^{aμν}
-```
+$$\mathcal{L} = \sum_q \bar{q}_i(i\gamma^\mu D_\mu^{ij} - m\delta^{ij})q_j - \frac{1}{4}G^a_{\mu\nu}G^{a\mu\nu}$$
 
 Where:
-```
-D_μ^{ij} = δ^{ij}∂_μ + ig_s(T^a)^{ij}A^a_μ
-G^a_μν = ∂_μA^a_ν - ∂_νA^a_μ + g_sf^{abc}A^b_μA^c_ν
-```
+$$D_\mu^{ij} = \delta^{ij}\partial_\mu + ig_s(T^a)^{ij}A^a_\mu$$
+$$G^a_{\mu\nu} = \partial_\mu A^a_\nu - \partial_\nu A^a_\mu + g_sf^{abc}A^b_\mu A^c_\nu$$
 
 ### Asymptotic Freedom
 
 The running coupling constant:
-```
-α_s(Q²) = α_s(μ²)/[1 + (α_s(μ²)/4π)β_0 ln(Q²/μ²)]
-```
+$$\alpha_s(Q^2) = \frac{\alpha_s(\mu^2)}{1 + \frac{\alpha_s(\mu^2)}{4\pi}\beta_0 \ln(Q^2/\mu^2)}$$
 
-Where β_0 = 11 - 2n_f/3 > 0, causing α_s → 0 as Q → ∞.
+Where $\beta_0 = 11 - 2n_f/3 > 0$, causing $\alpha_s \to 0$ as $Q \to \infty$.
 
 ### Confinement
 
 At low energies, the strong force increases with distance:
-```
-V(r) ≈ kr
-```
+$$V(r) \approx kr$$
 
 This confines quarks within hadrons.
 
@@ -287,108 +235,80 @@ This confines quarks within hadrons.
 
 ### Divergences in QFT
 
-Loop integrals in quantum field theory often diverge. For example, the one-loop self-energy in φ⁴ theory:
+Loop integrals in quantum field theory often diverge. For example, the one-loop self-energy in $\phi^4$ theory:
 
-```
-Σ(p) = λ/2 ∫ d⁴k/(2π)⁴ × i/(k² - m² + iε)
-```
+$$\Sigma(p) = \frac{\lambda}{2} \int \frac{d^4k}{(2\pi)^4} \frac{i}{k^2 - m^2 + i\varepsilon}$$
 
 This integral diverges logarithmically in 4D.
 
 **Types of divergences:**
-- **Logarithmic:** ∫ d⁴k/k⁴
-- **Quadratic:** ∫ d⁴k/k²
-- **Quartic:** ∫ d⁴k
+- **Logarithmic:** $\int d^4k/k^4$
+- **Quadratic:** $\int d^4k/k^2$
+- **Quartic:** $\int d^4k$
 
 ### Regularization
 
 Methods to handle infinities systematically:
 
 **Dimensional regularization:**
-Work in d = 4 - ε dimensions:
-```
-∫ d^d k/(2π)^d × 1/(k² - m²)^n = i(-1)^n/(4π)^{d/2} × Γ(n-d/2)/Γ(n) × (m²)^{d/2-n}
-```
+Work in $d = 4 - \varepsilon$ dimensions:
+$$\int \frac{d^d k}{(2\pi)^d} \frac{1}{(k^2 - m^2)^n} = \frac{i(-1)^n}{(4\pi)^{d/2}} \frac{\Gamma(n-d/2)}{\Gamma(n)} (m^2)^{d/2-n}$$
 
-Poles appear as 1/ε terms.
+Poles appear as $1/\varepsilon$ terms.
 
 **Pauli-Villars:**
 Replace propagator:
-```
-1/(k² - m²) → 1/(k² - m²) - 1/(k² - Λ²)
-```
+$$\frac{1}{k^2 - m^2} \to \frac{1}{k^2 - m^2} - \frac{1}{k^2 - \Lambda^2}$$
 
 **Momentum cutoff:**
-```
-∫ d⁴k → ∫_{|k|<Λ} d⁴k
-```
+$$\int d^4k \to \int_{|k|<\Lambda} d^4k$$
 
 ### Renormalization Procedure
 
 **Multiplicative renormalization:**
-```
-φ = √Z_φ φ_r
-m² = Z_m m_r²/Z_φ
-λ = Z_λ λ_r/Z_φ²
-```
+$$\phi = \sqrt{Z_\phi} \phi_r$$
+$$m^2 = \frac{Z_m m_r^2}{Z_\phi}$$
+$$\lambda = \frac{Z_\lambda \lambda_r}{Z_\phi^2}$$
 
 **Counterterm Lagrangian:**
-```
-ℒ_ct = (Z_φ - 1)½(∂_μφ)² - (Z_m - 1)½m²φ² - (Z_λ - 1)λ/4! φ⁴
-```
+$$\mathcal{L}_{ct} = (Z_\phi - 1)\frac{1}{2}(\partial_\mu\phi)^2 - (Z_m - 1)\frac{1}{2}m^2\phi^2 - (Z_\lambda - 1)\frac{\lambda}{4!} \phi^4$$
 
 **Renormalization conditions (on-shell scheme):**
-1. Propagator pole at physical mass: Σ(m²) = 0
-2. Residue = 1: dΣ/dp²|_{p²=m²} = 0
+1. Propagator pole at physical mass: $\Sigma(m^2) = 0$
+2. Residue = 1: $d\Sigma/dp^2|_{p^2=m^2} = 0$
 3. Coupling defined at specific scale
 
 **Minimal Subtraction (MS):**
-Remove only poles in ε:
-```
-Z = 1 + Σ_n a_n/ε^n
-```
+Remove only poles in $\varepsilon$:
+$$Z = 1 + \sum_n \frac{a_n}{\varepsilon^n}$$
 
-**Modified MS (MS̄):**
-Also remove ln(4π) - γ terms.
+**Modified MS ($\overline{MS}$):**
+Also remove $\ln(4\pi) - \gamma$ terms.
 
 ### Renormalization Group
 
 **Callan-Symanzik equation:**
-```
-[μ∂/∂μ + β(g)∂/∂g + γ_m m∂/∂m - nγ_φ]G^{(n)}(x_i; g, m, μ) = 0
-```
+$$\left[\mu\frac{\partial}{\partial\mu} + \beta(g)\frac{\partial}{\partial g} + \gamma_m m\frac{\partial}{\partial m} - n\gamma_\phi\right]G^{(n)}(x_i; g, m, \mu) = 0$$
 
 **β-function:**
-```
-β(g) = μ dg/dμ|_{g₀,m₀ fixed}
-```
+$$\beta(g) = \mu \frac{dg}{d\mu}\bigg|_{g_0,m_0 \text{ fixed}}$$
 
 **Anomalous dimension:**
-```
-γ_φ = μ/2Z_φ × dZ_φ/dμ
-```
+$$\gamma_\phi = \frac{\mu}{2Z_\phi} \frac{dZ_\phi}{d\mu}$$
 
 **Running coupling solution:**
-```
-g(μ) = g(μ₀) + ∫_{μ₀}^μ β(g)/μ' dμ'
-```
+$$g(\mu) = g(\mu_0) + \int_{\mu_0}^\mu \frac{\beta(g)}{\mu'} d\mu'$$
 
 ### One-loop calculations in QED
 
 **Electron self-energy:**
-```
-Σ(p) = -ie² ∫ d⁴k/(2π)⁴ × γ^μ(p̸-k̸+m)γ_μ/[(p-k)² - m² + iε][k² + iε]
-```
+$$\Sigma(p) = -ie^2 \int \frac{d^4k}{(2\pi)^4} \frac{\gamma^\mu(\not{p}-\not{k}+m)\gamma_\mu}{[(p-k)^2 - m^2 + i\varepsilon][k^2 + i\varepsilon]}$$
 
 **Vertex correction:**
-```
-Λ^μ(p',p) = -ie² ∫ d⁴k/(2π)⁴ × γ^ν(p̸'-k̸+m)γ^μ(p̸-k̸+m)γ_ν/[(p'-k)² - m²][(p-k)² - m²][k²]
-```
+$$\Lambda^\mu(p',p) = -ie^2 \int \frac{d^4k}{(2\pi)^4} \frac{\gamma^\nu(\not{p}'-\not{k}+m)\gamma^\mu(\not{p}-\not{k}+m)\gamma_\nu}{[(p'-k)^2 - m^2][(p-k)^2 - m^2][k^2]}$$
 
 **QED β-function (one-loop):**
-```
-β(e) = e³/12π² + O(e⁵)
-```
+$$\beta(e) = \frac{e^3}{12\pi^2} + O(e^5)$$
 
 This positive β-function indicates QED is IR-free but has a Landau pole at high energy.
 
@@ -399,20 +319,14 @@ This positive β-function indicates QED is IR-free but has a Landau pole at high
 The path integral provides an alternative formulation of quantum field theory based on summing over all possible field configurations.
 
 **Transition amplitude:**
-```
-⟨φ_f, t_f|φ_i, t_i⟩ = ∫_{φ(t_i)=φ_i}^{φ(t_f)=φ_f} 𝒟φ e^{iS[φ]/ℏ}
-```
+$$\langle\phi_f, t_f|\phi_i, t_i\rangle = \int_{\phi(t_i)=\phi_i}^{\phi(t_f)=\phi_f} \mathcal{D}\phi \, e^{iS[\phi]/\hbar}$$
 
 Where the action is:
-```
-S[φ] = ∫_{t_i}^{t_f} dt ∫ d³x ℒ[φ(x,t), ∂_μφ(x,t)]
-```
+$$S[\phi] = \int_{t_i}^{t_f} dt \int d^3x \, \mathcal{L}[\phi(x,t), \partial_\mu\phi(x,t)]$$
 
 **Euclidean formulation:**
-After Wick rotation (t → -iτ):
-```
-Z_E = ∫ 𝒟φ e^{-S_E[φ]/ℏ}
-```
+After Wick rotation ($t \to -i\tau$):
+$$Z_E = \int \mathcal{D}\phi \, e^{-S_E[\phi]/\hbar}$$
 
 This improves convergence and connects to statistical mechanics.
 
@@ -420,73 +334,51 @@ This improves convergence and connects to statistical mechanics.
 
 The generating functional encodes all correlation functions:
 
-```
-Z[J] = ∫ 𝒟φ e^{i(S[φ] + ∫d⁴x J(x)φ(x))}
-```
+$$Z[J] = \int \mathcal{D}\phi \, e^{i(S[\phi] + \int d^4x \, J(x)\phi(x))}$$
 
 **Correlation functions via functional derivatives:**
-```
-⟨0|T[φ(x₁)...φ(x_n)]|0⟩ = (-i)ⁿ/Z[0] × δⁿZ[J]/δJ(x₁)...δJ(x_n)|_{J=0}
-```
+$$\langle 0|T[\phi(x_1)\cdots\phi(x_n)]|0\rangle = \frac{(-i)^n}{Z[0]} \frac{\delta^n Z[J]}{\delta J(x_1)\cdots\delta J(x_n)}\bigg|_{J=0}$$
 
 **Connected Green's functions:**
-```
-W[J] = -i ln Z[J]
-```
+$$W[J] = -i \ln Z[J]$$
 
-```
-⟨0|T[φ(x₁)...φ(x_n)]|0⟩_c = (-i)ⁿ⁻¹ × δⁿW[J]/δJ(x₁)...δJ(x_n)|_{J=0}
-```
+$$\langle 0|T[\phi(x_1)\cdots\phi(x_n)]|0\rangle_c = (-i)^{n-1} \frac{\delta^n W[J]}{\delta J(x_1)\cdots\delta J(x_n)}\bigg|_{J=0}$$
 
 **Effective action (1PI generating functional):**
-```
-Γ[φ_c] = W[J] - ∫ d⁴x J(x)φ_c(x)
-```
+$$\Gamma[\phi_c] = W[J] - \int d^4x \, J(x)\phi_c(x)$$
 
-Where φ_c = δW/δJ is the classical field.
+Where $\phi_c = \delta W/\delta J$ is the classical field.
 
 ### Gaussian Integration
 
 For free fields (quadratic action):
-```
-Z₀ = ∫ 𝒟φ exp[i/2 ∫ d⁴x d⁴y φ(x)K(x,y)φ(y)] = (det K)^{-1/2}
-```
+$$Z_0 = \int \mathcal{D}\phi \exp\left[\frac{i}{2} \int d^4x \, d^4y \, \phi(x)K(x,y)\phi(y)\right] = (\det K)^{-1/2}$$
 
 This gives the free propagator:
-```
-⟨0|T[φ(x)φ(y)]|0⟩₀ = K^{-1}(x,y) = D_F(x-y)
-```
+$$\langle 0|T[\phi(x)\phi(y)]|0\rangle_0 = K^{-1}(x,y) = D_F(x-y)$$
 
 ### Perturbation Theory
 
-For interacting theory with ℒ = ℒ₀ + ℒ_int:
-```
-Z[J] = exp[i∫d⁴x ℒ_int(1/i × δ/δJ(x))] Z₀[J]
-```
+For interacting theory with $\mathcal{L} = \mathcal{L}_0 + \mathcal{L}_{\text{int}}$:
+$$Z[J] = \exp\left[i\int d^4x \, \mathcal{L}_{\text{int}}\left(\frac{1}{i}\frac{\delta}{\delta J(x)}\right)\right] Z_0[J]$$
 
 This generates the perturbation series and Feynman diagrams.
 
 ### Effective Action
 
-The Legendre transform of W[J] = -i ln Z[J]:
-```
-Γ[φ_c] = W[J] - ∫ d⁴x J(x)φ_c(x)
-```
+The Legendre transform of $W[J] = -i \ln Z[J]$:
+$$\Gamma[\phi_c] = W[J] - \int d^4x \, J(x)\phi_c(x)$$
 
-Where φ_c = δW/δJ is the classical field.
+Where $\phi_c = \delta W/\delta J$ is the classical field.
 
 ## Spontaneous Symmetry Breaking
 
 ### Mexican Hat Potential
 
-```
-V(φ) = -μ²|φ|² + λ|φ|⁴
-```
+$$V(\phi) = -\mu^2|\phi|^2 + \lambda|\phi|^4$$
 
-For μ² > 0, the vacuum expectation value:
-```
-⟨φ⟩ = v = √(μ²/2λ)
-```
+For $\mu^2 > 0$, the vacuum expectation value:
+$$\langle\phi\rangle = v = \sqrt{\frac{\mu^2}{2\lambda}}$$
 
 ### Goldstone Theorem
 
@@ -499,8 +391,8 @@ In gauge theories, Goldstone bosons are "eaten" by gauge bosons:
 - No physical Goldstone bosons remain
 
 **Example - Electroweak theory:**
-- W± mass: m_W = gv/2
-- Z mass: m_Z = m_W/cos θ_W
+- W± mass: $m_W = gv/2$
+- Z mass: $m_Z = m_W/\cos\theta_W$
 - Photon remains massless
 
 ## Advanced Topics
@@ -510,9 +402,7 @@ In gauge theories, Goldstone bosons are "eaten" by gauge bosons:
 Classical symmetries that fail at quantum level:
 
 **Chiral anomaly:**
-```
-∂_μj^μ_5 = e²/16π² ε^{μνρσ}F_μνF_ρσ
-```
+$$\partial_\mu j^\mu_5 = \frac{e^2}{16\pi^2} \varepsilon^{\mu\nu\rho\sigma}F_{\mu\nu}F_{\rho\sigma}$$
 
 ### Instantons
 
@@ -530,12 +420,10 @@ Low-energy descriptions integrating out heavy degrees of freedom:
 ### Supersymmetry
 
 Symmetry between bosons and fermions:
-```
-Q|boson⟩ = |fermion⟩
-Q|fermion⟩ = |boson⟩
-```
+$$Q|\text{boson}\rangle = |\text{fermion}\rangle$$
+$$Q|\text{fermion}\rangle = |\text{boson}\rangle$$
 
-Algebra: {Q_α, Q̄_β̇} = 2σ^μ_{αβ̇}P_μ
+Algebra: $\{Q_\alpha, \bar{Q}_{\dot{\beta}}\} = 2\sigma^\mu_{\alpha\dot{\beta}}P_\mu$
 
 ## Experimental Tests
 
@@ -554,7 +442,7 @@ Algebra: {Q_α, Q̄_β̇} = 2σ^μ_{αβ̇}P_μ
 ## Open Questions
 
 1. **Hierarchy problem:** Why is the Higgs mass so light?
-2. **Strong CP problem:** Why is θ_QCD ≈ 0?
+2. **Strong CP problem:** Why is $\theta_{\text{QCD}} \approx 0$?
 3. **Neutrino masses:** Not explained by Standard Model
 4. **Dark matter:** No Standard Model candidate
 5. **Quantum gravity:** How to quantize gravity?
@@ -563,7 +451,7 @@ Algebra: {Q_α, Q̄_β̇} = 2σ^μ_{αβ̇}P_μ
 
 ### Lie Algebras
 
-Structure constants: [T^a, T^b] = if^{abc}T^c
+Structure constants: $[T^a, T^b] = if^{abc}T^c$
 
 ### Spinor Techniques
 
@@ -584,25 +472,19 @@ Structure constants: [T^a, T^b] = if^{abc}T^c
 **On-shell methods:** Work directly with physical states
 
 **Spinor-helicity formalism:**
-```
-p_μ = λ_α λ̃_α̇
-```
+$$p_\mu = \lambda_\alpha \tilde{\lambda}_{\dot{\alpha}}$$
 
 **BCFW recursion:**
-```
-A_n = Σ_{partitions} A_L A_R/P²
-```
+$$A_n = \sum_{\text{partitions}} \frac{A_L A_R}{P^2}$$
 
 **Scattering equations:** Cachazo-He-Yuan formulation
 
 ### AdS/CFT Correspondence
 
 **Holographic principle:**
-```
-Z_{CFT}[J] = Z_{gravity}[φ_∂ = J]
-```
+$$Z_{\text{CFT}}[J] = Z_{\text{gravity}}[\phi_\partial = J]$$
 
-**Large N limit:** Classical gravity ↔ strongly coupled CFT
+**Large N limit:** Classical gravity $\leftrightarrow$ strongly coupled CFT
 
 **Applications:**
 - Quark-gluon plasma
@@ -612,9 +494,7 @@ Z_{CFT}[J] = Z_{gravity}[φ_∂ = J]
 ### Resurgence and Trans-series
 
 **Beyond perturbation theory:**
-```
-F(g) = Σ_n a_n g^n + e^{-A/g} Σ_n b_n g^n + ...
-```
+$$F(g) = \sum_n a_n g^n + e^{-A/g} \sum_n b_n g^n + \cdots$$
 
 **Borel resummation:** Handle divergent series
 
@@ -635,14 +515,10 @@ F(g) = Σ_n a_n g^n + e^{-A/g} Σ_n b_n g^n + ...
 ### Modern Feynman Integrals
 
 **Integration by parts (IBP):**
-```
-∫ d^d k ∂/∂k^μ [k^μ f(k)] = 0
-```
+$$\int d^d k \, \frac{\partial}{\partial k^\mu} [k^\mu f(k)] = 0$$
 
 **Differential equations:**
-```
-∂I/∂m² = Σ_j c_j(m²,s,t) I_j
-```
+$$\frac{\partial I}{\partial m^2} = \sum_j c_j(m^2,s,t) I_j$$
 
 **Mellin-Barnes:** Complex contour methods
 
@@ -700,14 +576,10 @@ F(g) = Σ_n a_n g^n + e^{-A/g} Σ_n b_n g^n + ...
 ### Quantum Information in QFT
 
 **Entanglement in field theory:**
-```
-S_A = -Tr(ρ_A log ρ_A)
-```
+$$S_A = -\text{Tr}(\rho_A \log \rho_A)$$
 
 **Holographic entanglement entropy:**
-```
-S_A = Area(γ_A)/(4G_N)
-```
+$$S_A = \frac{\text{Area}(\gamma_A)}{4G_N}$$
 
 **Quantum error correction:** Holographic codes
 

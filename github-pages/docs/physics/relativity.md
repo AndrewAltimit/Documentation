@@ -204,52 +204,57 @@ toc_icon: "cog"
 Starting from the invariance of the spacetime interval and the principle of relativity:
 
 For two reference frames S and S', where S' moves with velocity v along the x-axis:
-```
-c²t'² - x'² = c²t² - x²
-```
+
+$$c^2t'^2 - x'^2 = c^2t^2 - x^2$$
 
 Assuming linear transformation:
-```
-x' = Ax + Bt
-t' = Cx + Dt
-```
+
+$$x' = Ax + Bt$$
+$$t' = Cx + Dt$$
 
 From the origin of S' (x' = 0) moving at x = vt:
-```
-0 = Avt + Bt → B = -Av
-```
+
+$$0 = Avt + Bt \rightarrow B = -Av$$
 
 From the invariance of light speed (x = ct implies x' = ct'):
-```
-ct' = Act + Bt = Act - Avt = A(c - v)t
-x' = Act + Bt = Act - Avt = A(c - v)t
-```
+
+$$ct' = Act + Bt = Act - Avt = A(c - v)t$$
+$$x' = Act + Bt = Act - Avt = A(c - v)t$$
 
 Therefore: A = γ = 1/√(1 - v²/c²)
 
 Complete Lorentz transformations:
-```
-x' = γ(x - vt)
-y' = y
-z' = z
-t' = γ(t - vx/c²)
-```
+
+$$x' = \gamma(x - vt)$$
+$$y' = y$$
+$$z' = z$$
+$$t' = \gamma(t - vx/c^2)$$
 
 Inverse transformations:
-```
-x = γ(x' + vt')
-y = y'
-z = z'
-t = γ(t' + vx'/c²)
-```
+
+$$x = \gamma(x' + vt')$$
+$$y = y'$$
+$$z = z'$$
+$$t = \gamma(t' + vx'/c^2)$$
 
 Matrix form:
-```
-|ct'|   |γ    -βγ   0   0| |ct|
-|x' | = |-βγ   γ    0   0| |x |
-|y' |   |0     0    1   0| |y |
-|z' |   |0     0    0   1| |z |
-```
+
+$$\begin{pmatrix}
+ct' \\
+x' \\
+y' \\
+z'
+\end{pmatrix} = \begin{pmatrix}
+\gamma & -\beta\gamma & 0 & 0 \\
+-\beta\gamma & \gamma & 0 & 0 \\
+0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 1
+\end{pmatrix} \begin{pmatrix}
+ct \\
+x \\
+y \\
+z
+\end{pmatrix}$$
 
 Where β = v/c.
 
@@ -367,9 +372,7 @@ Where β = v/c.
 
 Velocities don't simply add in special relativity:
 
-```
-u = (v + w)/(1 + vw/c²)
-```
+$$u = \frac{v + w}{1 + vw/c^2}$$
 
 This ensures that no velocity exceeds the speed of light.
 
@@ -377,55 +380,45 @@ This ensures that no velocity exceeds the speed of light.
 
 Einstein's most famous equation:
 
-```
-E = mc²
-```
+$$E = mc^2$$
 
 Total energy of a particle:
-```
-E² = (pc)² + (mc²)²
-```
+
+$$E^2 = (pc)^2 + (mc^2)^2$$
 
 Where p is the relativistic momentum:
-```
-p = γmv
-```
+
+$$p = \gamma mv$$
 
 ### Relativistic Dynamics
 
 #### Relativistic Momentum
-```
-p = γmv
-```
+
+$$p = \gamma mv$$
 
 #### Relativistic Force
-```
-F = dp/dt = d(γmv)/dt
-```
+
+$$F = \frac{dp}{dt} = \frac{d(\gamma mv)}{dt}$$
 
 #### Relativistic Kinetic Energy
-```
-KE = (γ - 1)mc²
-```
+
+$$KE = (\gamma - 1)mc^2$$
 
 ### Four-Vectors and Tensor Notation
 
 In special relativity, we use four-vectors to unify space and time:
 
 **Position four-vector:**
-```
-x^μ = (ct, x, y, z)
-```
+
+$$x^\mu = (ct, x, y, z)$$
 
 **Four-momentum:**
-```
-p^μ = (E/c, px, py, pz)
-```
+
+$$p^\mu = (E/c, p_x, p_y, p_z)$$
 
 **Four-velocity:**
-```
-u^μ = γ(c, vx, vy, vz)
-```
+
+$$u^\mu = \gamma(c, v_x, v_y, v_z)$$
 
 **Invariants:**
 - Spacetime interval: s² = -c²t² + x² + y² + z²
@@ -567,47 +560,39 @@ u^μ = γ(c, vx, vy, vz)
 
 #### Derivation from Action Principle
 The Einstein-Hilbert action:
-```
-S = ∫ d⁴x √-g [R/(16πG) + ℒₘ]
-```
 
-Where g = det(gμν) and ℒₘ is the matter Lagrangian density.
+$$S = \int d^4x \sqrt{-g} \left[\frac{R}{16\pi G} + \mathcal{L}_m\right]$$
+
+Where g = det(g_μν) and ℒ_m is the matter Lagrangian density.
 
 Varying with respect to the metric:
-```
-δS/δgμν = 0
-```
+
+$$\frac{\delta S}{\delta g^{\mu\nu}} = 0$$
 
 Leads to:
-```
-Rμν - ½gμνR = (8πG/c⁴)Tμν
-```
+
+$$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R = \frac{8\pi G}{c^4}T_{\mu\nu}$$
 
 Where the stress-energy tensor is:
-```
-Tμν = -2/√-g × δ(√-g ℒₘ)/δgμν
-```
+
+$$T_{\mu\nu} = -\frac{2}{\sqrt{-g}} \frac{\delta(\sqrt{-g} \mathcal{L}_m)}{\delta g^{\mu\nu}}$$
 
 #### Curvature Tensors
 The Riemann curvature tensor:
-```
-R^ρ_σμν = ∂μΓ^ρ_νσ - ∂νΓ^ρ_μσ + Γ^ρ_μλΓ^λ_νσ - Γ^ρ_νλΓ^λ_μσ
-```
+
+$$R^\rho_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma} - \partial_\nu\Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$$
 
 The Ricci tensor (contraction of Riemann):
-```
-Rμν = R^ρ_μρν
-```
+
+$$R_{\mu\nu} = R^\rho_{\mu\rho\nu}$$
 
 The scalar curvature:
-```
-R = g^μν Rμν
-```
+
+$$R = g^{\mu\nu} R_{\mu\nu}$$
 
 Bianchi identity ensures conservation:
-```
-∇μG^μν = 0
-```
+
+$$\nabla_\mu G^{\mu\nu} = 0$$
 
 Where G^μν = R^μν - ½g^μν R is the Einstein tensor.
 
@@ -615,39 +600,30 @@ Where G^μν = R^μν - ½g^μν R is the Einstein tensor.
 
 The metric tensor describes the geometry of spacetime:
 
-```
-ds² = gμν dx^μ dx^ν
-```
+$$ds^2 = g_{\mu\nu} dx^\mu dx^\nu$$
 
 For flat spacetime (Minkowski metric):
-```
-ds² = -c²dt² + dx² + dy² + dz²
-```
+
+$$ds^2 = -c^2dt^2 + dx^2 + dy^2 + dz^2$$
 
 ### Schwarzschild Solution
 
 For a non-rotating, spherically symmetric mass:
 
-```
-ds² = -(1 - 2GM/rc²)c²dt² + (1 - 2GM/rc²)⁻¹dr² + r²(dθ² + sin²θ dφ²)
-```
+$$ds^2 = -\left(1 - \frac{2GM}{rc^2}\right)c^2dt^2 + \left(1 - \frac{2GM}{rc^2}\right)^{-1}dr^2 + r^2(d\theta^2 + \sin^2\theta d\phi^2)$$
 
 This describes spacetime around stars, planets, and non-rotating black holes.
 
 #### Schwarzschild Radius
 The event horizon of a black hole:
 
-```
-rs = 2GM/c²
-```
+$$r_s = \frac{2GM}{c^2}$$
 
 ### Gravitational Time Dilation
 
 Clocks run slower in stronger gravitational fields:
 
-```
-Δt = Δτ√(1 - 2GM/rc²)
-```
+$$\Delta t = \frac{\Delta\tau}{\sqrt{1 - 2GM/rc^2}}$$
 
 Where Δτ is the proper time at radius r.
 
@@ -655,17 +631,13 @@ Where Δτ is the proper time at radius r.
 
 Light climbing out of a gravitational field is redshifted:
 
-```
-z = √(1 - 2GM/r₁c²)/√(1 - 2GM/r₂c²) - 1
-```
+$$z = \frac{\sqrt{1 - 2GM/r_1c^2}}{\sqrt{1 - 2GM/r_2c^2}} - 1$$
 
 ### Geodesics
 
 Objects in free fall follow geodesics (shortest paths in curved spacetime):
 
-```
-d²x^μ/dτ² + Γ^μ_αβ (dx^α/dτ)(dx^β/dτ) = 0
-```
+$$\frac{d^2x^\mu}{d\tau^2} + \Gamma^\mu_{\alpha\beta} \frac{dx^\alpha}{d\tau}\frac{dx^\beta}{d\tau} = 0$$
 
 Where Γ^μ_αβ are the Christoffel symbols describing the connection.
 
@@ -722,19 +694,16 @@ Time travel could allow changing the past. Resolution: Various theoretical solut
 Quantities that transform like spacetime coordinates:
 
 **Four-Position:**
-```
-xμ = (ct, x, y, z)
-```
+
+$$x_\mu = (ct, x, y, z)$$
 
 **Four-Velocity:**
-```
-uμ = γ(c, vx, vy, vz)
-```
+
+$$u_\mu = \gamma(c, v_x, v_y, v_z)$$
 
 **Four-Momentum:**
-```
-pμ = (E/c, px, py, pz)
-```
+
+$$p_\mu = (E/c, p_x, p_y, p_z)$$
 
 ### Tensor Notation
 - **Contravariant:** Upper indices (xμ)
@@ -744,9 +713,7 @@ pμ = (E/c, px, py, pz)
 ### Christoffel Symbols
 Connection coefficients:
 
-```
-Γ^μ_αβ = ½g^μν(∂gνα/∂x^β + ∂gνβ/∂x^α - ∂gαβ/∂x^ν)
-```
+$$\Gamma^\mu_{\alpha\beta} = \frac{1}{2}g^{\mu\nu}\left(\frac{\partial g_{\nu\alpha}}{\partial x^\beta} + \frac{\partial g_{\nu\beta}}{\partial x^\alpha} - \frac{\partial g_{\alpha\beta}}{\partial x^\nu}\right)$$
 
 ## Modern Developments
 
@@ -796,14 +763,12 @@ Attempts to unify general relativity with quantum mechanics:
 **Minkowski Spacetime:** (M, η) with metric signature (-,+,+,+)
 
 **Four-vector transformation:**
-```
-x'^μ = Λ^μ_ν x^ν
-```
+
+$$x'^\mu = \Lambda^\mu_\nu x^\nu$$
 
 Where Λ is a Lorentz transformation satisfying:
-```
-Λ^μ_α η_{μν} Λ^ν_β = η_{αβ}
-```
+
+$$\Lambda^\mu_\alpha \eta_{\mu\nu} \Lambda^\nu_\beta = \eta_{\alpha\beta}$$
 
 **Proper Lorentz Group:** SO(3,1) - preserves orientation and time direction
 
@@ -812,18 +777,16 @@ Where Λ is a Lorentz transformation satisfying:
 - Boosts: K_i = x^0∂_i + x_i∂_0
 
 **Lorentz algebra:**
-```
-[J_i, J_j] = iε_{ijk}J_k
-[K_i, K_j] = -iε_{ijk}J_k
-[J_i, K_j] = iε_{ijk}K_k
-```
+
+$$[J_i, J_j] = i\varepsilon_{ijk}J_k$$
+$$[K_i, K_j] = -i\varepsilon_{ijk}J_k$$
+$$[J_i, K_j] = i\varepsilon_{ijk}K_k$$
 
 ### Relativistic Field Theory
 
 **Action principle:**
-```
-S = ∫ d^4x ℒ(φ, ∂_μφ)
-```
+
+$$S = \int d^4x \mathcal{L}(\phi, \partial_\mu\phi)$$
 
 **Noether's theorem:** Symmetry → Conservation law
 - Translation invariance → Energy-momentum conservation
@@ -831,23 +794,20 @@ S = ∫ d^4x ℒ(φ, ∂_μφ)
 - U(1) gauge invariance → Charge conservation
 
 **Energy-momentum tensor:**
-```
-T^μν = ∂ℒ/∂(∂_μφ) ∂^νφ - g^μν ℒ
-```
+
+$$T^{\mu\nu} = \frac{\partial\mathcal{L}}{\partial(\partial_\mu\phi)} \partial^\nu\phi - g^{\mu\nu} \mathcal{L}$$
 
 Conservation: ∂_μT^μν = 0
 
 ### Spinors and the Dirac Equation
 
 **Clifford algebra:**
-```
-{γ^μ, γ^ν} = 2g^μν
-```
+
+$$\{\gamma^\mu, \gamma^\nu\} = 2g^{\mu\nu}$$
 
 **Dirac equation:**
-```
-(iγ^μ∂_μ - m)ψ = 0
-```
+
+$$(i\gamma^\mu\partial_\mu - m)\psi = 0$$
 
 **Spinor representation of Lorentz group:** SL(2,C) double covers SO(3,1)
 
@@ -869,26 +829,23 @@ Conservation: ∂_μT^μν = 0
 ### Covariant Derivative and Connection
 
 **Covariant derivative:**
-```
-∇_μV^ν = ∂_μV^ν + Γ^ν_{μλ}V^λ
-∇_μω_ν = ∂_μω_ν - Γ^λ_{μν}ω_λ
-```
+
+$$\nabla_\mu V^\nu = \partial_\mu V^\nu + \Gamma^\nu_{\mu\lambda}V^\lambda$$
+$$\nabla_\mu \omega_\nu = \partial_\mu \omega_\nu - \Gamma^\lambda_{\mu\nu}\omega_\lambda$$
 
 **Metric compatibility:** ∇_λg_{μν} = 0
 
 **Torsion-free:** Γ^λ_{μν} = Γ^λ_{νμ}
 
 **Christoffel symbols:**
-```
-Γ^λ_{μν} = ½g^{λσ}(∂_μg_{σν} + ∂_νg_{μσ} - ∂_σg_{μν})
-```
+
+$$\Gamma^\lambda_{\mu\nu} = \frac{1}{2}g^{\lambda\sigma}(\partial_\mu g_{\sigma\nu} + \partial_\nu g_{\mu\sigma} - \partial_\sigma g_{\mu\nu})$$
 
 ### Curvature
 
 **Riemann tensor:**
-```
-R^ρ_{σμν} = ∂_μΓ^ρ_{νσ} - ∂_νΓ^ρ_{μσ} + Γ^ρ_{μλ}Γ^λ_{νσ} - Γ^ρ_{νλ}Γ^λ_{μσ}
-```
+
+$$R^\rho_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma} - \partial_\nu\Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$$
 
 **Properties:**
 - Antisymmetry: R_{ρσμν} = -R_{σρμν} = -R_{ρσνμ}
@@ -900,30 +857,25 @@ R^ρ_{σμν} = ∂_μΓ^ρ_{νσ} - ∂_νΓ^ρ_{μσ} + Γ^ρ_{μλ}Γ^λ_{ν�
 **Scalar curvature:** R = g^{μν}R_{μν}
 
 **Weyl tensor (conformal curvature):**
-```
-C_{ρσμν} = R_{ρσμν} - ½(g_{ρμ}R_{σν} - g_{ρν}R_{σμ} + g_{σν}R_{ρμ} - g_{σμ}R_{ρν})
-         + R/6(g_{ρμ}g_{σν} - g_{ρν}g_{σμ})
-```
+
+$$C_{\rho\sigma\mu\nu} = R_{\rho\sigma\mu\nu} - \frac{1}{2}(g_{\rho\mu}R_{\sigma\nu} - g_{\rho\nu}R_{\sigma\mu} + g_{\sigma\nu}R_{\rho\mu} - g_{\sigma\mu}R_{\rho\nu}) + \frac{R}{6}(g_{\rho\mu}g_{\sigma\nu} - g_{\rho\nu}g_{\sigma\mu})$$
 
 ## Einstein Field Equations: Detailed Analysis
 
 ### Variational Derivation
 
 **Einstein-Hilbert action:**
-```
-S = S_EH + S_m = 1/(16πG) ∫ d^4x √-g R + ∫ d^4x √-g ℒ_m
-```
+
+$$S = S_{EH} + S_m = \frac{1}{16\pi G} \int d^4x \sqrt{-g} R + \int d^4x \sqrt{-g} \mathcal{L}_m$$
 
 **Metric variation:**
-```
-δ√-g = -½√-g g_{μν}δg^{μν}
-δR = R_{μν}δg^{μν} + g_{μν}∇_λ∇^λδg^{μν} - ∇_μ∇_νδg^{μν}
-```
+
+$$\delta\sqrt{-g} = -\frac{1}{2}\sqrt{-g} g_{\mu\nu}\delta g^{\mu\nu}$$
+$$\delta R = R_{\mu\nu}\delta g^{\mu\nu} + g_{\mu\nu}\nabla_\lambda\nabla^\lambda\delta g^{\mu\nu} - \nabla_\mu\nabla_\nu\delta g^{\mu\nu}$$
 
 **Gibbons-Hawking-York boundary term:** Required for well-posed variational problem
-```
-S_GHY = 1/(8πG) ∫_{∂M} d^3x √h K
-```
+
+$$S_{GHY} = \frac{1}{8\pi G} \int_{\partial M} d^3x \sqrt{h} K$$
 
 Where K is the trace of extrinsic curvature.
 
@@ -932,16 +884,15 @@ Where K is the trace of extrinsic curvature.
 #### Schwarzschild Solution
 
 **Line element:**
-```
-ds^2 = -(1-2M/r)dt^2 + (1-2M/r)^{-1}dr^2 + r^2dΩ^2
-```
+
+$$ds^2 = -\left(1-\frac{2M}{r}\right)dt^2 + \left(1-\frac{2M}{r}\right)^{-1}dr^2 + r^2d\Omega^2$$
 
 **Kruskal-Szekeres coordinates:** Maximal analytic extension
-```
-T^2 - X^2 = (r/2M - 1)e^{r/2M}
-TX > 0: exterior regions
-TX < 0: black/white hole regions
-```
+
+$$T^2 - X^2 = \left(\frac{r}{2M} - 1\right)e^{r/2M}$$
+
+- TX > 0: exterior regions
+- TX < 0: black/white hole regions
 
 **Penrose diagram:** Conformal compactification
 - i⁺: future timelike infinity
@@ -953,10 +904,8 @@ TX < 0: black/white hole regions
 #### Kerr Solution
 
 **Rotating black hole metric (Boyer-Lindquist):**
-```
-ds^2 = -(1-2Mr/ρ^2)dt^2 - 4Mar sin^2θ/ρ^2 dtdφ + ρ^2/Δ dr^2 + ρ^2dθ^2
-      + sin^2θ(r^2 + a^2 + 2Ma^2r sin^2θ/ρ^2)dφ^2
-```
+
+$$ds^2 = -\left(1-\frac{2Mr}{\rho^2}\right)dt^2 - \frac{4Mar \sin^2\theta}{\rho^2} dtd\phi + \frac{\rho^2}{\Delta} dr^2 + \rho^2d\theta^2 + \sin^2\theta\left(r^2 + a^2 + \frac{2Ma^2r \sin^2\theta}{\rho^2}\right)d\phi^2$$
 
 Where:
 - ρ^2 = r^2 + a^2cos^2θ
@@ -972,9 +921,8 @@ Where:
 #### Reissner-Nordström Solution
 
 **Charged black hole:**
-```
-ds^2 = -(1-2M/r+Q^2/r^2)dt^2 + (1-2M/r+Q^2/r^2)^{-1}dr^2 + r^2dΩ^2
-```
+
+$$ds^2 = -\left(1-\frac{2M}{r}+\frac{Q^2}{r^2}\right)dt^2 + \left(1-\frac{2M}{r}+\frac{Q^2}{r^2}\right)^{-1}dr^2 + r^2d\Omega^2$$
 
 **Horizons:** r_± = M ± √(M² - Q²)
 - Extremal case: Q = M (single degenerate horizon)
@@ -985,17 +933,15 @@ ds^2 = -(1-2M/r+Q^2/r^2)dt^2 + (1-2M/r+Q^2/r^2)^{-1}dr^2 + r^2dΩ^2
 #### FLRW Metric
 
 **Friedmann-Lemaître-Robertson-Walker:**
-```
-ds^2 = -dt^2 + a(t)^2[dr^2/(1-kr^2) + r^2dΩ^2]
-```
+
+$$ds^2 = -dt^2 + a(t)^2\left[\frac{dr^2}{1-kr^2} + r^2d\Omega^2\right]$$
 
 Where k = {-1, 0, +1} for {open, flat, closed} universe.
 
 **Friedmann equations:**
-```
-(ȧ/a)^2 = 8πGρ/3 - k/a^2 + Λ/3
-ä/a = -4πG(ρ + 3p)/3 + Λ/3
-```
+
+$$\left(\frac{\dot{a}}{a}\right)^2 = \frac{8\pi G\rho}{3} - \frac{k}{a^2} + \frac{\Lambda}{3}$$
+$$\frac{\ddot{a}}{a} = -\frac{4\pi G(\rho + 3p)}{3} + \frac{\Lambda}{3}$$
 
 **Equation of state:** p = wρ
 - Radiation: w = 1/3
@@ -1005,15 +951,14 @@ Where k = {-1, 0, +1} for {open, flat, closed} universe.
 #### de Sitter and Anti-de Sitter
 
 **de Sitter (Λ > 0):**
-```
-ds^2 = -(1-r^2/α^2)dt^2 + (1-r^2/α^2)^{-1}dr^2 + r^2dΩ^2
-```
+
+$$ds^2 = -\left(1-\frac{r^2}{\alpha^2}\right)dt^2 + \left(1-\frac{r^2}{\alpha^2}\right)^{-1}dr^2 + r^2d\Omega^2$$
+
 Where α = √(3/Λ)
 
 **Anti-de Sitter (Λ < 0):**
-```
-ds^2 = -(1+r^2/α^2)dt^2 + (1+r^2/α^2)^{-1}dr^2 + r^2dΩ^2
-```
+
+$$ds^2 = -\left(1+\frac{r^2}{\alpha^2}\right)dt^2 + \left(1+\frac{r^2}{\alpha^2}\right)^{-1}dr^2 + r^2d\Omega^2$$
 
 ## Black Hole Thermodynamics
 
@@ -1022,33 +967,28 @@ ds^2 = -(1+r^2/α^2)dt^2 + (1+r^2/α^2)^{-1}dr^2 + r^2dΩ^2
 **Zeroth Law:** Surface gravity κ is constant on horizon
 
 **First Law:**
-```
-dM = κ/8πG dA + ΩdJ + ΦdQ
-```
+
+$$dM = \frac{\kappa}{8\pi G} dA + \Omega dJ + \Phi dQ$$
 
 **Second Law:** Hawking area theorem
-```
-δA ≥ 0
-```
+
+$$\delta A \geq 0$$
 
 **Third Law:** Cannot achieve κ = 0 in finite operations
 
 ### Hawking Radiation
 
 **Temperature:**
-```
-T_H = ℏκ/2πck_B = ℏc³/8πGMk_B
-```
+
+$$T_H = \frac{\hbar\kappa}{2\pi ck_B} = \frac{\hbar c^3}{8\pi GMk_B}$$
 
 **Bekenstein-Hawking entropy:**
-```
-S = k_B A/4l_P² = k_B c³A/4Gℏ
-```
+
+$$S = \frac{k_B A}{4l_P^2} = \frac{k_B c^3A}{4G\hbar}$$
 
 **Unruh effect:** Accelerating observers see thermal radiation
-```
-T_U = ℏa/2πck_B
-```
+
+$$T_U = \frac{\hbar a}{2\pi ck_B}$$
 
 ### Information Paradox
 
@@ -1066,50 +1006,42 @@ T_U = ℏa/2πck_B
 ### Linearized Gravity
 
 **Weak field approximation:**
-```
-g_{μν} = η_{μν} + h_{μν}, |h_{μν}| << 1
-```
+
+$$g_{\mu\nu} = \eta_{\mu\nu} + h_{\mu\nu}, \quad |h_{\mu\nu}| \ll 1$$
 
 **Gauge freedom:** Coordinate transformations
-```
-h'_{μν} = h_{μν} - ∂_μξ_ν - ∂_νξ_μ
-```
+
+$$h'_{\mu\nu} = h_{\mu\nu} - \partial_\mu\xi_\nu - \partial_\nu\xi_\mu$$
 
 **Transverse-traceless gauge:**
-```
-h^{μ0} = 0, h^μ_μ = 0, ∂^ih_{ij} = 0
-```
+
+$$h^{\mu 0} = 0, \quad h^\mu_\mu = 0, \quad \partial^ih_{ij} = 0$$
 
 **Wave equation:**
-```
-□h_{μν} = -16πG T_{μν}
-```
+
+$$\Box h_{\mu\nu} = -16\pi G T_{\mu\nu}$$
 
 ### Quadrupole Formula
 
 **Energy flux:**
-```
-dE/dt = -G/5 <d³Q_{ij}/dt³ d³Q^{ij}/dt³>
-```
+
+$$\frac{dE}{dt} = -\frac{G}{5} \left\langle\frac{d^3Q_{ij}}{dt^3} \frac{d^3Q^{ij}}{dt^3}\right\rangle$$
 
 Where Q_{ij} is the quadrupole moment.
 
 **Gravitational wave strain:**
-```
-h_{ij}^{TT} = 2G/rc⁴ d²Q_{ij}^{TT}/dt²
-```
+
+$$h_{ij}^{TT} = \frac{2G}{rc^4} \frac{d^2Q_{ij}^{TT}}{dt^2}$$
 
 ### Binary Systems
 
 **Orbital decay (Peters-Mathews):**
-```
-da/dt = -64G³/5c⁵ × μM²/a³
-```
+
+$$\frac{da}{dt} = -\frac{64G^3}{5c^5} \frac{\mu M^2}{a^3}$$
 
 **Chirp mass:**
-```
-ℳ = (m₁m₂)^{3/5}/(m₁+m₂)^{1/5}
-```
+
+$$\mathcal{M} = \frac{(m_1m_2)^{3/5}}{(m_1+m_2)^{1/5}}$$
 
 **Waveform phases:**
 1. Inspiral: Post-Newtonian expansion
@@ -1179,33 +1111,30 @@ da/dt = -64G³/5c⁵ × μM²/a³
 **Foliation:** M = ℝ × Σ
 
 **ADM metric:**
-```
-ds² = -N²dt² + γᵢⱼ(dxⁱ + Nⁱdt)(dxʲ + Nʲdt)
-```
+
+$$ds^2 = -N^2dt^2 + \gamma_{ij}(dx^i + N^idt)(dx^j + N^jdt)$$
 
 Where:
 - N: lapse function
-- Nⁱ: shift vector
-- γᵢⱼ: induced 3-metric
+- N^i: shift vector
+- γ_{ij}: induced 3-metric
 
 **Extrinsic curvature:**
-```
-Kᵢⱼ = 1/2N(∂ₜγᵢⱼ - DᵢNⱼ - DⱼNᵢ)
-```
+
+$$K_{ij} = \frac{1}{2N}(\partial_t\gamma_{ij} - D_iN_j - D_jN_i)$$
 
 ### Hamiltonian Formulation
 
-**Canonical variables:** (γᵢⱼ, πⁱʲ)
+**Canonical variables:** (γ_{ij}, π^{ij})
 
 **Constraints:**
 - Hamiltonian constraint: ℋ = 0
-- Momentum constraints: ℋᵢ = 0
+- Momentum constraints: ℋ_i = 0
 
 **Evolution equations:**
-```
-∂ₜγᵢⱼ = {γᵢⱼ, H}
-∂ₜπⁱʲ = {πⁱʲ, H}
-```
+
+$$\partial_t\gamma_{ij} = \{\gamma_{ij}, H\}$$
+$$\partial_t\pi^{ij} = \{\pi^{ij}, H\}$$
 
 ## Modern Research Frontiers
 
@@ -1230,9 +1159,8 @@ Kᵢⱼ = 1/2N(∂ₜγᵢⱼ - DᵢNⱼ - DⱼNᵢ)
 - Discrete spacetime at Planck scale
 
 **Area spectrum:**
-```
-A = 8πγl_P² Σᵢ√(jᵢ(jᵢ+1))
-```
+
+$$A = 8\pi\gamma l_P^2 \sum_i\sqrt{j_i(j_i+1)}$$
 
 #### Causal Sets
 
@@ -1284,11 +1212,10 @@ A = 8πγl_P² Σᵢ√(jᵢ(jᵢ+1))
 - Gravitational wave polarizations
 
 **Parameterized post-Newtonian formalism:**
-```
-g₀₀ = -1 + 2U/c² - 2βU²/c⁴ + ...
-g₀ᵢ = -4γUᵢ/c³ + ...
-gᵢⱼ = δᵢⱼ(1 + 2γU/c²) + ...
-```
+
+$$g_{00} = -1 + \frac{2U}{c^2} - \frac{2\beta U^2}{c^4} + \ldots$$
+$$g_{0i} = -\frac{4\gamma U_i}{c^3} + \ldots$$
+$$g_{ij} = \delta_{ij}\left(1 + \frac{2\gamma U}{c^2}\right) + \ldots$$
 
 GR: β = γ = 1
 
@@ -1328,9 +1255,8 @@ GR: β = γ = 1
 ### Conformal Methods
 
 **Conformal transformation:**
-```
-g̃_{μν} = Ω²g_{μν}
-```
+
+$$\tilde{g}_{\mu\nu} = \Omega^2 g_{\mu\nu}$$
 
 **Conformal invariance of null geodesics**
 
@@ -1384,15 +1310,13 @@ g̃_{μν} = Ω²g_{μν}
 ### Killing Vectors and Symmetries
 
 **Killing equation:**
-```
-∇_{(μ}ξ_{ν)} = 0
-```
+
+$$\nabla_{(\mu}\xi_{\nu)} = 0$$
 
 **Conserved quantities:**
-```
-E = -ξ^μ_{(t)}p_μ
-L = ξ^μ_{(φ)}p_μ
-```
+
+$$E = -\xi^\mu_{(t)}p_\mu$$
+$$L = \xi^\mu_{(\phi)}p_\mu$$
 
 **Maximum symmetry:**
 - Flat: 10 Killing vectors (Poincaré)
