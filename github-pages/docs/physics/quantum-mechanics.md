@@ -55,9 +55,9 @@ Quantum mechanics describes nature at the smallest scales - atoms and subatomic 
 - Must be normalized: ∫_{-∞}^{∞} |ψ|²dx = 1 (total probability = 100%)
 
 **The Schrödinger Equation** governs how quantum systems evolve:
-```
+$$
 iℏ ∂ψ/∂t = Ĥψ
-```
+$$
 Think of it as F=ma for quantum mechanics - it tells you how the wave function changes over time.
 
 ### Your First Quantum Calculation
@@ -190,9 +190,9 @@ This geometric view helps understand:
 
 All matter and radiation exhibit both wave and particle properties. This duality is captured by de Broglie's relation:
 
-```
+$$
 λ = h/p
-```
+$$
 
 Where:
 - λ = de Broglie wavelength
@@ -210,20 +210,20 @@ Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowl
 </a>
 <br>
 <p class="referenceBoxes type2">
-<a href="https://www.physicsclassroom.com/class/light/Lesson-5/The-Uncertainty-Principle">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b></a>
+<a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a>
 </p>
 </center>
 
 **Position-Momentum Uncertainty:**
-```
-ΔxΔp ≥ ℏ/2
-```
+$$
+\Delta x\Delta p \geq  ℏ/2
+$$
 
 **Energy-Time Uncertainty:**
-```
-ΔEΔt ≥ ℏ/2
-```
+$$
+\Delta E\Delta t \geq  ℏ/2
+$$
 Note: Δt is the time scale for significant change in the system, not an uncertainty in clock time.
 
 Where ℏ = h/2π (reduced Planck's constant)
@@ -232,14 +232,14 @@ Where ℏ = h/2π (reduced Planck's constant)
 
 The state of a quantum system is described by a wave function ψ(x,t). The probability of finding a particle at position x is:
 
-```
-P(x) = |ψ(x,t)|²
-```
+$$
+P(x) = |ψ(x,t)|^2
+$$
 
 **Normalization condition:**
-```
-∫_{-∞}^{∞} |ψ(x,t)|² dx = 1
-```
+$$
+\int_{-\infty}^{\infty} |\psi(x,t)|^2 \, dx = 1
+$$
 
 ## The Schrödinger Equation
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/Schrodinger_1926.pdf"> Paper: <b><i>An Undulatory Theory of the Mechanics of Atoms and Molecules</i></b> - Erwin Schrödinger</a></p>
@@ -249,27 +249,27 @@ P(x) = |ψ(x,t)|²
 
 The fundamental equation of quantum mechanics:
 
-```
+$$
 iℏ ∂ψ/∂t = Ĥψ
-```
+$$
 
 Where Ĥ is the Hamiltonian operator:
-```
-Ĥ = -ℏ²/2m ∇² + V(x,t)
-```
+$$
+Ĥ = -ℏ^2/2m ∇^2 + V(x,t)
+$$
 
 ### Time-Independent Schrödinger Equation
 
 For stationary states with definite energy:
 
-```
+$$
 Ĥψ = Eψ
-```
+$$
 
 Or explicitly:
-```
--ℏ²/2m d²ψ/dx² + V(x)ψ = Eψ
-```
+$$
+-ℏ^2/2m d^2ψ/dx^2 + V(x)ψ = Eψ
+$$
 
 ## Quantum States and Operators
 
@@ -297,14 +297,14 @@ Physical quantities are represented by Hermitian operators:
 
 Measurement of an observable Â yields eigenvalues:
 
-```
+$$
 Â|ψₙ⟩ = aₙ|ψₙ⟩
-```
+$$
 
 The probability of measuring eigenvalue aₙ is:
-```
-P(aₙ) = |⟨ψₙ|ψ⟩|²
-```
+$$
+P(aₙ) = |⟨ψₙ|ψ⟩|^2
+$$
 
 ## Measurement and Decoherence
 
@@ -338,15 +338,15 @@ This explains why cats are never alive-and-dead but electrons can be!
 
 **Mathematical Framework:**
 The system-environment interaction Hamiltonian:
-```
-Ĥ_int = Σ_α g_α Ŝ_α ⊗ Ê_α
-```
+$$
+Ĥ_{	ext{int}} = \Sigma _α g_α Ŝ_α ⊗ Ê_α
+$$
 Where Ŝ_α are system operators and Ê_α are environment operators.
 
 The reduced density matrix evolution follows:
-```
-∂ρ_S/∂t = -i[Ĥ_S, ρ_S] - Σ_α γ_α[Ŝ_α, [Ŝ_α, ρ_S]]
-```
+$$
+∂ρ_{	ext{S}}/∂t = -i[Ĥ_{	ext{S}}, ρ_{	ext{S}}] - \Sigma _α γ_α[Ŝ_α, [Ŝ_α, ρ_{	ext{S}}]]
+$$
 Where γ_α are decoherence rates determined by environmental coupling strengths and correlation times.
 
 ### Quantum Zeno Effect
@@ -406,15 +406,14 @@ Frequent measurements can "freeze" quantum evolution:
 For an infinite potential well of width L:
 
 **Wave functions:**
-```
-ψₙ(x) = √(2/L) sin(nπx/L)  for 0 ≤ x ≤ L
-ψₙ(x) = 0                   for x < 0 or x > L
-```
+$$
+\psi_n(x) = \sqrt{\frac{2}{L}} \sin\left(\frac{n\pi x}{L}\right) \text{ for } 0 \leq x \leq L, \quad \psi_n(x) = 0 \text{ elsewhere}
+$$
 
 **Energy levels:**
-```
-Eₙ = n²π²ℏ²/2mL²
-```
+$$
+Eₙ = n^2\pi ^2ℏ^2/2mL^2
+$$
 
 Where n = 1, 2, 3, ...
 
@@ -427,16 +426,16 @@ Where n = 1, 2, 3, ...
 **Potential:** V(x) = ½mω²x²
 
 **Energy levels:**
-```
-Eₙ = ℏω(n + ½)
-```
+$$
+Eₙ = ℏ\omega (n + ½)
+$$
 
 Where n = 0, 1, 2, ...
 
 **Ground state wave function:**
-```
-ψ₀(x) = (mω/πℏ)^(1/4) exp(-mωx²/2ℏ)
-```
+$$
+ψ₀(x) = (m\omega /\pi ℏ)^(1/4) exp(-m\omega x^2/2ℏ)
+$$
 Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1.
 
 ### Hydrogen Atom
@@ -453,9 +452,9 @@ Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1.
 </center>
 
 **Energy levels:**
-```
-Eₙ = -13.6 eV/n²
-```
+$$
+Eₙ = -13.6 eV/n^2
+$$
 
 **Wave functions characterized by quantum numbers:**
 - n: principal quantum number (1, 2, 3, ...)
@@ -464,9 +463,9 @@ Eₙ = -13.6 eV/n²
 - s: spin quantum number (±½)
 
 **Ground state (1s):**
-```
-ψ₁₀₀(r,θ,φ) = 1/√π (1/a₀)^(3/2) e^(-r/a₀)
-```
+$$
+ψ₁₀₀(r,\theta ,φ) = 1/√\pi  (1/a₀)^(3/2) e^(-r/a₀)
+$$
 
 Where a₀ = Bohr radius = 0.529 Å = 5.29 × 10⁻¹¹ m.
 
@@ -477,15 +476,17 @@ Note: This is properly normalized: ∫∫∫ |ψ₁₀₀|² r² sin(θ) dr dθ 
 ### Orbital Angular Momentum
 
 **Operators:**
-```
-L̂² |ℓ,m⟩ = ℏ²ℓ(ℓ+1)|ℓ,m⟩
+$$
+\begin{aligned}
+L̂^2 |ℓ,m⟩ = ℏ^2ℓ(ℓ+1)|ℓ,m⟩
 L̂z |ℓ,m⟩ = ℏm|ℓ,m⟩
-```
+\end{aligned}
+$$
 
 **Commutation relations:**
-```
+$$
 [L̂ᵢ, L̂ⱼ] = iℏεᵢⱼₖL̂ₖ
-```
+$$
 
 ### Spin
 
@@ -496,16 +497,20 @@ Intrinsic angular momentum of particles:
 - Pauli matrices represent spin operators
 
 **Pauli Matrices:**
-```
+$$
+\begin{aligned}
 σₓ = |0 1|    σᵧ = |0 -i|    σz = |1  0|
      |1 0|         |i  0|         |0 -1|
-```
+\end{aligned}
+$$
 
 In standard matrix notation:
-```
+$$
+\begin{aligned}
 σₓ = (0 1)    σᵧ = (0 -i)    σz = (1  0)
      (1 0)         (i  0)         (0 -1)
-```
+\end{aligned}
+$$
 
 **Spin states:**
 - Spin up: |↑⟩ = |½, ½⟩
@@ -529,9 +534,9 @@ In standard matrix notation:
 Particles can penetrate classically forbidden regions. For a rectangular barrier:
 
 **Transmission coefficient:**
-```
-T ≈ 16E(V₀-E)/V₀² × e^(-2κa)
-```
+$$
+T ≈ 16E(V₀-E)/V₀^2 \times  e^(-2κa)
+$$
 
 Where κ = √(2m(V₀-E))/ℏ and a is barrier width.
 
@@ -541,9 +546,9 @@ Where κ = √(2m(V₀-E))/ℏ and a is barrier width.
 
 Non-local correlations between particles. Example - Bell state:
 
-```
+$$
 |Ψ⁻⟩ = 1/√2(|↑↓⟩ - |↓↑⟩)
-```
+$$
 
 This is one of the four maximally entangled Bell states. Note that it's properly normalized:
 ⟨Ψ⁻|Ψ⁻⟩ = 1/2(⟨↑↓| - ⟨↓↑|)(|↑↓⟩ - |↓↑⟩) = 1/2(1 + 1) = 1.
@@ -554,9 +559,9 @@ Measurement of one particle instantly determines the state of the other, regardl
 
 A system can exist in multiple states simultaneously:
 
-```
+$$
 |ψ⟩ = α|0⟩ + β|1⟩
-```
+$$
 
 **Normalization requirement:** |α|² + |β|² = 1
 - |α|² = probability of measuring state |0⟩
@@ -569,28 +574,28 @@ A system can exist in multiple states simultaneously:
 
 States evolve in time according to:
 
-```
+$$
 |ψ(t)⟩ = Û(t)|ψ(0)⟩
-```
+$$
 
 Where the time evolution operator is:
-```
+$$
 Û(t) = e^(-iĤt/ℏ)
-```
+$$
 Note: This form assumes a time-independent Hamiltonian Ĥ.
 
 ### Heisenberg Picture
 
 Operators evolve while states remain fixed:
 
-```
+$$
 Â(t) = Û†(t)Â(0)Û(t)
-```
+$$
 
 **Heisenberg equation of motion:**
-```
+$$
 dÂ/dt = i/ℏ[Ĥ,Â] + ∂Â/∂t
-```
+$$
 
 ## Perturbation Theory
 
@@ -599,21 +604,21 @@ dÂ/dt = i/ℏ[Ĥ,Â] + ∂Â/∂t
 For Ĥ = Ĥ₀ + λV̂:
 
 **First-order energy correction:**
-```
-E_n^(1) = ⟨n⁰|V̂|n⁰⟩
-```
+$$
+E_{	ext{n}}^(1) = ⟨n⁰|V̂|n⁰⟩
+$$
 
 **First-order wave function correction:**
-```
-|n¹⟩ = Σ_{m≠n} ⟨m⁰|V̂|n⁰⟩/(E_n⁰ - E_m⁰) |m⁰⟩
-```
+$$
+|n^{(1)}\rangle = \sum_{m \neq n} \frac{\langle m^{(0)}|\hat{V}|n^{(0)}\rangle}{E_n^{(0)} - E_m^{(0)}} |m^{(0)}\rangle
+$$
 
 ### Time-Dependent Perturbation Theory
 
 **Transition probability (Fermi's Golden Rule):**
-```
-P_{i→f} = 2π/ℏ |⟨f|V̂|i⟩|² δ(E_f - E_i)
-```
+$$
+P_{i \to f} = \frac{2\pi}{\hbar} |\langle f|\hat{V}|i\rangle|^2 \delta(E_f - E_i)
+$$
 
 ## Quantum Computing Applications
 
@@ -662,25 +667,29 @@ Quantum computing leverages quantum mechanics principles for computation. Here's
 
 The quantum analog of classical bits:
 
-```
+$$
 |ψ⟩ = α|0⟩ + β|1⟩
-```
+$$
 
 ### Quantum Gates
 
 **Hadamard gate:**
-```
+$$
+\begin{aligned}
 H = 1/√2 |1  1|
           |1 -1|
-```
+\end{aligned}
+$$
 
 **CNOT gate:**
-```
+$$
+\begin{aligned}
 CNOT = |1 0 0 0|
        |0 1 0 0|
        |0 0 0 1|
        |0 0 1 0|
-```
+\end{aligned}
+$$
 
 ### Quantum Algorithms
 
@@ -1079,40 +1088,40 @@ Confirms quantum entanglement:
 - **Separability:** Contains countable dense subset
 
 **Rigged Hilbert Space (Gelfand Triple):**
-```
-Φ ⊂ ℋ ⊂ Φ'
-```
-Where Φ is nuclear space, ℋ is Hilbert space, Φ' is dual space.
+$$
+\Phi \subset \mathcal{H} \subset \Phi'
+$$
+Where $\Phi$ is nuclear space, $\mathcal{H}$ is Hilbert space, $\Phi'$ is dual space.
 
 ### Spectral Theory
 
-**Spectral Theorem:** For self-adjoint operator Â:
-```
-Â = ∫ λ dE_λ
-```
-Where E_λ is the spectral measure.
+**Spectral Theorem:** For self-adjoint operator $\hat{A}$:
+$$
+\hat{A} = \int \lambda \, dE_\lambda
+$$
+Where $E_\lambda$ is the spectral measure.
 
 **Discrete spectrum:**
-```
-Â = Σₙ aₙ |aₙ⟩⟨aₙ|
-```
+$$
+\hat{A} = \sum_n a_n |a_n\rangle\langle a_n|
+$$
 
 **Continuous spectrum:**
-```
-Â = ∫ a |a⟩⟨a| da
-```
+$$
+\hat{A} = \int a |a\rangle\langle a| \, da
+$$
 
 **Resolution of identity:**
-```
-𝟙 = Σₙ |n⟩⟨n| + ∫ |α⟩⟨α| dα
-```
+$$
+\mathbb{1} = \sum_n |n\rangle\langle n| + \int |\alpha\rangle\langle\alpha| \, d\alpha
+$$
 
 ### Stone's Theorem
 
 For strongly continuous one-parameter unitary group U(t):
-```
-U(t) = e^{-iĤt/ℏ}
-```
+$$
+U(t) = e^{-i\hat{H}t/\hbar}
+$$
 
 Where Ĥ is self-adjoint generator (Hamiltonian).
 
@@ -1124,9 +1133,9 @@ Where Ĥ is self-adjoint generator (Hamiltonian).
 ### Density Matrices and Mixed States
 
 **General density operator:**
-```
-ρ̂ = Σᵢ pᵢ|ψᵢ⟩⟨ψᵢ|
-```
+$$
+\hat{\rho} = \sum_i p_i |\psi_i\rangle\langle\psi_i|
+$$
 
 **Properties:**
 - Tr(ρ̂) = 1 (normalization)
@@ -1135,73 +1144,73 @@ Where Ĥ is self-adjoint generator (Hamiltonian).
 - Tr(ρ̂²) ≤ 1 (equality for pure states)
 
 **Von Neumann entropy:**
-```
-S(ρ̂) = -Tr(ρ̂ ln ρ̂) = -Σᵢ pᵢ ln pᵢ
-```
+$$
+S(\hat{\rho}) = -\text{Tr}(\hat{\rho} \ln \hat{\rho}) = -\sum_i p_i \ln p_i
+$$
 
 **Reduced density matrix:**
-```
-ρ̂_A = Tr_B(ρ̂_{AB})
-```
+$$
+\hat{\rho}_A = \text{Tr}_B(\hat{\rho}_{AB})
+$$
 
 ### Path Integral Formulation
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/Feynman-thesis.pdf"> Paper: <b><i>The Principle of Least Action in Quantum Mechanics</i></b> - Richard Feynman</a></p>
 
 **Propagator:**
-```
-K(x_f,t_f;x_i,t_i) = ∫ 𝒟[x(t)] exp(iS[x]/ℏ)
-```
+$$
+K(x_f,t_f;x_i,t_i) = \int \mathcal{D}[x(t)] \exp(iS[x]/\hbar)
+$$
 
 **Classical action:**
-```
-S[x] = ∫_{t_i}^{t_f} L(x,ẋ,t) dt
-```
+$$
+S[x] = \int_{t_i}^{t_f} L(x,\dot{x},t) \, dt
+$$
 
 **Discretized form:**
-```
-K = lim_{N→∞} ∏_{j=1}^{N-1} ∫ dx_j √(m/2πiℏε) exp(iS_N/ℏ)
-```
+$$
+K = \lim_{N \to \infty} \prod_{j=1}^{N-1} \int dx_j \sqrt{\frac{m}{2\pi i\hbar\varepsilon}} \exp(iS_N/\hbar)
+$$
 
 **Gaussian integrals:**
-```
-∫_{-∞}^{∞} exp(-ax² + bx) dx = √(π/a) exp(b²/4a)
-```
+$$
+\int_{-\infty}^{\infty} e^{-ax^2 + bx} \, dx = \sqrt{\frac{\pi}{a}} \exp\left(\frac{b^2}{4a}\right)
+$$
 
 ### Coherent States
 
 **Definition for harmonic oscillator:**
-```
-|α⟩ = e^{-|α|²/2} Σ_{n=0}^{∞} α^n/√(n!) |n⟩
-```
-This ensures normalization: ⟨α|α⟩ = 1.
+$$
+|\alpha\rangle = e^{-|\alpha|^2/2} \sum_{n=0}^{\infty} \frac{\alpha^n}{\sqrt{n!}} |n\rangle
+$$
+This ensures normalization: $\langle\alpha|\alpha\rangle = 1$.
 
 **Properties:**
-- â|α⟩ = α|α⟩ (eigenstate of annihilation operator)
-- ⟨α|β⟩ = exp(-½(|α|² + |β|² - 2α*β))
-- Overcomplete: ∫ |α⟩⟨α| d²α/π = 𝟙
+- $\hat{a}|\alpha\rangle = \alpha|\alpha\rangle$ (eigenstate of annihilation operator)
+- $\langle\alpha|\beta\rangle = \exp(-\frac{1}{2}(|\alpha|^2 + |\beta|^2 - 2\alpha^*\beta))$
+- Overcomplete: $\int |\alpha\rangle\langle\alpha| \, d^2\alpha/\pi = \mathbb{1}$
 
 **Time evolution:**
-```
-|α(t)⟩ = |αe^{-iωt}⟩ e^{-iωt/2}
-```
+$$
+|\alpha(t)\rangle = |\alpha e^{-i\omega t}\rangle e^{-i\omega t/2}
+$$
 
 ### Squeezed States
 
 **Squeeze operator:**
-```
-Ŝ(ξ) = exp(½(ξ*â² - ξâ†²))
-```
+$$
+\hat{S}(\xi) = \exp\left(\frac{1}{2}(\xi^*\hat{a}^2 - \xi\hat{a}^{\dagger 2})\right)
+$$
 
 **Squeezed vacuum:**
-```
-|ξ⟩ = Ŝ(ξ)|0⟩
-```
+$$
+|\xi\rangle = \hat{S}(\xi)|0\rangle
+$$
 
 **Uncertainty relation:**
-```
-(Δx)(Δp) = ℏ/2
-```
-But: (Δx) < √(ℏ/2mω) or (Δp) < √(mωℏ/2)
+$$
+(\Delta x)(\Delta p) = \hbar/2
+$$
+But: $(\Delta x) < \sqrt{\hbar/2m\omega}$ or $(\Delta p) < \sqrt{m\omega\hbar/2}$
 
 ## Advanced Topics
 
@@ -1216,40 +1225,39 @@ But: (Δx) < √(ℏ/2mω) or (Δp) < √(mωℏ/2)
 - Fermions: {â_i, â_j†} = δ_{ij}
 
 **Field operators:**
-```
-ψ̂(x) = Σ_k φ_k(x) â_k
-ψ̂†(x) = Σ_k φ_k*(x) â_k†
-```
+$$
+\hat{\psi}(x) = \sum_k \phi_k(x) \hat{a}_k, \quad \hat{\psi}^\dagger(x) = \sum_k \phi_k^*(x) \hat{a}_k^\dagger
+$$
 
 **Many-body Hamiltonian:**
-```
-Ĥ = ∫ dx ψ̂†(x)[-ℏ²∇²/2m + V(x)]ψ̂(x) + ½∫∫ dx dy ψ̂†(x)ψ̂†(y)U(x-y)ψ̂(y)ψ̂(x)
-```
+$$
+\hat{H} = \int dx \, \hat{\psi}^\dagger(x)\left[-\frac{\hbar^2\nabla^2}{2m} + V(x)\right]\hat{\psi}(x) + \frac{1}{2}\iint dx \, dy \, \hat{\psi}^\dagger(x)\hat{\psi}^\dagger(y)U(x-y)\hat{\psi}(y)\hat{\psi}(x)
+$$
 
 ### Geometric Phases
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://michaelberryphysics.files.wordpress.com/2013/07/berry187.pdf"> Paper: <b><i>Quantal Phase Factors Accompanying Adiabatic Changes</i></b> - Michael Berry</a></p>
 
 **Berry phase:**
-```
-γ = i∮_C ⟨ψ(R)|∇_R|ψ(R)⟩ · dR
-```
+$$
+\gamma = i\oint_C \langle\psi(R)|\nabla_R|\psi(R)\rangle \cdot dR
+$$
 
 **Aharonov-Bohm effect:**
-```
-Δφ = (e/ℏ)∮ A · dl = (e/ℏ)Φ
-```
+$$
+\Delta\phi = \frac{e}{\hbar}\oint \mathbf{A} \cdot d\mathbf{l} = \frac{e}{\hbar}\Phi
+$$
 
 **Berry curvature:**
-```
-Ω_n(k) = ∇_k × ⟨u_n(k)|i∇_k|u_n(k)⟩
-```
+$$
+\Omega_n(k) = \nabla_k \times \langle u_n(k)|i\nabla_k|u_n(k)\rangle
+$$
 
 ### Open Quantum Systems
 
 **Master Equation (Lindblad form):**
-```
-dρ̂/dt = -i/ℏ[Ĥ,ρ̂] + Σ_k γ_k(L̂_k ρ̂ L̂_k† - ½{L̂_k†L̂_k, ρ̂})
-```
+$$
+\frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar}[\hat{H},\hat{\rho}] + \sum_k \gamma_k\left(\hat{L}_k \hat{\rho} \hat{L}_k^\dagger - \frac{1}{2}\{\hat{L}_k^\dagger\hat{L}_k, \hat{\rho}\}\right)
+$$
 
 **Quantum channels:**
 - Completely positive trace-preserving (CPTP) maps
@@ -1269,9 +1277,9 @@ dρ̂/dt = -i/ℏ[Ĥ,ρ̂] + Σ_k γ_k(L̂_k ρ̂ L̂_k† - ½{L̂_k†L̂_k, �
 - Negativity: N(ρ) = ||ρ^{T_A}||₁ - 1
 
 **Quantum mutual information:**
-```
-I(A:B) = S(ρ_A) + S(ρ_B) - S(ρ_{AB})
-```
+$$
+I(A:B) = S(\rho_A) + S(\rho_B) - S(\rho_{AB})
+$$
 
 **Quantum error correction:**
 - Stabilizer codes: [[n,k,d]]
@@ -1281,19 +1289,19 @@ I(A:B) = S(ρ_A) + S(ρ_B) - S(ρ_{AB})
 ### Relativistic Quantum Mechanics
 
 **Klein-Gordon equation:**
-```
-(□ + m²c²/ℏ²)ψ = 0
-```
+$$
+\left(\Box + \frac{m^2c^2}{\hbar^2}\right)\psi = 0
+$$
 
 **Dirac equation:**
-```
-(iγ^μ∂_μ - mc/ℏ)ψ = 0
-```
+$$
+(i\gamma^\mu\partial_\mu - mc/\hbar)\psi = 0
+$$
 
 **Dirac matrices:**
-```
-{γ^μ, γ^ν} = 2g^{μν}𝟙
-```
+$$
+\{\gamma^\mu, \gamma^\nu\} = 2g^{\mu\nu}\mathbb{1}
+$$
 
 **Solutions:**
 - Positive energy: electrons
@@ -1304,9 +1312,9 @@ I(A:B) = S(ρ_A) + S(ρ_B) - S(ρ_{AB})
 ### Quantum Thermodynamics
 
 **Quantum work:**
-```
-W = Tr(ρ̂_i Ĥ_f) - Tr(ρ̂_i Ĥ_i)
-```
+$$
+W = \text{Tr}(\hat{\rho}_i \hat{H}_f) - \text{Tr}(\hat{\rho}_i \hat{H}_i)
+$$
 
 **Quantum heat engines:**
 - Carnot efficiency: η = 1 - T_c/T_h
@@ -1583,9 +1591,9 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 ## Research-Level Resources
 
 ### Graduate Textbooks
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.cambridge.org/core/books/modern-quantum-mechanics/"> Book: <b><i>Modern Quantum Mechanics</i></b> - J.J. Sakurai</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.cambridge.org/highereducation/books/modern-quantum-mechanics/AAE1925F1A0963C6124421B03D7801AE"> Book: <b><i>Modern Quantum Mechanics</i></b> - J.J. Sakurai</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://archive.org/details/QuantumMechanicsVol1CohenTannoudji"> Book: <b><i>Quantum Mechanics (Vols 1&2)</i></b> - Cohen-Tannoudji</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.springer.com/gp/book/9783540287"> Book: <b><i>Quantum Theory: Concepts and Methods</i></b> - Asher Peres</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://link.springer.com/book/10.1007/0-306-47120-5"> Book: <b><i>Quantum Theory: Concepts and Methods</i></b> - Asher Peres</a></p>
 
 ### Research Papers and Reviews
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/1308.6595.pdf"> Review: <b><i>Quantum Information and Computation</i></b> - Nielsen & Chuang</a></p>
@@ -1594,7 +1602,7 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 
 ### Advanced Courses
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://ocw.mit.edu/courses/physics/8-05-quantum-physics-ii-fall-2013/"> Course: <b><i>MIT 8.05 Quantum Physics II</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.perimeterinstitute.ca/video-library/collection/psi-2018/19-quantum-theory"> Course: <b><i>Perimeter Institute - Advanced Quantum Theory</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://perimeterinstitute.ca/online-courses"> Course: <b><i>Perimeter Institute - Online Physics Courses</i></b></a></p>
 
 ### Computational Resources
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/quantumlib/Cirq"> Library: <b><i>Cirq - Quantum Computing Framework</i></b></a></p>
@@ -1608,7 +1616,7 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/III_toc.html"> Book: <b><i>The Feynman Lectures on Physics, Volume III</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.quantum.amsterdam/education/"> Course: <b><i>Quantum Mechanics - University of Amsterdam</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/playlist?list=PL8_xPU5epJddRABXqJ5h5G0dk-XGtA5cZ"> Video Series: <b><i>Quantum Mechanics - Stanford University</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/microsoft/QuantumDevelopmentKit"> Code: <b><i>Microsoft Quantum Development Kit</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/microsoft/qdk"> Code: <b><i>Microsoft Quantum Development Kit</i></b></a></p>
 
 ---
 

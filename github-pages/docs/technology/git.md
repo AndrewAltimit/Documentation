@@ -1200,3 +1200,12 @@ Checksum
 - [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide
 - [Git Documentation](https://git-scm.com/docs) - Official reference
 - [GitHub Skills](https://skills.github.com/) - Interactive tutorials
+
+---
+
+## See Also
+- [Git Command Reference](git-reference.html) - Complete reference for Git commands and syntax
+- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and trunk-based development
+- [CI/CD](ci-cd.html) - Continuous integration and deployment pipelines
+- [Docker](docker.html) - Containerization for consistent development environments
+- [Cybersecurity](cybersecurity.html) - Security practices for version control and secrets management

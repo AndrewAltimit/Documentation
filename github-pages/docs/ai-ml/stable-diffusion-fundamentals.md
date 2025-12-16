@@ -395,3 +395,15 @@ Where `ε` is the actual noise added and `ε_θ` is the predicted noise.
 Stable Diffusion represents a breakthrough in generative AI, making high-quality image generation accessible to everyone. Understanding its fundamentals - from the mathematical foundations to practical parameters - enables more effective and creative use of this powerful technology.
 
 The key to mastery is experimentation: try different models, samplers, and techniques to discover what works best for your specific use cases. As the field rapidly evolves, staying informed about new developments will help you leverage the latest capabilities.
+
+---
+
+## See Also
+- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation for Stable Diffusion
+- [LoRA Training](lora-training.html) - Train custom models and styles
+- [ControlNet](controlnet.html) - Precise control over generation
+- [Model Types](model-types.html) - Understanding LoRAs, VAEs, and embeddings
+- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
+- [Advanced Techniques](advanced-techniques.html) - Expert generation techniques
+- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
+- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index

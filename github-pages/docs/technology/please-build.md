@@ -590,4 +590,4 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 - [Rule Examples](https://github.com/thought-machine/please/tree/master/test)
 - [Please Community Slack](https://please-build.slack.com/)
 - [Build Language Reference](https://please.build/language.html)
-- [Awesome Please](https://github.com/thought-machine/awesome-please) - Community resources
+- [Please FAQ](https://please.build/faq.html) - Common questions and answers

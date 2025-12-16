@@ -489,6 +489,13 @@ Choosing the right branching strategy depends on your team's needs, project requ
 
 ### Recent Developments
 - [GitHub's Merge Queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue) - Automated merging at scale
-- [Stacked Diffs/PRs](https://graphite.dev/guides/stacked-prs) - Managing dependent changes
+- [Stacked Diffs/PRs](https://graphite.dev/blog/stacked-prs) - Managing dependent changes
 - [Ship/Show/Ask](https://martinfowler.com/articles/ship-show-ask.html) - Branching strategy for continuous delivery
 - [GitOps with ArgoCD](https://argo-cd.readthedocs.io/en/stable/) - Git as single source of truth
+
+---
+
+## See Also
+- [Git Version Control](git.html) - Git internals, architecture, and distributed version control fundamentals
+- [Git Command Reference](git-reference.html) - Complete command syntax for branch operations and workflows
+- [CI/CD](ci-cd.html) - Integrating branching strategies with continuous integration pipelines

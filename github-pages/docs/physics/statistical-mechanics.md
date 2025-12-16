@@ -610,217 +610,157 @@ Applications to quark-gluon plasma and condensed matter.
 ### Information Theory and Statistical Mechanics
 
 **Shannon entropy:**
-```
-S = -k_B Σ_i p_i ln p_i
-```
+$$S = -k_B \sum_i p_i \ln p_i$$
 
 **Maximum entropy principle:** The equilibrium distribution maximizes entropy subject to constraints.
 
 **Canonical ensemble from MaxEnt:**
 Maximize S subject to:
-- Normalization: Σ_i p_i = 1
-- Energy constraint: Σ_i p_i E_i = ⟨E⟩
+- Normalization: $\sum_i p_i = 1$
+- Energy constraint: $\sum_i p_i E_i = \langle E \rangle$
 
 Using Lagrange multipliers:
-```
-p_i = e^{-βE_i}/Z
-```
+$$p_i = \frac{e^{-\beta E_i}}{Z}$$
 
 **Jaynes' principle:** Statistical mechanics as inference theory
 
 **Relative entropy (Kullback-Leibler divergence):**
-```
-D_{KL}(p||q) = Σ_i p_i ln(p_i/q_i) ≥ 0
-```
+$$D_{KL}(p||q) = \sum_i p_i \ln\left(\frac{p_i}{q_i}\right) \geq 0$$
 
 ### Advanced Ensemble Theory
 
 #### Generalized Ensembles
 
 **Tsallis statistics:**
-```
-S_q = k_B (1 - Σ_i p_i^q)/(q - 1)
-```
+$$S_q = \frac{k_B (1 - \sum_i p_i^q)}{q - 1}$$
 
 **Pressure ensemble:** (NPT)
-```
-Δ(N,P,T) = ∫_0^∞ dV e^{-βPV} Z(N,V,T)
-```
+$$\Delta(N,P,T) = \int_0^{\infty} dV \, e^{-\beta PV} Z(N,V,T)$$
 
 **Isothermal-isobaric partition function:**
-```
-Δ = (k_B T/P) Z(N,⟨V⟩,T) e^{βP⟨V⟩}
-```
+$$\Delta = \frac{k_B T}{P} Z(N,\langle V \rangle,T) e^{\beta P \langle V \rangle}$$
 
 #### Jarzynski Equality and Fluctuation Theorems
 
 **Jarzynski equality:**
-```
-⟨e^{-βW}⟩ = e^{-βΔF}
-```
+$$\langle e^{-\beta W} \rangle = e^{-\beta \Delta F}$$
 
 **Crooks fluctuation theorem:**
-```
-P_F(W)/P_R(-W) = e^{β(W - ΔF)}
-```
+$$\frac{P_F(W)}{P_R(-W)} = e^{\beta(W - \Delta F)}$$
 
 **Work distribution:** Gaussian near equilibrium
-```
-P(W) ≈ (2πσ^2)^{-1/2} exp[-(W - ⟨W⟩)^2/2σ^2]
-```
+$$P(W) \approx (2\pi\sigma^2)^{-1/2} \exp\left[-\frac{(W - \langle W \rangle)^2}{2\sigma^2}\right]$$
 
 ### Path Integral Formulation
 
 **Quantum partition function:**
-```
-Z = Tr(e^{-βH}) = ∫ D[q] exp(-S_E[q]/ℏ)
-```
+$$Z = \text{Tr}(e^{-\beta H}) = \int \mathcal{D}[q] \exp(-S_E[q]/\hbar)$$
 
 **Euclidean action:**
-```
-S_E = ∫_0^{βℏ} dτ [mẋ^2/2 + V(q)]
-```
+$$S_E = \int_0^{\beta\hbar} d\tau \left[\frac{m\dot{x}^2}{2} + V(q)\right]$$
 
 **Feynman-Kac formula:** Connection to diffusion
-```
-⟨q_f|e^{-βH}|q_i⟩ = ∫_{q(0)=q_i}^{q(βℏ)=q_f} D[q] e^{-S_E[q]/ℏ}
-```
+$$\langle q_f|e^{-\beta H}|q_i\rangle = \int_{q(0)=q_i}^{q(\beta\hbar)=q_f} \mathcal{D}[q] \, e^{-S_E[q]/\hbar}$$
 
 **Effective action at finite temperature:**
-```
-Γ[q_c] = -k_B T ln Z[J] + ∫ dτ J(τ)q_c(τ)
-```
+$$\Gamma[q_c] = -k_B T \ln Z[J] + \int d\tau \, J(\tau)q_c(\tau)$$
 
 ### Field Theoretic Methods
 
 #### Hubbard-Stratonovich Transformation
 
 For interaction term:
-```
-exp[β/2 Σ_{ij} J_{ij}s_i s_j] = ∫ D[φ] exp[-β/2 Σ_{ij} φ_i(J^{-1})_{ij}φ_j + βΣ_i φ_i s_i]
-```
+$$\exp\left[\frac{\beta}{2} \sum_{ij} J_{ij}s_i s_j\right] = \int \mathcal{D}[\phi] \exp\left[-\frac{\beta}{2} \sum_{ij} \phi_i(J^{-1})_{ij}\phi_j + \beta\sum_i \phi_i s_i\right]$$
 
 #### Replica Method
 
 For disordered systems:
-```
-⟨ln Z⟩ = lim_{n→0} (⟨Z^n⟩ - 1)/n
-```
+$$\langle \ln Z \rangle = \lim_{n\to 0} \frac{\langle Z^n \rangle - 1}{n}$$
 
-**Replica symmetry breaking:** Order parameter q_{ab}
+**Replica symmetry breaking:** Order parameter $q_{ab}$
 
 #### Functional Integral Representation
 
 **Grand canonical ensemble:**
-```
-Ξ = ∫ D[ψ^*, ψ] exp(-S[ψ^*, ψ])
-```
+$$\Xi = \int \mathcal{D}[\psi^*, \psi] \exp(-S[\psi^*, \psi])$$
 
 **Action for bosons:**
-```
-S = ∫_0^{β} dτ ∫ d^dr [ψ^*(∂_τ - μ)ψ + ℏ^2/(2m)|∇ψ|^2 + U(ψ^*ψ)]
-```
+$$S = \int_0^{\beta} d\tau \int d^dr \left[\psi^*(\partial_\tau - \mu)\psi + \frac{\hbar^2}{2m}|\nabla\psi|^2 + U(\psi^*\psi)\right]$$
 
 ### Critical Phenomena: Advanced Treatment
 
 #### Scaling Theory
 
-**Scaling hypothesis:** Near T_c, singular part of free energy:
-```
-f_s(t, h) = b^{-d}f_s(b^{y_t}t, b^{y_h}h)
-```
+**Scaling hypothesis:** Near $T_c$, singular part of free energy:
+$$f_s(t, h) = b^{-d}f_s(b^{y_t}t, b^{y_h}h)$$
 
-Where y_t = 1/ν, y_h = d - β/ν
+Where $y_t = 1/\nu$, $y_h = d - \beta/\nu$
 
 **Scaling relations derivation:**
-- From f_s: α = 2 - dν
-- From m = -∂f/∂h: β = (d - y_h)ν
-- From χ = ∂^2f/∂h^2: γ = (2y_h - d)ν
+- From $f_s$: $\alpha = 2 - d\nu$
+- From $m = -\partial f/\partial h$: $\beta = (d - y_h)\nu$
+- From $\chi = \partial^2f/\partial h^2$: $\gamma = (2y_h - d)\nu$
 
-**Data collapse:** Plot m/|t|^β vs h/|t|^{βδ}
+**Data collapse:** Plot $m/|t|^\beta$ vs $h/|t|^{\beta\delta}$
 
 #### Renormalization Group: Field Theory
 
-**φ^4 theory action:**
-```
-S = ∫ d^dx [(1/2)(∇φ)^2 + (r/2)φ^2 + (u/4!)φ^4]
-```
+**$\phi^4$ theory action:**
+$$S = \int d^dx \left[\frac{1}{2}(\nabla\phi)^2 + \frac{r}{2}\phi^2 + \frac{u}{4!}\phi^4\right]$$
 
 **RG flow equations (one-loop):**
-```
-dr/dl = (2 - η)r + Au r^2/(1 + r)
-du/dl = εu - Bu^2 + Cu^3/(1 + r)^2
-```
+$$\frac{dr}{dl} = (2 - \eta)r + Au \frac{r^2}{1 + r}$$
+$$\frac{du}{dl} = \varepsilon u - Bu^2 + \frac{Cu^3}{(1 + r)^2}$$
 
 **Fixed points:**
-- Gaussian: (r*, u*) = (0, 0)
-- Wilson-Fisher: (r*, u*) = (-ε/A, ε/B)
+- Gaussian: $(r^*, u^*) = (0, 0)$
+- Wilson-Fisher: $(r^*, u^*) = (-\varepsilon/A, \varepsilon/B)$
 
-**Critical exponents (ε-expansion):**
-```
-ν = 1/2 + ε/12 + O(ε^2)
-η = ε^2/54 + O(ε^3)
-```
+**Critical exponents ($\varepsilon$-expansion):**
+$$\nu = \frac{1}{2} + \frac{\varepsilon}{12} + O(\varepsilon^2)$$
+$$\eta = \frac{\varepsilon^2}{54} + O(\varepsilon^3)$$
 
 #### Conformal Field Theory at Criticality
 
 **Conformal algebra in 2D:** Virasoro algebra
-```
-[L_m, L_n] = (m - n)L_{m+n} + c/12 m(m^2 - 1)δ_{m+n,0}
-```
+$$[L_m, L_n] = (m - n)L_{m+n} + \frac{c}{12} m(m^2 - 1)\delta_{m+n,0}$$
 
 **Central charge:** Characterizes universality class
-- Ising: c = 1/2
-- XY model: c = 1
-- Potts model (q states): c = 1 - 6/[q(q+1)]
+- Ising: $c = 1/2$
+- XY model: $c = 1$
+- Potts model (q states): $c = 1 - 6/[q(q+1)]$
 
 **Operator product expansion:**
-```
-φ_i(z)φ_j(0) = Σ_k C_{ijk}z^{h_k-h_i-h_j}φ_k(0)
-```
+$$\phi_i(z)\phi_j(0) = \sum_k C_{ijk}z^{h_k-h_i-h_j}\phi_k(0)$$
 
 ### Exact Solutions
 
 #### 2D Ising Model (Onsager Solution)
 
 **Transfer matrix method:**
-```
-Z = Tr(T^N)
-```
+$$Z = \text{Tr}(T^N)$$
 
 **Critical temperature:**
-```
-sinh(2J/k_B T_c) = 1
-```
+$$\sinh\left(\frac{2J}{k_B T_c}\right) = 1$$
 
 **Free energy per site:**
-```
-f = -k_B T ln(2cosh(2βJ)) - k_B T/(2π) ∫_0^π dθ ln[1 + √(1 - κ^2sin^2θ)]
-```
+$$f = -k_B T \ln(2\cosh(2\beta J)) - \frac{k_B T}{2\pi} \int_0^\pi d\theta \, \ln\left[1 + \sqrt{1 - \kappa^2\sin^2\theta}\right]$$
 
-Where κ = 2sinh(2βJ)/cosh^2(2βJ)
+Where $\kappa = 2\sinh(2\beta J)/\cosh^2(2\beta J)$
 
-**Magnetization (T < T_c):**
-```
-m = [1 - sinh^{-4}(2βJ)]^{1/8}
-```
+**Magnetization ($T < T_c$):**
+$$m = \left[1 - \sinh^{-4}(2\beta J)\right]^{1/8}$$
 
 #### Bethe Ansatz
 
 **1D Heisenberg chain:**
-```
-H = JΣ_i σ_i · σ_{i+1}
-```
+$$H = J\sum_i \boldsymbol{\sigma}_i \cdot \boldsymbol{\sigma}_{i+1}$$
 
 **Bethe equations:**
-```
-(k_j L) = 2πI_j - Σ_{k≠j} θ(k_j - k_k)
-```
+$$k_j L = 2\pi I_j - \sum_{k\neq j} \theta(k_j - k_k)$$
 
 **Ground state energy:**
-```
-E_0/N = -J ln 2 + J/4
-```
+$$\frac{E_0}{N} = -J \ln 2 + \frac{J}{4}$$
 
 ### Non-equilibrium Field Theory
 
@@ -829,115 +769,83 @@ E_0/N = -J ln 2 + J/4
 **Contour ordering:** Forward and backward branches
 
 **Green's functions:**
-```
-G^{++}(t,t') = -i⟨Tφ(t)φ(t')⟩
-G^{--}(t,t') = -i⟨̃Tφ(t)φ(t')⟩
-G^{+-}(t,t') = -i⟨φ(t')φ(t)⟩
-G^{-+}(t,t') = -i⟨φ(t)φ(t')⟩
-```
+$$G^{++}(t,t') = -i\langle T\phi(t)\phi(t')\rangle$$
+$$G^{--}(t,t') = -i\langle \tilde{T}\phi(t)\phi(t')\rangle$$
+$$G^{+-}(t,t') = -i\langle \phi(t')\phi(t)\rangle$$
+$$G^{-+}(t,t') = -i\langle \phi(t)\phi(t')\rangle$$
 
 **Keldysh rotation:**
-```
-G^R = G^{++} - G^{+-}
-G^A = G^{++} - G^{-+}
-G^K = G^{++} + G^{--} - G^{+-} - G^{-+}
-```
+$$G^R = G^{++} - G^{+-}$$
+$$G^A = G^{++} - G^{-+}$$
+$$G^K = G^{++} + G^{--} - G^{+-} - G^{-+}$$
 
 #### Langevin Dynamics
 
 **Stochastic equation:**
-```
-∂_tφ = -ΓδF/δφ + η
-```
+$$\partial_t\phi = -\Gamma\frac{\delta F}{\delta\phi} + \eta$$
 
 **Noise correlations:**
-```
-⟨η(x,t)η(x',t')⟩ = 2Γk_B Tδ(x-x')δ(t-t')
-```
+$$\langle \eta(x,t)\eta(x',t') \rangle = 2\Gamma k_B T\delta(x-x')\delta(t-t')$$
 
 **Martin-Siggia-Rose formalism:** Path integral with response field
-```
-Z = ∫ D[φ, ̃φ] exp(iS[φ, ̃φ])
-```
+$$Z = \int \mathcal{D}[\phi, \tilde{\phi}] \exp(iS[\phi, \tilde{\phi}])$$
 
 ### Quantum Many-Body Systems
 
 #### Fermi Liquid Theory
 
-**Quasiparticle concept:** Landau parameters f^s, f^a
+**Quasiparticle concept:** Landau parameters $f^s$, $f^a$
 
 **Effective mass:**
-```
-m*/m = 1 + F_1^s/3
-```
+$$\frac{m^*}{m} = 1 + \frac{F_1^s}{3}$$
 
 **Compressibility:**
-```
-κ/κ_0 = (1 + F_0^s)^{-1}
-```
+$$\frac{\kappa}{\kappa_0} = (1 + F_0^s)^{-1}$$
 
 **Collective modes:** Zero sound velocity
-```
-s = v_F√(1 + F_0^s/3)
-```
+$$s = v_F\sqrt{1 + \frac{F_0^s}{3}}$$
 
 #### BCS Theory of Superconductivity
 
 **BCS Hamiltonian:**
-```
-H = Σ_k ε_k c^+_{kσ}c_{kσ} - gΣ_{kk'} c^+_{k↑}c^+_{-k↓}c_{-k'↓}c_{k'↑}
-```
+$$H = \sum_k \varepsilon_k c^\dagger_{k\sigma}c_{k\sigma} - g\sum_{kk'} c^\dagger_{k\uparrow}c^\dagger_{-k\downarrow}c_{-k'\downarrow}c_{k'\uparrow}$$
 
 **Gap equation:**
-```
-Δ = gΣ_k Δ/(2E_k) tanh(βE_k/2)
-```
+$$\Delta = g\sum_k \frac{\Delta}{2E_k} \tanh(\beta E_k/2)$$
 
-Where E_k = √(ε_k^2 + |Δ|^2)
+Where $E_k = \sqrt{\varepsilon_k^2 + |\Delta|^2}$
 
 **Critical temperature:**
-```
-k_B T_c = 1.14ℏω_D exp(-1/N(0)g)
-```
+$$k_B T_c = 1.14\hbar\omega_D \exp(-1/N(0)g)$$
 
 #### Luttinger Liquids (1D)
 
-**Bosonization:** Fermion operators → Boson fields
-```
-ψ(x) ∼ exp[iφ(x)]
-```
+**Bosonization:** Fermion operators to Boson fields
+$$\psi(x) \sim \exp[i\phi(x)]$$
 
-**Luttinger parameter:** K < 1 repulsive, K > 1 attractive
+**Luttinger parameter:** $K < 1$ repulsive, $K > 1$ attractive
 
 **Power-law correlations:**
-```
-⟨ψ^+(x)ψ(0)⟩ ∼ x^{-1/(2K)}
-```
+$$\langle \psi^\dagger(x)\psi(0) \rangle \sim x^{-1/(2K)}$$
 
 ### Modern Developments
 
 #### Tensor Network Methods
 
 **Matrix Product States (MPS):**
-```
-|ψ⟩ = Σ_{s_1...s_N} Tr(A^{s_1}...A^{s_N})|s_1...s_N⟩
-```
+$$|\psi\rangle = \sum_{s_1...s_N} \text{Tr}(A^{s_1}...A^{s_N})|s_1...s_N\rangle$$
 
 **DMRG algorithm:** Variational optimization of MPS
 
-**Area law entanglement:** S ∼ L^{d-1} for ground states
+**Area law entanglement:** $S \sim L^{d-1}$ for ground states
 
 #### Machine Learning in Statistical Mechanics
 
 **Neural network representation of states:**
-```
-ψ(s) = exp[Σ_i a_i s_i + Σ_{ij} W_{ij}h_i(s)s_j + ...]
-```
+$$\psi(s) = \exp\left[\sum_i a_i s_i + \sum_{ij} W_{ij}h_i(s)s_j + ...\right]$$
 
 **Variational Monte Carlo with NNs:**
-```
-E = ⟨ψ|H|ψ⟩/⟨ψ|ψ⟩
-```
+$$E = \frac{\langle\psi|H|\psi\rangle}{\langle\psi|\psi\rangle}$$
 
 **Unsupervised learning of phases:**
 - Principal component analysis
@@ -947,9 +855,7 @@ E = ⟨ψ|H|ψ⟩/⟨ψ|ψ⟩
 #### Quantum Thermalization
 
 **Eigenstate Thermalization Hypothesis (ETH):**
-```
-⟨E_n|O|E_m⟩ = O(E)δ_{nm} + e^{-S(E)/2}f_O(E,ω)R_{nm}
-```
+$$\langle E_n|O|E_m\rangle = O(E)\delta_{nm} + e^{-S(E)/2}f_O(E,\omega)R_{nm}$$
 
 **Many-body localization:** Failure of thermalization
 
@@ -960,42 +866,30 @@ E = ⟨ψ|H|ψ⟩/⟨ψ|ψ⟩
 #### Doi-Peliti Formalism
 
 **Creation/annihilation operators for classical particles:**
-```
-a^+|n⟩ = |n+1⟩
-a|n⟩ = n|n-1⟩
-```
+$$a^\dagger|n\rangle = |n+1\rangle$$
+$$a|n\rangle = n|n-1\rangle$$
 
-**Master equation → "Schrödinger" equation:**
-```
-∂_t|ψ⟩ = H|ψ⟩
-```
+**Master equation to "Schrodinger" equation:**
+$$\partial_t|\psi\rangle = H|\psi\rangle$$
 
 **Coherent state path integral:**
-```
-P(n,t) = ∫ D[φ^*,φ] exp(-S[φ^*,φ])
-```
+$$P(n,t) = \int \mathcal{D}[\phi^*,\phi] \exp(-S[\phi^*,\phi])$$
 
 #### Active Matter
 
 **Toner-Tu equations:** Flocking
-```
-∂_tρ + ∇·(ρv) = 0
-∂_tv + λ(v·∇)v = αv - β|v|^2v - ∇P + ν∇^2v + f
-```
+$$\partial_t\rho + \nabla\cdot(\rho\mathbf{v}) = 0$$
+$$\partial_t\mathbf{v} + \lambda(\mathbf{v}\cdot\nabla)\mathbf{v} = \alpha\mathbf{v} - \beta|\mathbf{v}|^2\mathbf{v} - \nabla P + \nu\nabla^2\mathbf{v} + \mathbf{f}$$
 
 **Motility-induced phase separation:**
-```
-∂_tρ = ∇·[(D(ρ) + D_t)∇ρ]
-```
+$$\partial_t\rho = \nabla\cdot[(D(\rho) + D_t)\nabla\rho]$$
 
 ### Advanced Computational Methods
 
 #### Quantum Monte Carlo
 
 **Path integral Monte Carlo:**
-```
-ρ(R,R';β) = (2πλβ)^{-3N/2}Σ_P (±)^P exp[-βΣ_i V(R_i)]
-```
+$$\rho(R,R';\beta) = (2\pi\lambda\beta)^{-3N/2}\sum_P (\pm)^P \exp\left[-\beta\sum_i V(R_i)\right]$$
 
 **Sign problem:** Fermionic systems, frustrated magnets
 

@@ -4,9 +4,34 @@ title: Complete Documentation Index
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Complete Documentation Index
+<div class="hero-section">
+  <div class="hero-content">
+    <h1 class="hero-title">Documentation Hub</h1>
+    <p class="hero-subtitle">Comprehensive Technical Knowledge Base</p>
+  </div>
+</div>
 
-Browse all available documentation organized by category. Use the search function above for quick access to specific topics.
+<div class="intro-card">
+  <p class="lead-text">Explore our complete collection of technical documentation covering physics, technology, AI/ML, and advanced research topics. From beginner tutorials to graduate-level theory, find the knowledge you need.</p>
+
+  <div class="key-insights">
+    <div class="insight-card">
+      <i class="fas fa-atom"></i>
+      <h4>Physics</h4>
+      <p>Quantum mechanics to string theory</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-server"></i>
+      <h4>Technology</h4>
+      <p>Infrastructure, DevOps, and cloud</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-brain"></i>
+      <h4>AI/ML</h4>
+      <p>Generative AI and machine learning</p>
+    </div>
+  </div>
+</div>
 
 
 ## 💻 Technology

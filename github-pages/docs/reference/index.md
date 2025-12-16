@@ -12,12 +12,13 @@ toc: true
 
 ## 🔍 Quick Navigation
 
-- **[Command Line](#command-line-references)** - Git, Docker, Kubernetes, AWS CLI
+- **[Command Line](#command-line-references)** - Git, Docker, Kubernetes, AWS CLI, Terraform
 - **[Physics & Math](#physics-formulas--constants)** - Constants, equations, calculus
 - **[Algorithms](#algorithms--data-structures)** - Big O, patterns, implementations
 - **[API & Network](#api-reference-patterns)** - REST, protocols, regex
 - **[Troubleshooting](#troubleshooting-flowcharts)** - Docker, Git, deployment issues
 - **[Best Practices](#best-practices-checklists)** - Code review, deployment, security
+- **[Recently Added](#recently-added)** - Latest additions to this reference
 
 ---
 
@@ -209,6 +210,84 @@ aws cloudformation update-stack --stack-name <name> --template-body file://templ
 aws cloudformation delete-stack --stack-name <name>
 ```
 </div>
+
+---
+
+## Terraform CLI Commands
+
+<div class="reference-card">
+<h4>Terraform Essential Commands</h4>
+
+```bash
+# Initialization & Setup
+terraform init                  # Initialize working directory
+terraform init -upgrade         # Update provider plugins
+terraform version              # Show Terraform version
+
+# Planning & Preview
+terraform plan                 # Preview changes
+terraform plan -out=tfplan     # Save plan to file
+terraform plan -var="key=value" # Plan with variable
+terraform plan -target=resource.name # Plan specific resource
+
+# Apply Changes
+terraform apply                # Apply changes (with prompt)
+terraform apply -auto-approve  # Apply without confirmation
+terraform apply tfplan         # Apply saved plan
+terraform apply -var-file="vars.tfvars" # Apply with variable file
+
+# Validation & Formatting
+terraform validate             # Validate configuration
+terraform fmt                  # Format configuration files
+terraform fmt -check           # Check if formatting needed
+terraform fmt -recursive       # Format all subdirectories
+
+# State Management
+terraform state list           # List resources in state
+terraform state show <resource> # Show resource details
+terraform state mv <src> <dst> # Move resource in state
+terraform state rm <resource>  # Remove resource from state
+terraform state pull          # Download remote state
+terraform state push          # Upload local state
+
+# Workspace Management
+terraform workspace list       # List workspaces
+terraform workspace new <name> # Create workspace
+terraform workspace select <name> # Switch workspace
+terraform workspace show      # Show current workspace
+terraform workspace delete <name> # Delete workspace
+
+# Import & Output
+terraform import <resource> <id> # Import existing resource
+terraform output              # Show all outputs
+terraform output <name>       # Show specific output
+terraform output -json        # Output as JSON
+
+# Destruction
+terraform destroy             # Destroy all resources
+terraform destroy -target=resource.name # Destroy specific resource
+terraform destroy -auto-approve # Destroy without confirmation
+
+# Debugging & Troubleshooting
+terraform show                # Show current state
+terraform graph               # Generate dependency graph
+terraform console             # Interactive console
+terraform providers           # Show provider dependencies
+
+# Advanced Operations
+terraform taint <resource>    # Mark resource for recreation
+terraform untaint <resource>  # Remove taint mark
+terraform refresh             # Update state from real infrastructure
+terraform force-unlock <lock-id> # Force unlock state
+
+# Environment Variables
+export TF_LOG=DEBUG           # Enable debug logging
+export TF_LOG_PATH=terraform.log # Set log file path
+export TF_VAR_name=value      # Set variable via environment
+```
+</div>
+
+---
 
 ## Physics Formulas & Constants
 
@@ -805,6 +884,36 @@ Phone: ^\+?1?\d{9,15}$
 
 ---
 
+## Recently Added
+
+<div class="reference-card">
+<h4>Latest Additions & Updates</h4>
+
+**December 2025**
+- Added Terraform CLI Commands section with comprehensive command reference
+- Enhanced Quick Navigation to include all major sections
+- Added Recently Added section for tracking updates
+
+**Previous Updates**
+- Complete physics formulas and constants reference
+- Algorithm patterns and Big O complexity charts
+- RESTful API conventions and response formats
+- Docker and Git troubleshooting flowcharts
+- Code review and deployment checklists
+- Network protocols and port number reference
+- Regular expressions quick reference
+- Mathematical reference for calculus and linear algebra
+
+**Coming Soon**
+- Python standard library quick reference
+- SQL query patterns and optimization tips
+- Shell scripting common patterns
+- CI/CD pipeline templates
+- Security best practices expanded section
+</div>
+
+---
+
 <div class="reference-footer">
 <h2>Contributing to This Reference</h2>
 <p>This reference guide is continuously updated. Found an error or have a suggestion? <a href="https://github.com/AndrewAltimit/Documentation">Contribute on GitHub</a>.</p>
@@ -823,6 +932,7 @@ Phone: ^\+?1?\d{9,15}$
 
 - **[Git Command Reference](../technology/git-reference.html)** - Comprehensive Git guide
 - **[Docker Essentials](../technology/docker-essentials.html)** - Complete Docker reference
+- **[Terraform Documentation](../technology/terraform.html)** - Infrastructure as Code guide
 - **[AI/ML Model Reference](../ai-ml/model-types.html)** - Model architectures explained
 - **[Advanced Mathematics](../advanced/ai-mathematics.html)** - Graduate-level formulas
 

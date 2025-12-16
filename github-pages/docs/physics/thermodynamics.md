@@ -445,37 +445,37 @@ Console output shows:
 Legendre transformations connect different thermodynamic potentials:
 
 **General Legendre transformation:**
-```
+$$
 F(p) = px - f(x)
-```
-where p = df/dx
+$$
+where $p = df/dx$
 
 ### Thermodynamic Potentials
 
-**Internal Energy:** U(S,V,N)
-```
-dU = TdS - PdV + μdN
-```
+**Internal Energy:** $U(S,V,N)$
+$$
+dU = TdS - PdV + \mu dN
+$$
 
-**Enthalpy:** H(S,P,N) = U + PV
-```
-dH = TdS + VdP + μdN
-```
+**Enthalpy:** $H(S,P,N) = U + PV$
+$$
+dH = TdS + VdP + \mu dN
+$$
 
-**Helmholtz Free Energy:** F(T,V,N) = U - TS
-```
-dF = -SdT - PdV + μdN
-```
+**Helmholtz Free Energy:** $F(T,V,N) = U - TS$
+$$
+dF = -SdT - PdV + \mu dN
+$$
 
-**Gibbs Free Energy:** G(T,P,N) = U - TS + PV
-```
-dG = -SdT + VdP + μdN
-```
+**Gibbs Free Energy:** $G(T,P,N) = U - TS + PV$
+$$
+dG = -SdT + VdP + \mu dN
+$$
 
-**Grand Potential:** Ω(T,V,μ) = U - TS - μN
-```
-dΩ = -SdT - PdV - Ndμ
-```
+**Grand Potential:** $\Omega(T,V,\mu) = U - TS - \mu N$
+$$
+d\Omega = -SdT - PdV - Nd\mu
+$$
 
 ### Maxwell Relations Extended
 
@@ -491,10 +491,10 @@ From the exactness of differentials:
 ### Thermodynamic Square
 
 ```
-        U -------- H
-        |          |
-        |          |
-        F -------- G
+    U -------- H
+    |          |
+    |          |
+    F -------- G
 ```
 
 Diagonal relationships:
@@ -528,9 +528,9 @@ Where t = (T - T_c)/T_c is the reduced temperature.
 ### Landau Theory
 
 Free energy expansion near critical point:
-```
-F = F_0 + at²m² + bm⁴ + cm⁶ + ... - Hm
-```
+$$
+F = F_0 + at^2m^2 + bm^4 + cm^6 + \ldots - Hm
+$$
 
 **Mean-field critical exponents:**
 - α = 0 (logarithmic)
@@ -558,44 +558,41 @@ F = F_0 + at²m² + bm⁴ + cm⁶ + ... - Hm
 ### Ensemble Theory
 
 **Microcanonical (NVE):**
-```
-S = k_B ln Ω(E,V,N)
-Ω(E,V,N) = ∫ δ(H - E) dΓ
-```
+$$
+S = k_B \ln \Omega(E,V,N), \quad \Omega(E,V,N) = \int \delta(H - E) \, d\Gamma
+$$
 
 **Canonical (NVT):**
-```
-Z = ∫ exp(-βH) dΓ
-F = -k_B T ln Z
-```
+$$
+Z = \int e^{-\beta H} \, d\Gamma, \quad F = -k_B T \ln Z
+$$
 
 **Grand Canonical (μVT):**
-```
-Ξ = Σ_N exp(βμN) Z_N
-Ω = -k_B T ln Ξ
-```
+$$
+\Xi = \sum_N e^{\beta\mu N} Z_N, \quad \Omega = -k_B T \ln \Xi
+$$
 
 ### Fluctuations and Response Functions
 
 **Fluctuation-dissipation theorem:**
-```
-⟨(δA)²⟩ = k_B T² (∂⟨A⟩/∂T)_{X}
-```
+$$
+\langle(\delta A)^2\rangle = k_B T^2 \left(\frac{\partial\langle A\rangle}{\partial T}\right)_X
+$$
 
 **Specific heat:**
-```
-C_V = (∂U/∂T)_V = ⟨(δE)²⟩/(k_B T²)
-```
+$$
+C_V = \left(\frac{\partial U}{\partial T}\right)_V = \frac{\langle(\delta E)^2\rangle}{k_B T^2}
+$$
 
 **Compressibility:**
-```
-κ_T = -(1/V)(∂V/∂P)_T = ⟨(δV)²⟩/(k_B T V)
-```
+$$
+\kappa_T = -\frac{1}{V}\left(\frac{\partial V}{\partial P}\right)_T = \frac{\langle(\delta V)^2\rangle}{k_B T V}
+$$
 
 **Magnetic susceptibility:**
-```
-χ = (∂M/∂H)_T = β⟨(δM)²⟩
-```
+$$
+\chi = \left(\frac{\partial M}{\partial H}\right)_T = \beta\langle(\delta M)^2\rangle
+$$
 
 ## Non-equilibrium Thermodynamics
 
@@ -605,42 +602,41 @@ C_V = (∂U/∂T)_V = ⟨(δE)²⟩/(k_B T²)
 Fluctuations decay like macroscopic perturbations
 
 **Transport coefficients:**
-```
-J_i = Σ_j L_{ij} X_j
-```
-
-Where J_i are fluxes and X_j are thermodynamic forces.
+$$
+J_i = \sum_j L_{ij} X_j
+$$
+Where $J_i$ are fluxes and $X_j$ are thermodynamic forces.
 
 **Onsager reciprocity:**
-```
+$$
 L_{ij} = L_{ji}
-```
+$$
 
 ### Entropy Production
 
 **Local entropy production:**
-```
-σ = Σ_i J_i X_i ≥ 0
-```
+$$
+\sigma = \sum_i J_i X_i \geq 0
+$$
 
 **Minimum entropy production:** For steady states near equilibrium
 
 ### Fluctuation Theorems
 
 **Crooks relation:**
-```
-P_F(W)/P_R(-W) = exp(βW - βΔF)
-```
+$$
+\frac{P_F(W)}{P_R(-W)} = e^{\beta W - \beta\Delta F}
+$$
 
 **Jarzynski equality:**
-```
-⟨exp(-βW)⟩ = exp(-βΔF)
-```
+$$
+\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}
+$$
 
 **Gallavotti-Cohen theorem:** For entropy production
-```
-P(Σ_τ = A)/P(Σ_τ = -A) = exp(τA/k_B)
-```
+$$
+\frac{P(\Sigma_\tau = A)}{P(\Sigma_\tau = -A)} = e^{\tau A/k_B}
+$$
 
 ## Advanced Phase Transitions
 
@@ -652,19 +648,18 @@ Topological phase transition in 2D:
 - Vortex-antivortex unbinding
 
 **Correlation function:**
-```
-G(r) ∼ r^{-η(T)} for T < T_KT
-G(r) ∼ exp(-r/ξ) for T > T_KT
-```
+$$
+G(r) \sim r^{-\eta(T)} \text{ for } T < T_{KT}, \quad G(r) \sim e^{-r/\xi} \text{ for } T > T_{KT}
+$$
 
 ### Quantum Phase Transitions
 
 Phase transitions at T = 0 driven by quantum fluctuations:
 
 **Scaling ansatz:**
-```
-F(g,T) = b^{-(d+z)}F(gb^{1/ν}, Tb^z)
-```
+$$
+F(g,T) = b^{-(d+z)}F(gb^{1/\nu}, Tb^z)
+$$
 
 Where z is dynamical critical exponent.
 
@@ -673,9 +668,9 @@ Where z is dynamical critical exponent.
 **Kauzmann paradox:** Extrapolated entropy becomes negative
 
 **Vogel-Fulcher law:**
-```
-τ = τ_0 exp[DT_0/(T - T_0)]
-```
+$$
+\tau = \tau_0 \exp\left[\frac{DT_0}{T - T_0}\right]
+$$
 
 **Adam-Gibbs theory:** Relates relaxation to configurational entropy
 
@@ -756,28 +751,28 @@ def wolff_cluster_algorithm(spins, T):
 ### Density Functional Theory
 
 **Grand potential functional:**
-```
-Ω[ρ] = F[ρ] + ∫ dr ρ(r)[V_{ext}(r) - μ]
-```
+$$
+\Omega[\rho] = F[\rho] + \int dr \, \rho(r)[V_{\text{ext}}(r) - \mu]
+$$
 
 **Euler-Lagrange equation:**
-```
-δF/δρ(r) + V_{ext}(r) = μ
-```
+$$
+\frac{\delta F}{\delta\rho(r)} + V_{\text{ext}}(r) = \mu
+$$
 
 **Mean-field approximation:**
-```
-F[ρ] = k_B T ∫ dr ρ(r)[ln(ρ(r)Λ³) - 1] + (1/2) ∫∫ dr dr' ρ(r)ρ(r')V(|r-r'|)
-```
+$$
+F[\rho] = k_B T \int dr \, \rho(r)[\ln(\rho(r)\Lambda^3) - 1] + \frac{1}{2} \iint dr \, dr' \, \rho(r)\rho(r')V(|r-r'|)
+$$
 
 ## Modern Research Topics
 
 ### Active Matter Thermodynamics
 
 **Entropy production in active systems:**
-```
-Π = Π_{housekeeping} + Π_{excess}
-```
+$$
+\Pi = \Pi_{\text{housekeeping}} + \Pi_{\text{excess}}
+$$
 
 **Pressure in active fluids:** Violates equation of state
 
@@ -786,11 +781,11 @@ F[ρ] = k_B T ∫ dr ρ(r)[ln(ρ(r)Λ³) - 1] + (1/2) ∫∫ dr dr' ρ(r)ρ(r')V
 ### Stochastic Thermodynamics
 
 **Langevin equation:**
-```
-m\ddot{x} = -γ\dot{x} - ∂U/∂x + √(2γk_B T) ξ(t)
-```
+$$
+m\ddot{x} = -\gamma\dot{x} - \frac{\partial U}{\partial x} + \sqrt{2\gamma k_B T} \, \xi(t)
+$$
 
-**Work fluctuations:** ⟨e^{-βW}⟩ = e^{-βΔF}
+**Work fluctuations:** $\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}$
 
 **Information thermodynamics:** 
 Maxwell's demon, Szilard engine, feedback control
@@ -798,16 +793,16 @@ Maxwell's demon, Szilard engine, feedback control
 ### Quantum Thermodynamics
 
 **Quantum work:**
-```
-W = Σ_n E_n(λ_f)[p_n(λ_f) - p_n(λ_i)]
-```
+$$
+W = \sum_n E_n(\lambda_f)[p_n(\lambda_f) - p_n(\lambda_i)]
+$$
 
 **Quantum heat engines:** Otto cycle with quantum working medium
 
 **Thermodynamic uncertainty relations:**
-```
-(ΔJ)²/⟨J⟩² ≥ 2k_B T/⟨Σ⟩
-```
+$$
+\frac{(\Delta J)^2}{\langle J\rangle^2} \geq \frac{2k_B T}{\langle\Sigma\rangle}
+$$
 
 ### Machine Learning Applications
 
@@ -884,20 +879,19 @@ def build_phase_classifier():
 ### Jacobians and Thermodynamic Derivatives
 
 **Jacobian notation:**
-```
-∂(u,v)/∂(x,y) = |∂u/∂x  ∂u/∂y|
-                |∂v/∂x  ∂v/∂y|
-```
+$$
+\frac{\partial(u,v)}{\partial(x,y)} = \begin{vmatrix} \frac{\partial u}{\partial x} & \frac{\partial u}{\partial y} \\ \frac{\partial v}{\partial x} & \frac{\partial v}{\partial y} \end{vmatrix}
+$$
 
 **Chain rule:**
-```
-∂(u,v)/∂(x,y) = ∂(u,v)/∂(s,t) × ∂(s,t)/∂(x,y)
-```
+$$
+\frac{\partial(u,v)}{\partial(x,y)} = \frac{\partial(u,v)}{\partial(s,t)} \times \frac{\partial(s,t)}{\partial(x,y)}
+$$
 
 **Thermodynamic identities:**
-```
-(∂T/∂P)_S = ∂(T,S)/∂(P,S) = -∂(T,S)/∂(S,P) = -∂(T,V)/∂(S,P) × ∂(S,P)/∂(S,V)
-```
+$$
+\left(\frac{\partial T}{\partial P}\right)_S = \frac{\partial(T,S)}{\partial(P,S)}
+$$
 
 ### Stability Conditions
 

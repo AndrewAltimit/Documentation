@@ -476,17 +476,14 @@ toc_icon: "cog"
 In light-cone gauge, the string oscillator modes satisfy:
 
 **Commutation relations:**
-```
-[α^μ_m, α^ν_n] = m δ_{m+n,0} η^{μν}
-```
+
+$$[\alpha^{\mu}_m, \alpha^{\nu}_n] = m \delta_{m+n,0} \eta^{\mu\nu}$$
 
 ### Virasoro Algebra
 
 Constraints from reparametrization invariance:
 
-```
-[L_m, L_n] = (m-n)L_{m+n} + c/12 m(m²-1)δ_{m+n,0}
-```
+$$[L_m, L_n] = (m-n)L_{m+n} + \frac{c}{12} m(m^2-1)\delta_{m+n,0}$$
 
 Where c is the central charge.
 
@@ -751,9 +748,8 @@ D-branes are extended objects where open strings can end:
 ### Dynamics
 
 **DBI Action:**
-```
-S = -T_p ∫ d^{p+1}ξ e^{-φ} √(-det(G + B + 2πα'F))
-```
+
+$$S = -T_p \int d^{p+1}\xi \, e^{-\phi} \sqrt{-\det(G + B + 2\pi\alpha' F)}$$
 
 Where:
 - G = induced metric
@@ -763,9 +759,8 @@ Where:
 ### D-Brane Charges
 
 D-branes carry Ramond-Ramond charges:
-```
-μ_p = T_p/g_s
-```
+
+$$\mu_p = \frac{T_p}{g_s}$$
 
 Where g_s is the string coupling.
 
@@ -774,9 +769,8 @@ Where g_s is the string coupling.
 ### Concept
 
 Duality between small and large dimensions:
-```
-R ↔ α'/R
-```
+
+$$R \leftrightarrow \frac{\alpha'}{R}$$
 
 ### Transformation Rules
 
@@ -788,28 +782,26 @@ Under T-duality in direction X^9:
 ### Winding Modes
 
 T-duality exchanges momentum and winding:
-```
-p ↔ w
-n/R ↔ mR/α'
-```
+
+$$p \leftrightarrow w$$
+
+$$\frac{n}{R} \leftrightarrow \frac{mR}{\alpha'}$$
 
 ## S-Duality
 
 ### Strong-Weak Duality
 
 Relates strong and weak coupling:
-```
-g_s ↔ 1/g_s
-```
+
+$$g_s \leftrightarrow \frac{1}{g_s}$$
 
 ### Type IIB Self-Duality
 
 Type IIB is self-dual under S-duality:
-```
-τ → -1/τ
-```
 
-Where τ = C₀ + ie^{-φ} (axion-dilaton)
+$$\tau \rightarrow -\frac{1}{\tau}$$
+
+Where $\tau = C_0 + ie^{-\phi}$ (axion-dilaton)
 
 ### F-Strings and D-Strings
 
@@ -827,11 +819,9 @@ Strong coupling limit of Type IIA:
 
 ### Relations
 
-```
-R₁₁ = g_s ℓ_s
-```
+$$R_{11} = g_s \ell_s$$
 
-Where R₁₁ is the radius of the 11th dimension.
+Where $R_{11}$ is the radius of the 11th dimension.
 
 ### M2 and M5 Branes
 
@@ -842,11 +832,12 @@ Extended objects in M-theory:
 ### Web of Dualities
 
 All five string theories and M-theory are connected:
-```
-Type IIA ←→ M-theory on S¹
-Type IIB ←→ F-theory on T²
-E₈×E₈ ←→ M-theory on S¹/Z₂
-```
+
+$$\text{Type IIA} \leftrightarrow \text{M-theory on } S^1$$
+
+$$\text{Type IIB} \leftrightarrow \text{F-theory on } T^2$$
+
+$$E_8 \times E_8 \leftrightarrow \text{M-theory on } S^1/\mathbb{Z}_2$$
 
 ## Compactification
 
@@ -871,9 +862,8 @@ Parameters of compactification:
 ### Flux Compactifications
 
 Adding fluxes stabilizes moduli:
-```
-∫_Σ F = n ∈ Z
-```
+
+$$\int_{\Sigma} F = n \in \mathbb{Z}$$
 
 This leads to:
 - Moduli stabilization
@@ -890,12 +880,11 @@ Equivalence between:
 
 ### Dictionary
 
-```
-g_YM² = g_s
-λ = g_YM²N = R⁴/α'²
-```
+$$g_{\text{YM}}^2 = g_s$$
 
-Where λ is the 't Hooft coupling.
+$$\lambda = g_{\text{YM}}^2 N = \frac{R^4}{\alpha'^2}$$
+
+Where $\lambda$ is the 't Hooft coupling.
 
 ### Applications
 
@@ -909,9 +898,8 @@ Where λ is the 't Hooft coupling.
 ### Microscopic Entropy
 
 String theory provides microscopic description:
-```
-S = A/4G = S_micro
-```
+
+$$S = \frac{A}{4G} = S_{\text{micro}}$$
 
 Counting D-brane bound states reproduces Bekenstein-Hawking entropy.
 
@@ -1054,74 +1042,66 @@ Modern methods for scattering:
 #### Polyakov Path Integral
 
 **Gauge-fixed action:**
-```
-S = 1/(4πα') ∫ d²σ ∂X^μ∂̄X_μ
-```
 
-In conformal gauge: h_{ab} = e^φη_{ab}
+$$S = \frac{1}{4\pi\alpha'} \int d^2\sigma \, \partial X^{\mu}\bar{\partial}X_{\mu}$$
+
+In conformal gauge: $h_{ab} = e^{\phi}\eta_{ab}$
 
 **Mode expansion:**
-```
-X^μ(z,̄z) = x^μ - iα'/2 p^μ ln|z|² + i√(α'/2) Σ_{n≠0} (1/n)[α^μ_n z^{-n} + ̃α^μ_n ̄z^{-n}]
-```
+
+$$X^{\mu}(z,\bar{z}) = x^{\mu} - \frac{i\alpha'}{2} p^{\mu} \ln|z|^2 + i\sqrt{\frac{\alpha'}{2}} \sum_{n\neq 0} \frac{1}{n}\left[\alpha^{\mu}_n z^{-n} + \tilde{\alpha}^{\mu}_n \bar{z}^{-n}\right]$$
 
 **Virasoro algebra:**
-```
-[L_m, L_n] = (m-n)L_{m+n} + c/12 m(m²-1)δ_{m+n,0}
-```
 
-For bosonic string: c = D (spacetime dimensions)
+$$[L_m, L_n] = (m-n)L_{m+n} + \frac{c}{12} m(m^2-1)\delta_{m+n,0}$$
+
+For bosonic string: $c = D$ (spacetime dimensions)
 
 #### Vertex Operators
 
-**Tachyon:** V_T = :e^{ik·X}:
+**Tachyon:** $V_T = :e^{ik\cdot X}:$
 
 **Graviton/Dilaton/B-field:**
-```
-V^{(1)} = ζ_{μν} :(∂X^μ + ik·ψψ^μ)e^{ik·X}:
-```
+
+$$V^{(1)} = \zeta_{\mu\nu} :(\partial X^{\mu} + ik\cdot\psi\psi^{\mu})e^{ik\cdot X}:$$
 
 **Integrated vertex operators:**
-```
-V^{(0)} = ∫ d²z V^{(1)}(z,̄z)
-```
+
+$$V^{(0)} = \int d^2z \, V^{(1)}(z,\bar{z})$$
 
 #### BRST Quantization
 
 **BRST charge:**
-```
-Q_B = ∮ (cT + ½c∂c + ̃c̄T + ½̃c∂̄̃c)
-```
 
-**Physical states:** Q_B|φ⟩ = 0, |φ⟩ ≠ Q_B|χ⟩
+$$Q_B = \oint \left(cT + \frac{1}{2}c\partial c + \tilde{c}\bar{T} + \frac{1}{2}\tilde{c}\bar{\partial}\tilde{c}\right)$$
 
-**Cohomology:** H*(Q_B) gives physical spectrum
+**Physical states:** $Q_B|\phi\rangle = 0$, $|\phi\rangle \neq Q_B|\chi\rangle$
+
+**Cohomology:** $H^*(Q_B)$ gives physical spectrum
 
 ### Superstring Theory: RNS Formalism
 
 #### Worldsheet Supersymmetry
 
 **RNS action:**
-```
-S = 1/(4πα') ∫ d²σ [∂_αX^μ∂^αX_μ + ψ^μρ^α∂_αψ_μ]
-```
+
+$$S = \frac{1}{4\pi\alpha'} \int d^2\sigma \left[\partial_{\alpha}X^{\mu}\partial^{\alpha}X_{\mu} + \psi^{\mu}\rho^{\alpha}\partial_{\alpha}\psi_{\mu}\right]$$
 
 **Superconformal algebra:**
-```
-{G_r, G_s} = 2L_{r+s} + c/2(r² - 1/4)δ_{r+s,0}
-[L_m, G_r] = (m/2 - r)G_{m+r}
-```
 
-For superstring: c = 3D/2
+$$\{G_r, G_s\} = 2L_{r+s} + \frac{c}{2}\left(r^2 - \frac{1}{4}\right)\delta_{r+s,0}$$
+
+$$[L_m, G_r] = \left(\frac{m}{2} - r\right)G_{m+r}$$
+
+For superstring: $c = \frac{3D}{2}$
 
 #### GSO Projection
 
 **Fermion number operator:**
-```
-F = (-1)^F 　with　F = Σ_{r>0} ψ^{-r}·ψ^r
-```
 
-**GSO projection:** Keep states with (-1)^F = ±(-1)^{̃F}
+$$F = (-1)^F \quad \text{with} \quad F = \sum_{r>0} \psi^{-r}\cdot\psi^r$$
+
+**GSO projection:** Keep states with $(-1)^F = \pm(-1)^{\tilde{F}}$
 
 **Spin structures:**
 - NS (Neveu-Schwarz): Half-integer modes
@@ -1137,11 +1117,10 @@ F = (-1)^F 　with　F = Σ_{r>0} ψ^{-r}·ψ^r
 #### Spacetime Supersymmetry
 
 **GS action:**
-```
-S = -T/2 ∫ d²σ [√-h h^{ab}Π_a^μΠ_{bμ} + ε^{ab}Π_a^μ̄θ^AΓ_μ∂_bθ^A]
-```
 
-Where Π^μ = ∂X^μ - ̄θ^AΓ^μ∂θ^A
+$$S = -\frac{T}{2} \int d^2\sigma \left[\sqrt{-h} \, h^{ab}\Pi_a^{\mu}\Pi_{b\mu} + \varepsilon^{ab}\Pi_a^{\mu}\bar{\theta}^A\Gamma_{\mu}\partial_b\theta^A\right]$$
+
+Where $\Pi^{\mu} = \partial X^{\mu} - \bar{\theta}^A\Gamma^{\mu}\partial\theta^A$
 
 **Kappa symmetry:** Gauge symmetry ensuring spacetime SUSY
 
@@ -1151,22 +1130,21 @@ Where Π^μ = ∂X^μ - ̄θ^AΓ^μ∂θ^A
 
 #### Boundary Conditions
 
-**Neumann:** ∂_n X^μ|_{∂Σ} = 0
-**Dirichlet:** ∂_t X^μ|_{∂Σ} = 0
+**Neumann:** $\partial_n X^{\mu}|_{\partial\Sigma} = 0$
 
-**T-duality:** N ↔ D boundary conditions
+**Dirichlet:** $\partial_t X^{\mu}|_{\partial\Sigma} = 0$
+
+**T-duality:** N $\leftrightarrow$ D boundary conditions
 
 #### Effective Actions
 
 **DBI action expanded:**
-```
-S = -T_p∫d^{p+1}ξ e^{-φ}[1 + (2πα')²/4 F_{μν}F^{μν} + O(F⁴)]
-```
+
+$$S = -T_p\int d^{p+1}\xi \, e^{-\phi}\left[1 + \frac{(2\pi\alpha')^2}{4} F_{\mu\nu}F^{\mu\nu} + O(F^4)\right]$$
 
 **Chern-Simons terms:**
-```
-S_{CS} = μ_p ∫ C ∧ e^{2πα'F}
-```
+
+$$S_{CS} = \mu_p \int C \wedge e^{2\pi\alpha'F}$$
 
 #### D-Brane Interactions
 
@@ -1181,23 +1159,24 @@ S_{CS} = μ_p ∫ C ∧ e^{2πα'F}
 #### M-Theory Basics
 
 **11D supergravity low-energy limit:**
-```
-S = 1/(2κ²) ∫ d¹¹x √-g [R - ½|F_4|²] + 1/6 ∫ C_3 ∧ F_4 ∧ F_4
-```
+
+$$S = \frac{1}{2\kappa^2} \int d^{11}x \sqrt{-g} \left[R - \frac{1}{2}|F_4|^2\right] + \frac{1}{6} \int C_3 \wedge F_4 \wedge F_4$$
 
 **M2-branes:** Membranes with worldvolume theory
+
 **M5-branes:** 5-branes with self-dual 3-form
 
 #### Web of Dualities
 
-**S-duality:** Type IIB self-dual under g_s → 1/g_s
+**S-duality:** Type IIB self-dual under $g_s \rightarrow 1/g_s$
 
 **Complete duality web:**
-```
-M-theory on S¹ → Type IIA
-M-theory on T² → Type IIB
-M-theory on S¹/Z₂ → E₈×E₈ heterotic
-```
+
+$$\text{M-theory on } S^1 \rightarrow \text{Type IIA}$$
+
+$$\text{M-theory on } T^2 \rightarrow \text{Type IIB}$$
+
+$$\text{M-theory on } S^1/\mathbb{Z}_2 \rightarrow E_8\times E_8 \text{ heterotic}$$
 
 **U-duality:** Combines S and T dualities
 
@@ -1208,20 +1187,19 @@ M-theory on S¹/Z₂ → E₈×E₈ heterotic
 **Definition:** Kähler manifold with SU(n) holonomy
 
 **Properties:**
-- Ricci-flat: R_{ij} = 0
+- Ricci-flat: $R_{ij} = 0$
 - Admits covariantly constant spinor
-- c₁ = 0
+- $c_1 = 0$
 
-**Hodge numbers:** h^{p,q} characterize topology
-- h^{1,1}: Kähler moduli
-- h^{2,1}: Complex structure moduli
+**Hodge numbers:** $h^{p,q}$ characterize topology
+- $h^{1,1}$: Kähler moduli
+- $h^{2,1}$: Complex structure moduli
 
 #### Moduli Stabilization
 
 **Flux compactifications:**
-```
-W = ∫ Ω ∧ (F_3 - τH_3)
-```
+
+$$W = \int \Omega \wedge (F_3 - \tau H_3)$$
 
 **KKLT scenario:** All moduli stabilized by fluxes and non-perturbative effects
 
@@ -1234,9 +1212,8 @@ W = ∫ Ω ∧ (F_3 - τH_3)
 **Type IIB on AdS₅×S⁵ ↔ N=4 SYM in 4D**
 
 **Dictionary:**
-```
-⟨O(x)⟩_{CFT} = δS_{gravity}/δφ_0(x)|_{φ_0→O}
-```
+
+$$\langle O(x)\rangle_{\text{CFT}} = \frac{\delta S_{\text{gravity}}}{\delta\phi_0(x)}\bigg|_{\phi_0\rightarrow O}$$
 
 **Holographic renormalization:** Regulate divergences
 
@@ -1255,14 +1232,12 @@ W = ∫ Ω ∧ (F_3 - τH_3)
 **D-brane configuration:** D1-D5-P system
 
 **Microscopic entropy:**
-```
-S_{micro} = 2π√(N₁N₅n)
-```
+
+$$S_{\text{micro}} = 2\pi\sqrt{N_1 N_5 n}$$
 
 **Bekenstein-Hawking:**
-```
-S_{BH} = A/4G = 2π√(N₁N₅n)
-```
+
+$$S_{\text{BH}} = \frac{A}{4G} = 2\pi\sqrt{N_1 N_5 n}$$
 
 Perfect agreement!
 
@@ -1271,9 +1246,8 @@ Perfect agreement!
 **Near-horizon geometry:** AdS₂×S²
 
 **Attractor equations:**
-```
-∂V/∂z^i|_{horizon} = 0
-```
+
+$$\frac{\partial V}{\partial z^i}\bigg|_{\text{horizon}} = 0$$
 
 Moduli fixed by charges, independent of asymptotic values
 
@@ -1281,7 +1255,7 @@ Moduli fixed by charges, independent of asymptotic values
 
 #### A-Model
 
-**Action:** ∫ Σ φ*(ω) + {Q, V}
+**Action:** $\int_{\Sigma} \phi^*(\omega) + \{Q, V\}$
 
 **Observables:** Gromov-Witten invariants
 
@@ -1290,9 +1264,8 @@ Moduli fixed by charges, independent of asymptotic values
 #### B-Model
 
 **Holomorphic anomaly equation:**
-```
-∂F^{(g)}/∂̄t^i = ½C^{ijk}_{̄i}(D_jD_kF^{(g-1)} + Σ_{h} D_jF^{(h)}D_kF^{(g-h)})
-```
+
+$$\frac{\partial F^{(g)}}{\partial\bar{t}^i} = \frac{1}{2}C^{ijk}_{\bar{i}}\left(D_j D_k F^{(g-1)} + \sum_{h} D_j F^{(h)} D_k F^{(g-h)}\right)$$
 
 **Mirror symmetry:** A-model(X) = B-model(Y)
 
@@ -1301,15 +1274,14 @@ Moduli fixed by charges, independent of asymptotic values
 #### Scattering Equations
 
 **CHY formulation:**
-```
-A_n = ∫ dμ_n I_L(σ)I_R(σ)
-```
 
-Where dμ_n = ∏_i dσ_i δ(Σ_j k_j·P_j/(σ_i-σ_j))
+$$A_n = \int d\mu_n \, I_L(\sigma)I_R(\sigma)$$
+
+Where $d\mu_n = \prod_i d\sigma_i \, \delta\left(\sum_j \frac{k_j\cdot P_j}{\sigma_i-\sigma_j}\right)$
 
 #### Ambitwistor Strings
 
-**Action:** S = ∫ P_μ ∂̄X^μ
+**Action:** $S = \int P_{\mu} \bar{\partial}X^{\mu}$
 
 **Critical dimension:** None!
 
@@ -1319,11 +1291,11 @@ Where dμ_n = ∏_i dσ_i δ(Σ_j k_j·P_j/(σ_i-σ_j))
 
 #### Conjectures
 
-**Distance conjecture:** Λ ~ M_P e^{-αd}
+**Distance conjecture:** $\Lambda \sim M_P e^{-\alpha d}$
 
-**Weak gravity conjecture:** m ≤ qM_P
+**Weak gravity conjecture:** $m \leq qM_P$
 
-**de Sitter conjecture:** |∇V| ≥ cV/M_P
+**de Sitter conjecture:** $|\nabla V| \geq \frac{cV}{M_P}$
 
 #### Implications
 
@@ -1336,17 +1308,16 @@ Where dμ_n = ∏_i dσ_i δ(Σ_j k_j·P_j/(σ_i-σ_j))
 #### Holographic Entanglement Entropy
 
 **Ryu-Takayanagi formula:**
-```
-S_A = Area(γ_A)/(4G_N)
-```
 
-**Quantum corrections:** S = ⟨Area/4G⟩ + S_{bulk}
+$$S_A = \frac{\text{Area}(\gamma_A)}{4G_N}$$
+
+**Quantum corrections:** $S = \langle\text{Area}/4G\rangle + S_{\text{bulk}}$
 
 #### Complexity
 
-**CV conjecture:** C = V/GL
+**CV conjecture:** $C = \frac{V}{GL}$
 
-**CA conjecture:** C = Action/πℏ
+**CA conjecture:** $C = \frac{\text{Action}}{\pi\hbar}$
 
 **Applications:** Black hole interior, firewalls
 
