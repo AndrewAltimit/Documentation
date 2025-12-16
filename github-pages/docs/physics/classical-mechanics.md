@@ -51,7 +51,7 @@ At its heart, classical mechanics is about understanding cause and effect in the
 Before Newton, motion was a mystery. Objects moved, but why? Newton's genius was recognizing that motion follows precise mathematical laws. Let's build our understanding from the ground up.
 
 ### Newton's Laws of Motion
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.newton.ac.uk/files/preprints/ni16002.pdf"> Paper: <b><i>Philosophiæ Naturalis Principia Mathematica</i></b> - Isaac Newton</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.gutenberg.org/files/33229/33229-pdf.pdf"> Paper: <b><i>Philosophiæ Naturalis Principia Mathematica</i></b> - Isaac Newton</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=kKKM8Y-u7ds"> Video: <b><i>Newton's Laws of Motion Explained</i></b></a></p>
 
 The foundation of classical mechanics is built upon Newton's three laws of motion:
@@ -219,8 +219,8 @@ Kinematics describes motion without asking "why?"—that's dynamics. It's like s
 </a>
 <br>
 <p class="referenceBoxes type2">
-<a href="https://www.geogebra.org/m/nJY8AYyY">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Interactive: <b><i>Projectile Motion Simulator</i></b></a>
+<a href="https://phet.colorado.edu/en/simulations/projectile-motion">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Interactive: <b><i>Projectile Motion Simulator</i></b> - PhET</a>
 </p>
 </center>
 

@@ -210,8 +210,8 @@ Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowl
 </a>
 <br>
 <p class="referenceBoxes type2">
-<a href="https://www.physicsclassroom.com/class/light/Lesson-5/The-Uncertainty-Principle">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b></a>
+<a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle">
+<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a>
 </p>
 </center>
 
@@ -1583,9 +1583,9 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 ## Research-Level Resources
 
 ### Graduate Textbooks
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.cambridge.org/core/books/modern-quantum-mechanics/"> Book: <b><i>Modern Quantum Mechanics</i></b> - J.J. Sakurai</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.cambridge.org/highereducation/books/modern-quantum-mechanics/AAE1925F1A0963C6124421B03D7801AE"> Book: <b><i>Modern Quantum Mechanics</i></b> - J.J. Sakurai</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://archive.org/details/QuantumMechanicsVol1CohenTannoudji"> Book: <b><i>Quantum Mechanics (Vols 1&2)</i></b> - Cohen-Tannoudji</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.springer.com/gp/book/9783540287"> Book: <b><i>Quantum Theory: Concepts and Methods</i></b> - Asher Peres</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://link.springer.com/book/10.1007/0-306-47120-5"> Book: <b><i>Quantum Theory: Concepts and Methods</i></b> - Asher Peres</a></p>
 
 ### Research Papers and Reviews
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/1308.6595.pdf"> Review: <b><i>Quantum Information and Computation</i></b> - Nielsen & Chuang</a></p>
@@ -1594,7 +1594,7 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 
 ### Advanced Courses
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://ocw.mit.edu/courses/physics/8-05-quantum-physics-ii-fall-2013/"> Course: <b><i>MIT 8.05 Quantum Physics II</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.perimeterinstitute.ca/video-library/collection/psi-2018/19-quantum-theory"> Course: <b><i>Perimeter Institute - Advanced Quantum Theory</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://perimeterinstitute.ca/online-courses"> Course: <b><i>Perimeter Institute - Online Physics Courses</i></b></a></p>
 
 ### Computational Resources
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/quantumlib/Cirq"> Library: <b><i>Cirq - Quantum Computing Framework</i></b></a></p>
@@ -1608,7 +1608,7 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/III_toc.html"> Book: <b><i>The Feynman Lectures on Physics, Volume III</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.quantum.amsterdam/education/"> Course: <b><i>Quantum Mechanics - University of Amsterdam</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/playlist?list=PL8_xPU5epJddRABXqJ5h5G0dk-XGtA5cZ"> Video Series: <b><i>Quantum Mechanics - Stanford University</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/microsoft/QuantumDevelopmentKit"> Code: <b><i>Microsoft Quantum Development Kit</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/microsoft/qdk"> Code: <b><i>Microsoft Quantum Development Kit</i></b></a></p>
 
 ---
 
