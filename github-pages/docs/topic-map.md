@@ -6,7 +6,7 @@ toc: false
 
 <div class="hero-section topic-map-hero">
   <div class="hero-content">
-    <h1 class="hero-title">🗺️ Interactive Learning Map</h1>
+    <h1 class="hero-title">Interactive Learning Map</h1>
     <p class="hero-subtitle">Discover your personalized learning path through our documentation</p>
   </div>
 </div>
@@ -17,11 +17,11 @@ toc: false
 
 {% include topic-map.html %}
 
-## 🎯 Quick Start Guides
+## Quick Start Guides
 
 <div class="quick-start-grid">
   <div class="quick-start-card">
-    <h3>🚀 Complete Beginner?</h3>
+    <h3>Complete Beginner</h3>
     <p>Start with our 5-minute crash courses:</p>
     <ul>
       <li><a href="technology/git-reference.html">Git Quick Start</a></li>
@@ -30,9 +30,9 @@ toc: false
       <li><a href="technology/ai-fundamentals-simple.html">AI for Beginners</a></li>
     </ul>
   </div>
-  
+
   <div class="quick-start-card">
-    <h3>🎓 Have Some Experience?</h3>
+    <h3>Intermediate</h3>
     <p>Explore intermediate topics:</p>
     <ul>
       <li><a href="technology/branching.html">Git Branching Strategies</a></li>
@@ -41,9 +41,9 @@ toc: false
       <li><a href="technology/ai.html">AI & Neural Networks</a></li>
     </ul>
   </div>
-  
+
   <div class="quick-start-card">
-    <h3>🧠 Ready for Advanced?</h3>
+    <h3>Advanced</h3>
     <p>Dive into research-level content:</p>
     <ul>
       <li><a href="technology/git.html">Git Internals & Theory</a></li>
@@ -54,14 +54,14 @@ toc: false
   </div>
 </div>
 
-## 🧭 How to Navigate This Map
+## How to Navigate This Map
 
 ### Interactive Features
-- **🖱️ Click and drag** nodes to explore the visualization
-- **🔍 Click any topic** to see details and available content
-- **🎚️ Use difficulty filters** to focus on your level
-- **🔗 Follow connections** to discover related topics
-- **📍 Zoom and pan** to explore different knowledge domains
+- **Click and drag** nodes to explore the visualization
+- **Click any topic** to see details and available content
+- **Use difficulty filters** to focus on your level
+- **Follow connections** to discover related topics
+- **Zoom and pan** to explore different knowledge domains
 
 ### Understanding Connections
 <div class="connection-legend">
@@ -79,7 +79,7 @@ toc: false
   </div>
 </div>
 
-## 📈 Suggested Learning Paths
+## Suggested Learning Paths
 
 ### Path 1: Full-Stack Developer Journey
 ```
@@ -102,7 +102,7 @@ Linux → Git → Docker → CI/CD → Kubernetes → Monitoring
 Shell  Branching Compose Jenkins   Helm    Prometheus
 ```
 
-## 🎨 Customize Your Experience
+## Customize Your Experience
 
 {% include learning-mode-toggle.html %}
 
@@ -112,7 +112,7 @@ Shell  Branching Compose Jenkins   Helm    Prometheus
 - **Skip Ahead**: Test out of beginner content
 - **Deep Dive**: Access research papers and advanced materials
 
-## 💡 Pro Tips
+## Pro Tips
 
 1. **Start Small**: Don't try to learn everything at once
 2. **Follow Interests**: Let curiosity guide your path
