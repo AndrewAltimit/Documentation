@@ -4,7 +4,13 @@ title: "Terraform: Core Concepts"
 permalink: /docs/technology/terraform/core-concepts.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: Core Concepts</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the fundamentals of Infrastructure as Code, from installation to your first deployment in 30 minutes.</p>
+</div>
 
 ## Getting Started
 

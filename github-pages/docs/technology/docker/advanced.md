@@ -4,7 +4,13 @@ title: "Docker: Advanced Patterns"
 permalink: /docs/technology/docker/advanced.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Advanced Patterns</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Production-ready architectures, real-world case studies, and cutting-edge container technologies including WebAssembly runtimes.</p>
+</div>
 
 ## Real-World Examples and Case Studies
 

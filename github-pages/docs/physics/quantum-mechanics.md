@@ -1,24 +1,19 @@
 ---
 layout: docs
 title: Quantum Mechanics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Mechanics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**Exploring the Quantum Realm: Where Reality Defies Intuition**
-
-*Journey through the fundamental theory that governs the microscopic world*
-
-Quantum mechanics is the fundamental theory that describes the behavior of matter and energy at the atomic and subatomic scale. It reveals a probabilistic, non-deterministic universe where particles exhibit wave-like properties, and observation plays a fundamental role in determining physical reality.
-
----
 
 ## Quick Start: Quantum Mechanics Crash Course
 

@@ -1,26 +1,19 @@
 ---
 layout: docs
 title: Computational Physics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "laptop-code"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Computational Physics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Where physics meets computation, using numerical algorithms and simulations to solve problems beyond analytical reach.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**Where Physics Meets Computation: Solving Nature with Algorithms**
-
-*Discover how computers revolutionized our ability to understand and predict physical phenomena*
-
-Imagine trying to predict the weather, design a fusion reactor, or simulate the birth of galaxies. These problems are far too complex for pencil-and-paper solutions. Computational physics bridges this gap, transforming intractable equations into solvable algorithms. It's where the elegance of physical laws meets the power of modern computing.
-
-From simulating quantum systems to modeling climate change, computational physics has become an indispensable tool in modern science. Whether you're a student learning numerical methods or a researcher pushing the boundaries of simulation, this guide will help you master the computational techniques that drive modern physics forward.
-
----
 
 ## Journey Through Computational Physics
 

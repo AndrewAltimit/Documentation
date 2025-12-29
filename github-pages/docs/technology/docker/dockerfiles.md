@@ -4,7 +4,13 @@ title: "Docker: Dockerfiles & CI/CD"
 permalink: /docs/technology/docker/dockerfiles.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Dockerfiles & CI/CD</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build optimized container images and integrate Docker into your continuous integration and deployment pipelines.</p>
+</div>
 
 ## Writing Dockerfiles
 

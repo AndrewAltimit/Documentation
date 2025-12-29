@@ -5,8 +5,13 @@ nav_order: 20
 has_children: true
 permalink: /docs/ai-ml/
 toc: false  # Index pages typically don't need TOC
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AI/ML Documentation</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive guide to AI image generation, custom model training, and automated creative workflows.</p>
+</div>
 
 <div class="code-example" markdown="1">
 Your guide to creating AI-generated images, training custom models, and building automated workflows. From your first generated image to training your own artistic styles.

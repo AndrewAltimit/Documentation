@@ -1,13 +1,17 @@
 ---
 layout: docs
 title: AWS Database Services
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "database"
 ---
 
-# AWS Database Services
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Database Services</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">RDS, Aurora, DynamoDB, and ElastiCache managed database solutions for relational, NoSQL, and caching workloads.</p>
+</div>
 
 ## Why Managed Databases Matter
 

@@ -7,10 +7,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
-
-{: .no_toc }
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Stable Diffusion Fundamentals</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Understand how AI transforms text descriptions into detailed images through the diffusion process, and master the parameters that control your results.</p>
+</div>
 
 <div class="code-example" markdown="1">
 How AI transforms text descriptions into detailed images, and why understanding the process helps you get better results.

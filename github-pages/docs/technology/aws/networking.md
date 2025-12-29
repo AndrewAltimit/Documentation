@@ -1,13 +1,17 @@
 ---
 layout: docs
 title: AWS Networking & Content Delivery
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "network-wired"
 ---
 
-# AWS Networking & Content Delivery
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Networking & Content Delivery</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">VPC private networks, CloudFront CDN, API Gateway, and load balancing for secure, fast, and resilient cloud architectures.</p>
+</div>
 
 ## Why Networking Matters
 

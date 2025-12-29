@@ -2,10 +2,14 @@
 layout: docs
 title: AWS Cloud Services
 permalink: /docs/technology/aws/
+hide_title: true
 toc: false
 ---
 
-# AWS Cloud Services Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Cloud Services Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your complete guide to Amazon Web Services, from first deployment to multi-region architectures.</p>
+</div>
 
 ## Why AWS?
 

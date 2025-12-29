@@ -4,7 +4,13 @@ title: "Kubernetes: Fundamentals"
 permalink: /docs/technology/kubernetes/fundamentals.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Fundamentals</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the core building blocks of Kubernetes including Pods, Deployments, Services, and cluster architecture.</p>
+</div>
 
 ## Getting Started with Kubernetes
 

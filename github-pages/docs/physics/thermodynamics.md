@@ -1,24 +1,19 @@
 ---
 layout: docs
 title: Thermodynamics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Thermodynamics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The science of heat, energy, and work, governing everything from steam engines to the fate of the universe.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**The Science of Heat and Energy: From Steam Engines to Stars**
-
-*Explore the fundamental laws that govern energy transformation and the arrow of time*
-
-Thermodynamics is the branch of physics that deals with heat, work, temperature, and the statistical behavior of systems with large numbers of particles. It bridges the microscopic world of atoms and molecules with the macroscopic properties we observe.
-
----
 
 ## Overview
 

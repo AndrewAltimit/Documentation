@@ -1,13 +1,17 @@
 ---
 layout: docs
 title: AWS Infrastructure & Operations
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cogs"
 ---
 
-# AWS Infrastructure & Operations
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Infrastructure & Operations</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master CloudWatch monitoring, CloudFormation IaC, architecture patterns, cost optimization, and production troubleshooting.</p>
+</div>
 
 This comprehensive guide covers CloudWatch monitoring, CloudFormation infrastructure as code, architecture patterns, cost optimization, and troubleshooting. Learn how to build, operate, and optimize production AWS environments.
 

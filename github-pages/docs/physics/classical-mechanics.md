@@ -1,26 +1,19 @@
 ---
 layout: docs
 title: Classical Mechanics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Classical Mechanics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The foundation of physics describing motion and forces, from Newton's laws to the elegant formulations of Lagrange and Hamilton.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**The Foundation of Physics: Understanding Motion and Forces**
-
-*Explore the fundamental principles that govern the motion of everyday objects*
-
-Have you ever wondered why a ball follows a curved path when thrown, or how engineers design bridges that don't collapse? Classical mechanics provides the answers. It's the branch of physics that describes the motion of everyday objects—from the coffee cup on your desk to the planets orbiting our sun.
-
-At its heart, classical mechanics is about understanding cause and effect in the physical world. Push something, and it moves. Drop something, and it falls. But as we'll discover, these simple observations lead to profound mathematical frameworks that revolutionized our understanding of nature and enabled the modern technological world.
-
----
 
 ## Journey Through Classical Mechanics
 

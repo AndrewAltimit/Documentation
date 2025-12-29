@@ -1,10 +1,14 @@
 ---
 layout: docs
 title: Physics Documentation Hub
+hide_title: true
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Physics Documentation Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Physics Documentation Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Exploring the fundamental laws that govern matter, energy, space, and time across all scales of the universe.</p>
+</div>
 
 Welcome to our comprehensive physics knowledge base. This collection covers fundamental concepts from classical mechanics to cutting-edge topics in quantum field theory and string theory.
 

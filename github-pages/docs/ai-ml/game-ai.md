@@ -7,7 +7,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "robot"
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Game AI Systems</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Techniques and systems for creating intelligent, responsive NPCs and game behaviors that prioritize engaging gameplay over optimal decision-making.</p>
+</div>
 
 Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike traditional AI research focused on optimal decision-making, game AI prioritizes creating engaging, entertaining, and appropriately challenging experiences while maintaining performance constraints of real-time applications.
 
