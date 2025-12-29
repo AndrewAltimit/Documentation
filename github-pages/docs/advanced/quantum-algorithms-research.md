@@ -3,8 +3,13 @@ layout: docs
 title: "Quantum Algorithms Research"
 permalink: /docs/advanced/quantum-algorithms-research/
 parent: "Advanced Topics"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Algorithms Research</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous quantum complexity theory, error correction codes, and cutting-edge algorithmic developments</p>
+</div>
 
 **Prerequisites**: Linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals.
 

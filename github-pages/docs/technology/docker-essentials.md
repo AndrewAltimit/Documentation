@@ -1,9 +1,13 @@
 ---
 layout: docs
 title: "Docker Essentials"
+hide_title: true
 ---
 
-# Docker Essentials
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker Essentials</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Container commands, operations, and best practices reference</p>
+</div>
 
 Docker is a platform for developing, shipping, and running applications using containerization technology. It packages applications and their dependencies into portable containers that can run consistently across different computing environments.
 

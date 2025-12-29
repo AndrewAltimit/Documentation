@@ -3,8 +3,13 @@ layout: docs
 title: "Advanced AI Mathematics"
 permalink: /docs/advanced/ai-mathematics/
 parent: "Advanced Topics"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced AI Mathematics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Statistical learning theory, optimization landscapes, and rigorous mathematical foundations for machine learning</p>
+</div>
 
 **Prerequisites**: Graduate-level mathematics including measure theory, functional analysis, and probability theory.
 

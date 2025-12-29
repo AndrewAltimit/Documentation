@@ -2,9 +2,13 @@
 layout: docs
 title: Technology Documentation Hub
 toc: false
+hide_title: true
 ---
 
-# Technology Documentation Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Technology Documentation Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your gateway to DevOps, cloud, and modern infrastructure knowledge</p>
+</div>
 
 Welcome to our comprehensive technology knowledge base. This collection covers foundational concepts from networking and databases to cutting-edge topics in cloud infrastructure, containerization, and quantum computing.
 

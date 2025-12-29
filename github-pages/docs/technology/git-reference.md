@@ -1,9 +1,13 @@
 ---
 layout: docs
 title: "Git Command Reference"
+hide_title: true
 ---
 
-# Git Command Reference
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Command Reference</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive command syntax and examples for version control</p>
+</div>
 
 Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This comprehensive reference covers essential Git commands, workflows, and the latest features introduced in 2023-2024.
 

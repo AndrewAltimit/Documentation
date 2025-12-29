@@ -6,9 +6,13 @@ toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 section: technology
+hide_title: true
 ---
 
-# Git Branching Strategies
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Branching Strategies</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Git Flow, GitHub Flow, and team workflow patterns</p>
+</div>
 
 Branching strategies are fundamental to modern software development workflows. This guide covers the most widely adopted approaches, their implementation details, and guidance on selecting the right strategy for your project.
 

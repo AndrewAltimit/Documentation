@@ -4,7 +4,13 @@ title: "Advanced Topics Research Hub"
 permalink: /docs/advanced/
 has_children: true
 toc: false
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Topics Research Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous mathematical treatments and cutting-edge research in theoretical computer science, quantum computing, and AI foundations</p>
+</div>
 
 Welcome to the research-oriented section of our documentation. This area contains rigorous mathematical treatments, formal proofs, and cutting-edge research topics spanning theoretical computer science, quantum computing, and mathematical foundations of AI.
 

@@ -2,12 +2,13 @@
 layout: docs
 title: Quick Reference Guide
 description: Comprehensive quick reference for commands, formulas, algorithms, and best practices
+hide_title: true
 toc: true
 ---
 
-<div class="reference-intro">
-<h1>Quick Reference Guide</h1>
-<p>Your comprehensive resource for commands, formulas, algorithms, and best practices. Bookmark this page for instant access to essential technical references.</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quick Reference Guide</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive resource for commands, formulas, algorithms, and best practices</p>
 </div>
 
 ## 🔍 Quick Navigation

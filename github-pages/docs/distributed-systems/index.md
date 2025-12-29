@@ -1,10 +1,14 @@
 ---
 layout: docs
 title: Distributed Systems Hub
+hide_title: true
 toc: false  # Index pages typically don't need TOC
 ---
 
-# Distributed Systems Documentation Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed Systems Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Architecture patterns, consensus algorithms, and implementation strategies for scalable systems</p>
+</div>
 
 <div class="code-example" markdown="1">
 Comprehensive documentation for distributed systems architecture, design patterns, and implementation strategies. From consensus algorithms to microservices, from message queuing to service mesh.

@@ -1,11 +1,17 @@
 ---
 layout: docs
 title: Game Development
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "gamepad"
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Game Development</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Engines, systems, and principles for creating interactive entertainment experiences</p>
+</div>
 
 <div class="hub-intro">
   <p class="lead">Game development is a multidisciplinary field combining programming, art, design, and audio to create interactive entertainment experiences. Whether you're an indie developer building your first game, a professional working on AAA titles, or exploring specialized domains like VR and mobile, this comprehensive guide covers the engines, systems, and principles that power modern game creation.</p>

@@ -2,9 +2,13 @@
 layout: docs
 title: Database Fundamentals
 section: technology
+hide_title: true
 ---
 
-# Database Fundamentals
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Database Fundamentals</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Essential database concepts, SQL, and data modeling basics</p>
+</div>
 
 ## Overview
 
