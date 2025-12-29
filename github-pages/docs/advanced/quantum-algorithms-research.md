@@ -410,6 +410,6 @@ Error: O(t²/n) for first-order Trotter.
 
 ## Related Advanced Topics
 
-- [AI Mathematics](ai-mathematics.html) - Quantum machine learning foundations
-- [Distributed Systems Theory](distributed-systems-theory.html) - Distributed quantum computing
-- [Monorepo Strategies](monorepo.html) - Managing quantum software projects
+- [AI Mathematics](../ai-mathematics/) - Quantum machine learning foundations
+- [Distributed Systems Theory](../distributed-systems-theory/) - Distributed quantum computing
+- [Monorepo Strategies](../monorepo/) - Managing quantum software projects

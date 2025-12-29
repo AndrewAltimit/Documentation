@@ -413,9 +413,9 @@ where p = honest mining power, q = attacker power, z = confirmations
 - **[AWS Cloud Services](../technology/aws/index.html)** - Cloud infrastructure for distributed systems
 
 ### Related Advanced Topics
-- **[AI Mathematics](ai-mathematics.html)** - Mathematical foundations for distributed machine learning systems
-- **[Quantum Algorithms](quantum-algorithms-research.html)** - Quantum distributed computing and Byzantine agreement
-- **[Monorepo Strategies](monorepo.html)** - Managing distributed system codebases at scale
+- **[AI Mathematics](../ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
+- **[Quantum Algorithms](../quantum-algorithms-research/)** - Quantum distributed computing and Byzantine agreement
+- **[Monorepo Strategies](../monorepo/)** - Managing distributed system codebases at scale
 
 ### Theoretical Foundations
 - **CAP Theorem** - Consistency, availability, and partition tolerance trade-offs

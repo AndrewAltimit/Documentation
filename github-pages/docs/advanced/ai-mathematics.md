@@ -259,6 +259,6 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ## Related Advanced Topics
 
-- [Quantum Machine Learning](quantum-algorithms-research.html) - Intersection of quantum computing and ML
-- [Distributed Systems Theory](distributed-systems-theory.html) - For distributed ML training
-- [Monorepo Strategies](monorepo.html) - Managing large ML codebases
+- [Quantum Machine Learning](../quantum-algorithms-research/) - Intersection of quantum computing and ML
+- [Distributed Systems Theory](../distributed-systems-theory/) - For distributed ML training
+- [Monorepo Strategies](../monorepo/) - Managing large ML codebases

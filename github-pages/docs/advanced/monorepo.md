@@ -835,9 +835,9 @@ Monorepos can significantly improve development workflow for teams working on re
 
 ## Related Advanced Topics
 
-- [AI Mathematics](ai-mathematics.html) - Managing ML research codebases
-- [Distributed Systems Theory](distributed-systems-theory.html) - Distributed build systems
-- [Quantum Algorithms Research](quantum-algorithms-research.html) - Quantum software repositories
+- [AI Mathematics](../ai-mathematics/) - Managing ML research codebases
+- [Distributed Systems Theory](../distributed-systems-theory/) - Distributed build systems
+- [Quantum Algorithms Research](../quantum-algorithms-research/) - Quantum software repositories
 
 ## Additional Resources
 
