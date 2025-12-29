@@ -20,7 +20,7 @@ toc_icon: "laptop-code"
 **Getting Started**
 - [Why Computational Physics?](#introduction-to-computational-physics)
 - [Essential Numerical Methods](#fundamental-numerical-methods)
-- [Your First Simulations](#getting-started-with-simulations)
+- [Your First Simulations](#the-computational-approach)
 
 **Core Techniques**
 - [Solving Differential Equations](#differential-equations)

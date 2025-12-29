@@ -23,8 +23,7 @@ toc_icon: "cog"
 - [State Functions and Properties](#state-functions-and-properties)
 
 **Applications**
-- [Heat Engines](#heat-engines)
-- [Refrigerators and Heat Pumps](#refrigerators-and-heat-pumps)
+- [Heat Engines and Refrigerators](#heat-engines-and-refrigerators)
 - [Phase Transitions](#phase-transitions)
 
 **Advanced Topics**
