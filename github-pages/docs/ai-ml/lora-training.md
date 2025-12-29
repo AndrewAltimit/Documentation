@@ -13,7 +13,7 @@ toc_icon: "cog"
 {: .no_toc }
 
 <div class="code-example" markdown="1">
-Learn how to train custom LoRA (Low-Rank Adaptation) models to add new styles, concepts, or characters to Stable Diffusion models.
+Create custom AI models that generate your specific styles, characters, or concepts - all without needing massive computing resources.
 </div>
 
 ## Table of contents
@@ -24,693 +24,297 @@ Learn how to train custom LoRA (Low-Rank Adaptation) models to add new styles, c
 
 ---
 
-## What is LoRA?
+## Why Train Your Own LoRA?
 
-LoRA (Low-Rank Adaptation) is a training technique that allows you to fine-tune large models like Stable Diffusion by training only a small number of parameters. Instead of modifying the entire model, LoRA adds trainable rank decomposition matrices to existing weights.
+Pre-made models cannot generate everything. When you need consistent characters, specific art styles, or custom objects, training a LoRA lets you teach the model exactly what you want.
 
-In 2024, LoRA training has become significantly more accessible with tools like AI Toolkit, Kohya SS, and cloud-based solutions. New variants like LCM-LoRA and DoRA offer specialized capabilities beyond traditional style/character training.
+**Consider the following before starting:**
 
-### Key Benefits
+- **What cannot existing models do?** If SDXL plus available LoRAs can produce what you need, training may not be necessary
+- **Do you have good reference images?** Training requires 10-50+ quality images of your subject
+- **Do you have the hardware?** Training needs 8GB+ VRAM (more for SDXL/FLUX)
 
-- **Efficient**: Requires 100-1000x less storage than full fine-tuning
-- **Flexible**: Multiple LoRAs can be combined and weighted
-- **Fast**: Training takes hours instead of days
-- **Preserves Base Model**: Original model remains unchanged
+### When Training Makes Sense
 
-### How LoRA Works
+| Goal | Training Worth It? | Alternative |
+|------|-------------------|-------------|
+| Consistent character across many images | Yes | Use IP-Adapter (less consistent) |
+| Specific art style not in existing LoRAs | Yes | Find similar LoRA, adjust prompts |
+| Personal likeness (yourself, pet) | Yes | No good alternative |
+| Generic style (anime, photorealistic) | Usually no | Use existing checkpoints/LoRAs |
+| One-time generation | Usually no | Prompt engineering + img2img |
 
-LoRA decomposes weight updates into low-rank matrices:
+### What LoRA Training Actually Does
 
-```
-W' = W + ΔW = W + BA
-```
+LoRA adds small adjustment layers to an existing model. Instead of changing the entire model (which would require days of training and 100GB+ of data), LoRA learns focused modifications using your small dataset.
 
-Where:
-- `W` is the original weight matrix (frozen)
-- `B` and `A` are low-rank matrices (trainable)
-- Rank `r << d` (typically 4-128)
+The result: A 20-200MB file that transforms how the base model handles your specific subject while preserving everything else it knows.
 
-## Setup with AI Toolkit
+## Requirements
 
-### Using Docker (Recommended)
+### Hardware Needs
 
-```bash
-# Clone AI Toolkit MCP setup
-git clone https://github.com/andrewaltimit/Documentation ai-toolkit-trainer
-cd ai-toolkit-trainer
-
-# Build and start services
-docker-compose build
-docker-compose up -d
-
-# Access services
-# Web UI: http://localhost:8675
-# MCP API: http://localhost:8190
-```
-
-### Required Hardware
-
-| Model Type | Minimum VRAM | Recommended VRAM | Training Time (1k steps) |
+| Base Model | Minimum VRAM | Comfortable VRAM | Training Time (1k steps) |
 |------------|--------------|------------------|-------------------------|
-| SD 1.5     | 6GB          | 8GB              | 15-30 min              |
-| SD 2.x     | 8GB          | 12GB             | 20-40 min              |
-| SDXL       | 12GB         | 16GB             | 30-60 min              |
-| SD3 Medium | 14GB         | 20GB             | 45-90 min              |
-| FLUX Dev   | 16GB         | 24GB             | 60-120 min             |
-| FLUX Schnell| N/A         | N/A              | (Distilled, no training)|
+| SD 1.5 | 6 GB | 8 GB | 15-30 minutes |
+| SDXL | 12 GB | 16 GB | 30-60 minutes |
+| FLUX Dev | 16 GB | 24 GB | 60-120 minutes |
 
-## Dataset Preparation
+Training also needs significant system RAM (16-32GB) and storage for datasets and outputs.
 
-### Image Requirements
+### Choosing a Training Tool
 
-1. **Quality Standards**:
-   - High resolution (512x512 minimum, 1024x1024 for FLUX/SDXL)
-   - Clear, well-lit subjects
-   - Diverse angles and contexts
-   - Consistent quality across dataset
+Several tools can train LoRAs:
 
-2. **Dataset Size Guidelines**:
-   - **Style LoRA**: 10-50 images (quality > quantity)
-   - **Character/Person**: 20-100 images (varied poses/expressions)
-   - **Object/Concept**: 15-50 images (multiple angles)
-   - **Complex Style**: 50-200 images (diverse examples)
-   - **LCM-LoRA**: 100-500 images (for speed optimization)
+| Tool | Best For | Difficulty |
+|------|----------|------------|
+| Kohya SS | Most users, local training | Medium |
+| AI Toolkit | Docker-based workflows | Medium |
+| Cloud services | No local GPU | Easy (but costs money) |
 
-### Captioning Best Practices
+This guide uses concepts that apply to any tool. Specific settings may vary.
 
-Each image needs a corresponding `.txt` file with the same name:
+## Preparing Your Dataset
+
+The quality of your training data determines the quality of your LoRA. This is where most training success or failure happens.
+
+### How Many Images Do You Need?
+
+| LoRA Type | Minimum Images | Recommended | Notes |
+|-----------|---------------|-------------|-------|
+| Style | 10 | 20-50 | Quality matters more than quantity |
+| Character | 15 | 30-100 | Need variety in poses, angles, expressions |
+| Object | 10 | 20-40 | Multiple angles, lighting conditions |
+| Person likeness | 20 | 40-100 | Diverse photos, different contexts |
+
+### Image Quality Checklist
+
+Good training images are:
+- Clear and well-lit (not blurry or dark)
+- High resolution (at least 512x512, 1024x1024 preferred)
+- Focused on the subject you want to teach
+- Varied in pose, angle, and context
+- Consistent in what they show (all the same character, all the same style)
+
+### Writing Captions
+
+Each image needs a text file with the same name describing what is in the image:
 
 ```
-dataset/
-├── image001.png
-├── image001.txt
-├── image002.png
-├── image002.txt
-└── ...
+my_dataset/
+  image01.jpg
+  image01.txt
+  image02.jpg
+  image02.txt
 ```
 
-#### Caption Structure
+### Caption Format
+
+Include a unique trigger word plus a description:
 
 ```
-[trigger_word] [subject] [details], [style], [quality], [composition]
+xyz_character woman with red hair, smiling, casual clothes, outdoor setting
 ```
 
-Examples:
-```
-# Character LoRA
-xyz_person portrait of a woman, wearing a blue dress, soft lighting, professional photograph
+Key principles:
+- **Use a unique trigger word** - Something distinctive like "xyz_style" or "sks_person"
+- **Describe what varies** - If pose changes, describe the pose
+- **Keep trigger word consistent** - Same trigger in every caption
+- **Match model style** - Natural language for FLUX/SD3, tag-style for SD 1.5
 
-# Style LoRA
-xyz_style digital painting of a landscape, vibrant colors, fantasy art style, highly detailed
+### Quick Caption Guide by Model
 
-# Object LoRA
-xyz_object a red sports car, studio lighting, product photography, white background
-```
+| Model | Caption Style | Example |
+|-------|---------------|---------|
+| SD 1.5 | Tag-based | `xyz_style, digital art, landscape, mountains, sunset, vibrant colors` |
+| SDXL | Mixed | `xyz_style digital painting of mountains at sunset, vibrant colors, detailed` |
+| FLUX | Natural | `A beautiful mountain landscape at sunset in the xyz_style, with vibrant orange and purple colors` |
 
-#### Model-Specific Caption Guidelines
+## Training Settings
 
-**FLUX Captions**:
-```
-xyz_style portrait of a knight, three-quarter view, in a medieval castle, torch lighting
-```
-- Natural language preferred
-- Include camera angles and lighting
-- Detailed scene descriptions
+### The Essential Settings
 
-**SDXL Captions**:
-```
-xyz_style, digital artwork, fantasy knight, detailed armor, castle interior, dramatic lighting, masterpiece
-```
-- Mix of tags and natural language
-- Quality tags important
-- Booru-style tags work well
+These are the settings that matter most:
 
-**SD3 Captions**:
-```
-A knight in shining armor standing in a medieval castle, xyz_style artwork
-```
-- Very natural language
-- Trigger word can be mid-sentence
-- Detailed descriptions excel
+| Setting | What It Does | Start With |
+|---------|--------------|------------|
+| Learning rate | How fast the model learns | 0.0001 - 0.0002 |
+| Steps | Total training iterations | 100 per image (e.g., 20 images = 2000 steps) |
+| Rank | Complexity of the LoRA | 16-32 for most uses |
+| Resolution | Training image size | Match your base model (512 or 1024) |
 
-### Automated Captioning
+### Choosing the Right Rank
 
-Using AI Toolkit's caption generation:
+Rank determines how much the LoRA can learn. Higher is not always better.
 
-```python
-# Modern captioning options
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "generate-captions",
-    "arguments": {
-        "dataset_path": "/ai-toolkit/datasets/my-dataset",
-        "caption_model": "blip2",  # or "wd14", "cogvlm", "florence2"
-        "trigger_word": "xyz_style",
-        "caption_style": "natural",  # or "booru", "mixed"
-        "add_quality_tags": true
-    }
-})
-```
+| Rank | File Size | Best For |
+|------|-----------|----------|
+| 8-16 | 10-30 MB | Simple styles, small adjustments |
+| 32 | 50-80 MB | Most character and style LoRAs |
+| 64-128 | 150-300 MB | Complex subjects, maximum fidelity |
 
-**Caption Models**:
-- **BLIP2**: Best for natural descriptions
-- **WD14**: Excellent for anime/booru tags
-- **CogVLM**: Advanced understanding
-- **Florence2**: Detailed region descriptions
+**Start with rank 32.** Increase only if results lack detail; decrease if overfitting occurs.
 
-## Training Configuration
+### Learning Rate Guidelines
 
-### Basic Configuration via MCP
+| Situation | Learning Rate | Why |
+|-----------|---------------|-----|
+| First attempt | 0.0001 | Safe starting point |
+| Not learning fast enough | 0.0002-0.0003 | Speed up learning |
+| Overfitting quickly | 0.00005-0.0001 | Slow down learning |
+| Using Prodigy optimizer | 1.0 | Self-adjusting rate |
 
-```python
-import requests
-import json
+### How Many Steps?
 
-# Create training configuration
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "create-training-config",
-    "arguments": {
-        "name": "my-style-lora",
-        "model_name": "runwayml/stable-diffusion-v1-5",
-        "dataset_path": "/ai-toolkit/datasets/my-style",
-        "resolution": 512,
-        "batch_size": 1,
-        "learning_rate": 0.0002,
-        "steps": 2000,
-        "rank": 32,
-        "alpha": 32,
-        "trigger_word": "xyz_style",
-        "test_prompts": [
-            "xyz_style portrait of a woman",
-            "xyz_style landscape with mountains",
-            "xyz_style still life painting",
-            "xyz_style in a cyberpunk city at night"
-        ]
-    }
-})
-```
+A rough formula: **100 steps per training image**
 
-### Key Parameters Explained
+| Dataset Size | Steps | Notes |
+|--------------|-------|-------|
+| 10 images | 1000-1500 | Watch for overfitting |
+| 20 images | 2000-2500 | Good baseline |
+| 50 images | 4000-5000 | Solid training |
+| 100+ images | 5000-8000 | Diminishing returns above ~8000 |
 
-#### Learning Rate
-- **Default**: 2e-4 (0.0002) - Good for most cases
-- **Conservative**: 1e-4 (0.0001) - Slower but safer
-- **Aggressive**: 3e-4 (0.0003) - For stubborn concepts  
-- **Fine-tuning**: 5e-5 (0.00005) - For existing styles
-- **Prodigy Optimizer**: 1.0 - Self-adjusting (recommended)
-- **AdamW8bit**: 3e-4 - Memory efficient option
+## The Training Process
 
-#### Steps Calculation
-```
-Optimal Steps = 100 × number_of_images
-```
+### What Happens During Training
 
-Examples:
-- 20 images → 2000 steps
-- 50 images → 5000 steps
-- Single image → 100-500 steps
+1. **Loading** - The base model and your dataset load into GPU memory
+2. **Training loop** - For each step, the model sees images and adjusts weights
+3. **Checkpoints** - Periodic saves let you test progress
+4. **Completion** - Final LoRA file is saved
 
-#### Rank Selection
+### Monitoring Training
 
-| Rank  | Use Case                          | File Size |
-|-------|-----------------------------------|-----------|
-| 4-8   | Simple style adjustments          | ~10MB     |
-| 16-32 | Standard character/style LoRAs    | ~50MB     |
-| 64-96 | Complex concepts, multiple subjects| ~150MB    |
-| 128   | Maximum detail/flexibility        | ~300MB    |
+Watch these indicators:
 
-### Advanced Configuration
+| Metric | Good Sign | Bad Sign |
+|--------|-----------|----------|
+| Loss | Decreasing steadily | Stuck high, or dropping then rising |
+| Sample images | Improving each checkpoint | Same as base model, or identical to training images |
+| Training speed | Consistent steps/second | Slowing significantly |
 
-```python
-{
-    "name": "advanced-lora",
-    "model_name": "black-forest-labs/FLUX.1-dev",  # FLUX model
-    "dataset_path": "/ai-toolkit/datasets/my-dataset",
-    
-    # Training parameters
-    "resolution": 1024,
-    "batch_size": 1,
-    "gradient_accumulation_steps": 4,
-    "learning_rate": 0.0002,
-    "lr_scheduler": "cosine_with_restarts",
-    "lr_warmup_steps": 100,
-    
-    # LoRA parameters
-    "rank": 32,
-    "alpha": 32,
-    "dropout": 0.1,
-    
-    # Optimization
-    "optimizer": "adamw",
-    "mixed_precision": "fp16",
-    "gradient_checkpointing": true,
-    "low_vram": true,
-    
-    # Regularization
-    "prior_preservation": true,
-    "prior_loss_weight": 1.0,
-    
-    # Sampling
-    "sample_every": 100,
-    "sample_prompts": [...],
-    
-    # Advanced
-    "network_dim": 32,
-    "network_alpha": 16,
-    "clip_skip": 2,
-    "max_token_length": 225,
-    
-    # 2024 Features
-    "use_prodigy_optimizer": false,
-    "masked_loss": false,
-    "debiased_estimation": true,
-    "ip_noise_gamma": 0.1,
-    "min_snr_gamma": 5
-}
-```
+### When to Stop
 
-## Training Process
+Training should stop when:
+- Sample images match your intent well
+- Loss has stabilized (not dropping anymore)
+- You have reached your target steps
 
-### Starting Training
-
-```python
-# Start training job
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "start-training",
-    "arguments": {
-        "config_name": "my-style-lora"
-    }
-})
-
-job_id = response.json()["result"]["job_id"]
-```
-
-### Monitoring Progress
-
-```python
-# Check training status
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "get-training-status",
-    "arguments": {
-        "job_id": job_id
-    }
-})
-
-# Get training logs
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "get-training-logs",
-    "arguments": {
-        "job_id": job_id,
-        "lines": 50
-    }
-})
-```
-
-### Understanding Training Metrics
-
-Key metrics to monitor:
-- **Loss**: Should decrease over time (target: 0.05-0.15)
-- **Learning Rate**: Follows scheduler (cosine, linear, etc.)
-- **Gradient Norm**: Indicates training stability
-
-## Dataset Upload
-
-### Direct Upload (Small Datasets)
-
-```python
-import base64
-
-images = []
-for img_path, caption_path in dataset_files:
-    with open(img_path, "rb") as f:
-        img_content = base64.b64encode(f.read()).decode()
-    with open(caption_path, "r") as f:
-        caption = f.read().strip()
-    
-    images.append({
-        "filename": os.path.basename(img_path),
-        "content": img_content,
-        "caption": caption
-    })
-
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "upload-dataset",
-    "arguments": {
-        "dataset_name": "my-style",
-        "images": images
-    }
-})
-```
-
-### Chunked Upload (Large Files)
-
-```python
-# For LoRAs > 100MB
-CHUNK_SIZE = 256 * 1024  # 256KB chunks
-
-# Start upload
-upload_id = str(uuid.uuid4())
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "upload-lora-chunked-start",
-    "arguments": {
-        "upload_id": upload_id,
-        "filename": "large_lora.safetensors",
-        "total_size": file_size,
-        "metadata": {
-            "trigger_words": ["xyz_style"],
-            "base_model": "FLUX"
-        }
-    }
-})
-
-# Upload chunks
-for i in range(0, file_size, CHUNK_SIZE):
-    chunk = file_data[i:i+CHUNK_SIZE]
-    response = requests.post("http://localhost:8190/mcp/tool", json={
-        "tool": "upload-lora-chunked-append",
-        "arguments": {
-            "upload_id": upload_id,
-            "chunk": base64.b64encode(chunk).decode(),
-            "chunk_index": i // CHUNK_SIZE
-        }
-    })
-
-# Finalize
-response = requests.post("http://localhost:8190/mcp/tool", json={
-    "tool": "upload-lora-chunked-finish",
-    "arguments": {
-        "upload_id": upload_id
-    }
-})
-```
-
-## Specialized LoRA Types
-
-### LCM-LoRA Training
-
-Train for fast generation:
-```python
-{
-    "name": "lcm-lora",
-    "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
-    "teacher_model": "lcm-sdxl",
-    "distillation_mode": true,
-    "learning_rate": 1e-4,
-    "steps": 5000,
-    "guidance_scale_range": [1.0, 2.0]
-}
-```
-
-### DoRA (Weight-Decomposed LoRA)
-
-```python
-{
-    "name": "dora-style",
-    "use_dora": true,
-    "magnitude_learning_rate": 1e-4,
-    "direction_learning_rate": 2e-4,
-    "rank": 64  # Can use higher ranks effectively
-}
-```
-
-### Control-LoRA
-
-Combine LoRA with ControlNet:
-```python
-{
-    "name": "control-lora",
-    "control_type": "openpose",
-    "control_weight": 0.5,
-    "train_control_adapter": true
-}
-```
+Save checkpoints periodically so you can choose the best one, not just the last one.
 
 ## Common Training Scenarios
 
-### Style LoRA
+### Training a Style LoRA
 
-Training an artistic style:
+**Goal:** Capture an artistic style from example images.
 
-```python
-config = {
-    "name": "watercolor-style",
-    "dataset_path": "/ai-toolkit/datasets/watercolor",
-    "trigger_word": "wc_style",
-    "steps": 1500,  # 15 images × 100
-    "rank": 16,
-    "test_prompts": [
-        "wc_style painting of a sunset",
-        "wc_style portrait of an elderly man",
-        "wc_style still life with flowers",
-        "wc_style abstract composition"
-    ]
-}
-```
+**Dataset:** 15-30 images in the style you want, diverse subjects
 
-### Character LoRA
+**Settings:**
+- Rank: 16-32
+- Steps: 1500-3000
+- Learning rate: 0.0001
 
-Training a specific character:
+**Tip:** Include variety in subjects (people, landscapes, objects) so the LoRA learns the style, not specific content.
 
-```python
-config = {
-    "name": "game-character",
-    "dataset_path": "/ai-toolkit/datasets/character",
-    "trigger_word": "xyz_character",
-    "steps": 3000,  # 30 images × 100
-    "rank": 32,
-    "clip_skip": 2,  # For anime styles
-    "test_prompts": [
-        "xyz_character standing pose, full body",
-        "xyz_character portrait, smiling",
-        "xyz_character in battle armor",
-        "xyz_character in casual clothes"
-    ]
-}
-```
+### Training a Character LoRA
 
-### Photographic Subject
+**Goal:** Generate a consistent character in different poses and situations.
 
-Training a person or object:
+**Dataset:** 20-50 images of the character, varied angles and expressions
 
-```python
-config = {
-    "name": "product-photos",
-    "model_name": "stabilityai/stable-diffusion-2-1",
-    "dataset_path": "/ai-toolkit/datasets/product",
-    "trigger_word": "xyz_product",
-    "resolution": 768,
-    "steps": 2000,
-    "rank": 24,
-    "test_prompts": [
-        "xyz_product on white background, product photography",
-        "xyz_product in use, lifestyle photography",
-        "xyz_product close-up detail shot",
-        "xyz_product with natural lighting"
-    ]
-}
-```
+**Settings:**
+- Rank: 32-64
+- Steps: 2000-4000
+- Learning rate: 0.0001
 
-## Optimization Techniques
+**Tip:** Include the character in different outfits and settings so the LoRA learns the character, not just one specific image.
 
-### Memory Optimization
+### Training a Likeness LoRA
 
-For limited VRAM:
+**Goal:** Generate images of a real person or pet.
 
-```python
-{
-    "low_vram": true,
-    "gradient_checkpointing": true,
-    "batch_size": 1,
-    "gradient_accumulation_steps": 4,
-    "mixed_precision": "fp16",
-    "optimizer": "adafactor"  # Uses less memory than AdamW
-}
-```
+**Dataset:** 30-100 photos, diverse lighting and contexts
 
-### Speed Optimization
+**Settings:**
+- Rank: 32-64
+- Steps: 3000-5000
+- Learning rate: 0.00005-0.0001
 
-For faster training:
+**Tip:** Include photos from different angles, with different expressions, and in different settings. Avoid training on just one or two photos.
 
-```python
-{
-    "disable_sampling": true,  # Skip sample generation
-    "save_every": 500,  # Less frequent saves
-    "optimizer": "lion",  # Faster convergence
-    "lr_scheduler": "constant",  # Simple scheduler
-    "cache_latents": true  # Pre-compute VAE encodings
-}
-```
+## Troubleshooting Training
 
-### Quality Optimization
+### Common Problems and Solutions
 
-For best results:
+| Problem | Symptom | Fix |
+|---------|---------|-----|
+| Overfitting | Generates training images exactly | Reduce steps, lower learning rate, add more training data variety |
+| Underfitting | LoRA has no visible effect | Increase steps, raise learning rate, verify trigger word in prompts |
+| Style bleeding | Changes things you did not intend | Improve caption specificity, use lower LoRA strength when generating |
+| Memory errors | Training crashes | Enable gradient checkpointing, use fp16, reduce batch size |
+| Poor quality | Results worse than base model | Check dataset quality, ensure proper resolution, verify model compatibility |
 
-```python
-{
-    "rank": 64,
-    "alpha": 32,  # Lower than rank for regularization
-    "learning_rate": 0.0001,
-    "lr_scheduler": "cosine_with_restarts",
-    "steps": 5000,
-    "sample_every": 100,
-    "save_every": 250,
-    "prior_preservation": true
-}
-```
+### Diagnosing from Loss Curves
 
-## Troubleshooting
+| Loss Behavior | What It Means | Action |
+|---------------|---------------|--------|
+| Steadily decreasing | Training is working | Continue as planned |
+| Flat from start | Learning too slow | Increase learning rate |
+| Drops then rises | Overfitting | Stop earlier, use that checkpoint |
+| Erratic/oscillating | Learning rate too high | Reduce learning rate |
+| Spikes suddenly | Corrupt data or bug | Check dataset, review settings |
 
-### Common Issues
+## Using Your Trained LoRA
 
-#### Overfitting
+### Finding the Right Strength
 
-**Symptoms**: LoRA only generates training images
-**Solutions**:
-- Reduce learning rate
-- Decrease training steps
-- Add dropout (0.1-0.3)
-- Use more diverse captions
-- Enable prior preservation
+Start at 0.7 strength and adjust based on results:
 
-#### Underfitting
+| Effect | Adjustment |
+|--------|------------|
+| Too subtle | Increase strength (0.8-1.0) |
+| Too strong/artifacts | Decrease strength (0.4-0.6) |
+| Good but want more | Try 0.8-0.9 |
+| Overpowering other content | Try 0.5-0.6 |
 
-**Symptoms**: LoRA has no effect
-**Solutions**:
-- Increase learning rate
-- Train for more steps
-- Increase rank
-- Check trigger word usage
-- Verify dataset quality
+### Combining with Other LoRAs
 
-#### Style Bleeding
+When stacking multiple LoRAs, reduce each strength:
+- First LoRA: 0.6-0.8
+- Second LoRA: 0.4-0.6
+- Third LoRA: 0.3-0.4
 
-**Symptoms**: LoRA affects unintended aspects
-**Solutions**:
-- Improve caption specificity
-- Use regularization images
-- Reduce LoRA strength when using
-- Train with narrower focus
+If LoRAs conflict (similar subjects or styles), one may override the other. Test combinations to find what works.
 
-### Training Diagnostics
+### Remember Your Trigger Word
 
-Monitor these indicators:
-
-```python
-# Good training
-- Loss: Steadily decreasing
-- Sample quality: Improving each checkpoint
-- Gradient norm: Stable (not exploding)
-
-# Problems
-- Loss: Plateaued early → Increase learning rate
-- Loss: Oscillating → Decrease learning rate
-- Loss: Sudden spike → Check for corrupt data
-```
-
-## Advanced Techniques
-
-### Multi-Concept Training
-
-Train multiple concepts in one LoRA:
-
-```python
-# Dataset structure
-dataset/
-├── concept1/
-│   ├── xyz_cat_001.jpg
-│   └── xyz_cat_001.txt: "xyz_cat photo of a cat..."
-├── concept2/
-│   ├── xyz_dog_001.jpg
-│   └── xyz_dog_001.txt: "xyz_dog photo of a dog..."
-```
-
-### DreamBooth-style Training
-
-For maximum fidelity:
-
-```python
-{
-    "model_name": "runwayml/stable-diffusion-v1-5",
-    "instance_prompt": "xyz_person person",
-    "class_prompt": "person",
-    "prior_preservation": true,
-    "prior_preservation_weight": 1.0,
-    "num_class_images": 200,
-    "steps": 3000
-}
-```
-
-### Progressive Training
-
-Train in stages for complex concepts:
-
-```python
-# Stage 1: Basic form
-train_config(rank=16, steps=1000, lr=0.0002)
-
-# Stage 2: Details
-train_config(rank=32, steps=2000, lr=0.0001, resume_from="stage1")
-
-# Stage 3: Polish
-train_config(rank=32, steps=1000, lr=0.00005, resume_from="stage2")
-```
-
-## Using Trained LoRAs
-
-### In ComfyUI
-
-```python
-# Load in workflow
-{
-    "type": "LoraLoader",
-    "inputs": {
-        "lora_name": "my-style-lora.safetensors",
-        "strength_model": 0.8,
-        "strength_clip": 0.8
-    }
-}
-```
-
-### Combining Multiple LoRAs
-
-```python
-# Stack LoRAs
-[Base Model] → [LoRA 1 @ 0.6] → [LoRA 2 @ 0.4] → [LoRA 3 @ 0.3]
-```
-
-### Optimal Strength Settings
-
-| LoRA Type | Model Strength | CLIP Strength |
-|-----------|----------------|---------------|
-| Style     | 0.6-1.0        | 0.6-1.0       |
-| Character | 0.7-0.9        | 0.7-0.9       |
-| Pose      | 0.4-0.7        | 0.3-0.6       |
-| Details   | 0.3-0.6        | 0.3-0.6       |
+Your LoRA only activates when you include the trigger word in your prompt. If results look like the base model, check that your trigger word is present.
 
 ## Best Practices Summary
 
-### Do's
-✓ Use unique trigger words (xyz_style, not "style")  
-✓ Include trigger word in all captions
-✓ Vary descriptions while maintaining consistency
-✓ Test with prompts during training
-✓ Save checkpoints regularly
-✓ Start with conservative settings
-✓ Use regularization images for better generalization
-✓ Monitor validation loss
+### Things That Lead to Success
 
-### Don'ts
-✗ Don't overtrain (watch for overfitting)
-✗ Don't use copyrighted content without permission
-✗ Don't skip dataset quality control
-✗ Don't use generic trigger words
-✗ Don't ignore sampling results
-✗ Don't train at full resolution if not needed
-✗ Don't mix incompatible model versions
-✗ Don't forget to backup successful LoRAs
+- Use unique trigger words (xyz_style, not just "style")
+- Include varied training images
+- Start with conservative settings and adjust
+- Save checkpoints so you can pick the best one
+- Test with prompts different from your training captions
+
+### Common Mistakes to Avoid
+
+- Training too long (leads to overfitting)
+- Using too few images (not enough variety)
+- Generic trigger words (conflict with normal vocabulary)
+- Skipping captions or using poor captions
+- Not checking checkpoint quality during training
 
 ## Conclusion
 
-LoRA training opens up endless possibilities for customizing AI image generation. With proper dataset preparation, configuration tuning, and monitoring, you can create LoRAs that seamlessly integrate new concepts while maintaining the flexibility of the base model. Start with simple projects and gradually tackle more complex training scenarios as you gain experience.
+LoRA training gives you the ability to add anything to AI image generation - your own art style, consistent characters, specific objects, or personal likenesses. The key is quality data and patient iteration.
+
+Start with a small dataset and simple settings. If results are not quite right, you now know how to diagnose the problem and adjust. Each training run teaches you something about what works for your specific use case.
 
 ---
 

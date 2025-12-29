@@ -8,6 +8,8 @@ toc_sticky: true
 
 ## Docker in Practice
 
+This page covers the practical aspects of working with Docker: persisting data, configuring networks, and securing your containers. These topics become essential as you move beyond simple experiments into real-world deployments.
+
 <div class="docker-section">
   <div class="docker-intro">
     <p>Docker is a platform for developing, shipping, and running applications via containerization technology which packages applications and their dependencies into lightweight and portable containers that can run consistently across different environments.</p>
@@ -58,73 +60,34 @@ toc_sticky: true
 
 ### Installing Docker
 
+Before you can use Docker, you need to install it on your system. The installation process varies by operating system, but the result is the same: a working Docker daemon that can build and run containers.
+
 <div class="installation-guide">
-  <p class="install-intro">Docker installation varies by operating system. Here's a comprehensive guide for each platform:</p>
+  <p class="install-intro">Choose your platform below. Most users will want Docker Desktop (Windows/Mac) or Docker Engine (Linux).</p>
   
   <div class="install-tabs">
     <h4><i class="fas fa-linux"></i> Linux Installation</h4>
     
     <div class="install-method">
       <h5>Ubuntu/Debian Quick Install</h5>
-      <pre><code class="language-bash"># Update package index
-sudo apt-get update
+      <pre><code class="language-bash"># Install Docker using the convenience script
+curl -fsSL https://get.docker.com | sudo sh
 
-# Install prerequisites
-sudo apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release
-
-# Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-# Set up the stable repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install Docker Engine
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# Add your user to the docker group (logout/login required)
+# Add your user to the docker group (logout required)
 sudo usermod -aG docker $USER
 
-# Verify installation
-docker --version
-docker compose version</code></pre>
+# Verify installation after logging back in
+docker --version</code></pre>
+      <p class="explanation">The convenience script handles repository setup automatically. For production systems, see the <a href="https://docs.docker.com/engine/install/ubuntu/">official installation guide</a> for manual setup.</p>
     </div>
-    
+
     <div class="install-method">
       <h5>Post-Installation Setup</h5>
-      <pre><code class="language-bash"># Configure Docker to start on boot
+      <pre><code class="language-bash"># Enable Docker to start on boot
 sudo systemctl enable docker
-sudo systemctl start docker
 
-# Test Docker installation
-docker run hello-world
-
-# Configure Docker daemon (optional)
-sudo tee /etc/docker/daemon.json << EOF
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "default-ulimits": {
-    "nofile": {
-      "Name": "nofile",
-      "Hard": 64000,
-      "Soft": 64000
-    }
-  }
-}
-EOF
-
-sudo systemctl restart docker</code></pre>
+# Verify everything works
+docker run hello-world</code></pre>
     </div>
   </div>
 </div>
@@ -245,10 +208,22 @@ Once Docker is installed, you'll interact with it primarily through the command-
 
 ## Docker Storage: Volumes, Bind Mounts, and tmpfs
 
+By default, data inside a container disappears when the container stops. This is actually a feature, not a bug: it keeps containers lightweight and reproducible. However, most real applications need to persist data somewhere.
+
+Consider the following scenarios and which storage type fits each:
+
+| Scenario | Best Storage Type | Why |
+|----------|-------------------|-----|
+| Database files | Volume | Docker manages it, easy backups, best performance |
+| Source code during development | Bind mount | See changes instantly without rebuilding |
+| Configuration files | Bind mount | Edit on host, container reads immediately |
+| Sensitive data (secrets, tokens) | tmpfs | Never written to disk, cleared when container stops |
+| Build cache | Volume | Persists between builds, improves speed |
+
 <div class="storage-section">
   <h3><i class="fas fa-database"></i> Understanding Docker Storage</h3>
-  
-  <p class="storage-intro">Docker provides three ways to persist data beyond the container lifecycle. Choosing the right storage option is crucial for application performance and data management.</p>
+
+  <p class="storage-intro">Docker provides three ways to persist data beyond the container lifecycle. The right choice depends on your use case.</p>
   
   <div class="storage-comparison">
     <table class="storage-table">
@@ -288,159 +263,79 @@ Once Docker is installed, you'll interact with it primarily through the command-
   </div>
   
   <h3><i class="fas fa-hdd"></i> Docker Volumes</h3>
-  
+
+  <p><strong>When to use:</strong> Production databases, application state, any data that must survive container restarts.</p>
+
   <div class="volume-examples">
-    <h4>Creating and Using Volumes</h4>
-    <pre><code class="language-bash"># Create a named volume
+    <h4>Essential Volume Commands</h4>
+    <pre><code class="language-bash"># Create and use a named volume
 docker volume create app-data
+docker run -d -v app-data:/var/lib/postgresql/data postgres:15
 
-# Inspect volume details
-docker volume inspect app-data
-
-# Run container with volume
-docker run -d \
-  --name postgres-db \
-  -v app-data:/var/lib/postgresql/data \
-  -e POSTGRES_PASSWORD=mysecret \
-  postgres:15
-
-# List all volumes
+# List and clean up volumes
 docker volume ls
+docker volume prune  # Remove unused volumes</code></pre>
 
-# Remove unused volumes
-docker volume prune</code></pre>
-    
-    <h4>Volume Drivers and Options</h4>
-    <pre><code class="language-bash"># Create volume with specific driver
-docker volume create \
-  --driver local \
-  --opt type=nfs \
-  --opt o=addr=192.168.1.100,rw \
-  --opt device=:/path/to/nfs/share \
-  nfs-volume
+    <h4>Backup and Restore</h4>
+    <pre><code class="language-bash"># Backup: mount volume read-only, tar to host
+docker run --rm -v app-data:/source:ro -v $(pwd):/backup \
+  alpine tar czf /backup/backup.tar.gz -C /source .
 
-# Create volume with size limit (requires compatible driver)
-docker volume create \
-  --driver local \
-  --opt o=size=10G \
-  limited-volume</code></pre>
-    
-    <h4>Backup and Restore Volumes</h4>
-    <pre><code class="language-bash"># Backup a volume
-docker run --rm \
-  -v app-data:/source:ro \
-  -v $(pwd):/backup \
-  alpine \
-  tar czf /backup/app-data-backup.tar.gz -C /source .
-
-# Restore a volume
-docker run --rm \
-  -v app-data:/target \
-  -v $(pwd):/backup:ro \
-  alpine \
-  tar xzf /backup/app-data-backup.tar.gz -C /target</code></pre>
+# Restore: extract tar into volume
+docker run --rm -v app-data:/target -v $(pwd):/backup:ro \
+  alpine tar xzf /backup/backup.tar.gz -C /target</code></pre>
   </div>
   
   <h3><i class="fas fa-link"></i> Bind Mounts</h3>
-  
+
+  <p><strong>When to use:</strong> Development workflows where you want to edit files on your host and see changes immediately in the container.</p>
+
   <div class="bind-mount-examples">
-    <h4>Development Workflow with Bind Mounts</h4>
+    <h4>Development Workflow</h4>
     <pre><code class="language-bash"># Mount source code for live development
-docker run -d \
-  --name dev-app \
-  -v $(pwd)/src:/app/src:ro \
-  -v $(pwd)/config.yml:/app/config.yml:ro \
-  -p 3000:3000 \
-  node:18 \
-  npm run dev
+docker run -d -v $(pwd)/src:/app/src -p 3000:3000 node:18 npm run dev
 
-# Mount with specific permissions
-docker run -d \
-  --name nginx-server \
-  -v $(pwd)/html:/usr/share/nginx/html:ro \
-  -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro \
-  -p 80:80 \
-  nginx:alpine</code></pre>
-    
-    <h4>Advanced Bind Mount Options</h4>
-    <pre><code class="language-bash"># Mount with custom propagation
-docker run -d \
-  --name shared-mount \
-  --mount type=bind,source=/host/shared,target=/container/shared,bind-propagation=rslave \
-  ubuntu:22.04
-
-# Read-only bind mount with consistency flag (macOS)
-docker run -d \
-  --name consistent-app \
-  -v $(pwd):/app:ro,cached \
-  my-app</code></pre>
+# Mount config file read-only (container cannot modify)
+docker run -d -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx</code></pre>
+    <p class="explanation">The <code>:ro</code> suffix makes the mount read-only, preventing the container from modifying your host files.</p>
   </div>
   
   <h3><i class="fas fa-memory"></i> tmpfs Mounts</h3>
-  
-  <div class="tmpfs-examples">
-    <h4>Using tmpfs for Sensitive Data</h4>
-    <pre><code class="language-bash"># Create tmpfs mount for secrets
-docker run -d \
-  --name secure-app \
-  --tmpfs /run/secrets:rw,size=10m,mode=0700 \
-  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
-  my-secure-app
 
-# Using --mount syntax
-docker run -d \
-  --name cache-app \
-  --mount type=tmpfs,destination=/app/cache,tmpfs-size=1g,tmpfs-mode=1777 \
-  my-app</code></pre>
+  <p><strong>When to use:</strong> Sensitive data like secrets or tokens that should never be written to disk, or temporary caches that can be discarded.</p>
+
+  <div class="tmpfs-examples">
+    <h4>Secure Temporary Storage</h4>
+    <pre><code class="language-bash"># Store secrets in memory only (never touches disk)
+docker run -d --tmpfs /run/secrets:size=10m,mode=0700 my-app
+
+# Fast temporary cache
+docker run -d --tmpfs /app/cache:size=100m my-app</code></pre>
+    <p class="explanation">tmpfs mounts exist only in memory. When the container stops, the data is gone. This is ideal for sensitive information.</p>
   </div>
   
   <h3><i class="fas fa-share-alt"></i> Sharing Data Between Containers</h3>
-  
+
+  <p><strong>When to use:</strong> When multiple containers need to read or write the same data, such as a web server and a log processor.</p>
+
   <div class="data-sharing-examples">
     <h4>Volume Sharing Pattern</h4>
-    <pre><code class="language-bash"># Create shared volume
+    <pre><code class="language-bash"># Both containers access the same volume
 docker volume create shared-data
-
-# Producer container
-docker run -d \
-  --name producer \
-  -v shared-data:/data \
-  busybox \
-  sh -c 'while true; do echo "$(date)" >> /data/log.txt; sleep 5; done'
-
-# Consumer container
-docker run -d \
-  --name consumer \
-  -v shared-data:/data:ro \
-  busybox \
-  sh -c 'tail -f /data/log.txt'
-
-# View consumer output
-docker logs -f consumer</code></pre>
-    
-    <h4>Data Container Pattern (Legacy)</h4>
-    <pre><code class="language-bash"># Create data container
-docker create -v /data --name data-container busybox
-
-# Use volumes from data container
-docker run -d \
-  --name app1 \
-  --volumes-from data-container \
-  my-app
-
-docker run -d \
-  --name app2 \
-  --volumes-from data-container \
-  my-app</code></pre>
+docker run -d -v shared-data:/data --name writer my-app
+docker run -d -v shared-data:/data:ro --name reader log-processor</code></pre>
+    <p class="explanation">The writer container can modify data; the reader has read-only access. Both see the same files.</p>
   </div>
 </div>
 
 ## Docker Networking In-Depth
 
+Networking determines how containers communicate with each other, with the host, and with external services. Getting this right is essential for both functionality and security.
+
 <div class="networking-section">
   <h3><i class="fas fa-network-wired"></i> Docker Network Architecture</h3>
-  
-  <p class="network-intro">Docker's networking subsystem is pluggable, using drivers to provide different networking capabilities. Understanding these drivers is essential for designing secure, scalable containerized applications.</p>
+
+  <p class="network-intro">Docker provides several network drivers for different scenarios. The default (bridge) works for most cases, but understanding the alternatives helps you make better architectural decisions.</p>
   
   <div class="network-drivers">
     <h4>Network Driver Overview</h4>
@@ -479,209 +374,88 @@ docker run -d \
   </div>
   
   <h3><i class="fas fa-project-diagram"></i> Bridge Networking Deep Dive</h3>
-  
+
+  <p><strong>Key concept:</strong> Always create custom bridge networks for your applications. Unlike the default bridge, custom networks provide automatic DNS resolution between containers.</p>
+
   <div class="bridge-networking">
-    <h4>Creating Custom Bridge Networks</h4>
-    <pre><code class="language-bash"># Create custom bridge with specific subnet
-docker network create \
-  --driver bridge \
-  --subnet=172.20.0.0/16 \
-  --ip-range=172.20.240.0/20 \
-  --gateway=172.20.0.1 \
-  --opt com.docker.network.bridge.name=docker-custom \
-  custom-bridge
+    <h4>Creating Custom Networks</h4>
+    <pre><code class="language-bash"># Create a network and run containers on it
+docker network create my-app-network
+docker run -d --name web --network my-app-network nginx
+docker run -d --name db --network my-app-network postgres
 
-# Run containers on custom network
-docker run -d --name web --network custom-bridge nginx
-docker run -d --name db --network custom-bridge postgres
+# Containers can find each other by name
+docker exec web ping db  # Works!</code></pre>
 
-# Containers can communicate using names
-docker exec web ping db</code></pre>
-    
-    <h4>Network Isolation and Security</h4>
-    <pre><code class="language-bash"># Create isolated networks for different apps
+    <h4>Network Isolation Pattern</h4>
+    <pre><code class="language-bash"># Isolate frontend from database
 docker network create frontend
 docker network create backend
+docker run -d --name webapp --network frontend nginx
+docker run -d --name api --network backend my-api
 
-# Run frontend container
-docker run -d \
-  --name webapp \
-  --network frontend \
-  -p 80:80 \
-  nginx
-
-# Run backend container
-docker run -d \
-  --name api \
-  --network backend \
-  my-api
-
-# Connect API to frontend network for communication
-docker network connect frontend api
-
-# Now webapp can reach api, but they're still isolated from other containers</code></pre>
-    
-    <h4>DNS and Service Discovery</h4>
-    <pre><code class="language-bash"># Docker provides automatic DNS resolution
-docker run -d --name redis --network custom-bridge redis
-docker run -it --network custom-bridge alpine sh
-
-# Inside the alpine container:
-nslookup redis
-ping redis
-
-# Custom DNS configuration
-docker run -d \
-  --name custom-dns \
-  --network custom-bridge \
-  --dns 8.8.8.8 \
-  --dns 8.8.4.4 \
-  --dns-search example.com \
-  --hostname myapp \
-  --add-host db-server:172.20.0.5 \
-  my-app</code></pre>
+# Connect API to both networks (acts as bridge)
+docker network connect frontend api</code></pre>
+    <p class="explanation">The webapp can reach the api, but not the database directly. The api can reach both. This is a common security pattern.</p>
   </div>
   
   <h3><i class="fas fa-globe"></i> Overlay Networking for Swarm</h3>
-  
+
+  <p><strong>When to use:</strong> Docker Swarm deployments where services need to communicate across multiple hosts.</p>
+
   <div class="overlay-networking">
-    <h4>Setting Up Overlay Network</h4>
-    <pre><code class="language-bash"># Initialize Swarm mode
-docker swarm init
+    <pre><code class="language-bash"># Create encrypted overlay network
+docker network create --driver overlay --opt encrypted my-overlay
 
-# Create overlay network
-docker network create \
-  --driver overlay \
-  --subnet=10.0.0.0/16 \
-  --opt encrypted \
-  secure-overlay
-
-# Deploy service using overlay network
-docker service create \
-  --name web \
-  --network secure-overlay \
-  --replicas 3 \
-  -p 80:80 \
-  nginx
-
-# Inspect network
-docker network inspect secure-overlay</code></pre>
-    
-    <h4>Multi-Host Communication</h4>
-    <pre><code class="language-bash"># On Swarm manager
-docker service create \
-  --name backend \
-  --network secure-overlay \
-  --replicas 2 \
-  my-backend
-
-docker service create \
-  --name frontend \
-  --network secure-overlay \
-  --replicas 3 \
-  --publish 8080:80 \
-  my-frontend
-
-# Services can communicate across hosts using service names
-# Load balancing is automatic</code></pre>
+# Services on this network can find each other across hosts
+docker service create --name api --network my-overlay my-api</code></pre>
   </div>
-  
+
   <h3><i class="fas fa-ethernet"></i> Macvlan Networking</h3>
-  
+
+  <p><strong>When to use:</strong> When containers need to appear as physical devices on your network (legacy system integration, specific IP requirements).</p>
+
   <div class="macvlan-networking">
-    <h4>Configuring Macvlan</h4>
-    <pre><code class="language-bash"># Create macvlan network
+    <pre><code class="language-bash"># Container gets a real IP on your network
 docker network create -d macvlan \
-  --subnet=192.168.1.0/24 \
-  --gateway=192.168.1.1 \
-  -o parent=eth0 \
-  macvlan-net
+  --subnet=192.168.1.0/24 --gateway=192.168.1.1 \
+  -o parent=eth0 my-macvlan
 
-# Run container with specific IP
-docker run -d \
-  --name macvlan-container \
-  --network macvlan-net \
-  --ip 192.168.1.100 \
-  nginx
-
-# Container is now accessible on LAN as 192.168.1.100</code></pre>
-    
-    <h4>802.1q VLAN Trunking</h4>
-    <pre><code class="language-bash"># Create macvlan with VLAN
-docker network create -d macvlan \
-  --subnet=192.168.10.0/24 \
-  --gateway=192.168.10.1 \
-  -o parent=eth0.10 \
-  vlan10-net
-
-# Multiple VLANs
-docker network create -d macvlan \
-  --subnet=192.168.20.0/24 \
-  --gateway=192.168.20.1 \
-  -o parent=eth0.20 \
-  vlan20-net</code></pre>
+docker run -d --network my-macvlan --ip 192.168.1.100 nginx</code></pre>
   </div>
   
   <h3><i class="fas fa-chart-network"></i> Advanced Networking Patterns</h3>
-  
+
+  <p>For complex deployments, consider these patterns:</p>
+
   <div class="network-patterns">
-    <h4>Service Mesh Pattern</h4>
-    <pre><code class="language-yaml"># docker-compose.yml for service mesh
-version: '3.8'
-
-services:
-  proxy:
-    image: envoyproxy/envoy:v1.22-latest
-    networks:
-      - mesh
-    ports:
-      - "9901:9901"
-      - "10000:10000"
-    volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml
-      
-  service-a:
-    build: ./service-a
-    networks:
-      - mesh
-    environment:
-      - SERVICE_NAME=service-a
-      - PROXY_ADDRESS=proxy:10000
-      
-  service-b:
-    build: ./service-b
-    networks:
-      - mesh
-    environment:
-      - SERVICE_NAME=service-b
-      - PROXY_ADDRESS=proxy:10000
-
-networks:
-  mesh:
-    driver: bridge</code></pre>
-    
-    <h4>Network Policies and Firewalls</h4>
-    {% raw %}<pre><code class="language-bash"># Implement network policies with iptables
-docker run -d --name restricted-app my-app
-
-# Get container IP
-CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' restricted-app)
-
-# Add iptables rules to restrict access
-sudo iptables -I DOCKER-USER -s $CONTAINER_IP -j DROP
-sudo iptables -I DOCKER-USER -s $CONTAINER_IP -d 10.0.0.0/8 -j ACCEPT
-
-# Allow only specific ports
-sudo iptables -I DOCKER-USER -p tcp --dport 443 -j ACCEPT</code></pre>{% endraw %}
+    <ul>
+      <li><strong>Service mesh</strong>: Use a proxy (Envoy, Traefik) to handle routing, load balancing, and observability</li>
+      <li><strong>Network segmentation</strong>: Create separate networks for frontend, backend, and database tiers</li>
+      <li><strong>Firewall rules</strong>: Use iptables DOCKER-USER chain to restrict container traffic</li>
+    </ul>
+    <p>These patterns are typically managed through orchestration tools like Kubernetes or Docker Swarm rather than manual configuration.</p>
   </div>
 </div>
 
 ## Docker Security Best Practices
 
+Container security is not about a single setting. It is about applying multiple layers of protection, from how you build images to how you run containers in production.
+
+Consider the following security layers:
+
+| Layer | What It Protects | Key Actions |
+|-------|------------------|-------------|
+| Image | What goes into containers | Use minimal base images, scan for vulnerabilities |
+| Build | The build process | Use BuildKit secrets, multi-stage builds |
+| Runtime | Running containers | Drop capabilities, run as non-root, limit resources |
+| Network | Container communication | Use custom networks, encrypt overlay traffic |
+| Host | The Docker host | Keep Docker updated, use user namespaces |
+
 <div class="security-section">
   <h3><i class="fas fa-shield-alt"></i> Container Security Fundamentals</h3>
-  
-  <p class="security-intro">Security should be built into your container strategy from the beginning. Docker provides multiple layers of security controls that, when properly configured, create a robust defense-in-depth approach.</p>
+
+  <p class="security-intro">The following practices significantly reduce your attack surface. Start with the basics and add more controls as your security requirements grow.</p>
   
   <div class="security-principles">
     <h4>Security Principles</h4>
@@ -714,156 +488,64 @@ sudo iptables -I DOCKER-USER -p tcp --dport 443 -j ACCEPT</code></pre>{% endraw 
   </div>
   
   <h3><i class="fas fa-user-shield"></i> Running Containers Securely</h3>
-  
+
+  <p><strong>The most impactful change:</strong> Run containers as non-root users. This single practice prevents many container escape vulnerabilities.</p>
+
   <div class="secure-runtime">
-    <h4>User and Permission Management</h4>
-    <pre><code class="language-dockerfile"># Dockerfile best practices
-FROM alpine:3.18
-
-# Create non-root user
-RUN addgroup -g 1000 -S appgroup && \
-    adduser -u 1000 -S appuser -G appgroup
-
-# Install dependencies as root
-RUN apk add --no-cache python3 py3-pip
-
-# Copy and set ownership
-COPY --chown=appuser:appgroup . /app
-WORKDIR /app
-
-# Switch to non-root user
+    <h4>Non-Root User in Dockerfile</h4>
+    <pre><code class="language-dockerfile">FROM alpine:3.18
+RUN adduser -D appuser
+COPY --chown=appuser . /app
 USER appuser
-
-# Run as non-root
 CMD ["python3", "app.py"]</code></pre>
-    
-    <h4>Runtime Security Options</h4>
-    <pre><code class="language-bash"># Run with read-only root filesystem
-docker run -d \
-  --name secure-app \
-  --read-only \
-  --tmpfs /tmp \
-  --tmpfs /run \
-  my-app
 
-# Drop all capabilities and add only required ones
-docker run -d \
-  --name minimal-caps \
-  --cap-drop ALL \
-  --cap-add NET_BIND_SERVICE \
-  nginx
+    <h4>Runtime Hardening</h4>
+    <pre><code class="language-bash"># Read-only filesystem with necessary tmpfs
+docker run -d --read-only --tmpfs /tmp my-app
 
-# Run with security options
-docker run -d \
-  --name hardened-app \
-  --security-opt no-new-privileges \
-  --security-opt apparmor=docker-default \
-  --pids-limit 100 \
-  --memory 512m \
-  --cpus 0.5 \
-  my-app</code></pre>
-    
-    <h4>Seccomp Profiles</h4>
-    <pre><code class="language-json"># custom-seccomp.json
-{
-  "defaultAction": "SCMP_ACT_ERRNO",
-  "architectures": ["SCMP_ARCH_X86_64"],
-  "syscalls": [
-    {
-      "names": [
-        "accept", "bind", "connect", "listen",
-        "read", "write", "close", "exit"
-      ],
-      "action": "SCMP_ACT_ALLOW"
-    }
-  ]
-}</code></pre>
-    <pre><code class="language-bash"># Apply custom seccomp profile
-docker run -d \
-  --name seccomp-app \
-  --security-opt seccomp=./custom-seccomp.json \
-  my-app</code></pre>
+# Drop all capabilities, add only what is needed
+docker run -d --cap-drop ALL --cap-add NET_BIND_SERVICE nginx
+
+# Limit resources to prevent DoS
+docker run -d --memory 512m --cpus 0.5 --pids-limit 100 my-app</code></pre>
+    <p class="explanation">Each flag adds a layer of protection. <code>--read-only</code> prevents filesystem modifications. <code>--cap-drop ALL</code> removes Linux capabilities. Resource limits prevent runaway processes.</p>
   </div>
   
   <h3><i class="fas fa-key"></i> Secrets Management</h3>
-  
+
+  <p><strong>Never put secrets in:</strong> Dockerfiles, environment variables in compose files committed to git, or image layers. These are all visible to anyone with access to the image or source code.</p>
+
   <div class="secrets-management">
-    <h4>Docker Secrets (Swarm Mode)</h4>
-    <pre><code class="language-bash"># Create secrets
-echo "my-database-password" | docker secret create db_password -
-docker secret create ssl_cert ./cert.pem
+    <h4>Safe Options for Secrets</h4>
 
-# Use secrets in service
-docker service create \
-  --name secure-db \
-  --secret db_password \
-  --secret ssl_cert \
-  postgres:15
+| Method | Use Case | How It Works |
+|--------|----------|--------------|
+| Docker Secrets (Swarm) | Production services | Secrets stored encrypted, mounted as files at /run/secrets/ |
+| BuildKit secrets | Build-time credentials | Secret available only during build, not in final image |
+| External secrets manager | Enterprise deployments | Vault, AWS Secrets Manager inject at runtime |
+| Environment file | Development only | .env file loaded at runtime (never commit to git) |
 
-# Access secrets in container at /run/secrets/</code></pre>
-    
-    <h4>BuildKit Secrets (Build Time)</h4>
-    <pre><code class="language-dockerfile"># Dockerfile using BuildKit secrets
-# syntax=docker/dockerfile:1
-FROM alpine:3.18
+    <pre><code class="language-bash"># BuildKit: secret available only during build
+DOCKER_BUILDKIT=1 docker build --secret id=token,src=./token.txt .
 
-# Mount secret during build
-RUN --mount=type=secret,id=npm_token \
-    NPM_TOKEN=$(cat /run/secrets/npm_token) \
-    npm install --registry https://custom-registry.com</code></pre>
-    <pre><code class="language-bash"># Build with secret
-export DOCKER_BUILDKIT=1
-docker build \
-  --secret id=npm_token,src=./.npm-token \
-  -t my-app .</code></pre>
-    
-    <h4>Environment Variables Best Practices</h4>
-    <pre><code class="language-bash"># Use .env files (never commit to git)
-cat > .env << EOF
-DB_PASSWORD=supersecret
-API_KEY=abcd1234
-EOF
-
-# Run with env file
-docker run -d \
-  --name app \
-  --env-file .env \
-  my-app
-
-# Or use secrets from external sources
-docker run -d \
-  --name vault-app \
-  -e DB_PASSWORD="$(vault kv get -field=password secret/db)" \
-  my-app</code></pre>
+# Development: use .env file (add to .gitignore!)
+docker run --env-file .env my-app</code></pre>
   </div>
   
   <h3><i class="fas fa-search-plus"></i> Image Security Scanning</h3>
-  
+
+  <p>Scan images for known vulnerabilities before deploying them. Integrate scanning into your CI/CD pipeline to catch issues early.</p>
+
   <div class="image-scanning">
-    <h4>Vulnerability Scanning Tools</h4>
-    <pre><code class="language-bash"># Using Docker Scout (built-in)
+    <pre><code class="language-bash"># Docker Scout (built into Docker Desktop)
 docker scout cves my-app:latest
-docker scout recommendations my-app:latest
 
-# Using Trivy
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  aquasec/trivy image my-app:latest
+# Trivy (open source, widely used)
+trivy image my-app:latest
 
-# Using Grype
-docker run --rm \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  anchore/grype my-app:latest</code></pre>
-    
-    <h4>Image Signing and Verification</h4>
-    <pre><code class="language-bash"># Enable Docker Content Trust
+# Enable image signing to verify provenance
 export DOCKER_CONTENT_TRUST=1
-
-# Sign and push image
-docker trust sign my-registry/my-app:latest
-
-# Verify image signature
-docker trust inspect --pretty my-registry/my-app:latest</code></pre>
+docker pull my-registry/my-app:latest  # Fails if not signed</code></pre>
   </div>
   
   <h3><i class="fas fa-clipboard-check"></i> Security Compliance Checklist</h3>
@@ -902,146 +584,67 @@ docker trust inspect --pretty my-registry/my-app:latest</code></pre>
 
 ## Troubleshooting Common Docker Issues
 
+When something goes wrong, start with the simplest checks and work your way to more detailed investigation.
+
 <div class="troubleshooting-section">
   <h3><i class="fas fa-tools"></i> Debugging Containers</h3>
-  
+
   <div class="debug-techniques">
-    <h4>Container Won't Start</h4>
-    {% raw %}<pre><code class="language-bash"># Check container logs
+    <h4>Container Will Not Start</h4>
+    <pre><code class="language-bash"># First, check the logs
 docker logs container-name
 
-# View detailed container info
-docker inspect container-name
+# Get the exit code (non-zero means error)
+docker inspect container-name --format='{% raw %}{{.State.ExitCode}}{% endraw %}'
 
-# Check exit code
-docker inspect container-name --format='{{.State.ExitCode}}'
+# Start an interactive shell to investigate
+docker run -it --entrypoint /bin/sh my-image</code></pre>
 
-# Debug with interactive shell
-docker run -it --entrypoint /bin/sh my-image
-
-# Override CMD for debugging
-docker run -it my-image /bin/bash -c "echo 'Debug mode'; /app/start.sh"</code></pre>{% endraw %}
-    
     <h4>Connectivity Issues</h4>
-    <pre><code class="language-bash"># Test container networking
+    <pre><code class="language-bash"># Use netshoot to debug networking
 docker run --rm --network container:my-app nicolaka/netshoot
 
-# Inside netshoot container:
-ss -tulpn  # Check listening ports
-nslookup service-name  # Test DNS
-curl -v http://service-name:port  # Test connectivity
+# Inside: test DNS and connectivity
+nslookup service-name
+curl -v http://service-name:port</code></pre>
 
-# Check iptables rules
-sudo iptables -L -n -v | grep -i docker
-
-# Inspect network
-docker network inspect bridge</code></pre>
-    
     <h4>Performance Problems</h4>
-    <pre><code class="language-bash"># Real-time container stats
+    <pre><code class="language-bash"># Real-time stats for all containers
 docker stats
 
-# Check container processes
-docker top container-name
-
-# Resource usage history
-docker system df
-docker system events --since 1h
-
-# Profile container
-docker run -d --name perf-test my-app
-docker exec perf-test cat /proc/1/status | grep -i memory
-docker exec perf-test ps aux</code></pre>
+# Check disk usage
+docker system df</code></pre>
   </div>
   
   <h3><i class="fas fa-exclamation-circle"></i> Common Error Solutions</h3>
-  
+
   <div class="error-solutions">
-    <h4>"Cannot connect to Docker daemon"</h4>
-    <pre><code class="language-bash"># Check if Docker is running
-sudo systemctl status docker
+| Error | Quick Fix |
+|-------|-----------|
+| "Cannot connect to Docker daemon" | `sudo systemctl start docker` or add user to docker group |
+| "No space left on device" | `docker system prune -a --volumes` |
+| "Port already in use" | `sudo lsof -i :8080` to find the process, then kill it or use a different port |
+| "Permission denied" | Run with sudo, or add user to docker group and log out/in |
 
-# Start Docker if stopped
-sudo systemctl start docker
-
-# Add user to docker group
-sudo usermod -aG docker $USER
-# Log out and back in
-
-# Check permissions
-ls -la /var/run/docker.sock</code></pre>
-    
-    <h4>"No space left on device"</h4>
-    <pre><code class="language-bash"># Check disk usage
-df -h
+    <h4>Cleaning Up Disk Space</h4>
+    <pre><code class="language-bash"># See what is using space
 docker system df
 
-# Clean up unused resources
-docker system prune -a --volumes
-
-# Remove specific items
-docker image prune -a
-docker container prune
-docker volume prune
-docker network prune
-
-# Configure log rotation
-cat > /etc/docker/daemon.json << EOF
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
-}
-EOF
-sudo systemctl restart docker</code></pre>
-    
-    <h4>"Port already in use"</h4>
-    <pre><code class="language-bash"># Find process using port
-sudo lsof -i :8080
-sudo netstat -tulpn | grep :8080
-
-# Kill process or use different port
-docker run -d -p 8081:80 nginx</code></pre>
+# Remove everything unused (images, containers, volumes)
+docker system prune -a --volumes</code></pre>
   </div>
-  
-  <h3><i class="fas fa-heartbeat"></i> Health Checks and Monitoring</h3>
-  
+
+  <h3><i class="fas fa-heartbeat"></i> Health Checks</h3>
+
+  <p>Health checks let Docker know if your application is actually working, not just running.</p>
+
   <div class="health-monitoring">
-    <h4>Implementing Health Checks</h4>
-    <pre><code class="language-dockerfile"># Dockerfile with health check
-FROM node:18-alpine
-WORKDIR /app
-COPY . .
-RUN npm install
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js || exit 1
-
-CMD ["node", "server.js"]</code></pre>
-    
-    <h4>Monitor Container Health</h4>
-    {% raw %}<pre><code class="language-bash"># Check health status
-docker ps --format "table {{.Names}}\t{{.Status}}"
-
-# Inspect health check results
-docker inspect --format='{{json .State.Health}}' container-name | jq .
-
-# Custom monitoring script
-cat > monitor.sh << 'EOF'
-#!/bin/bash
-while true; do
-  STATUS=$(docker inspect --format='{{.State.Health.Status}}' $1)
-  echo "$(date): Container $1 health: $STATUS"
-  if [ "$STATUS" != "healthy" ]; then
-    docker logs --tail 50 $1
-  fi
-  sleep 30
-done
-EOF
-chmod +x monitor.sh
-./monitor.sh my-app</code></pre>{% endraw %}
+    <pre><code class="language-dockerfile"># Add to Dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1</code></pre>
+    <pre><code class="language-bash"># Check health status
+docker ps  # Shows health in STATUS column
+docker inspect --format='{% raw %}{{.State.Health.Status}}{% endraw %}' container-name</code></pre>
   </div>
 </div>
 

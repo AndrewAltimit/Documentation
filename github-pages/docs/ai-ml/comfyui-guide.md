@@ -13,7 +13,7 @@ toc_icon: "cog"
 {: .no_toc }
 
 <div class="code-example" markdown="1">
-Master ComfyUI's node-based workflow system for advanced AI image generation, from basic concepts to complex workflows.
+Build visual AI workflows by connecting nodes, from simple image generation to complex multi-model pipelines.
 </div>
 
 ## Table of contents
@@ -24,671 +24,348 @@ Master ComfyUI's node-based workflow system for advanced AI image generation, fr
 
 ---
 
-## What is ComfyUI?
+## Why Use ComfyUI?
 
-ComfyUI is a powerful node-based interface for Stable Diffusion and other diffusion models that enables users to create complex image generation workflows through visual programming. Unlike traditional UIs, ComfyUI exposes the entire generation pipeline as modular nodes that can be connected in countless ways.
+ComfyUI takes a different approach from other AI interfaces. Instead of hiding complexity behind menus, it shows you exactly how each part of the generation process connects to the next. You build workflows by linking nodes together, like connecting pipes in a plumbing diagram.
 
-As of 2024, ComfyUI has become the de facto standard for advanced workflows, supporting all major models including SDXL, SD3, FLUX, and various video/audio models. Its modular architecture makes it ideal for experimenting with cutting-edge techniques.
+This approach offers several benefits:
 
-### Key Advantages
+- **See how generation actually works** - The visual layout teaches you what each component does
+- **Customize everything** - Change any step, add new processing, or reroute the pipeline
+- **Reuse and share workflows** - Save successful setups and load workflows from others
+- **Efficient iteration** - Only recalculate what changes, not the entire pipeline
 
-- **Visual Workflow Design**: See and control every step of the generation process
-- **Reusable Workflows**: Save and share complex setups
-- **Maximum Flexibility**: Create workflows impossible in other UIs
-- **Efficient Processing**: Only recalculate changed nodes
-- **Extensible**: Huge ecosystem of custom nodes
+**Consider the following before starting:**
 
-## Installation and Setup
+ComfyUI has a learning curve. The node interface feels unfamiliar at first. But once you understand the basics, you gain capabilities that simpler interfaces cannot provide. If you just want quick results, start with a simpler tool. If you want control and understanding, ComfyUI rewards the investment.
 
-### Using Docker (Recommended)
+### When ComfyUI Makes Sense
+
+| Use Case | Why ComfyUI | Alternative |
+|----------|-------------|-------------|
+| Learning how generation works | Visual pipeline shows connections | Read documentation |
+| Complex multi-step workflows | Nodes make complexity manageable | Script-based automation |
+| Batch processing with variations | Queue system handles it | Manual repeated generation |
+| Sharing reproducible workflows | JSON export captures everything | Write setup instructions |
+| Experimenting with new techniques | Modify workflow visually | Edit code |
+
+## Getting Started
+
+### Quick Start with Docker
+
+The fastest way to get ComfyUI running:
 
 ```bash
-# Clone the ComfyUI MCP setup
-git clone https://github.com/andrewaltimit/Documentation comfyui-mcp
-cd comfyui-mcp
-
-# Build and start services
-docker-compose build
-docker-compose up -d
-
-# Access ComfyUI at http://localhost:8188
+docker-compose up -d comfyui-server
+# Open http://localhost:8188 in your browser
 ```
 
 ### Manual Installation
 
+If you prefer a local installation:
+
 ```bash
-# Clone ComfyUI
 git clone https://github.com/comfyanonymous/ComfyUI.git
 cd ComfyUI
-
-# Install PyTorch with CUDA support first (choose your CUDA version)
-# For CUDA 11.8:
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# For CUDA 12.1:
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# For CPU only (not recommended for production):
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Install xformers for 2x+ speedup (highly recommended)
-# Match your PyTorch/CUDA version
-pip install xformers
-
-# Optional: Install Flash Attention 2 for even better performance
-pip install flash-attn --no-build-isolation
-
-# Run ComfyUI
 python main.py
-
-# Or with specific arguments
-python main.py --listen --port 8188 --preview-method auto
 ```
 
-### Directory Structure
+For GPU acceleration, install PyTorch with CUDA support before running the requirements installation.
 
-```
-ComfyUI/
-├── models/
-│   ├── checkpoints/     # Base models (SD, SDXL, FLUX)
-│   ├── loras/          # LoRA models
-│   ├── vae/            # VAE models
-│   ├── clip/           # CLIP models
-│   ├── controlnet/     # ControlNet models
-│   └── embeddings/     # Textual inversions
-├── input/              # Input images
-├── output/             # Generated images
-├── custom_nodes/       # Extensions
-├── web/                # Frontend files
-└── user/               # User data
-    └── default/
-        └── workflows/   # Saved workflows
-```
+### Where Models Go
 
-## Core Concepts
+ComfyUI looks for models in specific folders:
 
-### Nodes
+| Model Type | Folder | Examples |
+|------------|--------|----------|
+| Checkpoints | `models/checkpoints/` | SDXL Base, Juggernaut |
+| LoRAs | `models/loras/` | Style LoRAs, character LoRAs |
+| VAEs | `models/vae/` | sdxl_vae, anime VAE |
+| ControlNets | `models/controlnet/` | OpenPose, Canny |
+| Embeddings | `models/embeddings/` | EasyNegative |
 
-Nodes are the building blocks of ComfyUI workflows. Each node:
-- Has input ports (left side)
-- Has output ports (right side)
-- Performs a specific operation
-- Can be connected to other nodes
+Generated images save to `output/` by default.
 
-### Node Categories
+## Understanding the Interface
 
-1. **Loaders**: Load models, images, or data
-2. **Conditioning**: Process text prompts and embeddings
-3. **Sampling**: Core generation nodes
-4. **Image**: Image processing and manipulation
-5. **Latent**: Operations in latent space
-6. **Control**: ControlNet and guidance nodes
-7. **Advanced**: Custom sampling, model merging
-8. **Utils**: Helper nodes for workflow control
+### How Nodes Work
 
-### Workflow Execution
+Everything in ComfyUI is a node. Nodes are boxes that do one specific thing. They have:
 
-ComfyUI uses intelligent execution:
-1. **Lazy Evaluation**: Only executes necessary nodes
-2. **Caching**: Reuses results from unchanged nodes
-3. **Queue System**: Manages multiple generation requests
-4. **Progress Tracking**: Shows execution status
+- **Inputs** (left side) - Data coming in
+- **Outputs** (right side) - Data going out
+- **Settings** (inside the box) - Parameters you can adjust
 
-## Essential Nodes
+You build workflows by connecting outputs to inputs. Data flows left to right through your connections.
 
-### Model Loading
+### The Essential Node Types
 
-**CheckpointLoaderSimple**
-```
-Outputs:
-- MODEL: The main model
-- CLIP: Text encoder
-- VAE: Image encoder/decoder
-```
+| Category | What They Do | Examples |
+|----------|--------------|----------|
+| Loaders | Load models and images | CheckpointLoader, LoraLoader |
+| Conditioning | Process text prompts | CLIPTextEncode |
+| Sampling | Run the generation | KSampler |
+| Latent | Work with compressed data | EmptyLatentImage, LatentUpscale |
+| Image | Handle final images | VAEDecode, SaveImage |
 
-**LoraLoader**
-```
-Inputs:
-- model: Base model
-- clip: CLIP model
-- lora_name: LoRA file
-- strength_model: Model strength (0-2)
-- strength_clip: CLIP strength (0-2)
-```
+### How Execution Works
 
-### Text Encoding
+When you click "Queue Prompt":
+1. ComfyUI traces backward from output nodes
+2. It only runs nodes whose inputs changed
+3. Cached results are reused when possible
 
-**CLIPTextEncode**
-```
-Inputs:
-- clip: CLIP model
-- text: Your prompt
-Outputs:
-- CONDITIONING: Encoded prompt
-```
+This means if you only change your prompt, the model does not reload. If you only change LoRA strength, previously computed steps are reused. This makes iteration fast.
 
-### Sampling
+## Essential Nodes Reference
 
-**KSampler**
-```
-Inputs:
-- model: Generation model
-- positive: Positive conditioning
-- negative: Negative conditioning
-- latent_image: Starting latent
-- seed: Random seed
-- steps: Sampling steps
-- cfg: CFG scale
-- sampler_name: Algorithm
-- scheduler: Noise schedule
-```
+These are the nodes you will use in almost every workflow.
 
-**KSampler Advanced**
-```
-Additional inputs:
-- add_noise: Enable/disable noise addition
-- start_at_step: Begin at specific step
-- end_at_step: Stop at specific step
-- return_with_leftover_noise: Keep residual noise
-```
+### Loading Models
 
-### Image Handling
+**CheckpointLoaderSimple** - Loads your base model and outputs three things:
+- MODEL (the core generation model)
+- CLIP (the text encoder)
+- VAE (the image encoder/decoder)
 
-**VAEDecode**
-```
-Inputs:
-- samples: Latent image
-- vae: VAE model
-Outputs:
-- IMAGE: Decoded image
-```
+**LoraLoader** - Adds a LoRA to your model. Key settings:
+- `strength_model`: How much the LoRA affects generation (start at 0.7)
+- `strength_clip`: How much it affects text understanding (usually match model strength)
 
-**SaveImage**
-```
-Inputs:
-- images: Images to save
-- filename_prefix: File naming
-```
+### Processing Text
 
-## Basic Workflows
+**CLIPTextEncode** - Converts your text prompt into numbers the model understands. Connect your CLIP output here and type your prompt in the text field.
 
-### Simple Text-to-Image
+### Generating Images
 
-```
-[CheckpointLoaderSimple] → MODEL → [KSampler]
-                      ↓            ↑
-                     CLIP → [CLIPTextEncode] → CONDITIONING
-                      ↓
-                     VAE → [VAEDecode] → [SaveImage]
-```
+**KSampler** - The heart of generation. Key settings:
 
-### Image-to-Image
+| Setting | What It Controls | Typical Values |
+|---------|------------------|----------------|
+| steps | Number of refinement passes | 20-35 |
+| cfg | Prompt adherence strength | 5-9 |
+| sampler_name | Denoising algorithm | euler, dpmpp_2m |
+| scheduler | Noise reduction curve | karras, normal |
+| seed | Randomness control | -1 for random |
 
-```
-[LoadImage] → [VAEEncode] → LATENT → [KSampler] → [VAEDecode] → [SaveImage]
-```
+### Output
 
-### LoRA Integration
+**VAEDecode** - Converts the latent result to a viewable image.
 
-```
-[CheckpointLoaderSimple] → [LoraLoader] → [LoraLoader] → [KSampler]
-                                ↑              ↑
-                          lora1.safetensors  lora2.safetensors
-```
+**SaveImage** - Saves the image to disk. Set `filename_prefix` to organize your outputs.
 
-## Advanced Workflows
+## Building Your First Workflow
 
-### FLUX Workflow
+### The Minimal Text-to-Image Workflow
 
-FLUX requires specific node configurations:
+This is the simplest working workflow. Every other workflow builds from this foundation:
 
-```python
-# Key FLUX settings
-cfg = 1.0  # Must be 1.0, not 7-8
-guidance = 3.5  # Via FluxGuidance node
-sampler = "euler"
-scheduler = "simple"
-steps = 20-25
-```
+1. **CheckpointLoaderSimple** - Outputs: MODEL, CLIP, VAE
+2. **EmptyLatentImage** - Creates blank canvas to generate on
+3. **CLIPTextEncode (positive)** - Your main prompt
+4. **CLIPTextEncode (negative)** - What to avoid
+5. **KSampler** - Does the actual generation
+6. **VAEDecode** - Converts result to image
+7. **SaveImage** - Saves to disk
 
-Complete FLUX workflow:
-```
-[CheckpointLoaderSimple] 
-    ↓
-[UNETLoader] → [LoraLoader] → [FluxGuidance]
-    ↓                              ↑
-[CLIPLoader] → [CLIPTextEncode] → CONDITIONING
-    ↓
-[VAELoader] → [VAEDecode]
-```
+Connect them: Checkpoint outputs go to relevant inputs. Text encoders feed positive/negative conditioning to KSampler. EmptyLatentImage feeds latent_image. KSampler output goes to VAEDecode, which feeds SaveImage.
 
-### Multi-LoRA Stacking
+### Adding a LoRA
 
-```python
-# Chain multiple LoRAs
-[CheckpointLoaderSimple]
-    ↓
-[LoraLoader: style_lora @ 0.8]
-    ↓
-[LoraLoader: character_lora @ 0.6]
-    ↓
-[LoraLoader: detail_lora @ 0.4]
-    ↓
-[KSampler]
-```
+Insert a LoraLoader between CheckpointLoaderSimple and KSampler:
 
-### Regional Prompting
+1. Connect CheckpointLoader MODEL and CLIP to LoraLoader
+2. Connect LoraLoader outputs to where Checkpoint outputs originally went
 
-Use attention masking for different prompts in different areas:
+You can chain multiple LoraLoaders for stacking.
 
-```
-[CLIPTextEncode: "forest background"] → [Attention Mask]
-                                              ↓
-[CLIPTextEncode: "knight in armor"] → [Attention Mask] → [Combine] → [KSampler]
-```
+### Image-to-Image Modification
 
-### Upscaling Workflow
+Start from an existing image instead of empty latent:
 
-```
-[Generated Image] → [Upscale Model Loader] → [Image Upscale]
-                                                    ↓
-                            [VAEEncode] → [KSampler @ 0.4 denoise] → [VAEDecode]
-```
+1. Add LoadImage node and load your source image
+2. Add VAEEncode node
+3. Connect LoadImage to VAEEncode, VAEEncode to KSampler's latent_image
+4. Set KSampler's denoise to 0.5-0.8 (lower = closer to original)
 
-## Custom Nodes
+## Common Workflow Patterns
+
+### Using FLUX Models
+
+FLUX requires different settings than SD/SDXL:
+
+| Setting | FLUX Value | SDXL Value |
+|---------|------------|------------|
+| cfg | 1.0 (always) | 5-9 |
+| guidance | 3.5 (via FluxGuidance node) | N/A |
+| sampler | euler | dpmpp_2m |
+| scheduler | simple | karras |
+| steps | 20-25 | 25-35 |
+
+FLUX also needs FluxGuidance node for guidance control instead of using cfg directly.
+
+### Stacking Multiple LoRAs
+
+Chain LoraLoader nodes, reducing strength as you add more:
+
+- First LoRA: 0.7-0.8 strength
+- Second LoRA: 0.5-0.6 strength
+- Third LoRA: 0.3-0.4 strength
+
+Total combined effect should stay reasonable. Too much LoRA influence causes artifacts.
+
+### Upscaling Generated Images
+
+Two-step process for high-quality upscaling:
+
+1. **Generate at native resolution** (1024x1024 for SDXL)
+2. **Upscale and refine:**
+   - Load result with LoadImage or keep in workflow
+   - Use UpscaleModelLoader + ImageUpscaleWithModel for 2x-4x
+   - VAEEncode the upscaled image
+   - KSampler with low denoise (0.3-0.5) to add detail
+   - VAEDecode to final image
+
+This adds genuine detail rather than just enlarging pixels.
+
+## Extending ComfyUI with Custom Nodes
+
+The base ComfyUI installation handles core generation. Custom nodes add specialized capabilities.
 
 ### Essential Custom Node Packs
 
-1. **ComfyUI Manager**
-   - In-UI installation of custom nodes
-   - Model downloading
-   - Workflow management
-
-2. **Efficiency Nodes**
-   - Optimized samplers
-   - Batch processing
-   - Memory management
-
-3. **Impact Pack**
-   - Advanced detectors
-   - Regional processing
-   - Face enhancement
-
-4. **ControlNet Aux**
-   - Preprocessors for ControlNet
-   - Edge detection
-   - Pose estimation
-   - Depth estimation
-
-5. **AnimateDiff Evolved**
-   - Video generation
-   - Motion LoRAs
-   - Frame interpolation
-
-6. **IP-Adapter Plus**
-   - Advanced image prompting
-   - Style transfer
-   - Face consistency
-
-7. **GGUF Support**
-   - Load quantized models
-   - Reduced VRAM usage
-   - Mobile deployment
+| Pack | What It Adds | When You Need It |
+|------|--------------|------------------|
+| ComfyUI Manager | Node installation, model downloads | Always - install this first |
+| ControlNet Aux | Preprocessors for poses, edges, depth | Using ControlNet |
+| Impact Pack | Face detection, regional processing | Face work, inpainting |
+| IP-Adapter Plus | Image-as-prompt functionality | Style transfer, consistency |
+| Efficiency Nodes | Batch processing, optimization | Large-scale generation |
 
 ### Installing Custom Nodes
 
-Via ComfyUI Manager:
-```
-1. Click "Manager" in UI
+**With ComfyUI Manager (recommended):**
+1. Click "Manager" button in UI
 2. Select "Install Custom Nodes"
-3. Search and install
-4. Restart ComfyUI
-```
+3. Search for the pack you need
+4. Install and restart ComfyUI
 
-Manual installation:
+**Manually:**
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/user/custom-node-pack
+git clone [repository-url]
 # Restart ComfyUI
 ```
 
-## MCP Integration
+## Automation with the API
 
-### Using ComfyUI with MCP
+ComfyUI exposes an API for programmatic control, useful for batch processing or integration with other tools.
 
-The ComfyUI MCP server enables programmatic control:
+### Basic API Usage
 
 ```python
-# Generate image via MCP
 import requests
+
+# Submit a workflow
+response = requests.post("http://localhost:8188/prompt", json={
+    "prompt": workflow_json
+})
+```
+
+### Practical Automation Example
+
+Export your workflow from ComfyUI (Save as API format), then submit it programmatically with modified parameters:
+
+```python
 import json
 
-response = requests.post("http://localhost:8005/mcp/tool", json={
-    "tool": "generate-image",
-    "arguments": {
-        "prompt": "cyberpunk city, neon lights, rain",
-        "checkpoint": "sdxl_base.safetensors",
-        "lora": "cyberpunk_style.safetensors",
-        "width": 1024,
-        "height": 1024,
-        "steps": 30,
-        "sampler": "dpmpp_2m_sde_gpu",
-        "scheduler": "karras"
-    }
-})
-```
-
-### Workflow Submission
-
-```python
-# Submit custom workflow
-with open("my_workflow.json", "r") as f:
+# Load your exported workflow
+with open("my_workflow_api.json") as f:
     workflow = json.load(f)
 
-response = requests.post("http://localhost:8189/mcp/tool", json={
-    "tool": "submit-workflow",
-    "arguments": {
-        "workflow": workflow
-    }
-})
+# Modify prompt text in the workflow
+workflow["6"]["inputs"]["text"] = "New prompt here"
+
+# Submit
+requests.post("http://localhost:8188/prompt", json={"prompt": workflow})
 ```
 
-### Model Management
+This enables batch generation, integration with other systems, or scheduled generation tasks.
 
-```python
-# Upload LoRA with metadata
-response = requests.post("http://localhost:8005/mcp/tool", json={
-    "tool": "upload-lora",
-    "arguments": {
-        "filename": "my_style.safetensors",
-        "content": base64_content,
-        "metadata": {
-            "trigger_words": ["mystyle"],
-            "recommended_strength": 0.8,
-            "base_model": "SDXL",
-            "training_details": {
-                "steps": 2000,
-                "dataset_size": 50
-            }
-        }
-    }
-})
-```
+## Optimization and Troubleshooting
 
-## Workflow Optimization
+### Making Workflows Faster
 
-### Performance Tips
+| Strategy | How To Do It | Benefit |
+|----------|--------------|---------|
+| Use PreviewImage during iteration | Only SaveImage for finals | Faster feedback loop |
+| Cache text encoding | Keep CLIPTextEncode results | Skip re-encoding |
+| Reduce steps for previews | 15-20 steps while iterating | 2x faster iteration |
+| Use fp16/fp8 models | Download quantized versions | Fits in less VRAM |
 
-1. **Node Arrangement**
-   - Group related nodes
-   - Minimize connection crossings
-   - Use reroute nodes for clarity
+### Handling Low VRAM
 
-2. **Caching Strategy**
-   - Place variable inputs last
-   - Reuse encoded prompts
-   - Cache VAE outputs when iterating
+If you hit memory errors:
 
-3. **Batch Processing**
-   ```
-   [Batch Images] → [VAEEncode Batch] → [KSampler] → [VAEDecode Batch]
+1. **Start ComfyUI with low VRAM mode:**
+   ```bash
+   python main.py --lowvram
    ```
 
-### Memory Management
+2. **Use tiled VAE** for large images - enable in VAEDecode settings
 
-**Low VRAM Techniques**:
-- Use `--lowvram` or `--cpu` flags
-- Enable sequential CPU offloading
-- Use tiled VAE for large images
-- Reduce batch size
-- Use fp8/int8 quantized models
-- Enable smart memory management:
-  ```bash
-  python main.py --lowvram --use-split-cross-attention
-  ```
+3. **Load fewer models simultaneously** - use separate workflows instead of one complex one
 
-**Efficient Node Usage**:
-```python
-# Instead of multiple saves
-[KSampler] → [VAEDecode] → [SaveImage]
+4. **Use quantized checkpoints** - fp8 FLUX uses ~12GB instead of ~24GB
 
-# Use preview for iteration
-[KSampler] → [VAEDecode] → [PreviewImage]
-                         ↓
-                    [SaveImage] (only final)
-```
+### Common Issues and Solutions
 
-## Common Workflows
+| Problem | Likely Cause | Solution |
+|---------|--------------|----------|
+| "Failed to validate prompt" | Missing connection | Check all required inputs have connections |
+| Out of memory | Model too large | Use quantized model, enable low VRAM mode |
+| Slow generation | Unoptimized settings | Reduce steps, use faster sampler |
+| Black image output | VAE mismatch | Use correct VAE for your checkpoint |
+| Workflow won't load | Missing custom nodes | Install required nodes via Manager |
 
-### Style Transfer
+### Debugging Strategies
 
-```
-[LoadImage: style] → [VAEEncode] → [StyleModel]
-                                        ↓
-[LoadImage: content] → [VAEEncode] → [Combine] → [VAEDecode]
-```
+1. **Add PreviewImage nodes** after each major step to see intermediate results
+2. **Hover over connections** to verify data types match
+3. **Check the console** for error messages (terminal where ComfyUI runs)
+4. **Simplify the workflow** - disconnect parts to isolate the problem
 
-### Character Consistency
+## Organizing Your Workflows
 
-```
-[Reference Image] → [CLIPVisionEncode] → [IPAdapter]
-                                            ↓
-[Text Prompt] → [CLIPTextEncode] → [Combine] → [KSampler]
-```
+### Best Practices
 
-### Animation Workflow
-
-```
-[Frame 1] → [VAEEncode] → [Latent Interpolate] → [Batch] → [KSampler]
-[Frame 2] → [VAEEncode] ↗
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**"Failed to validate prompt"**
-- Check all required inputs are connected
-- Verify node compatibility
-- Ensure models are loaded
-
-**Out of Memory**
-```python
-# Add these nodes
-[VAETileDecode]  # Instead of VAEDecode
-[TiledKSampler]  # Instead of KSampler
-```
-
-**Slow Generation**
-- Reduce image size initially
-- Use faster samplers (DPM++ 2M)
-- Disable preview during batch
-
-### Debugging Workflows
-
-1. **Use Preview Nodes**: Add PreviewImage after each major step
-2. **Check Data Types**: Hover over connections to see types
-3. **Isolate Issues**: Disconnect nodes systematically
-4. **Monitor Console**: Check for error messages
-
-## Advanced Techniques
-
-### Latent Space Operations
-
-**Latent Composite**
-```python
-# Combine multiple latents
-[Latent1] → [LatentComposite: x=0, y=0]
-[Latent2] → [LatentComposite: x=512, y=0] → [Combined Latent]
-```
-
-**Latent Upscale**
-```python
-[Latent] → [LatentUpscale: 2x] → [KSampler: denoise=0.5]
-```
-
-### Prompt Scheduling
-
-```python
-# Animate prompt weights over time
-[CLIPTextEncode: "(cat:1.0)"] → frame 0
-[CLIPTextEncode: "(cat:0.5) (dog:0.5)"] → frame 15  
-[CLIPTextEncode: "(dog:1.0)"] → frame 30
-```
-
-### Multi-Model Ensemble
-
-```python
-# Blend predictions from multiple models
-[Model1] → [KSampler] → [Latent]
-                           ↓
-                    [LatentBlend: 0.5]
-                           ↑
-[Model2] → [KSampler] → [Latent]
-```
-
-## Recent ComfyUI Developments (2024)
-
-### New Features
-
-1. **Execution Caching**: Smart caching prevents re-execution
-2. **Node Templates**: Save and reuse node configurations
-3. **Workflow Components**: Encapsulate sub-workflows
-4. **Better Preview**: Real-time latent preview options
-5. **Auto Queue Management**: Intelligent batch processing
-
-### Performance Improvements
-
-- **Torch Compile**: Up to 30% speed improvement
-- **Better Memory Management**: Automatic VRAM optimization
-- **Parallel Execution**: Multiple independent paths
-- **Smart Model Loading**: Reduced loading times
-
-## Best Practices
-
-### Workflow Organization
-
-1. **Naming Convention**
-   - Use descriptive node titles
-   - Group nodes by function  
-   - Color code by purpose
-   - Use reroute nodes for clarity
-
-2. **Documentation**
-   - Add Note nodes for complex sections
-   - Include parameter explanations
-   - Document model requirements
-   - Version your workflows
-
-3. **Version Control**
-   - Save incremental versions
-   - Export workflows as JSON
-   - Track model dependencies
-   - Use git for workflow files
+- **Name your nodes** - Right-click and set descriptive titles
+- **Use groups** - Box related nodes together with colors
+- **Add notes** - Use Note nodes to document settings and requirements
+- **Save often** - Keep versioned copies of working workflows
 
 ### Sharing Workflows
 
-**Workflow Export**:
-1. Clear cache to reduce file size
-2. Use relative model paths
-3. Include custom node list
-4. Document required models
+To share a workflow with others:
 
-**Workflow Format**:
-```json
-{
-  "last_node_id": 50,
-  "last_link_id": 100,
-  "nodes": [...],
-  "links": [...],
-  "groups": [...],
-  "version": 0.4
-}
-```
+1. Save the workflow (Ctrl+S)
+2. Note which custom nodes are required
+3. List which models the workflow needs
+4. Share the JSON file
 
-## Advanced Workflows Examples
-
-### LCM Speed Workflow
-```python
-# 4-step generation with LCM
-[SDXL Checkpoint] → [LCM-LoRA Loader @ 1.0] → [KSampler]
-                                                    │
-                                              cfg: 1.5-2.5
-                                              steps: 4-8
-                                              sampler: lcm
-```
-
-### SD3 Workflow
-```python
-# SD3 with triple text encoding
-[SD3 Checkpoint] → [Triple Text Encode]
-                          │
-                    [CLIP L] [CLIP G] [T5]
-                          ↓
-                    [KSampler: shift=3.0]
-```
-
-## Example: Complete FLUX LoRA Workflow
-
-```python
-# Complete FLUX workflow with LoRA
-{
-  "nodes": [
-    {
-      "type": "CheckpointLoaderSimple",
-      "pos": [0, 0],
-      "outputs": ["MODEL", "CLIP", "VAE"]
-    },
-    {
-      "type": "LoraLoader",
-      "inputs": {
-        "lora_name": "my_style.safetensors",
-        "strength_model": 1.0,
-        "strength_clip": 1.0
-      }
-    },
-    {
-      "type": "CLIPTextEncode",
-      "inputs": {
-        "text": "my_style digital art of a dragon"
-      }
-    },
-    {
-      "type": "FluxGuidance",
-      "inputs": {
-        "guidance": 3.5
-      }
-    },
-    {
-      "type": "KSamplerAdvanced",
-      "inputs": {
-        "cfg": 1.0,
-        "sampler_name": "euler",
-        "scheduler": "simple",
-        "steps": 25
-      }
-    },
-    {
-      "type": "VAEDecode"
-    },
-    {
-      "type": "SaveImage",
-      "inputs": {
-        "filename_prefix": "flux_lora"
-      }
-    }
-  ]
-}
-```
+Recipients need the same custom nodes and models (or compatible alternatives) to run your workflow.
 
 ## Conclusion
 
-ComfyUI's node-based approach offers unparalleled control over the image generation process. While the learning curve is steeper than traditional UIs, the flexibility and power it provides make it the tool of choice for advanced users and those seeking to push the boundaries of AI image generation.
+ComfyUI provides unmatched control over AI image generation through its visual node system. The initial learning investment pays off in:
 
-Start with simple workflows and gradually incorporate more complex nodes and techniques. The visual nature of ComfyUI makes it excellent for understanding how different components interact, leading to better results and deeper knowledge of the generation process.
+- **Understanding** - You see exactly how generation works
+- **Flexibility** - Build workflows no other tool can match
+- **Efficiency** - Intelligent caching speeds iteration
+- **Sharing** - JSON workflows capture complete setups
+
+Start with the basic text-to-image workflow, then add complexity as you need it. Each new technique builds on what you have already learned.
 
 ---
 
