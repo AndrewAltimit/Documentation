@@ -25,8 +25,8 @@ toc: true
 
 ## Command Line References
 
-<div class="reference-card">
-<h4>Git Commands</h4>
+<div class="reference-card" markdown="1">
+#### Git Commands
 
 ```bash
 # Repository Management
@@ -78,8 +78,8 @@ git reflog               # Show reference log
 
 ## Docker Commands
 
-<div class="reference-card">
-<h4>Docker Command Reference</h4>
+<div class="reference-card" markdown="1">
+####Docker Command Reference</h4>
 
 ```bash
 # Container Management
@@ -123,8 +123,8 @@ docker stats                        # Show resource usage
 
 ## Kubernetes Commands
 
-<div class="reference-card">
-<h4>kubectl Quick Reference</h4>
+<div class="reference-card" markdown="1">
+####kubectl Quick Reference</h4>
 
 ```bash
 # Cluster Information
@@ -170,8 +170,8 @@ kubectl delete deployment <name> # Delete deployment
 
 ## AWS CLI Commands
 
-<div class="reference-card">
-<h4>AWS CLI Essential Commands</h4>
+<div class="reference-card" markdown="1">
+####AWS CLI Essential Commands</h4>
 
 ```bash
 # S3 Operations
@@ -216,8 +216,8 @@ aws cloudformation delete-stack --stack-name <name>
 
 ## Terraform CLI Commands
 
-<div class="reference-card">
-<h4>Terraform Essential Commands</h4>
+<div class="reference-card" markdown="1">
+####Terraform Essential Commands</h4>
 
 ```bash
 # Initialization & Setup
@@ -294,8 +294,8 @@ export TF_VAR_name=value      # Set variable via environment
 
 ### Fundamental Constants
 
-<div class="reference-card">
-<h4>Physical Constants</h4>
+<div class="reference-card" markdown="1">
+####Physical Constants</h4>
 
 | Constant | Symbol | Value | Units |
 |----------|--------|-------|-------|
@@ -315,8 +315,8 @@ export TF_VAR_name=value      # Set variable via environment
 
 ### Key Physics Equations
 
-<div class="reference-card">
-<h4>Classical Mechanics</h4>
+<div class="reference-card" markdown="1">
+####Classical Mechanics</h4>
 
 ```
 Newton's Laws:
@@ -341,8 +341,8 @@ L = r × p                      # Angular momentum
 ```
 </div>
 
-<div class="reference-card">
-<h4>Quantum Mechanics</h4>
+<div class="reference-card" markdown="1">
+####Quantum Mechanics</h4>
 
 ```
 Fundamental Equations:
@@ -363,8 +363,8 @@ a₀ = 0.529 Å                 # Bohr radius constant
 ```
 </div>
 
-<div class="reference-card">
-<h4>Electromagnetism</h4>
+<div class="reference-card" markdown="1">
+####Electromagnetism</h4>
 
 ```
 Maxwell's Equations:
@@ -388,8 +388,8 @@ Wave Equation:
 
 ### Big O Complexity Reference
 
-<div class="reference-card">
-<h4>Time Complexity Cheat Sheet</h4>
+<div class="reference-card" markdown="1">
+####Time Complexity Cheat Sheet</h4>
 
 | Algorithm | Best | Average | Worst | Space |
 |-----------|------|---------|-------|-------|
@@ -415,8 +415,8 @@ Wave Equation:
 
 ### Common Algorithm Patterns
 
-<div class="reference-card">
-<h4>Algorithm Templates</h4>
+<div class="reference-card" markdown="1">
+####Algorithm Templates</h4>
 
 ```python
 # Two Pointers
@@ -489,8 +489,8 @@ def dp_fibonacci(n):
 
 ### RESTful API Conventions
 
-<div class="reference-card">
-<h4>REST API Best Practices</h4>
+<div class="reference-card" markdown="1">
+####REST API Best Practices</h4>
 
 ```
 # Resource Naming
@@ -533,8 +533,8 @@ X-Request-ID: <uuid>
 
 ### Common API Response Formats
 
-<div class="reference-card">
-<h4>API Response Patterns</h4>
+<div class="reference-card" markdown="1">
+####API Response Patterns</h4>
 
 ```json
 // Successful Response
@@ -587,8 +587,8 @@ X-Request-ID: <uuid>
 
 ### Docker Troubleshooting
 
-<div class="reference-card">
-<h4>Docker Issue Resolution</h4>
+<div class="reference-card" markdown="1">
+####Docker Issue Resolution</h4>
 
 ```
 Container Won't Start?
@@ -619,8 +619,8 @@ Permission Errors?
 
 ### Git Troubleshooting
 
-<div class="reference-card">
-<h4>Common Git Issues</h4>
+<div class="reference-card" markdown="1">
+####Common Git Issues</h4>
 
 ```
 Merge Conflicts?
@@ -654,8 +654,8 @@ Lost Commits?
 
 ### Code Review Checklist
 
-<div class="reference-card">
-<h4>Code Review Guidelines</h4>
+<div class="reference-card" markdown="1">
+####Code Review Guidelines</h4>
 
 - [ ] **Functionality**
   - [ ] Code accomplishes intended purpose
@@ -696,8 +696,8 @@ Lost Commits?
 
 ### Deployment Checklist
 
-<div class="reference-card">
-<h4>Pre-Deployment Verification</h4>
+<div class="reference-card" markdown="1">
+####Pre-Deployment Verification</h4>
 
 - [ ] **Code Preparation**
   - [ ] All tests passing
@@ -734,8 +734,8 @@ Lost Commits?
 
 ### Calculus Formulas
 
-<div class="reference-card">
-<h4>Derivatives and Integrals</h4>
+<div class="reference-card" markdown="1">
+####Derivatives and Integrals</h4>
 
 ```
 Common Derivatives:
@@ -763,8 +763,8 @@ Integration by Parts: ∫u dv = uv - ∫v du
 
 ### Linear Algebra
 
-<div class="reference-card">
-<h4>Matrix Operations</h4>
+<div class="reference-card" markdown="1">
+####Matrix Operations</h4>
 
 ```
 Matrix Multiplication:
@@ -793,8 +793,8 @@ Unitary: U†U = UU† = I
 
 ## Network Protocols
 
-<div class="reference-card">
-<h4>Common Port Numbers</h4>
+<div class="reference-card" markdown="1">
+####Common Port Numbers</h4>
 
 | Service | Port | Protocol | Description |
 |---------|------|----------|-------------|
@@ -815,8 +815,8 @@ Unitary: U†U = UU† = I
 
 ## Regular Expressions
 
-<div class="reference-card">
-<h4>Regex Quick Reference</h4>
+<div class="reference-card" markdown="1">
+####Regex Quick Reference</h4>
 
 ```
 # Character Classes
@@ -887,8 +887,8 @@ Phone: ^\+?1?\d{9,15}$
 
 ## Recently Added
 
-<div class="reference-card">
-<h4>Latest Additions & Updates</h4>
+<div class="reference-card" markdown="1">
+####Latest Additions & Updates</h4>
 
 **December 2025**
 - Added Terraform CLI Commands section with comprehensive command reference
