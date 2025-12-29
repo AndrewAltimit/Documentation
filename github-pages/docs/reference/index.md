@@ -950,14 +950,14 @@ Phone: ^\+?1?\d{9,15}$
 <h2>Contributing to This Reference</h2>
 <p>This reference guide is continuously updated. Found an error or have a suggestion? <a href="https://github.com/AndrewAltimit/Documentation">Contribute on GitHub</a>.</p>
 <p>For detailed explanations and tutorials, explore the main documentation sections:</p>
-<ul>
-<li><a href="../#technology">Technology Documentation</a></li>
-<li><a href="../#physics">Physics Documentation</a></li>
-<li><a href="../ai-ml/">AI/ML Documentation</a></li>
-<li><a href="../artificial-intelligence/">Artificial Intelligence Hub</a></li>
-<li><a href="../quantum-computing/">Quantum Computing Hub</a></li>
-<li><a href="../distributed-systems/">Distributed Systems Hub</a></li>
-</ul>
+<p class="footer-links">
+<a href="../#technology">Technology</a> ·
+<a href="../#physics">Physics</a> ·
+<a href="../ai-ml/">AI/ML</a> ·
+<a href="../artificial-intelligence/">AI Hub</a> ·
+<a href="../quantum-computing/">Quantum Computing</a> ·
+<a href="../distributed-systems/">Distributed Systems</a>
+</p>
 </div>
 
 ## Related References
