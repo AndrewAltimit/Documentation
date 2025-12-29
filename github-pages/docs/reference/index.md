@@ -26,6 +26,7 @@ toc: true
 ## Command Line References
 
 <div class="reference-card" markdown="1">
+
 #### Git Commands
 
 ```bash
@@ -79,6 +80,7 @@ git reflog               # Show reference log
 ## Docker Commands
 
 <div class="reference-card" markdown="1">
+
 #### Docker Command Reference
 
 ```bash
@@ -124,6 +126,7 @@ docker stats                        # Show resource usage
 ## Kubernetes Commands
 
 <div class="reference-card" markdown="1">
+
 #### kubectl Quick Reference
 
 ```bash
@@ -171,6 +174,7 @@ kubectl delete deployment <name> # Delete deployment
 ## AWS CLI Commands
 
 <div class="reference-card" markdown="1">
+
 #### AWS CLI Essential Commands
 
 ```bash
@@ -217,6 +221,7 @@ aws cloudformation delete-stack --stack-name <name>
 ## Terraform CLI Commands
 
 <div class="reference-card" markdown="1">
+
 #### Terraform Essential Commands
 
 ```bash
@@ -295,6 +300,7 @@ export TF_VAR_name=value      # Set variable via environment
 ### Fundamental Constants
 
 <div class="reference-card" markdown="1">
+
 #### Physical Constants
 
 | Constant | Symbol | Value | Units |
@@ -316,6 +322,7 @@ export TF_VAR_name=value      # Set variable via environment
 ### Key Physics Equations
 
 <div class="reference-card" markdown="1">
+
 #### Classical Mechanics
 
 ```
@@ -342,6 +349,7 @@ L = r × p                      # Angular momentum
 </div>
 
 <div class="reference-card" markdown="1">
+
 #### Quantum Mechanics
 
 ```
@@ -364,6 +372,7 @@ a₀ = 0.529 Å                 # Bohr radius constant
 </div>
 
 <div class="reference-card" markdown="1">
+
 #### Electromagnetism
 
 ```
@@ -389,33 +398,44 @@ Wave Equation:
 ### Big O Complexity Reference
 
 <div class="reference-card" markdown="1">
+
+
 #### Time Complexity Cheat Sheet
+
+**Sorting Algorithms**
 
 | Algorithm | Best | Average | Worst | Space |
 |-----------|------|---------|-------|-------|
-| **Sorting** |
 | Bubble Sort | O(n) | O(n²) | O(n²) | O(1) |
 | Selection Sort | O(n²) | O(n²) | O(n²) | O(1) |
 | Insertion Sort | O(n) | O(n²) | O(n²) | O(1) |
 | Merge Sort | O(n log n) | O(n log n) | O(n log n) | O(n) |
 | Quick Sort | O(n log n) | O(n log n) | O(n²) | O(log n) |
 | Heap Sort | O(n log n) | O(n log n) | O(n log n) | O(1) |
-| **Searching** |
+
+**Searching Algorithms**
+
+| Algorithm | Best | Average | Worst | Space |
+|-----------|------|---------|-------|-------|
 | Linear Search | O(1) | O(n) | O(n) | O(1) |
 | Binary Search | O(1) | O(log n) | O(log n) | O(1) |
-| **Data Structures** |
-| Array Access | O(1) | O(1) | O(1) | - |
-| Array Insert/Delete | O(n) | O(n) | O(n) | - |
-| Linked List Access | O(1) | O(n) | O(n) | - |
-| Linked List Insert/Delete | O(1) | O(1) | O(1) | - |
-| Hash Table Access | O(1) | O(1) | O(n) | O(n) |
-| Binary Tree Access | O(log n) | O(log n) | O(n) | - |
-| B-Tree Access | O(log n) | O(log n) | O(log n) | - |
+
+**Data Structures**
+
+| Structure | Access | Insert/Delete | Search | Space |
+|-----------|--------|---------------|--------|-------|
+| Array | O(1) | O(n) | O(n) | O(n) |
+| Linked List | O(n) | O(1) | O(n) | O(n) |
+| Hash Table | O(1) | O(1) | O(1) avg | O(n) |
+| Binary Tree | O(log n) | O(log n) | O(log n) | O(n) |
+| B-Tree | O(log n) | O(log n) | O(log n) | O(n) |
+
 </div>
 
 ### Common Algorithm Patterns
 
 <div class="reference-card" markdown="1">
+
 #### Algorithm Templates
 
 ```python
@@ -490,6 +510,7 @@ def dp_fibonacci(n):
 ### RESTful API Conventions
 
 <div class="reference-card" markdown="1">
+
 #### REST API Best Practices
 
 ```
@@ -534,6 +555,7 @@ X-Request-ID: <uuid>
 ### Common API Response Formats
 
 <div class="reference-card" markdown="1">
+
 #### API Response Patterns
 
 ```json
@@ -588,6 +610,7 @@ X-Request-ID: <uuid>
 ### Docker Troubleshooting
 
 <div class="reference-card" markdown="1">
+
 #### Docker Issue Resolution
 
 ```
@@ -620,6 +643,7 @@ Permission Errors?
 ### Git Troubleshooting
 
 <div class="reference-card" markdown="1">
+
 #### Common Git Issues
 
 ```
@@ -655,6 +679,7 @@ Lost Commits?
 ### Code Review Checklist
 
 <div class="reference-card" markdown="1">
+
 #### Code Review Guidelines
 
 - [ ] **Functionality**
@@ -697,6 +722,7 @@ Lost Commits?
 ### Deployment Checklist
 
 <div class="reference-card" markdown="1">
+
 #### Pre-Deployment Verification
 
 - [ ] **Code Preparation**
@@ -735,6 +761,7 @@ Lost Commits?
 ### Calculus Formulas
 
 <div class="reference-card" markdown="1">
+
 #### Derivatives and Integrals
 
 ```
@@ -764,6 +791,7 @@ Integration by Parts: ∫u dv = uv - ∫v du
 ### Linear Algebra
 
 <div class="reference-card" markdown="1">
+
 #### Matrix Operations
 
 ```
@@ -794,6 +822,7 @@ Unitary: U†U = UU† = I
 ## Network Protocols
 
 <div class="reference-card" markdown="1">
+
 #### Common Port Numbers
 
 | Service | Port | Protocol | Description |
@@ -816,6 +845,7 @@ Unitary: U†U = UU† = I
 ## Regular Expressions
 
 <div class="reference-card" markdown="1">
+
 #### Regex Quick Reference
 
 ```
@@ -888,6 +918,7 @@ Phone: ^\+?1?\d{9,15}$
 ## Recently Added
 
 <div class="reference-card" markdown="1">
+
 #### Latest Additions & Updates
 
 **December 2025**
