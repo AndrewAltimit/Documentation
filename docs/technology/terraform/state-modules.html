@@ -1240,740 +1240,510 @@ document.addEventListener('DOMContentLoaded', function() {
       </header>
 
       <section class="page__content">
-        <h2 id="state-management-in-depth">State Management in Depth</h2>
+        <h2 id="understanding-terraform-state">Understanding Terraform State</h2>
 
-<h3 id="why-state-is-terraforms-secret-weapon">Why State is Terraform’s Secret Weapon</h3>
+<p>State is arguably Terraform’s most important concept. Before diving into the technical details, consider the following scenario:</p>
 
-<p>Unlike traditional scripts that run blindly, Terraform maintains a state file that tracks:</p>
+<p>You run <code class="language-plaintext highlighter-rouge">terraform apply</code> and create an EC2 instance. The next day, you run it again. How does Terraform know the instance already exists and should not create a duplicate?</p>
+
+<p>The answer is <strong>state</strong>. Terraform maintains a JSON file that records what it created, allowing it to compare your configuration against reality.</p>
+
+<h3 id="what-state-tracks">What State Tracks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Information</th>
+      <th>Why It Matters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resource IDs</td>
+      <td>Links configuration to real infrastructure</td>
+    </tr>
+    <tr>
+      <td>Attribute values</td>
+      <td>Detects configuration drift</td>
+    </tr>
+    <tr>
+      <td>Dependencies</td>
+      <td>Determines update and deletion order</td>
+    </tr>
+    <tr>
+      <td>Metadata</td>
+      <td>Provider versions, schema information</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="why-state-matters">Why State Matters</h3>
+
+<p>Without state, Terraform would:</p>
 <ul>
-  <li>What resources it created</li>
-  <li>Their current configuration</li>
-  <li>Relationships between resources</li>
-  <li>Resource metadata and IDs</li>
+  <li>Create duplicate resources on every apply</li>
+  <li>Not know which resources to update or delete</li>
+  <li>Lose track of resources entirely</li>
 </ul>
 
-<p>This state enables Terraform to:</p>
+<p>With state, Terraform can:</p>
 <ul>
-  <li><strong>Calculate Minimal Changes</strong>: Only update what’s necessary</li>
-  <li><strong>Handle Drift</strong>: Detect when reality doesn’t match configuration</li>
-  <li><strong>Manage Dependencies</strong>: Know the order for updates and deletions</li>
-  <li><strong>Enable Collaboration</strong>: Share infrastructure state across teams</li>
+  <li><strong>Calculate minimal changes</strong> - Only modify what is different</li>
+  <li><strong>Detect drift</strong> - Alert when someone changes infrastructure outside Terraform</li>
+  <li><strong>Enable collaboration</strong> - Teams share state to avoid conflicts</li>
 </ul>
 
-<h3 id="distributed-state-challenges">Distributed State Challenges</h3>
+<hr />
 
-<p>When teams collaborate on infrastructure, state management becomes a distributed systems problem. Multiple engineers might run Terraform simultaneously, leading to:</p>
+<h2 id="local-vs-remote-state">Local vs Remote State</h2>
+
+<p>By default, Terraform stores state in a local file called <code class="language-plaintext highlighter-rouge">terraform.tfstate</code>. This works fine for learning, but becomes problematic when teams collaborate.</p>
+
+<h3 id="comparing-state-storage-options">Comparing State Storage Options</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th>Local State</th>
+      <th>Remote State</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">terraform.tfstate</code> file</td>
+      <td>S3, Azure Blob, GCS, etc.</td>
+    </tr>
+    <tr>
+      <td><strong>Collaboration</strong></td>
+      <td>Single user only</td>
+      <td>Multiple team members</td>
+    </tr>
+    <tr>
+      <td><strong>Locking</strong></td>
+      <td>None</td>
+      <td>Prevents concurrent changes</td>
+    </tr>
+    <tr>
+      <td><strong>Backup</strong></td>
+      <td>Manual</td>
+      <td>Automatic versioning</td>
+    </tr>
+    <tr>
+      <td><strong>Security</strong></td>
+      <td>File permissions only</td>
+      <td>Encryption, access controls</td>
+    </tr>
+    <tr>
+      <td><strong>Best for</strong></td>
+      <td>Learning, experiments</td>
+      <td>Teams, production</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="when-to-use-each">When to Use Each</h3>
+
+<p><strong>Use local state when:</strong></p>
 <ul>
-  <li><strong>Race Conditions</strong>: Two applies modifying the same resource</li>
-  <li><strong>State Corruption</strong>: Partial writes creating invalid state</li>
-  <li><strong>Lost Updates</strong>: Changes being overwritten</li>
+  <li>Learning Terraform</li>
+  <li>Personal projects with no collaboration</li>
+  <li>Quick experiments</li>
 </ul>
 
-<p>Terraform solves these with distributed systems principles:</p>
+<p><strong>Use remote state when:</strong></p>
+<ul>
+  <li>Working in a team</li>
+  <li>Managing production infrastructure</li>
+  <li>Needing audit trails or encryption</li>
+  <li>Running Terraform in CI/CD pipelines</li>
+</ul>
 
-<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// State backend interface with consistency guarantees</span>
-<span class="k">type</span> <span class="n">StateBackend</span> <span class="k">interface</span> <span class="p">{</span>
-    <span class="c">// Lock acquires a distributed lock with timeout</span>
-    <span class="n">Lock</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">info</span> <span class="o">*</span><span class="n">LockInfo</span><span class="p">)</span> <span class="p">(</span><span class="n">LockID</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
-    
-    <span class="c">// Unlock releases the lock</span>
-    <span class="n">Unlock</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">id</span> <span class="n">LockID</span><span class="p">)</span> <span class="kt">error</span>
-    
-    <span class="c">// Get retrieves state with consistency level</span>
-    <span class="n">Get</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">consistency</span> <span class="n">ConsistencyLevel</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">State</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span>
-    
-    <span class="c">// Put stores state with conditional update</span>
-    <span class="n">Put</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">state</span> <span class="o">*</span><span class="n">State</span><span class="p">,</span> <span class="n">condition</span> <span class="o">*</span><span class="n">Condition</span><span class="p">)</span> <span class="kt">error</span>
-    
-    <span class="c">// Watch monitors state changes</span>
-    <span class="n">Watch</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="o">&lt;-</span><span class="k">chan</span> <span class="n">StateChange</span>
-<span class="p">}</span>
+<h3 id="setting-up-remote-state-aws-example">Setting Up Remote State (AWS Example)</h3>
 
-<span class="c">// S3 backend with DynamoDB locking</span>
-<span class="k">type</span> <span class="n">S3Backend</span> <span class="k">struct</span> <span class="p">{</span>
-    <span class="n">bucket</span>    <span class="kt">string</span>
-    <span class="n">key</span>       <span class="kt">string</span>
-    <span class="n">s3Client</span>  <span class="o">*</span><span class="n">s3</span><span class="o">.</span><span class="n">Client</span>
-    <span class="n">ddbClient</span> <span class="o">*</span><span class="n">dynamodb</span><span class="o">.</span><span class="n">Client</span>
-    <span class="n">lockTable</span> <span class="kt">string</span>
-<span class="p">}</span>
+<p>Remote state requires two things: storage (S3 bucket) and locking (DynamoDB table).</p>
 
-<span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">S3Backend</span><span class="p">)</span> <span class="n">Lock</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">info</span> <span class="o">*</span><span class="n">LockInfo</span><span class="p">)</span> <span class="p">(</span><span class="n">LockID</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">lockID</span> <span class="o">:=</span> <span class="n">generateLockID</span><span class="p">()</span>
-    
-    <span class="c">// Attempt to acquire lock in DynamoDB</span>
-    <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">ddbClient</span><span class="o">.</span><span class="n">PutItem</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">dynamodb</span><span class="o">.</span><span class="n">PutItemInput</span><span class="p">{</span>
-        <span class="n">TableName</span><span class="o">:</span> <span class="n">aws</span><span class="o">.</span><span class="n">String</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">lockTable</span><span class="p">),</span>
-        <span class="n">Item</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValue</span><span class="p">{</span>
-            <span class="s">"LockID"</span><span class="o">:</span>    <span class="o">&amp;</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValueMemberS</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="kt">string</span><span class="p">(</span><span class="n">lockID</span><span class="p">)},</span>
-            <span class="s">"Path"</span><span class="o">:</span>      <span class="o">&amp;</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValueMemberS</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="n">b</span><span class="o">.</span><span class="n">key</span><span class="p">},</span>
-            <span class="s">"Info"</span><span class="o">:</span>      <span class="o">&amp;</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValueMemberS</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="n">info</span><span class="o">.</span><span class="n">String</span><span class="p">()},</span>
-            <span class="s">"Created"</span><span class="o">:</span>   <span class="o">&amp;</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValueMemberN</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">Unix</span><span class="p">())},</span>
-            <span class="s">"TTL"</span><span class="o">:</span>       <span class="o">&amp;</span><span class="n">types</span><span class="o">.</span><span class="n">AttributeValueMemberN</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="m">30</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Minute</span><span class="p">)</span><span class="o">.</span><span class="n">Unix</span><span class="p">())},</span>
-        <span class="p">},</span>
-        <span class="n">ConditionExpression</span><span class="o">:</span> <span class="n">aws</span><span class="o">.</span><span class="n">String</span><span class="p">(</span><span class="s">"attribute_not_exists(LockID)"</span><span class="p">),</span>
-    <span class="p">})</span>
-    
-    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
-        <span class="k">var</span> <span class="n">condErr</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">ConditionalCheckFailedException</span>
-        <span class="k">if</span> <span class="n">errors</span><span class="o">.</span><span class="n">As</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">condErr</span><span class="p">)</span> <span class="p">{</span>
-            <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">ErrLockHeld</span>
-        <span class="p">}</span>
-        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">err</span>
-    <span class="p">}</span>
-    
-    <span class="k">return</span> <span class="n">lockID</span><span class="p">,</span> <span class="no">nil</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="advanced-remote-state-configuration">Advanced Remote State Configuration</h3>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># S3 backend with enhanced security and performance</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Configure S3 backend with locking</span>
 <span class="nx">terraform</span> <span class="p">{</span>
   <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
-    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"terraform-state-${data.aws_caller_identity.current.account_id}"</span>
-    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"${var.project}/${var.environment}/terraform.tfstate"</span>
-    <span class="nx">region</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">aws_region</span>
-    
-    <span class="c1"># DynamoDB table for state locking</span>
-    <span class="nx">dynamodb_table</span> <span class="o">=</span> <span class="s2">"terraform-state-locks"</span>
-    
-    <span class="c1"># Encryption at rest</span>
+    <span class="nx">bucket</span>         <span class="o">=</span> <span class="s2">"my-terraform-state"</span>
+    <span class="nx">key</span>            <span class="o">=</span> <span class="s2">"prod/terraform.tfstate"</span>
+    <span class="nx">region</span>         <span class="o">=</span> <span class="s2">"us-east-1"</span>
+    <span class="nx">dynamodb_table</span> <span class="o">=</span> <span class="s2">"terraform-locks"</span>
     <span class="nx">encrypt</span>        <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">kms_key_id</span>     <span class="o">=</span> <span class="s2">"arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/${var.kms_key_id}"</span>
-    
-    <span class="c1"># Access logging</span>
-    <span class="nx">access_logging</span> <span class="p">{</span>
-      <span class="nx">target_bucket</span> <span class="o">=</span> <span class="s2">"terraform-state-access-logs"</span>
-      <span class="nx">target_prefix</span> <span class="o">=</span> <span class="s2">"state-access/"</span>
-    <span class="p">}</span>
-    
-    <span class="c1"># Workspace key prefix</span>
-    <span class="nx">workspace_key_prefix</span> <span class="o">=</span> <span class="s2">"workspaces"</span>
-    
-    <span class="c1"># Skip metadata API check (for restricted environments)</span>
-    <span class="nx">skip_metadata_api_check</span> <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="c1"># Custom endpoint for S3-compatible storage</span>
-    <span class="nx">endpoint</span> <span class="o">=</span> <span class="nx">var</span><span class="err">.</span><span class="nx">s3_endpoint</span>
-    
-    <span class="c1"># Force path style for compatibility</span>
-    <span class="nx">force_path_style</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">use_path_style</span>
   <span class="p">}</span>
 <span class="p">}</span>
+</code></pre></div></div>
 
-<span class="c1"># State locking table</span>
-<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"terraform_locks"</span> <span class="p">{</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"terraform-state-locks"</span>
+<p><strong>Setting up the infrastructure for remote state:</strong></p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Create state bucket (run this separately first)</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"state"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-terraform-state"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"locks"</span> <span class="p">{</span>
+  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"terraform-locks"</span>
   <span class="nx">billing_mode</span> <span class="o">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
   <span class="nx">hash_key</span>     <span class="o">=</span> <span class="s2">"LockID"</span>
-  
-  <span class="c1"># TTL for automatic lock cleanup</span>
-  <span class="nx">ttl</span> <span class="p">{</span>
-    <span class="nx">attribute_name</span> <span class="o">=</span> <span class="s2">"TTL"</span>
-    <span class="nx">enabled</span>        <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Point-in-time recovery</span>
-  <span class="nx">point_in_time_recovery</span> <span class="p">{</span>
-    <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Global secondary index for querying locks</span>
-  <span class="nx">global_secondary_index</span> <span class="p">{</span>
-    <span class="nx">name</span>            <span class="o">=</span> <span class="s2">"PathIndex"</span>
-    <span class="nx">hash_key</span>        <span class="o">=</span> <span class="s2">"Path"</span>
-    <span class="nx">projection_type</span> <span class="o">=</span> <span class="s2">"ALL"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Purpose</span> <span class="o">=</span> <span class="s2">"TerraformStateLocking"</span>
-    <span class="nx">Critical</span> <span class="o">=</span> <span class="s2">"true"</span>
-  <span class="p">}</span>
+
+  <span class="nx">attribute</span> <span class="p">{</span> <span class="nx">name</span> <span class="o">=</span> <span class="s2">"LockID"</span><span class="p">,</span> <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span> <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="state-migration-and-refactoring">State Migration and Refactoring</h3>
+<p><strong>Important:</strong> Create the S3 bucket and DynamoDB table before configuring the backend. You cannot use Terraform to create its own state storage (chicken-and-egg problem).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">StateMigrator</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Handles complex state migrations and refactoring</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source_backend</span><span class="p">:</span> <span class="n">StateBackend</span><span class="p">,</span> <span class="n">target_backend</span><span class="p">:</span> <span class="n">StateBackend</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">source</span> <span class="o">=</span> <span class="n">source_backend</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">target_backend</span>
-    
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">migrate_with_transformation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> 
-                                        <span class="n">transformer</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">State</span><span class="p">],</span> <span class="n">State</span><span class="p">],</span>
-                                        <span class="n">dry_run</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MigrationResult</span><span class="p">:</span>
-        <span class="sh">"""</span><span class="s">Migrate state with transformation function</span><span class="sh">"""</span>
-        
-        <span class="c1"># Acquire locks on both backends
-</span>        <span class="n">source_lock</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="nf">lock</span><span class="p">(</span><span class="nc">LockInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">migration-read</span><span class="sh">"</span><span class="p">))</span>
-        <span class="n">target_lock</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="nf">lock</span><span class="p">(</span><span class="nc">LockInfo</span><span class="p">(</span><span class="sh">"</span><span class="s">migration-write</span><span class="sh">"</span><span class="p">))</span>
-        
-        <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Read source state
-</span>            <span class="n">source_state</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">ConsistencyLevel</span><span class="p">.</span><span class="n">STRONG</span><span class="p">)</span>
-            
-            <span class="c1"># Apply transformation
-</span>            <span class="n">target_state</span> <span class="o">=</span> <span class="nf">transformer</span><span class="p">(</span><span class="n">source_state</span><span class="p">)</span>
-            
-            <span class="c1"># Validate transformed state
-</span>            <span class="n">validation_errors</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">validate_state</span><span class="p">(</span><span class="n">target_state</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">validation_errors</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">State validation failed: </span><span class="si">{</span><span class="n">validation_errors</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
-                <span class="c1"># Write to target
-</span>                <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">target_state</span><span class="p">,</span> <span class="nc">Condition</span><span class="p">(</span><span class="n">not_exists</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
-                
-                <span class="c1"># Verify write
-</span>                <span class="n">verified_state</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">ConsistencyLevel</span><span class="p">.</span><span class="n">STRONG</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">verified_state</span><span class="p">.</span><span class="nf">hash</span><span class="p">()</span> <span class="o">!=</span> <span class="n">target_state</span><span class="p">.</span><span class="nf">hash</span><span class="p">():</span>
-                    <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">State verification failed</span><span class="sh">"</span><span class="p">)</span>
-            
-            <span class="k">return</span> <span class="nc">MigrationResult</span><span class="p">(</span>
-                <span class="n">success</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
-                <span class="n">resources_migrated</span><span class="o">=</span><span class="nf">len</span><span class="p">(</span><span class="n">target_state</span><span class="p">.</span><span class="n">resources</span><span class="p">),</span>
-                <span class="n">transformations_applied</span><span class="o">=</span><span class="n">transformer</span><span class="p">.</span><span class="n">transformations_count</span>
-            <span class="p">)</span>
-            
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="c1"># Always release locks
-</span>            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="nf">unlock</span><span class="p">(</span><span class="n">source_lock</span><span class="p">)</span>
-            <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="nf">unlock</span><span class="p">(</span><span class="n">target_lock</span><span class="p">)</span>
+<hr />
+
+<h2 id="common-state-operations">Common State Operations</h2>
+
+<p>As your infrastructure evolves, you will need to manipulate state directly. Here are the most common scenarios:</p>
+
+<h3 id="state-commands-quick-reference">State Commands Quick Reference</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Purpose</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform state list</code></td>
+      <td>Show all resources</td>
+      <td>See what Terraform manages</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform state show</code></td>
+      <td>Inspect a resource</td>
+      <td>Debug configuration issues</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform state mv</code></td>
+      <td>Rename/move resources</td>
+      <td>Refactoring without recreating</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform state rm</code></td>
+      <td>Remove from state</td>
+      <td>Adopt existing resources</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform import</code></td>
+      <td>Add existing resource</td>
+      <td>Bring unmanaged resources under control</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="moving-resources-between-states">Moving Resources Between States</h3>
+
+<p>When refactoring, you might need to move resources between configurations:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Rename a resource</span>
+terraform state <span class="nb">mv </span>aws_instance.old aws_instance.new
+
+<span class="c"># Move to a module</span>
+terraform state <span class="nb">mv </span>aws_instance.web module.webserver.aws_instance.main
 </code></pre></div></div>
+
+<h3 id="importing-existing-resources">Importing Existing Resources</h3>
+
+<p>Have infrastructure created outside Terraform? Import it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Import an existing S3 bucket</span>
+terraform import aws_s3_bucket.data my-existing-bucket
+</code></pre></div></div>
+
+<p><strong>Tip:</strong> After importing, run <code class="language-plaintext highlighter-rouge">terraform plan</code> to ensure your configuration matches the actual resource.</p>
+
+<hr />
 
 <h2 id="terraform-workspaces">Terraform Workspaces</h2>
 
-<h3 id="managing-multiple-environments">Managing Multiple Environments</h3>
+<p>Workspaces let you deploy the same configuration multiple times with separate state files. Think of them as parallel environments sharing the same code.</p>
 
-<p>Terraform workspaces provide a way to manage multiple deployments of the same infrastructure configuration. Think of workspaces as parallel universes for your infrastructure - each with its own state file but sharing the same configuration code.</p>
+<h3 id="when-to-use-workspaces">When to Use Workspaces</h3>
 
-<h3 id="understanding-workspaces">Understanding Workspaces</h3>
+<p>Consider the following scenario: You want to deploy identical infrastructure for dev, staging, and production. Workspaces let you do this without duplicating configuration files.</p>
 
-<p>By default, you’re working in a workspace called “default”. Each workspace maintains its own state file, allowing you to deploy the same configuration multiple times without conflicts.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List all workspaces (* indicates current)</span>
-terraform workspace list
-<span class="c"># Output:</span>
-<span class="c"># * default</span>
-<span class="c">#   dev</span>
-<span class="c">#   staging</span>
-<span class="c">#   production</span>
-
-<span class="c"># Create a new workspace</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create workspaces for each environment</span>
 terraform workspace new dev
+terraform workspace new staging
+terraform workspace new production
 
-<span class="c"># Switch between workspaces</span>
+<span class="c"># Switch between them</span>
+terraform workspace <span class="k">select </span>dev
+terraform apply  <span class="c"># Deploys to dev</span>
+
 terraform workspace <span class="k">select </span>production
-
-<span class="c"># Show current workspace</span>
-terraform workspace show
+terraform apply  <span class="c"># Deploys to production (separate state)</span>
 </code></pre></div></div>
 
-<h3 id="workspace-aware-configuration">Workspace-Aware Configuration</h3>
+<h3 id="workspaces-vs-separate-directories">Workspaces vs Separate Directories</h3>
 
-<p>Make your configuration adapt to the current workspace:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>Workspaces</th>
+      <th>Separate Directories</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Configuration</strong></td>
+      <td>Shared</td>
+      <td>Can differ per environment</td>
+    </tr>
+    <tr>
+      <td><strong>State</strong></td>
+      <td>Separate per workspace</td>
+      <td>Separate per directory</td>
+    </tr>
+    <tr>
+      <td><strong>Complexity</strong></td>
+      <td>Lower</td>
+      <td>Higher</td>
+    </tr>
+    <tr>
+      <td><strong>Flexibility</strong></td>
+      <td>Lower</td>
+      <td>Higher</td>
+    </tr>
+    <tr>
+      <td><strong>Best for</strong></td>
+      <td>Identical environments</td>
+      <td>Different configurations</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use workspace name in resource naming</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"app_data"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.project}-${terraform.workspace}-data"</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
-    <span class="nx">Project</span>     <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">project</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<p><strong>Use workspaces when:</strong> Environments are nearly identical and differ only by size or count.</p>
 
-<span class="c1"># Different instance types per environment</span>
-<span class="nx">locals</span> <span class="p">{</span>
+<p><strong>Use separate directories when:</strong> Environments have different resources, modules, or significant configuration differences.</p>
+
+<h3 id="making-configuration-workspace-aware">Making Configuration Workspace-Aware</h3>
+
+<p>Use <code class="language-plaintext highlighter-rouge">terraform.workspace</code> to customize based on current workspace:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">locals</span> <span class="p">{</span>
   <span class="nx">instance_types</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">default</span>    <span class="o">=</span> <span class="s2">"t3.micro"</span>
-    <span class="nx">dev</span>        <span class="o">=</span> <span class="s2">"t3.small"</span>
-    <span class="nx">staging</span>    <span class="o">=</span> <span class="s2">"t3.medium"</span>
+    <span class="nx">dev</span>        <span class="o">=</span> <span class="s2">"t3.micro"</span>
+    <span class="nx">staging</span>    <span class="o">=</span> <span class="s2">"t3.small"</span>
     <span class="nx">production</span> <span class="o">=</span> <span class="s2">"m5.large"</span>
   <span class="p">}</span>
-  
-  <span class="nx">instance_type</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">instance_types</span><span class="p">[</span><span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">]</span>
 <span class="p">}</span>
 
 <span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"app"</span> <span class="p">{</span>
-  <span class="nx">instance_type</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">instance_type</span>
-  
-  <span class="c1"># Only enable detailed monitoring in production</span>
-  <span class="nx">monitoring</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span> <span class="o">==</span> <span class="s2">"production"</span>
-<span class="p">}</span>
+  <span class="nx">instance_type</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">instance_types</span><span class="p">[</span><span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">]</span>
 
-<span class="c1"># Workspace-specific variable files</span>
-<span class="nx">variable</span> <span class="s2">"replicas"</span> <span class="p">{</span>
-  <span class="nx">default</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">dev</span>        <span class="o">=</span> <span class="mi">1</span>
-    <span class="nx">staging</span>    <span class="o">=</span> <span class="mi">2</span>
-    <span class="nx">production</span> <span class="o">=</span> <span class="mi">5</span>
+  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
   <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_autoscaling_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
-  <span class="nx">min_size</span> <span class="o">=</span> <span class="nx">lookup</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">replicas</span><span class="p">,</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-  <span class="nx">max_size</span> <span class="o">=</span> <span class="nx">lookup</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">replicas</span><span class="p">,</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">*</span> <span class="mi">2</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="advanced-workspace-patterns">Advanced Workspace Patterns</h3>
-
-<h4 id="pattern-1-environment-isolation">Pattern 1: Environment Isolation</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Complete environment isolation</span>
-<span class="nx">module</span> <span class="s2">"vpc"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/vpc"</span>
-  
-  <span class="nx">cidr_block</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">vpc_cidrs</span><span class="p">[</span><span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">]</span>
-  
-  <span class="c1"># Prevent accidental cross-environment references</span>
-  <span class="nx">enable_vpc_peering</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span> <span class="o">==</span> <span class="s2">"production"</span> <span class="o">?</span> <span class="kc">false</span> <span class="o">:</span> <span class="kc">true</span>
-  
-  <span class="c1"># Different availability zones per environment</span>
-  <span class="nx">availability_zones</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_availability_zones</span><span class="p">.</span><span class="nx">available</span><span class="p">.</span><span class="nx">names</span><span class="p">[</span>
-    <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span> <span class="o">==</span> <span class="s2">"production"</span> <span class="o">?</span> <span class="s2">"0:3"</span> <span class="o">:</span> <span class="s2">"0:2"</span>
-  <span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Separate state buckets per workspace</span>
-<span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
-    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"terraform-state"</span>
-    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"infrastructure/${terraform.workspace}/terraform.tfstate"</span>
-    <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="pattern-2-feature-flags">Pattern 2: Feature Flags</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable features progressively across environments</span>
-<span class="nx">locals</span> <span class="p">{</span>
-  <span class="nx">features</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">dev</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">enable_waf</span>          <span class="o">=</span> <span class="kc">false</span>
-      <span class="nx">enable_backup</span>       <span class="o">=</span> <span class="kc">false</span>
-      <span class="nx">enable_monitoring</span>   <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_auto_scaling</span> <span class="o">=</span> <span class="kc">false</span>
-    <span class="p">}</span>
-    <span class="nx">staging</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">enable_waf</span>          <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_backup</span>       <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_monitoring</span>   <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_auto_scaling</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    <span class="nx">production</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">enable_waf</span>          <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_backup</span>       <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_monitoring</span>   <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">enable_auto_scaling</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">current_features</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">features</span><span class="p">[</span><span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Conditionally create resources</span>
-<span class="nx">resource</span> <span class="s2">"aws_wafv2_web_acl"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">current_features</span><span class="p">.</span><span class="nx">enable_waf</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  
-  <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"${var.project}-${terraform.workspace}-waf"</span>
-  <span class="nx">scope</span> <span class="o">=</span> <span class="s2">"REGIONAL"</span>
-  
-  <span class="c1"># WAF rules...</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
 <h3 id="workspace-best-practices">Workspace Best Practices</h3>
 
-<h4 id="1-naming-conventions">1. Naming Conventions</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consistent naming across resources</span>
-<span class="nx">locals</span> <span class="p">{</span>
-  <span class="c1"># Standard name prefix</span>
-  <span class="nx">name_prefix</span> <span class="o">=</span> <span class="s2">"${var.organization}-${var.project}-${terraform.workspace}"</span>
-  
-  <span class="c1"># Common tags for all resources</span>
-  <span class="nx">common_tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Organization</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">organization</span>
-    <span class="nx">Project</span>      <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">project</span>
-    <span class="nx">Environment</span>  <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
-    <span class="nx">ManagedBy</span>    <span class="o">=</span> <span class="s2">"terraform"</span>
-    <span class="nx">Workspace</span>    <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Use in all resources</span>
-<span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"app"</span> <span class="p">{</span>
-  <span class="nx">tags</span> <span class="o">=</span> <span class="nx">merge</span><span class="p">(</span><span class="nx">local</span><span class="p">.</span><span class="nx">common_tags</span><span class="p">,</span> <span class="p">{</span>
-    <span class="nx">Name</span> <span class="o">=</span> <span class="s2">"${local.name_prefix}-app-server"</span>
-    <span class="nx">Role</span> <span class="o">=</span> <span class="s2">"application"</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="2-workspace-validation">2. Workspace Validation</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Ensure workspace names follow conventions</span>
-<span class="nx">variable</span> <span class="s2">"allowed_workspaces"</span> <span class="p">{</span>
-  <span class="nx">default</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"dev"</span><span class="p">,</span> <span class="s2">"staging"</span><span class="p">,</span> <span class="s2">"production"</span><span class="p">,</span> <span class="s2">"dr"</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="nx">locals</span> <span class="p">{</span>
-  <span class="nx">workspace_valid</span> <span class="o">=</span> <span class="nx">contains</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">allowed_workspaces</span><span class="p">,</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span><span class="p">)</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"null_resource"</span> <span class="s2">"workspace_validator"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">workspace_valid</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="mi">1</span>
-  
-  <span class="nx">provisioner</span> <span class="s2">"local-exec"</span> <span class="p">{</span>
-    <span class="nx">command</span> <span class="o">=</span> <span class="s2">"echo 'ERROR: Workspace ${terraform.workspace} is not allowed' &amp;&amp; exit 1"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="3-cost-management">3. Cost Management</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Automatic resource cleanup for non-production</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"auto_shutdown"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span> <span class="o">!=</span> <span class="s2">"production"</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  
-  <span class="nx">function_name</span> <span class="o">=</span> <span class="s2">"${local.name_prefix}-auto-shutdown"</span>
-  
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">WORKSPACE</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
-      <span class="nx">TAG_KEY</span>   <span class="o">=</span> <span class="s2">"Environment"</span>
-      <span class="nx">TAG_VALUE</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># CloudWatch event for nightly shutdown</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"shutdown_schedule"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">terraform</span><span class="p">.</span><span class="nx">workspace</span> <span class="o">!=</span> <span class="s2">"production"</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  
-  <span class="nx">name</span>                <span class="o">=</span> <span class="s2">"${local.name_prefix}-shutdown"</span>
-  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"cron(0 2 * * ? *)"</span>  <span class="c1"># 2 AM UTC daily</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="workspace-limitations-and-alternatives">Workspace Limitations and Alternatives</h3>
-
-<p>While workspaces are useful, they have limitations:</p>
-
 <ol>
-  <li><strong>Single Configuration</strong>: All workspaces share the same Terraform configuration</li>
-  <li><strong>State Isolation Only</strong>: No configuration isolation between environments</li>
-  <li><strong>Limited Flexibility</strong>: Can’t have different modules per environment</li>
+  <li><strong>Use consistent naming</strong>: Include workspace in resource names to avoid conflicts</li>
+  <li><strong>Validate workspace names</strong>: Prevent typos from creating unexpected environments</li>
+  <li><strong>Consider cost</strong>: Non-production workspaces can use smaller, cheaper resources</li>
 </ol>
 
-<h4 id="alternative-directory-structure">Alternative: Directory Structure</h4>
-
-<p>For more complex scenarios, consider separate directories:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>infrastructure/
-├── environments/
-│   ├── dev/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── terraform.tfvars
-│   ├── staging/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── terraform.tfvars
-│   └── production/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── terraform.tfvars
-└── modules/
-    ├── networking/
-    ├── compute/
-    └── database/
-</code></pre></div></div>
-
-<h4 id="alternative-terragrunt">Alternative: Terragrunt</h4>
-
-<p>For DRY (Don’t Repeat Yourself) configurations:</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># terragrunt.hcl in environment directory</span>
-<span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"../../../modules//app-stack"</span>
-<span class="p">}</span>
-
-<span class="nx">inputs</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="nx">environment</span>     <span class="o">=</span> <span class="s2">"production"</span>
-  <span class="nx">instance_count</span>  <span class="o">=</span> <span class="mi">10</span>
-  <span class="nx">instance_type</span>   <span class="o">=</span> <span class="s2">"m5.xlarge"</span>
-  <span class="nx">enable_autoscaling</span> <span class="o">=</span> <span class="kc">true</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: consistent naming with workspace</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"data"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.project}-${terraform.workspace}-data"</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="workspace-migration-strategies">Workspace Migration Strategies</h3>
+<hr />
 
-<p>When moving resources between workspaces:</p>
+<h2 id="outputs">Outputs</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Export resource from source workspace</span>
-terraform workspace <span class="k">select </span>source-workspace
-terraform state pull <span class="o">&gt;</span> source-state.json
+<p>Outputs expose values from your Terraform configuration. They serve two purposes:</p>
 
-<span class="c"># Extract specific resources</span>
-jq <span class="s1">'.resources[] | select(.type == "aws_instance")'</span> source-state.json <span class="o">&gt;</span> resources.json
-
-<span class="c"># Import to target workspace</span>
-terraform workspace <span class="k">select </span>target-workspace
-terraform import aws_instance.app i-1234567890abcdef0
-
-<span class="c"># Verify state</span>
-terraform plan
-</code></pre></div></div>
-
-<h2 id="outputs-and-remote-state-management">Outputs and Remote State Management</h2>
-
-<p>Outputs in Terraform are used to display specific values from your configuration after it is applied.</p>
+<ol>
+  <li><strong>Display information</strong> after apply (e.g., the IP address of a newly created server)</li>
+  <li><strong>Share data</strong> between Terraform configurations via remote state</li>
+</ol>
 
 <h3 id="defining-outputs">Defining Outputs</h3>
 
-<p>Create a new file named <code class="language-plaintext highlighter-rouge">outputs.tf</code>:</p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">output</span> <span class="s2">"bucket_arn"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"ARN of the S3 bucket"</span>
+  <span class="nx">value</span>       <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">touch </span>outputs.tf
-</code></pre></div></div>
-
-<p>Open <code class="language-plaintext highlighter-rouge">outputs.tf</code> and add the following output definition:</p>
-
-<div class="language-terraform highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">output</span> <span class="s2">"bucket_arn"</span> <span class="p">{</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"The Amazon Resource Name (ARN) of the created S3 bucket"</span>
-  <span class="nx">value</span>       <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">example_bucket</span><span class="p">.</span><span class="nx">arn</span>
+<span class="nx">output</span> <span class="s2">"database_endpoint"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Database connection string"</span>
+  <span class="nx">value</span>       <span class="o">=</span> <span class="nx">aws_db_instance</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">endpoint</span>
+  <span class="nx">sensitive</span>   <span class="o">=</span> <span class="kc">true</span>  <span class="c1"># Hide in console output</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>After applying your configuration with <code class="language-plaintext highlighter-rouge">terraform apply</code>, the output value will be displayed.</p>
+<h3 id="reading-outputs-from-other-configurations">Reading Outputs from Other Configurations</h3>
 
-<h3 id="remote-state-management">Remote State Management</h3>
+<p>Use <code class="language-plaintext highlighter-rouge">terraform_remote_state</code> to access outputs from another Terraform configuration:</p>
 
-<p>By default, Terraform stores the state of your infrastructure in a local file named <code class="language-plaintext highlighter-rouge">terraform.tfstate</code>. To store the state remotely and enable collaboration, you can use remote state backends like Amazon S3.</p>
-
-<p>To configure a remote backend, update your <code class="language-plaintext highlighter-rouge">main.tf</code> file with the following code:</p>
-
-<div class="language-terraform highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">terraform</span> <span class="p">{</span>
-  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
-    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-terraform-state-bucket"</span>
-    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"terraform-aws-example/terraform.tfstate"</span>
-    <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-west-2"</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Read outputs from the networking configuration</span>
+<span class="nx">data</span> <span class="s2">"terraform_remote_state"</span> <span class="s2">"network"</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="o">=</span> <span class="s2">"s3"</span>
+  <span class="nx">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-terraform-state"</span>
+    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"network/terraform.tfstate"</span>
+    <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Use the VPC ID from the other configuration</span>
+<span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">subnet_id</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">terraform_remote_state</span><span class="p">.</span><span class="nx">network</span><span class="p">.</span><span class="nx">outputs</span><span class="p">.</span><span class="nx">private_subnet_id</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Replace <code class="language-plaintext highlighter-rouge">"my-terraform-state-bucket"</code> with the name of an existing S3 bucket in your AWS account. The <code class="language-plaintext highlighter-rouge">key</code> specifies the path in the bucket where the state file will be stored.</p>
+<p>This pattern is useful for splitting large configurations into smaller, manageable pieces while maintaining connections between them.</p>
 
-<p>After updating the <code class="language-plaintext highlighter-rouge">main.tf</code>, run <code class="language-plaintext highlighter-rouge">terraform init</code> again:</p>
+<hr />
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform init
+<h2 id="terraform-modules">Terraform Modules</h2>
+
+<p>Modules are reusable packages of Terraform configuration. Think of them as functions for infrastructure: they accept inputs (variables), create resources, and return outputs.</p>
+
+<h3 id="why-use-modules">Why Use Modules?</h3>
+
+<p>Consider the following situation: You have copied your VPC configuration to 10 different projects. Now you need to change the subnet configuration. Without modules, you update 10 files. With modules, you update once.</p>
+
+<p><strong>Benefits of modules:</strong></p>
+<ul>
+  <li><strong>Reusability</strong>: Write once, use everywhere</li>
+  <li><strong>Consistency</strong>: Same configuration across environments</li>
+  <li><strong>Maintainability</strong>: Update in one place, propagate everywhere</li>
+  <li><strong>Encapsulation</strong>: Hide complexity behind a simple interface</li>
+</ul>
+
+<h3 id="creating-your-first-module">Creating Your First Module</h3>
+
+<p>A module is simply a directory with Terraform files. Here is a simple web server module:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>modules/
+  webserver/
+    main.tf       # Resources
+    variables.tf  # Inputs
+    outputs.tf    # Outputs
 </code></pre></div></div>
 
-<p>Terraform will prompt you to confirm the migration of the local state to the remote backend. Type <code class="language-plaintext highlighter-rouge">yes</code> and press Enter to proceed. From now on, Terraform will store the state in the specified S3 bucket.</p>
-
-<h2 id="mastering-terraform-modules">Mastering Terraform Modules</h2>
-
-<h3 id="from-copy-paste-to-composable-infrastructure">From Copy-Paste to Composable Infrastructure</h3>
-
-<p>Every Terraform journey follows a similar pattern:</p>
-<ol>
-  <li>Start with a single <code class="language-plaintext highlighter-rouge">main.tf</code> file</li>
-  <li>Copy configurations for new environments</li>
-  <li>Realize copying leads to drift and maintenance burden</li>
-  <li>Discover modules as the solution</li>
-</ol>
-
-<p>Modules transform infrastructure from scattered scripts to composable, reusable components. Think of them as functions for infrastructure - they take inputs, create resources, and return outputs.</p>
-
-<h3 id="advanced-module-patterns">Advanced Module Patterns</h3>
-
-<p>As you mature in module usage, you’ll discover patterns that mirror software engineering principles:</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generic module interface pattern</span>
-<span class="nx">module</span> <span class="s2">"generic_app"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/composable-app"</span>
-  
-  <span class="c1"># Module composition using higher-order modules</span>
-  <span class="nx">providers</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">aws</span><span class="p">.</span><span class="nx">primary</span>   <span class="o">=</span> <span class="nx">aws</span><span class="p">.</span><span class="nx">us_east_1</span>
-    <span class="nx">aws</span><span class="p">.</span><span class="nx">secondary</span> <span class="o">=</span> <span class="nx">aws</span><span class="p">.</span><span class="nx">us_west_2</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Dependency injection pattern</span>
-  <span class="nx">dependencies</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">network</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">network</span>
-    <span class="nx">security</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">security</span>
-    <span class="nx">monitoring</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">monitoring</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Feature flags for conditional composition</span>
-  <span class="nx">features</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">multi_region</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">auto_scaling</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">blue_green</span>   <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">canary</span>       <span class="o">=</span> <span class="kc">false</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Dynamic configuration</span>
-  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">applications</span>
-  
-  <span class="nx">app_config</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+<p><strong>modules/webserver/variables.tf:</strong></p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"instance_type"</span> <span class="p">{</span>
+  <span class="nx">default</span> <span class="o">=</span> <span class="s2">"t3.micro"</span>
 <span class="p">}</span>
-
-<span class="c1"># Module with advanced type constraints</span>
-<span class="nx">module</span> <span class="s2">"typed_infrastructure"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/typed-infra"</span>
-  
-  <span class="c1"># Type-safe configuration using experiments</span>
-  <span class="nx">configuration</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">compute</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">instances</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="nx">for</span> <span class="nx">i</span> <span class="nx">in</span> <span class="nx">range</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">instance_count</span><span class="p">)</span> <span class="o">:</span> <span class="p">{</span>
-          <span class="nx">name</span> <span class="o">=</span> <span class="s2">"instance-${i}"</span>
-          <span class="nx">type</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">instance_types</span><span class="p">[</span><span class="nx">i</span> <span class="o">%</span> <span class="nx">length</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">instance_types</span><span class="p">)]</span>
-          
-          <span class="c1"># Conditional nested objects</span>
-          <span class="nx">monitoring</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_monitoring</span> <span class="o">?</span> <span class="p">{</span>
-            <span class="nx">detailed</span> <span class="o">=</span> <span class="kc">true</span>
-            <span class="nx">interval</span> <span class="o">=</span> <span class="mi">60</span>
-          <span class="p">}</span> <span class="o">:</span> <span class="kc">null</span>
-        <span class="p">}</span>
-      <span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"name"</span> <span class="p">{</span>
+  <span class="nx">type</span> <span class="o">=</span> <span class="nx">string</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="module-testing-framework">Module Testing Framework</h3>
-
-<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Terratest-style module testing</span>
-<span class="k">func</span> <span class="n">TestComposableAppModule</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">t</span><span class="o">.</span><span class="n">Parallel</span><span class="p">()</span>
-    
-    <span class="c">// Test matrix for different configurations</span>
-    <span class="n">testCases</span> <span class="o">:=</span> <span class="p">[]</span><span class="k">struct</span> <span class="p">{</span>
-        <span class="n">name</span>     <span class="kt">string</span>
-        <span class="n">vars</span>     <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}</span>
-        <span class="n">validate</span> <span class="k">func</span><span class="p">(</span><span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="o">*</span><span class="n">terraform</span><span class="o">.</span><span class="n">Options</span><span class="p">,</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{})</span>
-    <span class="p">}{</span>
-        <span class="p">{</span>
-            <span class="n">name</span><span class="o">:</span> <span class="s">"multi-region-deployment"</span><span class="p">,</span>
-            <span class="n">vars</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}{</span>
-                <span class="s">"features"</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">bool</span><span class="p">{</span>
-                    <span class="s">"multi_region"</span><span class="o">:</span> <span class="no">true</span><span class="p">,</span>
-                    <span class="s">"auto_scaling"</span><span class="o">:</span> <span class="no">true</span><span class="p">,</span>
-                <span class="p">},</span>
-            <span class="p">},</span>
-            <span class="n">validate</span><span class="o">:</span> <span class="n">validateMultiRegion</span><span class="p">,</span>
-        <span class="p">},</span>
-        <span class="p">{</span>
-            <span class="n">name</span><span class="o">:</span> <span class="s">"single-region-basic"</span><span class="p">,</span>
-            <span class="n">vars</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}{</span>
-                <span class="s">"features"</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">bool</span><span class="p">{</span>
-                    <span class="s">"multi_region"</span><span class="o">:</span> <span class="no">false</span><span class="p">,</span>
-                    <span class="s">"auto_scaling"</span><span class="o">:</span> <span class="no">false</span><span class="p">,</span>
-                <span class="p">},</span>
-            <span class="p">},</span>
-            <span class="n">validate</span><span class="o">:</span> <span class="n">validateSingleRegion</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">}</span>
-    
-    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">tc</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">testCases</span> <span class="p">{</span>
-        <span class="n">tc</span> <span class="o">:=</span> <span class="n">tc</span> <span class="c">// Capture range variable</span>
-        
-        <span class="n">t</span><span class="o">.</span><span class="n">Run</span><span class="p">(</span><span class="n">tc</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="k">func</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
-            <span class="n">t</span><span class="o">.</span><span class="n">Parallel</span><span class="p">()</span>
-            
-            <span class="n">terraformOptions</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">terraform</span><span class="o">.</span><span class="n">Options</span><span class="p">{</span>
-                <span class="n">TerraformDir</span><span class="o">:</span> <span class="s">"../../modules/composable-app"</span><span class="p">,</span>
-                <span class="n">Vars</span><span class="o">:</span>         <span class="n">tc</span><span class="o">.</span><span class="n">vars</span><span class="p">,</span>
-                <span class="n">NoColor</span><span class="o">:</span>      <span class="no">true</span><span class="p">,</span>
-                
-                <span class="c">// Retry configuration for flaky resources</span>
-                <span class="n">RetryableTerraformErrors</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">{</span>
-                    <span class="s">".*timeout.*"</span><span class="o">:</span> <span class="s">"Timeout error occurred"</span><span class="p">,</span>
-                    <span class="s">".*rate limit.*"</span><span class="o">:</span> <span class="s">"Rate limit hit"</span><span class="p">,</span>
-                <span class="p">},</span>
-                <span class="n">MaxRetries</span><span class="o">:</span> <span class="m">3</span><span class="p">,</span>
-                <span class="n">TimeBetweenRetries</span><span class="o">:</span> <span class="m">5</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">,</span>
-            <span class="p">}</span>
-            
-            <span class="c">// Clean up resources</span>
-            <span class="k">defer</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Destroy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">terraformOptions</span><span class="p">)</span>
-            
-            <span class="c">// Deploy infrastructure</span>
-            <span class="n">terraform</span><span class="o">.</span><span class="n">InitAndApply</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">terraformOptions</span><span class="p">)</span>
-            
-            <span class="c">// Get outputs</span>
-            <span class="n">outputs</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">OutputAll</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">terraformOptions</span><span class="p">)</span>
-            
-            <span class="c">// Run validations</span>
-            <span class="n">tc</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">terraformOptions</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span>
-        <span class="p">})</span>
-    <span class="p">}</span>
+<p><strong>modules/webserver/main.tf:</strong></p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"web"</span> <span class="p">{</span>
+  <span class="nx">ami</span>           <span class="o">=</span> <span class="s2">"ami-12345678"</span>
+  <span class="nx">instance_type</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">instance_type</span>
+  <span class="nx">tags</span>          <span class="o">=</span> <span class="p">{</span> <span class="nx">Name</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">name</span> <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="module-registry-protocol">Module Registry Protocol</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ModuleRegistry</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Implementation of Terraform Module Registry Protocol</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">base_url</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">aiohttp</span><span class="p">.</span><span class="nc">ClientSession</span><span class="p">()</span>
-    
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">discover</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-        <span class="sh">"""</span><span class="s">Implement service discovery</span><span class="sh">"""</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">base_url</span><span class="si">}</span><span class="s">/.well-known/terraform.json</span><span class="sh">"</span><span class="p">)</span>
-        <span class="k">return</span> <span class="k">await</span> <span class="n">response</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
-    
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">list_versions</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="sh">"""</span><span class="s">List available module versions</span><span class="sh">"""</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">base_url</span><span class="si">}</span><span class="s">/v1/modules/</span><span class="si">{</span><span class="n">namespace</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">provider</span><span class="si">}</span><span class="s">/versions</span><span class="sh">"</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">response</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="sh">"</span><span class="s">version</span><span class="sh">"</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="sh">"</span><span class="s">modules</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">"</span><span class="s">versions</span><span class="sh">"</span><span class="p">]]</span>
-    
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">provider</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">version</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sh">"""</span><span class="s">Get module download URL</span><span class="sh">"""</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">base_url</span><span class="si">}</span><span class="s">/v1/modules/</span><span class="si">{</span><span class="n">namespace</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">provider</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s">/download</span><span class="sh">"</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-        
-        <span class="c1"># Follow redirect to actual download URL
-</span>        <span class="k">if</span> <span class="n">response</span><span class="p">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">204</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">response</span><span class="p">.</span><span class="n">headers</span><span class="p">[</span><span class="sh">"</span><span class="s">X-Terraform-Get</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">response</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="sh">"</span><span class="s">download_url</span><span class="sh">"</span><span class="p">]</span>
-    
-    <span class="k">def</span> <span class="nf">generate_lock_file</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">modules</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ModuleRef</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-        <span class="sh">"""</span><span class="s">Generate module lock file for reproducible builds</span><span class="sh">"""</span>
-        <span class="n">lock_data</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">version</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">modules</span><span class="sh">"</span><span class="p">:</span> <span class="p">{}</span>
-        <span class="p">}</span>
-        
-        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">modules</span><span class="p">:</span>
-            <span class="n">lock_data</span><span class="p">[</span><span class="sh">"</span><span class="s">modules</span><span class="sh">"</span><span class="p">][</span><span class="n">module</span><span class="p">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">:</span> <span class="n">module</span><span class="p">.</span><span class="n">source</span><span class="p">,</span>
-                <span class="sh">"</span><span class="s">version</span><span class="sh">"</span><span class="p">:</span> <span class="n">module</span><span class="p">.</span><span class="n">version</span><span class="p">,</span>
-                <span class="sh">"</span><span class="s">hash</span><span class="sh">"</span><span class="p">:</span> <span class="n">module</span><span class="p">.</span><span class="nf">calculate_hash</span><span class="p">(),</span>
-                <span class="sh">"</span><span class="s">dependencies</span><span class="sh">"</span><span class="p">:</span> <span class="n">module</span><span class="p">.</span><span class="n">dependencies</span>
-            <span class="p">}</span>
-        
-        <span class="k">return</span> <span class="n">lock_data</span>
+<p><strong>modules/webserver/outputs.tf:</strong></p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">output</span> <span class="s2">"public_ip"</span> <span class="p">{</span>
+  <span class="nx">value</span> <span class="o">=</span> <span class="nx">aws_instance</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">public_ip</span>
+<span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+<h3 id="using-modules">Using Modules</h3>
 
-<h3 id="learning-from-production-deployments">Learning from Production Deployments</h3>
+<p>Call your module from any configuration:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">module</span> <span class="s2">"web_prod"</span> <span class="p">{</span>
+  <span class="nx">source</span>        <span class="o">=</span> <span class="s2">"./modules/webserver"</span>
+  <span class="nx">name</span>          <span class="o">=</span> <span class="s2">"production-web"</span>
+  <span class="nx">instance_type</span> <span class="o">=</span> <span class="s2">"m5.large"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"web_dev"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/webserver"</span>
+  <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"dev-web"</span>
+  <span class="c1"># Uses default t3.micro</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"prod_ip"</span> <span class="p">{</span>
+  <span class="nx">value</span> <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">web_prod</span><span class="p">.</span><span class="nx">public_ip</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="module-sources">Module Sources</h3>
+
+<p>Modules can come from various locations:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Example</th>
+      <th>Best For</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Local path</td>
+      <td><code class="language-plaintext highlighter-rouge">./modules/vpc</code></td>
+      <td>Development, organization-specific</td>
+    </tr>
+    <tr>
+      <td>GitHub</td>
+      <td><code class="language-plaintext highlighter-rouge">github.com/org/module</code></td>
+      <td>Shared across teams</td>
+    </tr>
+    <tr>
+      <td>Terraform Registry</td>
+      <td><code class="language-plaintext highlighter-rouge">hashicorp/vpc/aws</code></td>
+      <td>Community modules</td>
+    </tr>
+    <tr>
+      <td>S3/GCS</td>
+      <td><code class="language-plaintext highlighter-rouge">s3::https://bucket.s3.amazonaws.com/module.zip</code></td>
+      <td>Private modules</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># From Terraform Registry (version pinned)</span>
+<span class="nx">module</span> <span class="s2">"vpc"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="o">=</span> <span class="s2">"terraform-aws-modules/vpc/aws"</span>
+  <span class="nx">version</span> <span class="o">=</span> <span class="s2">"5.0.0"</span>
+
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"my-vpc"</span>
+  <span class="nx">cidr</span> <span class="o">=</span> <span class="s2">"10.0.0.0/16"</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="when-to-create-vs-use-existing-modules">When to Create vs Use Existing Modules</h3>
+
+<p><strong>Create your own modules when:</strong></p>
+<ul>
+  <li>You have organization-specific requirements</li>
+  <li>You need tight control over configuration</li>
+  <li>Existing modules are too complex or simple</li>
+</ul>
+
+<p><strong>Use community modules when:</strong></p>
+<ul>
+  <li>They match your requirements closely</li>
+  <li>They are well-maintained (check stars, recent updates)</li>
+  <li>You want to benefit from community best practices</li>
+</ul>
+
+<p>The <a href="https://registry.terraform.io/">Terraform Registry</a> has thousands of modules for common infrastructure patterns.</p>
 
 
       </section>

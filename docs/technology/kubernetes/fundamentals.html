@@ -1240,25 +1240,17 @@ document.addEventListener('DOMContentLoaded', function() {
       </header>
 
       <section class="page__content">
-        <h2 id="documentation-structure">Documentation Structure</h2>
+        <h2 id="getting-started-with-kubernetes">Getting Started with Kubernetes</h2>
 
-<p>This guide covers Kubernetes comprehensively across the following topics:</p>
+<p>Before diving into commands and configurations, it helps to understand what Kubernetes actually does. Think of it as a distributed operating system: just as your laptop’s OS manages programs, memory, and files on a single machine, Kubernetes manages containers, resources, and storage across many machines.</p>
 
-<ol>
-  <li><strong>Quick Start</strong> - Essential commands and operations</li>
-  <li><strong>Core Concepts</strong> - Fundamental Kubernetes principles</li>
-  <li><strong>Kubernetes Objects</strong> - API object specifications</li>
-  <li><strong>Workload Resources</strong> - Application deployment patterns</li>
-  <li><strong>Networking &amp; Storage</strong> - Infrastructure integration</li>
-  <li><strong>Configuration &amp; Security</strong> - Production configurations</li>
-  <li><strong>Advanced Topics</strong> - Complex deployment scenarios</li>
-  <li><strong>Real-World Applications</strong> - Implementation case studies</li>
-  <li><strong>Latest Updates</strong> - Recent features and changes</li>
-</ol>
+<p><strong>Why does this matter?</strong> When you run <code class="language-plaintext highlighter-rouge">kubectl apply -f myapp.yaml</code>, you are not just starting a container. You are telling Kubernetes: “Here is what I want my application to look like. Make it happen and keep it that way.” Kubernetes then handles container placement, networking, restarts, and scaling automatically.</p>
+
+<p>This guide walks you through the fundamentals, building from your first deployment to production-ready configurations.</p>
 
 <h2 id="quick-start-guide">Quick Start Guide</h2>
 
-<p>Kubernetes functions as an operating system for distributed systems - it manages applications (containers) across multiple computers (nodes) similar to how an OS manages programs on a single computer. This section demonstrates essential operations.</p>
+<p>The fastest way to understand Kubernetes is to use it. This section gets you deploying an application in minutes.</p>
 
 <h3 id="requirements">Requirements</h3>
 <ul>
@@ -1270,78 +1262,171 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h3 id="your-first-deployment">Your First Deployment</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Check your cluster is running and version</span>
-kubectl cluster-info
-kubectl version <span class="nt">--short</span>
+<p>Let us deploy a web server and see Kubernetes in action:</p>
 
-<span class="c"># 2. Deploy a simple application</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Deploy nginx and expose it</span>
 kubectl create deployment hello-world <span class="nt">--image</span><span class="o">=</span>nginx:alpine
-
-<span class="c"># 3. Expose it to the internet</span>
 kubectl expose deployment hello-world <span class="nt">--type</span><span class="o">=</span>LoadBalancer <span class="nt">--port</span><span class="o">=</span>80
 
-<span class="c"># 4. Check it's running with more details</span>
-kubectl get pods <span class="nt">-o</span> wide
-kubectl get services
-kubectl describe deployment hello-world
-
-<span class="c"># 5. Scale it up</span>
-kubectl scale deployment hello-world <span class="nt">--replicas</span><span class="o">=</span>3
-
-<span class="c"># 6. See the magic - kill a pod and watch it resurrect</span>
+<span class="c"># Verify it is running</span>
 kubectl get pods
-kubectl delete pod &lt;pod-name&gt;
-kubectl get pods  <span class="c"># Notice a new pod replaced the deleted one!</span>
+kubectl get services
+</code></pre></div></div>
 
-<span class="c"># 7. Clean up</span>
-kubectl delete deployment hello-world
+<p>Now try the self-healing feature that makes Kubernetes valuable:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scale to 3 replicas and delete one pod</span>
+kubectl scale deployment hello-world <span class="nt">--replicas</span><span class="o">=</span>3
+kubectl delete pod &lt;pod-name&gt;
+kubectl get pods  <span class="c"># A new pod automatically replaces the deleted one</span>
+</code></pre></div></div>
+
+<p>Clean up when done:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl delete deployment hello-world
 kubectl delete service hello-world
 </code></pre></div></div>
 
-<h3 id="core-concepts-in-plain-english">Core Concepts in Plain English</h3>
+<h3 id="core-concepts-at-a-glance">Core Concepts at a Glance</h3>
 
-<p><strong>Pods</strong>: The smallest unit in Kubernetes. Like a wrapper around your container(s) that provides shared storage and network.</p>
+<p>Before going deeper, here is how the key pieces fit together:</p>
 
-<p><strong>Deployments</strong>: Manages your pods. Tells Kubernetes “I want 3 copies of my app running at all times” and Kubernetes makes it happen.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>What It Is</th>
+      <th>Analogy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Pod</strong></td>
+      <td>Smallest deployable unit; wraps one or more containers</td>
+      <td>An apartment unit in a building</td>
+    </tr>
+    <tr>
+      <td><strong>Deployment</strong></td>
+      <td>Manages pod replicas and updates</td>
+      <td>A property manager ensuring units are occupied</td>
+    </tr>
+    <tr>
+      <td><strong>Service</strong></td>
+      <td>Stable network address for pods</td>
+      <td>The building’s front desk that routes visitors</td>
+    </tr>
+    <tr>
+      <td><strong>Node</strong></td>
+      <td>A machine (physical or virtual) running pods</td>
+      <td>An apartment building</td>
+    </tr>
+    <tr>
+      <td><strong>Cluster</strong></td>
+      <td>A group of nodes managed together</td>
+      <td>The entire apartment complex</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Services</strong>: Provides a stable address for your pods. Even as pods die and restart with new IPs, the service address stays the same.</p>
+<p><strong>The key insight</strong>: You rarely work with pods directly. Instead, you tell a Deployment “I want 3 copies of my app” and it creates and manages the pods for you. Services then route traffic to those pods, regardless of which nodes they run on.</p>
 
-<p><strong>Nodes</strong>: The physical or virtual machines that run your containers.</p>
-
-<p><strong>Cluster</strong>: A group of nodes managed by Kubernetes.</p>
-
-<p>That’s it! You now understand the basics. The rest of this guide will take you deep into each concept and show you how to build production-ready systems.</p>
+<p>The rest of this guide explores each concept in depth, showing you how to build production-ready systems.</p>
 
 <h2 id="understanding-kubernetes-from-containers-to-orchestration">Understanding Kubernetes: From Containers to Orchestration</h2>
 
-<p>Before diving into Kubernetes architecture, let’s understand why we need container orchestration. When you run a single container on your laptop, Docker is perfectly adequate. But what happens when you need to run hundreds or thousands of containers across multiple servers? How do you ensure they’re always running, properly networked, and efficiently using resources? This is where Kubernetes comes in.</p>
+<p>Consider the following evolution in how we run applications:</p>
 
-<h3 id="the-evolution-from-bare-metal-to-kubernetes">The Evolution: From Bare Metal to Kubernetes</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Era</th>
+      <th>Approach</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Bare Metal</strong></td>
+      <td>One application per server</td>
+      <td>Wasted resources; most servers idle</td>
+    </tr>
+    <tr>
+      <td><strong>Virtual Machines</strong></td>
+      <td>Multiple VMs per server</td>
+      <td>Better utilization but heavy overhead</td>
+    </tr>
+    <tr>
+      <td><strong>Containers</strong></td>
+      <td>Many containers per server</td>
+      <td>Lightweight but manual management at scale</td>
+    </tr>
+    <tr>
+      <td><strong>Orchestration</strong></td>
+      <td>Kubernetes manages containers</td>
+      <td>Automated, scalable, self-healing</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li><strong>Bare Metal Era</strong>: One application per server, massive waste of resources</li>
-  <li><strong>Virtualization Era</strong>: Multiple VMs per server, better resource usage but heavy overhead</li>
-  <li><strong>Container Era</strong>: Lightweight isolation, but manual management becomes complex at scale</li>
-  <li><strong>Orchestration Era</strong>: Kubernetes automates container management, enabling true cloud-native applications</li>
-</ol>
+<p>Each step solved the previous era’s problems while creating new challenges. Containers solved VM overhead but introduced complexity: How do you run hundreds of containers across dozens of servers? How do you ensure they stay healthy? How do you update them without downtime?</p>
 
-<h3 id="why-kubernetes-wins">Why Kubernetes Wins</h3>
+<p>Kubernetes answers these questions with a declarative approach and automated operations.</p>
 
-<ul>
-  <li><strong>Declarative Configuration</strong>: You describe the desired state, Kubernetes makes it happen</li>
-  <li><strong>Self-Healing</strong>: Automatically replaces failed containers</li>
-  <li><strong>Service Discovery</strong>: Built-in DNS and load balancing</li>
-  <li><strong>Storage Orchestration</strong>: Automatically mounts storage systems</li>
-  <li><strong>Automated Rollouts</strong>: Deploy new versions without downtime</li>
-  <li><strong>Secret Management</strong>: Secure handling of sensitive data</li>
-  <li><strong>Horizontal Scaling</strong>: Scale with a simple command or automatically based on CPU/memory usage</li>
-</ul>
+<h3 id="what-kubernetes-provides">What Kubernetes Provides</h3>
+
+<p>Rather than listing features, consider what problems each capability solves:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Challenge</th>
+      <th>Kubernetes Solution</th>
+      <th>Benefit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>“My container crashed”</td>
+      <td>Self-healing</td>
+      <td>Automatic restart and replacement</td>
+    </tr>
+    <tr>
+      <td>“How do services find each other?”</td>
+      <td>Service discovery</td>
+      <td>Built-in DNS and load balancing</td>
+    </tr>
+    <tr>
+      <td>“I need to deploy without downtime”</td>
+      <td>Rolling updates</td>
+      <td>Gradual replacement of old pods</td>
+    </tr>
+    <tr>
+      <td>“Traffic is spiking”</td>
+      <td>Horizontal scaling</td>
+      <td>Add replicas automatically or manually</td>
+    </tr>
+    <tr>
+      <td>“I need to store passwords securely”</td>
+      <td>Secrets</td>
+      <td>Encrypted storage with access controls</td>
+    </tr>
+    <tr>
+      <td>“Different apps need different storage”</td>
+      <td>Storage classes</td>
+      <td>Abstract storage provisioning</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="core-concepts">Core Concepts</h2>
 
+<p>Now that you understand why Kubernetes exists, let us explore how it works. The architecture consists of two main parts: the <strong>control plane</strong> that makes decisions and the <strong>worker nodes</strong> that run your applications.</p>
+
+<p><strong>Consider the following</strong>: When you run <code class="language-plaintext highlighter-rouge">kubectl apply -f deployment.yaml</code>, your request travels through several components. The API Server receives it, stores the desired state in etcd, the Scheduler decides which node should run the pods, and the Controller Manager ensures reality matches your specification. Understanding this flow helps you troubleshoot when things go wrong.</p>
+
 <div class="architecture-section">
   <h3><i class="fas fa-sitemap"></i> Architecture Overview</h3>
-  <p>Kubernetes operates like a distributed operating system for your containers. It follows a master-worker architecture where a control plane manages the entire cluster while worker nodes run your actual applications. Think of it as a conductor (control plane) orchestrating an orchestra (worker nodes) to create harmonious music (your running applications).</p>
+  <p>Kubernetes follows a master-worker architecture. The control plane manages the cluster while worker nodes run your applications.</p>
   
   <div class="architecture-visual">
     <svg viewBox="0 0 700 400" class="k8s-architecture">
@@ -1465,7 +1550,53 @@ kubectl delete service hello-world
 
 <h3 id="kubernetes-objects-the-building-blocks">Kubernetes Objects: The Building Blocks</h3>
 
-<p>Now that we understand how Kubernetes is structured, let’s explore the objects we use to define our applications. These objects are like LEGO blocks - each serves a specific purpose, and when combined, they create complete application architectures. We’ll start with the most fundamental unit and build up to more complex constructs.</p>
+<p>With the architecture understood, let us explore the objects you will work with daily. Each object type solves a specific problem, and choosing the right one depends on your application’s needs.</p>
+
+<p><strong>When to use each object type</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Use Case</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Pod</strong></td>
+      <td>Rarely used directly; foundation for other objects</td>
+      <td>Testing, debugging</td>
+    </tr>
+    <tr>
+      <td><strong>Deployment</strong></td>
+      <td>Stateless applications that can scale horizontally</td>
+      <td>Web servers, APIs</td>
+    </tr>
+    <tr>
+      <td><strong>StatefulSet</strong></td>
+      <td>Stateful applications needing stable identity</td>
+      <td>Databases, message queues</td>
+    </tr>
+    <tr>
+      <td><strong>DaemonSet</strong></td>
+      <td>Run one pod per node</td>
+      <td>Log collectors, monitoring agents</td>
+    </tr>
+    <tr>
+      <td><strong>Job</strong></td>
+      <td>Run-to-completion tasks</td>
+      <td>Database migrations, batch processing</td>
+    </tr>
+    <tr>
+      <td><strong>CronJob</strong></td>
+      <td>Scheduled tasks</td>
+      <td>Nightly backups, report generation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Let us examine each object type, starting with the foundation.</p>
 
 <div class="k8s-objects-section">
   <div class="object-card pod-object">
@@ -1688,6 +1819,17 @@ spec:
     </div>
   </div>
 
+**Choosing a Service Type**: The right service type depends on how your application needs to be accessed:
+
+| Service Type | Accessible From | Use Case | Cost |
+|--------------|-----------------|----------|------|
+| **ClusterIP** | Inside cluster only | Internal microservices | Free |
+| **NodePort** | Node IP + port (30000-32767) | Development, testing | Free |
+| **LoadBalancer** | External IP via cloud LB | Production web apps | Cloud provider charges |
+| **ExternalName** | DNS alias | Accessing external services | Free |
+
+**When to use each**: Start with ClusterIP for internal services. Use LoadBalancer for production internet-facing services. NodePort is useful for development but rarely appropriate for production due to port limitations.
+
 #### ConfigMaps and Secrets: Managing Application Configuration
 
 As your applications grow, you'll need to manage configuration separately from your container images. This separation allows you to deploy the same image across different environments (development, staging, production) with different configurations. ConfigMaps handle non-sensitive data, while Secrets manage sensitive information like passwords and API keys.
@@ -1794,11 +1936,66 @@ metadata:
 
 <h2 id="workload-resources-beyond-basic-deployments">Workload Resources: Beyond Basic Deployments</h2>
 
-<p>While Deployments handle stateless applications beautifully, real-world systems often need more specialized controllers. Let’s explore how Kubernetes handles different workload patterns, each designed to solve specific operational challenges.</p>
+<p>Deployments work well for stateless applications, but real-world systems have varied requirements. Kubernetes provides specialized controllers for different workload patterns.</p>
+
+<p><strong>Consider the following decision tree</strong>:</p>
+
+<ul>
+  <li>Need to scale horizontally with identical replicas? Use a <strong>Deployment</strong></li>
+  <li>Need stable identity and persistent storage per pod? Use a <strong>StatefulSet</strong></li>
+  <li>Need exactly one pod on every node? Use a <strong>DaemonSet</strong></li>
+  <li>Need to run a task to completion? Use a <strong>Job</strong></li>
+  <li>Need to run tasks on a schedule? Use a <strong>CronJob</strong></li>
+</ul>
+
+<h3 id="deployment-vs-statefulset-vs-daemonset">Deployment vs StatefulSet vs DaemonSet</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Characteristic</th>
+      <th>Deployment</th>
+      <th>StatefulSet</th>
+      <th>DaemonSet</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Pod identity</strong></td>
+      <td>Random names</td>
+      <td>Ordered names (app-0, app-1)</td>
+      <td>One per node</td>
+    </tr>
+    <tr>
+      <td><strong>Scaling</strong></td>
+      <td>Any order</td>
+      <td>Sequential (0, 1, 2…)</td>
+      <td>Tied to node count</td>
+    </tr>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td>Shared or none</td>
+      <td>Dedicated per pod</td>
+      <td>Usually none</td>
+    </tr>
+    <tr>
+      <td><strong>Network</strong></td>
+      <td>Random IPs</td>
+      <td>Stable DNS per pod</td>
+      <td>Per-node</td>
+    </tr>
+    <tr>
+      <td><strong>Use case</strong></td>
+      <td>Web apps, APIs</td>
+      <td>Databases, Kafka</td>
+      <td>Logging, monitoring</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="statefulsets-when-order-and-identity-matter">StatefulSets: When Order and Identity Matter</h3>
 
-<p>Imagine deploying a database cluster where each instance needs a persistent identity and stable storage. Regular Deployments treat pods as interchangeable cattle, but StatefulSets treat them as pets with names and persistent characteristics. This is crucial for applications like databases, message queues, and distributed systems that rely on stable network identities and ordered operations.</p>
+<p>StatefulSets solve the “pets vs cattle” problem. While Deployments treat pods as interchangeable (cattle), StatefulSets give each pod a stable identity (pets). This matters for applications like databases that need to know their role in a cluster.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">StatefulSet</span>
@@ -1811,16 +2008,10 @@ metadata:
     <span class="na">matchLabels</span><span class="pi">:</span>
       <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
   <span class="na">template</span><span class="pi">:</span>
-    <span class="na">metadata</span><span class="pi">:</span>
-      <span class="na">labels</span><span class="pi">:</span>
-        <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
     <span class="na">spec</span><span class="pi">:</span>
       <span class="na">containers</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
         <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:13</span>
-        <span class="na">volumeMounts</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-storage</span>
-          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/postgresql/data</span>
   <span class="na">volumeClaimTemplates</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-storage</span>
@@ -1831,17 +2022,17 @@ metadata:
           <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
 </code></pre></div></div>
 
-<p><strong>Features:</strong></p>
+<p><strong>What StatefulSets guarantee</strong>:</p>
 <ul>
-  <li>Ordered deployment and scaling</li>
-  <li>Stable network identities</li>
-  <li>Persistent storage</li>
-  <li>Ordered termination</li>
+  <li>Pods named sequentially: postgres-0, postgres-1, postgres-2</li>
+  <li>Each pod gets its own persistent volume</li>
+  <li>Pods created in order (0 before 1 before 2) and deleted in reverse</li>
+  <li>Stable DNS: postgres-0.postgres.default.svc.cluster.local</li>
 </ul>
 
 <h3 id="daemonsets-one-pod-per-node">DaemonSets: One Pod Per Node</h3>
 
-<p>Some tasks need to run on every node in your cluster - think of monitoring agents, log collectors, or network plugins. DaemonSets solve this by automatically deploying exactly one pod per node, even as nodes are added or removed from the cluster. It’s like having a building superintendent in every apartment building of a large complex.</p>
+<p>Some workloads need to run everywhere: log collectors that capture output from all containers, monitoring agents that track node health, or network plugins. DaemonSets ensure exactly one pod runs on each node automatically.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
@@ -1852,51 +2043,45 @@ metadata:
     <span class="na">matchLabels</span><span class="pi">:</span>
       <span class="na">app</span><span class="pi">:</span> <span class="s">fluentd</span>
   <span class="na">template</span><span class="pi">:</span>
-    <span class="na">metadata</span><span class="pi">:</span>
-      <span class="na">labels</span><span class="pi">:</span>
-        <span class="na">app</span><span class="pi">:</span> <span class="s">fluentd</span>
     <span class="na">spec</span><span class="pi">:</span>
       <span class="na">containers</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">fluentd</span>
         <span class="na">image</span><span class="pi">:</span> <span class="s">fluentd:v1.14</span>
-        <span class="na">resources</span><span class="pi">:</span>
-          <span class="na">limits</span><span class="pi">:</span>
-            <span class="na">memory</span><span class="pi">:</span> <span class="s">200Mi</span>
 </code></pre></div></div>
 
-<p><strong>Use Cases:</strong></p>
+<p><strong>Common DaemonSet applications</strong>:</p>
 <ul>
-  <li>Log collection</li>
-  <li>Monitoring agents</li>
-  <li>Network plugins</li>
-  <li>Storage drivers</li>
+  <li><strong>Logging</strong>: Fluentd, Filebeat collecting container logs</li>
+  <li><strong>Monitoring</strong>: Node Exporter, Datadog agent</li>
+  <li><strong>Networking</strong>: Calico, Cilium CNI plugins</li>
+  <li><strong>Storage</strong>: CSI node plugins</li>
 </ul>
 
 <h3 id="jobs-and-cronjobs-task-automation">Jobs and CronJobs: Task Automation</h3>
 
-<p>Not all workloads run continuously. Sometimes you need to run a task once (like a database migration) or on a schedule (like nightly backups). Jobs ensure tasks complete successfully, while CronJobs handle recurring schedules - bringing Unix-like cron functionality to your containerized workloads.</p>
+<p>Not all workloads run continuously. Jobs handle run-to-completion tasks, while CronJobs run tasks on a schedule.</p>
 
-<p><strong>Job Example:</strong></p>
+<p><strong>Job</strong> - runs once until successful:</p>
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">backup-job</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">db-migration</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">template</span><span class="pi">:</span>
     <span class="na">spec</span><span class="pi">:</span>
       <span class="na">containers</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
-        <span class="na">image</span><span class="pi">:</span> <span class="s">backup-tool:latest</span>
-        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./backup.sh"</span><span class="pi">]</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">migrate</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
+        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./migrate.sh"</span><span class="pi">]</span>
       <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
-  <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">3</span>  <span class="c1"># Retry up to 3 times</span>
 </code></pre></div></div>
 
-<p><strong>CronJob Example:</strong></p>
+<p><strong>CronJob</strong> - runs on a schedule (standard cron syntax):</p>
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">CronJob</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">daily-backup</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">nightly-backup</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">schedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>  <span class="c1"># 2 AM daily</span>
   <span class="na">jobTemplate</span><span class="pi">:</span>
@@ -1909,29 +2094,54 @@ metadata:
           <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
 </code></pre></div></div>
 
+<p><strong>Real-world Job use cases</strong>: database migrations, data imports, report generation, sending batch emails, cleanup tasks.</p>
+
 <h2 id="networking-connecting-your-applications">Networking: Connecting Your Applications</h2>
 
-<p>Kubernetes networking might seem complex at first, but it follows simple principles designed to make communication between containers as straightforward as possible. Let’s explore how Kubernetes creates a flat network where every pod can communicate with every other pod, regardless of which node they’re on.</p>
+<p>Kubernetes networking follows a simple principle: every pod gets its own IP address, and all pods can communicate with each other without NAT. This flat network model makes it easy to reason about connectivity.</p>
 
-<h3 id="cluster-networking-fundamentals">Cluster Networking Fundamentals</h3>
+<p><strong>Consider the following networking layers</strong>:</p>
 
-<p><strong>Network Model Requirements:</strong></p>
-<ul>
-  <li>All pods can communicate with each other</li>
-  <li>All nodes can communicate with all pods</li>
-  <li>No NAT between pods</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Purpose</th>
+      <th>Kubernetes Object</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pod-to-Pod</td>
+      <td>Direct communication</td>
+      <td>Flat network (automatic)</td>
+    </tr>
+    <tr>
+      <td>Pod-to-Service</td>
+      <td>Stable endpoint for pods</td>
+      <td>Service</td>
+    </tr>
+    <tr>
+      <td>External-to-Service</td>
+      <td>Traffic from outside cluster</td>
+      <td>Ingress, LoadBalancer</td>
+    </tr>
+    <tr>
+      <td>Service-to-External</td>
+      <td>Outbound connections</td>
+      <td>NetworkPolicy (egress)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="ingress-your-clusters-front-door">Ingress: Your Cluster’s Front Door</h3>
 
-<p>While Services provide internal load balancing, Ingress acts as your cluster’s intelligent front door. It handles HTTP/HTTPS routing, SSL termination, and path-based routing - essentially replacing the need for multiple LoadBalancer services with a single entry point that can route to multiple backend services based on hostnames and paths.</p>
+<p>While Services handle internal routing, Ingress manages external HTTP/HTTPS traffic. Instead of creating multiple LoadBalancer services (each with its own IP and cost), Ingress provides a single entry point that routes to different services based on hostnames and paths.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">app-ingress</span>
-  <span class="na">annotations</span><span class="pi">:</span>
-    <span class="na">nginx.ingress.kubernetes.io/rewrite-target</span><span class="pi">:</span> <span class="s">/</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">rules</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">app.example.com</span>
@@ -1944,47 +2154,39 @@ metadata:
             <span class="na">name</span><span class="pi">:</span> <span class="s">api-service</span>
             <span class="na">port</span><span class="pi">:</span>
               <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
-      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/</span>
-        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
-        <span class="na">backend</span><span class="pi">:</span>
-          <span class="na">service</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">frontend-service</span>
-            <span class="na">port</span><span class="pi">:</span>
-              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
 </code></pre></div></div>
+
+<p><strong>When to use Ingress vs LoadBalancer</strong>:</p>
+<ul>
+  <li>Use <strong>Ingress</strong> when you have multiple services that need HTTP/HTTPS routing</li>
+  <li>Use <strong>LoadBalancer</strong> for non-HTTP traffic or single services</li>
+  <li>Ingress typically requires an Ingress Controller (nginx, traefik, or cloud-provided)</li>
+</ul>
 
 <h3 id="network-policies-microsegmentation-for-security">Network Policies: Microsegmentation for Security</h3>
 
-<p>In a flat network where everything can talk to everything, security becomes paramount. Network Policies act like firewall rules at the pod level, allowing you to control which pods can communicate with each other. This microsegmentation approach is crucial for implementing zero-trust security models in your cluster.</p>
+<p>By default, all pods can communicate freely. Network Policies let you restrict this, implementing defense-in-depth by controlling which pods can talk to each other.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">api-netpol</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api-allow-frontend-only</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">podSelector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
       <span class="na">app</span><span class="pi">:</span> <span class="s">api</span>
-  <span class="na">policyTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Ingress</span>
-  <span class="pi">-</span> <span class="s">Egress</span>
   <span class="na">ingress</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
         <span class="na">matchLabels</span><span class="pi">:</span>
           <span class="na">app</span><span class="pi">:</span> <span class="s">frontend</span>
     <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
-  <span class="na">egress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
-        <span class="na">matchLabels</span><span class="pi">:</span>
-          <span class="na">app</span><span class="pi">:</span> <span class="s">database</span>
-    <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
+    <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
 </code></pre></div></div>
+
+<p>This policy says: “Only allow traffic to the API pods from frontend pods on port 8080.”</p>
+
+<p><strong>Important</strong>: Network Policies require a CNI plugin that supports them (Calico, Cilium, Weave Net). The default kubenet does not enforce policies.</p>
 
 
       </section>

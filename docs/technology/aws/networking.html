@@ -1242,953 +1242,289 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <h1 id="aws-networking--content-delivery">AWS Networking &amp; Content Delivery</h1>
 
-<p>This guide covers VPC networking, CloudFront CDN, API Gateway, and load balancing. Learn how to build secure, high-performance network architectures on AWS.</p>
+<h2 id="why-networking-matters">Why Networking Matters</h2>
+
+<p>Networking is the foundation of every cloud architecture. Get it right, and your applications are secure, fast, and resilient. Get it wrong, and you face security vulnerabilities, performance bottlenecks, or unexpected costs.</p>
+
+<p>This guide covers:</p>
+<ul>
+  <li><strong>VPC (Virtual Private Cloud)</strong>: Your private network in AWS</li>
+  <li><strong>Load Balancing</strong>: Distributing traffic across servers</li>
+  <li><strong>CloudFront</strong>: Delivering content globally with low latency</li>
+  <li><strong>API Gateway</strong>: Managing and securing your APIs</li>
+</ul>
+
+<p>Consider the following before designing your network: Where will users access your application from? What needs to be public vs. private? How will services communicate with each other?</p>
+
+<hr />
 
 <h2 id="vpc---your-private-cloud-network">VPC - Your Private Cloud Network</h2>
 
 <p>VPC (Virtual Private Cloud) lets you create isolated networks in AWS. Think of it as your own private data center in the cloud, complete with subnets, routing rules, and security controls.</p>
 
+<p><strong>Why VPCs matter</strong>: Without a VPC, your resources would be exposed directly to the internet. VPCs provide network isolation, allowing you to control exactly what can communicate with what.</p>
+
 <h3 id="key-vpc-concepts">Key VPC Concepts</h3>
 
-<ol>
-  <li><strong>Subnets</strong>: Subdivide your VPC into public and private segments</li>
-  <li><strong>Internet Gateway</strong>: Allows public internet access</li>
-  <li><strong>NAT Gateway</strong>: Enables private instances to reach the internet</li>
-  <li><strong>Security Groups</strong>: Virtual firewalls for instances</li>
-  <li><strong>Network ACLs</strong>: Stateless subnet-level firewalls</li>
-  <li><strong>Route Tables</strong>: Control traffic routing</li>
-</ol>
-
-<h3 id="multi-az-architecture">Multi-AZ Architecture</h3>
-
-<p>Spread resources across Availability Zones for resilience:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>VPC (10.0.0.0/16)
-├── Public Subnet AZ-A (10.0.1.0/24)
-│   ├── NAT Gateway
-│   └── Load Balancer
-├── Public Subnet AZ-B (10.0.2.0/24)
-│   ├── NAT Gateway  
-│   └── Load Balancer
-├── Private Subnet AZ-A (10.0.10.0/24)
-│   └── Application Servers
-├── Private Subnet AZ-B (10.0.20.0/24)
-│   └── Application Servers
-├── Data Subnet AZ-A (10.0.100.0/24)
-│   └── RDS Primary
-└── Data Subnet AZ-B (10.0.200.0/24)
-    └── RDS Standby
-</code></pre></div></div>
-
-<h3 id="networking-connecting-your-application">Networking: Connecting Your Application</h3>
-
-<h4 id="amazon-vpc---your-private-cloud-network">Amazon VPC - Your Private Cloud Network</h4>
-<p>VPC (Virtual Private Cloud) lets you create isolated networks in AWS. Think of it as your own private data center in the cloud, complete with subnets, routing rules, and security controls.</p>
-
-<p>This is where things get more complex, but understanding VPC is crucial for production applications. Let’s build up gradually:</p>
-
-<ol>
-  <li><strong>Basic VPC</strong>: A simple network with public and private subnets</li>
-  <li><strong>Internet Access</strong>: Add an Internet Gateway for public-facing resources</li>
-  <li><strong>Security Groups</strong>: Virtual firewalls controlling traffic to your resources</li>
-  <li><strong>Multi-AZ Design</strong>: Spread resources across Availability Zones for resilience</li>
-</ol>
-
-<p><strong>Real-world example</strong>: An enterprise application runs web servers in public subnets (accessible from internet) and databases in private subnets (only accessible from web servers). This layered security approach protects sensitive data while serving public traffic.</p>
-
-<h3 id="api-gateway-advanced-patterns">API Gateway Advanced Patterns</h3>
-
-<h4 id="rest-api-with-request-validation">REST API with Request Validation</h4>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># api-gateway.tf - Advanced API Gateway with request validation</span>
-
-<span class="c1"># REST API</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_rest_api"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"${var.environment}-advanced-api"</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Advanced REST API with validation and security"</span>
-  
-  <span class="nx">endpoint_configuration</span> <span class="p">{</span>
-    <span class="nx">types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"REGIONAL"</span><span class="p">]</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># API Policy for resource limits</span>
-  <span class="nx">policy</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="nx">Version</span> <span class="o">=</span> <span class="s2">"2012-10-17"</span>
-    <span class="nx">Statement</span> <span class="o">=</span> <span class="p">[</span>
-      <span class="p">{</span>
-        <span class="nx">Effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-        <span class="nx">Principal</span> <span class="o">=</span> <span class="s2">"*"</span>
-        <span class="nx">Action</span> <span class="o">=</span> <span class="s2">"execute-api:Invoke"</span>
-        <span class="nx">Resource</span> <span class="o">=</span> <span class="s2">"*"</span>
-      <span class="p">},</span>
-      <span class="p">{</span>
-        <span class="nx">Effect</span> <span class="o">=</span> <span class="s2">"Deny"</span>
-        <span class="nx">Principal</span> <span class="o">=</span> <span class="s2">"*"</span>
-        <span class="nx">Action</span> <span class="o">=</span> <span class="s2">"execute-api:Invoke"</span>
-        <span class="nx">Resource</span> <span class="o">=</span> <span class="s2">"*"</span>
-        <span class="nx">Condition</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">IpAddressNotEquals</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">"aws:SourceIp"</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">allowed_ip_ranges</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">]</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="c1"># Request validator</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_request_validator"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>                        <span class="o">=</span> <span class="s2">"${var.environment}-validator"</span>
-  <span class="nx">rest_api_id</span>                 <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">validate_request_body</span>       <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">validate_request_parameters</span> <span class="o">=</span> <span class="kc">true</span>
-<span class="p">}</span>
-
-<span class="c1"># API Models for request/response validation</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_model"</span> <span class="s2">"user"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span>  <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"User"</span>
-  <span class="nx">content_type</span> <span class="o">=</span> <span class="s2">"application/json"</span>
-  
-  <span class="nx">schema</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="s2">"$schema"</span> <span class="p">=</span> <span class="s2">"http://json-schema.org/draft-04/schema#"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"object"</span>
-    <span class="nx">required</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"email"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">]</span>
-    <span class="nx">properties</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">email</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-        <span class="nx">format</span> <span class="o">=</span> <span class="s2">"email"</span>
-        <span class="nx">pattern</span> <span class="o">=</span> <span class="s2">"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+</span><span class="err">\\</span><span class="s2">.[a-zA-Z]{2,}$"</span>
-      <span class="p">}</span>
-      <span class="nx">name</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-        <span class="nx">minLength</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="nx">maxLength</span> <span class="o">=</span> <span class="mi">100</span>
-      <span class="p">}</span>
-      <span class="nx">age</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"integer"</span>
-        <span class="nx">minimum</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="nx">maximum</span> <span class="o">=</span> <span class="mi">150</span>
-      <span class="p">}</span>
-      <span class="nx">preferences</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"object"</span>
-        <span class="nx">properties</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">notifications</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="nx">type</span> <span class="o">=</span> <span class="s2">"boolean"</span>
-          <span class="p">}</span>
-          <span class="nx">theme</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-            <span class="nx">enum</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"light"</span><span class="p">,</span> <span class="s2">"dark"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">]</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_model"</span> <span class="s2">"error"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span>  <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"Error"</span>
-  <span class="nx">content_type</span> <span class="o">=</span> <span class="s2">"application/json"</span>
-  
-  <span class="nx">schema</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="s2">"$schema"</span> <span class="p">=</span> <span class="s2">"http://json-schema.org/draft-04/schema#"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"object"</span>
-    <span class="nx">required</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"message"</span><span class="p">]</span>
-    <span class="nx">properties</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">message</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-      <span class="p">}</span>
-      <span class="nx">code</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-      <span class="p">}</span>
-      <span class="nx">requestId</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">type</span> <span class="o">=</span> <span class="s2">"string"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="c1"># API Resources</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_resource"</span> <span class="s2">"v1"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">parent_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">root_resource_id</span>
-  <span class="nx">path_part</span>   <span class="o">=</span> <span class="s2">"v1"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_resource"</span> <span class="s2">"users"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">parent_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">v1</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">path_part</span>   <span class="o">=</span> <span class="s2">"users"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_resource"</span> <span class="s2">"user"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">parent_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">path_part</span>   <span class="o">=</span> <span class="s2">"{userId}"</span>
-<span class="p">}</span>
-
-<span class="c1"># OPTIONS method for CORS</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method"</span> <span class="s2">"users_options"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span>   <span class="o">=</span> <span class="s2">"OPTIONS"</span>
-  <span class="nx">authorization</span> <span class="o">=</span> <span class="s2">"NONE"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_integration"</span> <span class="s2">"users_options"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">users_options</span><span class="p">.</span><span class="nx">http_method</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"MOCK"</span>
-  
-  <span class="nx">request_templates</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="s2">"{</span><span class="se">\"</span><span class="s2">statusCode</span><span class="se">\"</span><span class="s2">: 200}"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method_response"</span> <span class="s2">"users_options"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">users_options</span><span class="p">.</span><span class="nx">http_method</span>
-  <span class="nx">status_code</span> <span class="o">=</span> <span class="s2">"200"</span>
-  
-  <span class="nx">response_parameters</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Headers"</span> <span class="p">=</span> <span class="kc">true</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Methods"</span> <span class="p">=</span> <span class="kc">true</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Origin"</span>  <span class="p">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="nx">response_models</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="s2">"Empty"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_integration_response"</span> <span class="s2">"users_options"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">users_options</span><span class="p">.</span><span class="nx">http_method</span>
-  <span class="nx">status_code</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method_response</span><span class="p">.</span><span class="nx">users_options</span><span class="p">.</span><span class="nx">status_code</span>
-  
-  <span class="nx">response_parameters</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Headers"</span> <span class="p">=</span> <span class="s2">"'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Methods"</span> <span class="p">=</span> <span class="s2">"'GET,OPTIONS,POST,PUT,DELETE'"</span>
-    <span class="s2">"method.response.header.Access-Control-Allow-Origin"</span>  <span class="p">=</span> <span class="s2">"'*'"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># POST method with validation</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method"</span> <span class="s2">"create_user"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span>          <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span>          <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span>          <span class="o">=</span> <span class="s2">"POST"</span>
-  <span class="nx">authorization</span>        <span class="o">=</span> <span class="s2">"CUSTOM"</span>
-  <span class="nx">authorizer_id</span>        <span class="o">=</span> <span class="nx">aws_api_gateway_authorizer</span><span class="p">.</span><span class="nx">jwt</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">request_validator_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_request_validator</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  
-  <span class="nx">request_models</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="nx">aws_api_gateway_model</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">name</span>
-  <span class="p">}</span>
-  
-  <span class="nx">request_parameters</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"method.request.header.X-Correlation-ID"</span> <span class="p">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Lambda integration</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_integration"</span> <span class="s2">"create_user"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">http_method</span>
-  
-  <span class="nx">integration_http_method</span> <span class="o">=</span> <span class="s2">"POST"</span>
-  <span class="nx">type</span>                    <span class="o">=</span> <span class="s2">"AWS_PROXY"</span>
-  <span class="nx">uri</span>                     <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">invoke_arn</span>
-  
-  <span class="nx">timeout_milliseconds</span> <span class="o">=</span> <span class="mi">29000</span>
-  
-  <span class="nx">request_templates</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-      <span class="nx">statusCode</span> <span class="o">=</span> <span class="mi">200</span>
-    <span class="p">})</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Method responses</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method_response"</span> <span class="s2">"create_user_200"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">http_method</span>
-  <span class="nx">status_code</span> <span class="o">=</span> <span class="s2">"200"</span>
-  
-  <span class="nx">response_models</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="nx">aws_api_gateway_model</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">name</span>
-  <span class="p">}</span>
-  
-  <span class="nx">response_parameters</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"method.response.header.X-Correlation-ID"</span> <span class="p">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method_response"</span> <span class="s2">"create_user_400"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">resource_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">http_method</span> <span class="o">=</span> <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">http_method</span>
-  <span class="nx">status_code</span> <span class="o">=</span> <span class="s2">"400"</span>
-  
-  <span class="nx">response_models</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"application/json"</span> <span class="p">=</span> <span class="nx">aws_api_gateway_model</span><span class="p">.</span><span class="nx">error</span><span class="p">.</span><span class="nx">name</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Custom authorizer</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_authorizer"</span> <span class="s2">"jwt"</span> <span class="p">{</span>
-  <span class="nx">name</span>                   <span class="o">=</span> <span class="s2">"${var.environment}-jwt-authorizer"</span>
-  <span class="nx">rest_api_id</span>            <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">type</span>                   <span class="o">=</span> <span class="s2">"TOKEN"</span>
-  <span class="nx">authorizer_uri</span>         <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">authorizer</span><span class="p">.</span><span class="nx">invoke_arn</span>
-  <span class="nx">authorizer_credentials</span> <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">api_gateway_authorizer</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">identity_source</span>        <span class="o">=</span> <span class="s2">"method.request.header.Authorization"</span>
-  
-  <span class="c1"># Cache auth results</span>
-  <span class="nx">authorizer_result_ttl_in_seconds</span> <span class="o">=</span> <span class="mi">300</span>
-<span class="p">}</span>
-
-<span class="c1"># Lambda authorizer function</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"authorizer"</span> <span class="p">{</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"authorizer.zip"</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-api-authorizer"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_authorizer</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.9"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">5</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">256</span>
-  
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">JWT_SECRET</span>        <span class="o">=</span> <span class="nx">aws_secretsmanager_secret_version</span><span class="p">.</span><span class="nx">jwt_secret</span><span class="p">.</span><span class="nx">secret_string</span>
-      <span class="nx">ENVIRONMENT</span>       <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-      <span class="nx">USER_POOL_ID</span>      <span class="o">=</span> <span class="nx">aws_cognito_user_pool</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-      <span class="nx">TOKEN_USE</span>         <span class="o">=</span> <span class="s2">"access"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># API deployment</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_deployment"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  
-  <span class="nx">triggers</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">redeployment</span> <span class="o">=</span> <span class="nx">sha1</span><span class="p">(</span><span class="nx">jsonencode</span><span class="p">([</span>
-      <span class="nx">aws_api_gateway_resource</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
-      <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
-      <span class="nx">aws_api_gateway_integration</span><span class="p">.</span><span class="nx">create_user</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
-    <span class="p">]))</span>
-  <span class="p">}</span>
-  
-  <span class="nx">lifecycle</span> <span class="p">{</span>
-    <span class="nx">create_before_destroy</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="nx">aws_api_gateway_method</span><span class="p">.</span><span class="nx">create_user</span><span class="p">,</span>
-    <span class="nx">aws_api_gateway_integration</span><span class="p">.</span><span class="nx">create_user</span>
-  <span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># API stages</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_stage"</span> <span class="s2">"prod"</span> <span class="p">{</span>
-  <span class="nx">deployment_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_deployment</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">rest_api_id</span>   <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">stage_name</span>    <span class="o">=</span> <span class="s2">"prod"</span>
-  
-  <span class="c1"># Enable logging</span>
-  <span class="nx">access_log_settings</span> <span class="p">{</span>
-    <span class="nx">destination_arn</span> <span class="o">=</span> <span class="nx">aws_cloudwatch_log_group</span><span class="p">.</span><span class="nx">api_gateway</span><span class="p">.</span><span class="nx">arn</span>
-    <span class="nx">format</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-      <span class="nx">requestId</span>               <span class="o">=</span> <span class="s2">"$context.requestId"</span>
-      <span class="nx">extendedRequestId</span>       <span class="o">=</span> <span class="s2">"$context.extendedRequestId"</span>
-      <span class="nx">ip</span>                      <span class="o">=</span> <span class="s2">"$context.identity.sourceIp"</span>
-      <span class="nx">caller</span>                  <span class="o">=</span> <span class="s2">"$context.identity.caller"</span>
-      <span class="nx">user</span>                    <span class="o">=</span> <span class="s2">"$context.identity.user"</span>
-      <span class="nx">requestTime</span>             <span class="o">=</span> <span class="s2">"$context.requestTime"</span>
-      <span class="nx">httpMethod</span>              <span class="o">=</span> <span class="s2">"$context.httpMethod"</span>
-      <span class="nx">resourcePath</span>            <span class="o">=</span> <span class="s2">"$context.resourcePath"</span>
-      <span class="nx">status</span>                  <span class="o">=</span> <span class="s2">"$context.status"</span>
-      <span class="nx">protocol</span>                <span class="o">=</span> <span class="s2">"$context.protocol"</span>
-      <span class="nx">responseLength</span>          <span class="o">=</span> <span class="s2">"$context.responseLength"</span>
-      <span class="nx">error</span>                   <span class="o">=</span> <span class="s2">"$context.error.message"</span>
-      <span class="nx">integrationLatency</span>      <span class="o">=</span> <span class="s2">"$context.integration.latency"</span>
-      <span class="nx">integrationStatus</span>       <span class="o">=</span> <span class="s2">"$context.integration.status"</span>
-      <span class="nx">integrationErrorMessage</span> <span class="o">=</span> <span class="s2">"$context.integrationErrorMessage"</span>
-      <span class="nx">authorizerError</span>         <span class="o">=</span> <span class="s2">"$context.authorizer.error"</span>
-    <span class="err">})</span>
-  <span class="err">}</span>
-  
-  <span class="c1"># Caching</span>
-  <span class="nx">cache_cluster_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">cache_cluster_size</span>    <span class="o">=</span> <span class="s2">"0.5"</span>
-  
-  <span class="c1"># Throttling</span>
-  <span class="nx">throttle_burst_limit</span> <span class="o">=</span> <span class="mi">5000</span>
-  <span class="nx">throttle_rate_limit</span>  <span class="o">=</span> <span class="mi">10000</span>
-  
-  <span class="c1"># X-Ray tracing</span>
-  <span class="nx">xray_tracing_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-  
-  <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">deployed_at</span> <span class="o">=</span> <span class="nx">timestamp</span><span class="p">()</span>
-  <span class="p">}</span>
-<span class="err">}</span>
-
-<span class="c1"># Method settings for all methods</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_method_settings"</span> <span class="s2">"all"</span> <span class="p">{</span>
-  <span class="nx">rest_api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">stage_name</span>  <span class="o">=</span> <span class="nx">aws_api_gateway_stage</span><span class="p">.</span><span class="nx">prod</span><span class="p">.</span><span class="nx">stage_name</span>
-  <span class="nx">method_path</span> <span class="o">=</span> <span class="s2">"*/*"</span>
-  
-  <span class="nx">settings</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">metrics_enabled</span>        <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">logging_level</span>          <span class="o">=</span> <span class="s2">"INFO"</span>
-    <span class="nx">data_trace_enabled</span>     <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">throttling_burst_limit</span> <span class="o">=</span> <span class="mi">2000</span>
-    <span class="nx">throttling_rate_limit</span>  <span class="o">=</span> <span class="mi">1000</span>
-    <span class="nx">caching_enabled</span>        <span class="o">=</span> <span class="kc">false</span>
-  <span class="err">}</span>
-<span class="p">}</span>
-
-<span class="c1"># API key and usage plan</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_api_key"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-api-key"</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_usage_plan"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"${var.environment}-usage-plan"</span>
-  <span class="nx">description</span>  <span class="o">=</span> <span class="s2">"Usage plan for API clients"</span>
-  
-  <span class="nx">api_stages</span> <span class="p">{</span>
-    <span class="nx">api_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-    <span class="nx">stage</span>  <span class="o">=</span> <span class="nx">aws_api_gateway_stage</span><span class="p">.</span><span class="nx">prod</span><span class="p">.</span><span class="nx">stage_name</span>
-  <span class="p">}</span>
-  
-  <span class="nx">quota_settings</span> <span class="p">{</span>
-    <span class="nx">limit</span>  <span class="o">=</span> <span class="mi">10000</span>
-    <span class="nx">period</span> <span class="o">=</span> <span class="s2">"DAY"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">throttle_settings</span> <span class="p">{</span>
-    <span class="nx">rate_limit</span>  <span class="o">=</span> <span class="mi">500</span>
-    <span class="nx">burst_limit</span> <span class="o">=</span> <span class="mi">1000</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_usage_plan_key"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">key_id</span>        <span class="o">=</span> <span class="nx">aws_api_gateway_api_key</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">key_type</span>      <span class="o">=</span> <span class="s2">"API_KEY"</span>
-  <span class="nx">usage_plan_id</span> <span class="o">=</span> <span class="nx">aws_api_gateway_usage_plan</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-<span class="p">}</span>
-
-<span class="c1"># Custom domain</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_domain_name"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">domain_name</span>              <span class="o">=</span> <span class="s2">"api.${var.domain_name}"</span>
-  <span class="nx">regional_certificate_arn</span> <span class="o">=</span> <span class="nx">aws_acm_certificate_validation</span><span class="p">.</span><span class="nx">api</span><span class="p">.</span><span class="nx">certificate_arn</span>
-  
-  <span class="nx">endpoint_configuration</span> <span class="p">{</span>
-    <span class="nx">types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"REGIONAL"</span><span class="p">]</span>
-  <span class="p">}</span>
-  
-  <span class="nx">security_policy</span> <span class="o">=</span> <span class="s2">"TLS_1_2"</span>
-  
-  <span class="nx">mutual_tls_authentication</span> <span class="p">{</span>
-    <span class="nx">truststore_uri</span> <span class="o">=</span> <span class="s2">"s3://${aws_s3_bucket.truststore.bucket}/truststore.pem"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_base_path_mapping"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">api_id</span>      <span class="o">=</span> <span class="nx">aws_api_gateway_rest_api</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">stage_name</span>  <span class="o">=</span> <span class="nx">aws_api_gateway_stage</span><span class="p">.</span><span class="nx">prod</span><span class="p">.</span><span class="nx">stage_name</span>
-  <span class="nx">domain_name</span> <span class="o">=</span> <span class="nx">aws_api_gateway_domain_name</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">domain_name</span>
-  <span class="nx">base_path</span>   <span class="o">=</span> <span class="s2">"v1"</span>
-<span class="p">}</span>
-
-<span class="c1"># WAF for API Gateway</span>
-<span class="nx">resource</span> <span class="s2">"aws_wafv2_web_acl_association"</span> <span class="s2">"api_gateway"</span> <span class="p">{</span>
-  <span class="nx">resource_arn</span> <span class="o">=</span> <span class="nx">aws_api_gateway_stage</span><span class="p">.</span><span class="nx">prod</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">web_acl_arn</span>  <span class="o">=</span> <span class="nx">aws_wafv2_web_acl</span><span class="p">.</span><span class="nx">api</span><span class="p">.</span><span class="nx">arn</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<h2 id="performance-at-scale-making-applications-fast">Performance at Scale: Making Applications Fast</h2>
-
-<p>Performance isn’t just about speed - it’s about delivering consistent experiences whether you have 10 or 10 million users. AWS provides tools to optimize every layer of your application.</p>
-
-<h3 id="the-performance-journey">The Performance Journey</h3>
-
-<p>Most applications follow a predictable performance evolution:</p>
-
-<ol>
-  <li><strong>Single Region, Basic Setup</strong>: Works fine for hundreds of users</li>
-  <li><strong>Caching Added</strong>: Handles thousands without breaking a sweat</li>
-  <li><strong>Multi-Region Deployment</strong>: Serves millions with low latency globally</li>
-  <li><strong>Edge Optimization</strong>: Delivers content in milliseconds worldwide</li>
-</ol>
-
-<p>Let’s explore each optimization technique and when to apply it.</p>
-
-<h3 id="cloudfront-your-global-accelerator">CloudFront: Your Global Accelerator</h3>
-
-<p>CloudFront is AWS’s content delivery network (CDN). Instead of users fetching data from your servers in Virginia, CloudFront caches content at 400+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.</p>
-
-<p><strong>When to Use CloudFront:</strong></p>
-<ul>
-  <li>Static assets (images, CSS, JavaScript) - immediate 10x performance boost</li>
-  <li>API responses that don’t change frequently</li>
-  <li>Video streaming - adaptive bitrate based on user connection</li>
-  <li>Global applications - consistent performance worldwide</li>
-</ul>
-
-<p><strong>Real-world impact</strong>: A news website serving images from S3 in US-East to users in Australia saw 2-second load times. After adding CloudFront, Australian users get 200ms load times from the Sydney edge location.</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># cloudfront.tf - CloudFront distribution with Lambda@Edge</span>
-
-<span class="c1"># S3 bucket for static content</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"static_content"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.environment}-static-content-${data.aws_caller_identity.current.account_id}"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"static_content"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">static_content</span><span class="p">.</span><span class="nx">id</span>
-  
-  <span class="nx">versioning_configuration</span> <span class="p">{</span>
-    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_server_side_encryption_configuration"</span> <span class="s2">"static_content"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">static_content</span><span class="p">.</span><span class="nx">id</span>
-  
-  <span class="nx">rule</span> <span class="p">{</span>
-    <span class="nx">apply_server_side_encryption_by_default</span> <span class="p">{</span>
-      <span class="nx">sse_algorithm</span>     <span class="o">=</span> <span class="s2">"aws:kms"</span>
-      <span class="nx">kms_master_key_id</span> <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">s3</span><span class="p">.</span><span class="nx">id</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># CloudFront Origin Access Control</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_origin_access_control"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>                              <span class="o">=</span> <span class="s2">"${var.environment}-oac"</span>
-  <span class="nx">description</span>                       <span class="o">=</span> <span class="s2">"Origin Access Control for S3"</span>
-  <span class="nx">origin_access_control_origin_type</span> <span class="o">=</span> <span class="s2">"s3"</span>
-  <span class="nx">signing_behavior</span>                  <span class="o">=</span> <span class="s2">"always"</span>
-  <span class="nx">signing_protocol</span>                  <span class="o">=</span> <span class="s2">"sigv4"</span>
-<span class="p">}</span>
-
-<span class="c1"># Lambda@Edge functions</span>
-<span class="nx">data</span> <span class="s2">"archive_file"</span> <span class="s2">"lambda_edge_viewer_request"</span> <span class="p">{</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"zip"</span>
-  <span class="nx">source_file</span> <span class="o">=</span> <span class="s2">"lambda-edge/viewer-request.js"</span>
-  <span class="nx">output_path</span> <span class="o">=</span> <span class="s2">"lambda-edge-viewer-request.zip"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"edge_viewer_request"</span> <span class="p">{</span>
-  <span class="nx">provider</span>         <span class="o">=</span> <span class="nx">aws</span><span class="p">.</span><span class="nx">us_east_1</span>  <span class="c1"># Lambda@Edge must be in us-east-1</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_edge_viewer_request</span><span class="p">.</span><span class="nx">output_path</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-edge-viewer-request"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_edge</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"viewer-request.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"nodejs18.x"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">5</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">128</span>
-  <span class="nx">publish</span>         <span class="o">=</span> <span class="kc">true</span>
-  
-  <span class="nx">source_code_hash</span> <span class="o">=</span> <span class="nx">data</span><span class="err">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_edge_viewer_request</span><span class="p">.</span><span class="nx">output_base64sha256</span>
-<span class="p">}</span>
-
-<span class="nx">data</span> <span class="s2">"archive_file"</span> <span class="s2">"lambda_edge_origin_response"</span> <span class="p">{</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"zip"</span>
-  <span class="nx">source_file</span> <span class="o">=</span> <span class="s2">"lambda-edge/origin-response.js"</span>
-  <span class="nx">output_path</span> <span class="o">=</span> <span class="s2">"lambda-edge-origin-response.zip"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"edge_origin_response"</span> <span class="p">{</span>
-  <span class="nx">provider</span>         <span class="o">=</span> <span class="nx">aws</span><span class="p">.</span><span class="nx">us_east_1</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_edge_origin_response</span><span class="p">.</span><span class="nx">output_path</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-edge-origin-response"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_edge</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"origin-response.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"nodejs18.x"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">5</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">128</span>
-  <span class="nx">publish</span>         <span class="o">=</span> <span class="kc">true</span>
-  
-  <span class="nx">source_code_hash</span> <span class="o">=</span> <span class="nx">data</span><span class="err">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_edge_origin_response</span><span class="p">.</span><span class="nx">output_base64sha256</span>
-<span class="p">}</span>
-
-<span class="c1"># CloudFront Distribution</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_distribution"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">enabled</span>             <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">is_ipv6_enabled</span>     <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">comment</span>             <span class="o">=</span> <span class="s2">"${var.environment} CloudFront distribution"</span>
-  <span class="nx">default_root_object</span> <span class="o">=</span> <span class="s2">"index.html"</span>
-  <span class="nx">aliases</span>             <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">domain_name</span><span class="p">,</span> <span class="s2">"www.${var.domain_name}"</span><span class="p">]</span>
-  <span class="nx">price_class</span>         <span class="o">=</span> <span class="s2">"PriceClass_200"</span>  <span class="c1"># US, Canada, Europe, Asia</span>
-  
-  <span class="c1"># S3 origin</span>
-  <span class="nx">origin</span> <span class="p">{</span>
-    <span class="nx">domain_name</span>              <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">static_content</span><span class="p">.</span><span class="nx">bucket_regional_domain_name</span>
-    <span class="nx">origin_access_control_id</span> <span class="o">=</span> <span class="nx">aws_cloudfront_origin_access_control</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-    <span class="nx">origin_id</span>                <span class="o">=</span> <span class="s2">"S3-${aws_s3_bucket.static_content.id}"</span>
-    
-    <span class="nx">origin_shield</span> <span class="p">{</span>
-      <span class="nx">enabled</span>              <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">origin_shield_region</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">aws_region</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># ALB origin for dynamic content</span>
-  <span class="nx">origin</span> <span class="p">{</span>
-    <span class="nx">domain_name</span> <span class="o">=</span> <span class="nx">aws_lb</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">dns_name</span>
-    <span class="nx">origin_id</span>   <span class="o">=</span> <span class="s2">"ALB-${aws_lb.main.id}"</span>
-    
-    <span class="nx">custom_origin_config</span> <span class="p">{</span>
-      <span class="nx">http_port</span>              <span class="o">=</span> <span class="mi">80</span>
-      <span class="nx">https_port</span>             <span class="o">=</span> <span class="mi">443</span>
-      <span class="nx">origin_protocol_policy</span> <span class="o">=</span> <span class="s2">"https-only"</span>
-      <span class="nx">origin_ssl_protocols</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"TLSv1.2"</span><span class="p">]</span>
-      
-      <span class="nx">origin_keepalive_timeout</span> <span class="o">=</span> <span class="mi">60</span>
-      <span class="nx">origin_read_timeout</span>      <span class="o">=</span> <span class="mi">60</span>
-    <span class="p">}</span>
-    
-    <span class="nx">custom_header</span> <span class="p">{</span>
-      <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"X-Origin-Verify"</span>
-      <span class="nx">value</span> <span class="o">=</span> <span class="nx">random_password</span><span class="p">.</span><span class="nx">origin_verify</span><span class="p">.</span><span class="nx">result</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Origin group for failover</span>
-  <span class="nx">origin_group</span> <span class="p">{</span>
-    <span class="nx">origin_id</span> <span class="o">=</span> <span class="s2">"origin-group-1"</span>
-    
-    <span class="nx">failover_criteria</span> <span class="p">{</span>
-      <span class="nx">status_codes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">500</span><span class="p">,</span> <span class="mi">502</span><span class="p">,</span> <span class="mi">503</span><span class="p">,</span> <span class="mi">504</span><span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">member</span> <span class="p">{</span>
-      <span class="nx">origin_id</span> <span class="o">=</span> <span class="s2">"ALB-${aws_lb.main.id}"</span>
-    <span class="p">}</span>
-    
-    <span class="nx">member</span> <span class="p">{</span>
-      <span class="nx">origin_id</span> <span class="o">=</span> <span class="s2">"ALB-${aws_lb.secondary.id}"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Default cache behavior</span>
-  <span class="nx">default_cache_behavior</span> <span class="p">{</span>
-    <span class="nx">allowed_methods</span>  <span class="o">=</span> <span class="p">[</span><span class="s2">"DELETE"</span><span class="p">,</span> <span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">,</span> <span class="s2">"OPTIONS"</span><span class="p">,</span> <span class="s2">"PATCH"</span><span class="p">,</span> <span class="s2">"POST"</span><span class="p">,</span> <span class="s2">"PUT"</span><span class="p">]</span>
-    <span class="nx">cached_methods</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">]</span>
-    <span class="nx">target_origin_id</span> <span class="o">=</span> <span class="s2">"S3-${aws_s3_bucket.static_content.id}"</span>
-    
-    <span class="nx">forwarded_values</span> <span class="p">{</span>
-      <span class="nx">query_string</span> <span class="o">=</span> <span class="kc">false</span>
-      <span class="nx">headers</span>      <span class="o">=</span> <span class="p">[</span><span class="s2">"Origin"</span><span class="p">,</span> <span class="s2">"Access-Control-Request-Method"</span><span class="p">,</span> <span class="s2">"Access-Control-Request-Headers"</span><span class="p">]</span>
-      
-      <span class="nx">cookies</span> <span class="p">{</span>
-        <span class="nx">forward</span> <span class="o">=</span> <span class="s2">"none"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">viewer_protocol_policy</span> <span class="o">=</span> <span class="s2">"redirect-to-https"</span>
-    <span class="nx">min_ttl</span>                <span class="o">=</span> <span class="mi">0</span>
-    <span class="nx">default_ttl</span>            <span class="o">=</span> <span class="mi">86400</span>
-    <span class="nx">max_ttl</span>                <span class="o">=</span> <span class="mi">31536000</span>
-    <span class="nx">compress</span>               <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="c1"># Lambda@Edge associations</span>
-    <span class="nx">lambda_function_association</span> <span class="p">{</span>
-      <span class="nx">event_type</span>   <span class="o">=</span> <span class="s2">"viewer-request"</span>
-      <span class="nx">lambda_arn</span>   <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">edge_viewer_request</span><span class="p">.</span><span class="nx">qualified_arn</span>
-      <span class="nx">include_body</span> <span class="o">=</span> <span class="kc">false</span>
-    <span class="p">}</span>
-    
-    <span class="nx">lambda_function_association</span> <span class="p">{</span>
-      <span class="nx">event_type</span>   <span class="o">=</span> <span class="s2">"origin-response"</span>
-      <span class="nx">lambda_arn</span>   <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">edge_origin_response</span><span class="p">.</span><span class="nx">qualified_arn</span>
-      <span class="nx">include_body</span> <span class="o">=</span> <span class="kc">false</span>
-    <span class="p">}</span>
-  <span class="err">}</span>
-  
-  <span class="c1"># Cache behavior for API</span>
-  <span class="nx">ordered_cache_behavior</span> <span class="p">{</span>
-    <span class="nx">path_pattern</span>     <span class="o">=</span> <span class="s2">"/api/*"</span>
-    <span class="nx">allowed_methods</span>  <span class="o">=</span> <span class="p">[</span><span class="s2">"DELETE"</span><span class="p">,</span> <span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">,</span> <span class="s2">"OPTIONS"</span><span class="p">,</span> <span class="s2">"PATCH"</span><span class="p">,</span> <span class="s2">"POST"</span><span class="p">,</span> <span class="s2">"PUT"</span><span class="p">]</span>
-    <span class="nx">cached_methods</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">]</span>
-    <span class="nx">target_origin_id</span> <span class="o">=</span> <span class="s2">"origin-group-1"</span>
-    
-    <span class="nx">cache_policy_id</span>            <span class="o">=</span> <span class="nx">aws_cloudfront_cache_policy</span><span class="p">.</span><span class="nx">api</span><span class="p">.</span><span class="nx">id</span>
-    <span class="nx">origin_request_policy_id</span>   <span class="o">=</span> <span class="nx">aws_cloudfront_origin_request_policy</span><span class="p">.</span><span class="nx">api</span><span class="p">.</span><span class="nx">id</span>
-    <span class="nx">response_headers_policy_id</span> <span class="o">=</span> <span class="nx">aws_cloudfront_response_headers_policy</span><span class="p">.</span><span class="nx">security</span><span class="p">.</span><span class="nx">id</span>
-    
-    <span class="nx">viewer_protocol_policy</span> <span class="o">=</span> <span class="s2">"https-only"</span>
-    <span class="nx">compress</span>               <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Cache behavior for static assets</span>
-  <span class="nx">ordered_cache_behavior</span> <span class="p">{</span>
-    <span class="nx">path_pattern</span>     <span class="o">=</span> <span class="s2">"/static/*"</span>
-    <span class="nx">allowed_methods</span>  <span class="o">=</span> <span class="p">[</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">,</span> <span class="s2">"OPTIONS"</span><span class="p">]</span>
-    <span class="nx">cached_methods</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">]</span>
-    <span class="nx">target_origin_id</span> <span class="o">=</span> <span class="s2">"S3-${aws_s3_bucket.static_content.id}"</span>
-    
-    <span class="nx">viewer_protocol_policy</span> <span class="o">=</span> <span class="s2">"redirect-to-https"</span>
-    <span class="nx">min_ttl</span>                <span class="o">=</span> <span class="mi">0</span>
-    <span class="nx">default_ttl</span>            <span class="o">=</span> <span class="mi">604800</span>   <span class="c1"># 7 days</span>
-    <span class="nx">max_ttl</span>                <span class="o">=</span> <span class="mi">31536000</span>  <span class="c1"># 1 year</span>
-    <span class="nx">compress</span>               <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="nx">forwarded_values</span> <span class="p">{</span>
-      <span class="nx">query_string</span> <span class="o">=</span> <span class="kc">false</span>
-      
-      <span class="nx">cookies</span> <span class="p">{</span>
-        <span class="nx">forward</span> <span class="o">=</span> <span class="s2">"none"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="err">}</span>
-  
-  <span class="nx">restrictions</span> <span class="p">{</span>
-    <span class="nx">geo_restriction</span> <span class="p">{</span>
-      <span class="nx">restriction_type</span> <span class="o">=</span> <span class="s2">"none"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">viewer_certificate</span> <span class="p">{</span>
-    <span class="nx">acm_certificate_arn</span>      <span class="o">=</span> <span class="nx">aws_acm_certificate_validation</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">certificate_arn</span>
-    <span class="nx">minimum_protocol_version</span> <span class="o">=</span> <span class="s2">"TLSv1.2_2021"</span>
-    <span class="nx">ssl_support_method</span>       <span class="o">=</span> <span class="s2">"sni-only"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">web_acl_id</span> <span class="o">=</span> <span class="nx">aws_wafv2_web_acl</span><span class="p">.</span><span class="nx">cloudfront</span><span class="p">.</span><span class="nx">arn</span>
-  
-  <span class="nx">logging_config</span> <span class="p">{</span>
-    <span class="nx">include_cookies</span> <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">bucket</span>          <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">cloudfront_logs</span><span class="p">.</span><span class="nx">bucket_domain_name</span>
-    <span class="nx">prefix</span>          <span class="o">=</span> <span class="s2">"cloudfront/"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="nx">aws_s3_bucket_policy</span><span class="p">.</span><span class="nx">static_content</span>
-  <span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Cache policy for API</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_cache_policy"</span> <span class="s2">"api"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"${var.environment}-api-cache-policy"</span>
-  <span class="nx">comment</span>     <span class="o">=</span> <span class="s2">"Cache policy for API endpoints"</span>
-  <span class="nx">default_ttl</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="nx">max_ttl</span>     <span class="o">=</span> <span class="mi">3600</span>
-  <span class="nx">min_ttl</span>     <span class="o">=</span> <span class="mi">0</span>
-  
-  <span class="nx">parameters_in_cache_key_and_forwarded_to_origin</span> <span class="p">{</span>
-    <span class="nx">enable_accept_encoding_gzip</span>   <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">enable_accept_encoding_brotli</span> <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="nx">cookies_config</span> <span class="p">{</span>
-      <span class="nx">cookie_behavior</span> <span class="o">=</span> <span class="s2">"all"</span>
-    <span class="p">}</span>
-    
-    <span class="nx">headers_config</span> <span class="p">{</span>
-      <span class="nx">header_behavior</span> <span class="o">=</span> <span class="s2">"whitelist"</span>
-      <span class="nx">headers</span> <span class="p">{</span>
-        <span class="nx">items</span> <span class="o">=</span> <span class="p">[</span>
-          <span class="s2">"Authorization"</span><span class="p">,</span>
-          <span class="s2">"CloudFront-Viewer-Country"</span><span class="p">,</span>
-          <span class="s2">"CloudFront-Is-Mobile-Viewer"</span><span class="p">,</span>
-          <span class="s2">"CloudFront-Is-Tablet-Viewer"</span><span class="p">,</span>
-          <span class="s2">"CloudFront-Is-Desktop-Viewer"</span>
-        <span class="p">]</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">query_strings_config</span> <span class="p">{</span>
-      <span class="nx">query_string_behavior</span> <span class="o">=</span> <span class="s2">"all"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Origin request policy</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_origin_request_policy"</span> <span class="s2">"api"</span> <span class="p">{</span>
-  <span class="nx">name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-api-origin-request-policy"</span>
-  <span class="nx">comment</span> <span class="o">=</span> <span class="s2">"Origin request policy for API"</span>
-  
-  <span class="nx">cookies_config</span> <span class="p">{</span>
-    <span class="nx">cookie_behavior</span> <span class="o">=</span> <span class="s2">"all"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">headers_config</span> <span class="p">{</span>
-    <span class="nx">header_behavior</span> <span class="o">=</span> <span class="s2">"allViewer"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">query_strings_config</span> <span class="p">{</span>
-    <span class="nx">query_string_behavior</span> <span class="o">=</span> <span class="s2">"all"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Response headers policy</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_response_headers_policy"</span> <span class="s2">"security"</span> <span class="p">{</span>
-  <span class="nx">name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-security-headers-policy"</span>
-  <span class="nx">comment</span> <span class="o">=</span> <span class="s2">"Security headers policy"</span>
-  
-  <span class="nx">security_headers_config</span> <span class="p">{</span>
-    <span class="nx">content_type_options</span> <span class="p">{</span>
-      <span class="nx">override</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    
-    <span class="nx">frame_options</span> <span class="p">{</span>
-      <span class="nx">frame_option</span> <span class="o">=</span> <span class="s2">"DENY"</span>
-      <span class="nx">override</span>     <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    
-    <span class="nx">referrer_policy</span> <span class="p">{</span>
-      <span class="nx">referrer_policy</span> <span class="o">=</span> <span class="s2">"strict-origin-when-cross-origin"</span>
-      <span class="nx">override</span>        <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    
-    <span class="nx">xss_protection</span> <span class="p">{</span>
-      <span class="nx">mode_block</span> <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">protection</span> <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">override</span>   <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    
-    <span class="nx">strict_transport_security</span> <span class="p">{</span>
-      <span class="nx">access_control_max_age_sec</span> <span class="o">=</span> <span class="mi">63072000</span>
-      <span class="nx">include_subdomains</span>         <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">preload</span>                    <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">override</span>                   <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    
-    <span class="nx">content_security_policy</span> <span class="p">{</span>
-      <span class="nx">content_security_policy</span> <span class="o">=</span> <span class="s2">"default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';"</span>
-      <span class="nx">override</span>                <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">cors_config</span> <span class="p">{</span>
-    <span class="nx">access_control_allow_credentials</span> <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="nx">access_control_allow_headers</span> <span class="p">{</span>
-      <span class="nx">items</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">access_control_allow_methods</span> <span class="p">{</span>
-      <span class="nx">items</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"GET"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">,</span> <span class="s2">"PUT"</span><span class="p">,</span> <span class="s2">"POST"</span><span class="p">,</span> <span class="s2">"DELETE"</span><span class="p">,</span> <span class="s2">"OPTIONS"</span><span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">access_control_allow_origins</span> <span class="p">{</span>
-      <span class="nx">items</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"https://${var.domain_name}"</span><span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">access_control_max_age_sec</span> <span class="o">=</span> <span class="mi">86400</span>
-    <span class="nx">origin_override</span>            <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="nx">custom_headers_config</span> <span class="p">{</span>
-    <span class="nx">items</span> <span class="p">{</span>
-      <span class="nx">header</span>   <span class="o">=</span> <span class="s2">"X-Environment"</span>
-      <span class="nx">value</span>    <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-      <span class="nx">override</span> <span class="o">=</span> <span class="kc">false</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># CloudFront monitoring</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_metric_alarm"</span> <span class="s2">"4xx_errors"</span> <span class="p">{</span>
-  <span class="nx">alarm_name</span>          <span class="o">=</span> <span class="s2">"${var.environment}-cloudfront-4xx-errors"</span>
-  <span class="nx">comparison_operator</span> <span class="o">=</span> <span class="s2">"GreaterThanThreshold"</span>
-  <span class="nx">evaluation_periods</span>  <span class="o">=</span> <span class="s2">"2"</span>
-  <span class="nx">metric_name</span>         <span class="o">=</span> <span class="s2">"4xxErrorRate"</span>
-  <span class="nx">namespace</span>           <span class="o">=</span> <span class="s2">"AWS/CloudFront"</span>
-  <span class="nx">period</span>              <span class="o">=</span> <span class="s2">"300"</span>
-  <span class="nx">statistic</span>           <span class="o">=</span> <span class="s2">"Average"</span>
-  <span class="nx">threshold</span>           <span class="o">=</span> <span class="s2">"5"</span>
-  <span class="nx">alarm_description</span>   <span class="o">=</span> <span class="s2">"This metric monitors CloudFront 4xx error rate"</span>
-  <span class="nx">alarm_actions</span>       <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
-  
-  <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">DistributionId</span> <span class="o">=</span> <span class="nx">aws_cloudfront_distribution</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="p">}</span>
-<span class="err">}</span>
-
-<span class="c1"># Real-time logs</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudfront_realtime_log_config"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-realtime-logs"</span>
-  
-  <span class="nx">endpoint</span> <span class="p">{</span>
-    <span class="nx">stream_type</span> <span class="o">=</span> <span class="s2">"Kinesis"</span>
-    
-    <span class="nx">kinesis_stream_config</span> <span class="p">{</span>
-      <span class="nx">role_arn</span>   <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">cloudfront_logs</span><span class="p">.</span><span class="nx">arn</span>
-      <span class="nx">stream_arn</span> <span class="o">=</span> <span class="nx">aws_kinesis_stream</span><span class="p">.</span><span class="nx">cloudfront_logs</span><span class="p">.</span><span class="nx">arn</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">fields</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">"timestamp"</span><span class="p">,</span>
-    <span class="s2">"c-ip"</span><span class="p">,</span>
-    <span class="s2">"sc-status"</span><span class="p">,</span>
-    <span class="s2">"cs-uri-stem"</span><span class="p">,</span>
-    <span class="s2">"cs-user-agent"</span><span class="p">,</span>
-    <span class="s2">"cs-referer"</span><span class="p">,</span>
-    <span class="s2">"x-edge-location"</span><span class="p">,</span>
-    <span class="s2">"x-edge-request-id"</span><span class="p">,</span>
-    <span class="s2">"x-edge-response-result-type"</span><span class="p">,</span>
-    <span class="s2">"time-taken"</span>
-  <span class="p">]</span>
-  
-  <span class="nx">sampling_rate</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># 1% sampling</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="load-balancing-options">Load Balancing Options</h2>
+<p>Before diving in, familiarize yourself with these building blocks:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Type</th>
-      <th>Use Case</th>
-      <th>Layer</th>
+      <th>Component</th>
+      <th>What It Does</th>
+      <th>When to Use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Application Load Balancer (ALB)</td>
-      <td>HTTP/HTTPS traffic, path-based routing</td>
-      <td>Layer 7</td>
+      <td><strong>Subnets</strong></td>
+      <td>Subdivide your VPC into segments</td>
+      <td>Separate public/private resources</td>
     </tr>
     <tr>
-      <td>Network Load Balancer (NLB)</td>
-      <td>Ultra-low latency, TCP/UDP</td>
-      <td>Layer 4</td>
+      <td><strong>Internet Gateway</strong></td>
+      <td>Connects VPC to the internet</td>
+      <td>Required for public-facing resources</td>
     </tr>
     <tr>
-      <td>Gateway Load Balancer (GWLB)</td>
-      <td>Third-party appliances</td>
-      <td>Layer 3</td>
+      <td><strong>NAT Gateway</strong></td>
+      <td>Lets private resources access internet (outbound only)</td>
+      <td>Private servers needing updates/APIs</td>
     </tr>
     <tr>
-      <td>Classic Load Balancer</td>
-      <td>Legacy applications</td>
-      <td>Layer 4/7</td>
+      <td><strong>Security Groups</strong></td>
+      <td>Instance-level firewalls (stateful)</td>
+      <td>Control traffic to/from each resource</td>
+    </tr>
+    <tr>
+      <td><strong>Network ACLs</strong></td>
+      <td>Subnet-level firewalls (stateless)</td>
+      <td>Additional layer of defense</td>
+    </tr>
+    <tr>
+      <td><strong>Route Tables</strong></td>
+      <td>Control traffic routing</td>
+      <td>Direct traffic between subnets/internet</td>
     </tr>
   </tbody>
 </table>
+
+<h3 id="multi-az-architecture">Multi-AZ Architecture</h3>
+
+<p>For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>VPC (10.0.0.0/16)
+├── Public Subnet AZ-A (10.0.1.0/24)    ├── Public Subnet AZ-B (10.0.2.0/24)
+│   ├── NAT Gateway                      │   ├── NAT Gateway
+│   └── Load Balancer                    │   └── Load Balancer
+├── Private Subnet AZ-A (10.0.10.0/24)  ├── Private Subnet AZ-B (10.0.20.0/24)
+│   └── Application Servers              │   └── Application Servers
+└── Data Subnet AZ-A (10.0.100.0/24)    └── Data Subnet AZ-B (10.0.200.0/24)
+    └── RDS Primary                          └── RDS Standby
+</code></pre></div></div>
+
+<p><strong>Real-world example</strong>: An e-commerce application runs web servers in public subnets (accessible from the internet) and databases in private subnets (only accessible from web servers). If AZ-A experiences an outage, traffic automatically routes to AZ-B.</p>
+
+<h3 id="vpc-best-practices">VPC Best Practices</h3>
+
+<ul>
+  <li><strong>Use private subnets by default</strong>: Only place resources in public subnets if they must be directly accessible from the internet</li>
+  <li><strong>Deploy NAT Gateways in each AZ</strong>: Prevents cross-AZ traffic charges and provides resilience</li>
+  <li><strong>Use Security Groups as primary firewall</strong>: They are stateful and easier to manage than NACLs</li>
+  <li><strong>Plan your CIDR blocks</strong>: Choose ranges that do not overlap with on-premises networks if you plan to connect them later</li>
+</ul>
+
+<hr />
+
+<h2 id="api-gateway---managing-your-apis">API Gateway - Managing Your APIs</h2>
+
+<p>API Gateway provides a managed service for creating, deploying, and securing APIs. It handles authentication, rate limiting, caching, and monitoring so you can focus on your backend logic.</p>
+
+<h3 id="when-to-use-api-gateway">When to Use API Gateway</h3>
+
+<ul>
+  <li><strong>REST APIs</strong>: Traditional request/response APIs for web and mobile</li>
+  <li><strong>WebSocket APIs</strong>: Real-time two-way communication (chat, gaming)</li>
+  <li><strong>HTTP APIs</strong>: Simpler, cheaper alternative to REST APIs</li>
+</ul>
+
+<h3 id="api-gateway-vs-application-load-balancer">API Gateway vs Application Load Balancer</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>API Gateway</th>
+      <th>Application Load Balancer</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>API management</td>
+      <td>Full (throttling, keys, usage plans)</td>
+      <td>Basic</td>
+    </tr>
+    <tr>
+      <td>Cost model</td>
+      <td>Per request</td>
+      <td>Per hour + data</td>
+    </tr>
+    <tr>
+      <td>WebSocket support</td>
+      <td>Yes</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Request transformation</td>
+      <td>Yes</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Best for</td>
+      <td>APIs needing management features</td>
+      <td>Simple HTTP routing</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="key-api-gateway-features">Key API Gateway Features</h3>
+
+<p><strong>Request Validation</strong>: Validate request bodies and parameters before they reach your backend:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a request validator</span>
+aws apigateway create-request-validator <span class="nt">--rest-api-id</span> xxx <span class="se">\</span>
+  <span class="nt">--name</span> <span class="s2">"ValidateBody"</span> <span class="nt">--validate-request-body</span>
+</code></pre></div></div>
+
+<p><strong>Usage Plans and API Keys</strong>: Control who can access your API and how much:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a usage plan with rate limiting</span>
+aws apigateway create-usage-plan <span class="nt">--name</span> <span class="s2">"BasicPlan"</span> <span class="se">\</span>
+  <span class="nt">--throttle</span> <span class="nv">burstLimit</span><span class="o">=</span>100,rateLimit<span class="o">=</span>50 <span class="se">\</span>
+  <span class="nt">--quota</span> <span class="nv">limit</span><span class="o">=</span>1000,period<span class="o">=</span>DAY
+</code></pre></div></div>
+
+<p><strong>Custom Authorizers</strong>: Use Lambda functions to implement custom authentication:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a Lambda authorizer</span>
+aws apigateway create-authorizer <span class="nt">--rest-api-id</span> xxx <span class="se">\</span>
+  <span class="nt">--name</span> <span class="s2">"JWTAuthorizer"</span> <span class="nt">--type</span> TOKEN <span class="se">\</span>
+  <span class="nt">--authorizer-uri</span> <span class="s2">"arn:aws:lambda:region:account:function:authorizer"</span>
+<span class="nt">---</span>
+
+<span class="c">## CloudFront - Content Delivery Network</span>
+
+CloudFront is AWS<span class="s1">'s content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 400+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.
+
+### When to Use CloudFront
+
+- **Static assets** (images, CSS, JavaScript): Immediate 10x performance boost
+- **API responses** that do not change frequently: Reduce origin load
+- **Video streaming**: Adaptive bitrate based on user connection
+- **Global applications**: Consistent performance worldwide
+
+**Real-world impact**: A news website serving images from S3 in US-East to users in Australia saw 2-second load times. After adding CloudFront, Australian users get 200ms load times from the Sydney edge location.
+
+### CloudFront Origin Types
+
+| Origin Type | Use Case | Configuration |
+|-------------|----------|---------------|
+| **S3 bucket** | Static websites, media files | Use Origin Access Control for security |
+| **Application Load Balancer** | Dynamic content from EC2/ECS | Forward headers for personalization |
+| **Custom origin** | Any HTTP server | Your on-premises or other cloud servers |
+| **Lambda@Edge** | Serverless at the edge | Customize requests/responses globally |
+
+### Setting Up CloudFront
+
+**Basic setup for S3 static website**:
+
+```bash
+# Create a CloudFront distribution with S3 origin
+aws cloudfront create-distribution \
+  --origin-domain-name my-bucket.s3.amazonaws.com \
+  --default-root-object index.html
+</span></code></pre></div></div>
+
+<p><strong>Cache settings to consider</strong>:</p>
+<ul>
+  <li><strong>Static assets</strong> (images, CSS, JS): Cache for 7+ days</li>
+  <li><strong>Dynamic content</strong>: Cache for minutes or disable caching</li>
+  <li><strong>API responses</strong>: Usually no caching, or short TTL</li>
+</ul>
+
+<h3 id="cloudfront-best-practices">CloudFront Best Practices</h3>
+
+<ul>
+  <li><strong>Use Origin Access Control</strong>: Prevent direct S3 access; force all traffic through CloudFront</li>
+  <li><strong>Enable compression</strong>: Reduces file sizes by 60-80% for text-based content</li>
+  <li><strong>Use custom error pages</strong>: Provide friendly 404 and 500 error pages</li>
+  <li><strong>Set up logging</strong>: Track usage patterns and troubleshoot issues</li>
+  <li><strong>Invalidate wisely</strong>: Invalidations cost money; use versioned filenames instead</li>
+</ul>
+
+<hr />
+
+<h2 id="load-balancing">Load Balancing</h2>
+
+<p>Load balancers distribute incoming traffic across multiple targets (EC2 instances, containers, IP addresses). They improve availability by routing around failures and enable horizontal scaling.</p>
+
+<h3 id="choosing-the-right-load-balancer">Choosing the Right Load Balancer</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Load Balancer</th>
+      <th>Best For</th>
+      <th>Key Features</th>
+      <th>Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Application (ALB)</strong></td>
+      <td>Web applications, APIs</td>
+      <td>Path/host routing, WebSocket, HTTP/2</td>
+      <td>Moderate</td>
+    </tr>
+    <tr>
+      <td><strong>Network (NLB)</strong></td>
+      <td>High-performance, TCP/UDP</td>
+      <td>Ultra-low latency, static IPs</td>
+      <td>Lower</td>
+    </tr>
+    <tr>
+      <td><strong>Gateway (GWLB)</strong></td>
+      <td>Security appliances</td>
+      <td>Third-party firewall/IDS integration</td>
+      <td>Varies</td>
+    </tr>
+    <tr>
+      <td><strong>Classic</strong></td>
+      <td>Legacy applications</td>
+      <td>Avoid for new projects</td>
+      <td>Being deprecated</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Recommendation</strong>: Use ALB for most web applications. Use NLB only when you need ultra-low latency or static IP addresses.</p>
+
+<h3 id="common-load-balancer-patterns">Common Load Balancer Patterns</h3>
+
+<p><strong>Path-based routing</strong> (ALB): Route <code class="language-plaintext highlighter-rouge">/api/*</code> to API servers, <code class="language-plaintext highlighter-rouge">/static/*</code> to static content servers</p>
+
+<p><strong>Host-based routing</strong> (ALB): Route <code class="language-plaintext highlighter-rouge">api.example.com</code> to API, <code class="language-plaintext highlighter-rouge">www.example.com</code> to web servers</p>
+
+<p><strong>Health checks</strong>: Configure targets to be removed from rotation when unhealthy:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a target group with health checks</span>
+aws elbv2 create-target-group <span class="nt">--name</span> my-targets <span class="se">\</span>
+  <span class="nt">--protocol</span> HTTP <span class="nt">--port</span> 80 <span class="nt">--vpc-id</span> vpc-xxx <span class="se">\</span>
+  <span class="nt">--health-check-path</span> /health <span class="nt">--health-check-interval-seconds</span> 30
+</code></pre></div></div>
+
+<hr />
 
 <h2 id="see-also">See Also</h2>
 

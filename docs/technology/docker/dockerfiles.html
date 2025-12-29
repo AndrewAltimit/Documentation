@@ -1242,717 +1242,479 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <h2 id="writing-dockerfiles">Writing Dockerfiles</h2>
 
-<p>A Dockerfile is a script containing instructions to build a Docker image. It automates the process of creating a container by specifying the base image, configuration, application code, and dependencies. This documentation will cover the basics of writing a Dockerfile, its syntax, and using multistage builds.</p>
+<p>A Dockerfile is a recipe for building a Docker image. It defines exactly what goes into your container: the operating system, libraries, configuration, and application code. When you share a Dockerfile, anyone can reproduce your exact environment.</p>
 
-<h3 id="dockerfile-example">Dockerfile Example</h3>
+<h3 id="why-dockerfiles-matter">Why Dockerfiles Matter</h3>
 
-<p>A Dockerfile consists of a series of instructions, each starting with an uppercase keyword followed by arguments. The instructions are executed in the order they appear, and each instruction creates a new layer in the Docker image. Comments can be added using the # symbol.</p>
+<p>Consider the following benefits:</p>
 
-<p>Here’s a simple example:</p>
+<ul>
+  <li><strong>Reproducibility</strong>: The same Dockerfile always produces the same image (given the same build context)</li>
+  <li><strong>Documentation</strong>: The Dockerfile serves as documentation for your environment</li>
+  <li><strong>Automation</strong>: CI/CD pipelines can automatically build images from Dockerfiles</li>
+  <li><strong>Version control</strong>: Track environment changes alongside code changes</li>
+</ul>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use an official Python runtime as a parent image</span>
-<span class="k">FROM</span><span class="s"> python:3.8-slim</span>
+<h3 id="your-first-dockerfile">Your First Dockerfile</h3>
 
-<span class="c"># Set the working directory to /app</span>
-<span class="k">WORKDIR</span><span class="s"> /app</span>
+<p>A Dockerfile consists of instructions, each creating a layer in the final image. Here is a minimal but complete example:</p>
 
-<span class="c"># Copy the current directory contents into the container at /app</span>
-<span class="k">COPY</span><span class="s"> . /app</span>
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">FROM</span><span class="s"> python:3.12-slim    # Start from an official base image</span>
+<span class="k">WORKDIR</span><span class="s"> /app             # Set working directory</span>
+<span class="k">COPY</span><span class="s"> requirements.txt .  # Copy dependency file first (caching)</span>
+<span class="k">RUN </span>pip <span class="nb">install</span> <span class="nt">-r</span> requirements.txt  <span class="c"># Install dependencies</span>
+<span class="k">COPY</span><span class="s"> . .                 # Copy application code</span>
+<span class="k">CMD</span><span class="s"> ["python", "app.py"] # Default command when container starts</span>
+</code></pre></div></div>
 
-<span class="c"># Install any needed packages specified in requirements.txt</span>
-<span class="k">RUN </span>pip <span class="nb">install</span> <span class="nt">--no-cache-dir</span> <span class="nt">-r</span> requirements.txt
+<p>Build and run this with:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker build <span class="nt">-t</span> my-app <span class="nb">.</span>
+docker run <span class="nt">-p</span> 8080:80 my-app
+</code></pre></div></div>
 
-<span class="c"># Make port 80 available to the world outside this container</span>
-<span class="k">EXPOSE</span><span class="s"> 80</span>
+<h3 id="dockerfile-instructions-reference">Dockerfile Instructions Reference</h3>
 
-<span class="c"># Define environment variable</span>
-<span class="k">ENV</span><span class="s"> NAME World</span>
+<p>Each instruction serves a specific purpose. Here is a quick reference:</p>
 
-<span class="c"># Run app.py when the container launches</span>
+<table>
+  <thead>
+    <tr>
+      <th>Instruction</th>
+      <th>Purpose</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FROM</td>
+      <td>Base image to start from</td>
+      <td><code class="language-plaintext highlighter-rouge">FROM python:3.12-slim</code></td>
+    </tr>
+    <tr>
+      <td>WORKDIR</td>
+      <td>Set working directory</td>
+      <td><code class="language-plaintext highlighter-rouge">WORKDIR /app</code></td>
+    </tr>
+    <tr>
+      <td>COPY</td>
+      <td>Copy files from host to image</td>
+      <td><code class="language-plaintext highlighter-rouge">COPY . /app</code></td>
+    </tr>
+    <tr>
+      <td>RUN</td>
+      <td>Execute command during build</td>
+      <td><code class="language-plaintext highlighter-rouge">RUN pip install -r requirements.txt</code></td>
+    </tr>
+    <tr>
+      <td>CMD</td>
+      <td>Default command when container starts</td>
+      <td><code class="language-plaintext highlighter-rouge">CMD ["python", "app.py"]</code></td>
+    </tr>
+    <tr>
+      <td>ENTRYPOINT</td>
+      <td>Configure container as executable</td>
+      <td><code class="language-plaintext highlighter-rouge">ENTRYPOINT ["./start.sh"]</code></td>
+    </tr>
+    <tr>
+      <td>EXPOSE</td>
+      <td>Document which port the app uses</td>
+      <td><code class="language-plaintext highlighter-rouge">EXPOSE 8080</code></td>
+    </tr>
+    <tr>
+      <td>ENV</td>
+      <td>Set environment variable</td>
+      <td><code class="language-plaintext highlighter-rouge">ENV NODE_ENV=production</code></td>
+    </tr>
+    <tr>
+      <td>ARG</td>
+      <td>Build-time variable</td>
+      <td><code class="language-plaintext highlighter-rouge">ARG VERSION=1.0</code></td>
+    </tr>
+    <tr>
+      <td>USER</td>
+      <td>Run as specific user</td>
+      <td><code class="language-plaintext highlighter-rouge">USER appuser</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="cmd-vs-entrypoint">CMD vs ENTRYPOINT</h4>
+
+<p>These two instructions are often confused. Here is when to use each:</p>
+
+<ul>
+  <li><strong>CMD</strong>: Use when you want to provide defaults that can be easily overridden</li>
+  <li><strong>ENTRYPOINT</strong>: Use when the container should always run a specific executable</li>
+</ul>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># CMD: user can override with "docker run my-app /bin/bash"</span>
 <span class="k">CMD</span><span class="s"> ["python", "app.py"]</span>
+
+<span class="c"># ENTRYPOINT: container always runs this, CMD provides default arguments</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["python"]</span>
+<span class="k">CMD</span><span class="s"> ["app.py"]  # User can override: docker run my-app other.py</span>
 </code></pre></div></div>
 
-<h3 id="dockerfile-instructions">Dockerfile Instructions</h3>
+<h4 id="copy-vs-add">COPY vs ADD</h4>
 
-<h4 id="from">FROM</h4>
+<p>Prefer <strong>COPY</strong> unless you specifically need ADD’s features:</p>
 
-<p>The <strong>FROM</strong> instruction sets the base image for your Dockerfile. It must be the first instruction in the file. You can use an official image from the Docker Hub or a custom image.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">FROM</span><span class="s"> &lt;image&gt;[:&lt;tag&gt;] [AS &lt;name&gt;]</span>
-</code></pre></div></div>
-
-<h4 id="workdir">WORKDIR</h4>
-
-<p>The <strong>WORKDIR</strong> instruction sets the working directory for any subsequent <strong>RUN</strong>, <strong>CMD</strong>, <strong>ENTRYPOINT</strong>, <strong>COPY</strong>, and <strong>ADD</strong> instructions. If the directory does not exist, it will be created.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">WORKDIR</span><span class="s"> &lt;path&gt;</span>
-</code></pre></div></div>
-
-<h4 id="copy">COPY</h4>
-
-<p>The <strong>COPY</strong> instruction copies files or directories from the local filesystem to the container’s filesystem.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">COPY</span><span class="s"> &lt;src&gt; &lt;dest&gt;</span>
-</code></pre></div></div>
-
-<h4 id="add">ADD</h4>
-
-<p>The <strong>ADD</strong> instruction is similar to <strong>COPY</strong>, but it can also download remote files and extract compressed files.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ADD</span><span class="s"> &lt;src&gt; &lt;dest&gt;</span>
-</code></pre></div></div>
-
-<h4 id="run">RUN</h4>
-
-<p>The <strong>RUN</strong> instruction executes a command during the build process, creating a new layer.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">RUN </span>&lt;<span class="nb">command</span><span class="o">&gt;</span>
-</code></pre></div></div>
-
-<h4 id="cmd">CMD</h4>
-
-<p>The <strong>CMD</strong> instruction provides the default command that will be executed when running a container.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CMD</span><span class="s"> ["executable", "param1", "param2"]</span>
-</code></pre></div></div>
-
-<h4 id="entrypoint">ENTRYPOINT</h4>
-
-<p>The <strong>ENTRYPOINT</strong> instruction allows you to configure a container that will run as an executable.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ENTRYPOINT</span><span class="s"> ["executable", "param1", "param2"]</span>
-</code></pre></div></div>
-
-<h4 id="expose">EXPOSE</h4>
-
-<p>The <strong>EXPOSE</strong> instruction informs Docker that the container listens on the specified network ports at runtime.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">EXPOSE</span><span class="s"> &lt;port&gt; [&lt;port&gt;/&lt;protocol&gt;...]</span>
-</code></pre></div></div>
-
-<h4 id="env">ENV</h4>
-
-<p>The <strong>ENV</strong> instruction sets an environment variable.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ENV</span><span class="s"> &lt;key&gt;=&lt;value&gt; ...</span>
-</code></pre></div></div>
-
-<h4 id="arg">ARG</h4>
-
-<p>The <strong>ARG</strong> instruction defines a variable that can be passed to the build process using the <code class="language-plaintext highlighter-rouge">--build-arg</code> flag.</p>
-
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ARG</span><span class="s"> &lt;name&gt;[=&lt;default value&gt;]</span>
-</code></pre></div></div>
+<ul>
+  <li><strong>COPY</strong>: Simple file copy (recommended)</li>
+  <li><strong>ADD</strong>: Also extracts tar files and downloads URLs (use sparingly)</li>
+</ul>
 
 <h3 id="multistage-builds">Multistage Builds</h3>
 
-<p>Multistage builds allow you to optimize the Dockerfile by using multiple FROM instructions, each with a unique name. This is useful when you need to use multiple images or want to reduce the final image size.</p>
+<p>Multi-stage builds solve a common problem: build tools make images large. Your Go compiler, Node.js build tools, or Java SDK add hundreds of megabytes that are not needed at runtime.</p>
 
-<p>Here’s an example:</p>
+<p><strong>The solution</strong>: Use one stage to build, another to run. The final image only contains what is needed to run your application.</p>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Stage 1: Build the application</span>
-<span class="k">FROM</span><span class="w"> </span><span class="s">node:14</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Stage 1: Build (large image with all build tools)</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">node:18</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
 <span class="k">WORKDIR</span><span class="s"> /app</span>
 <span class="k">COPY</span><span class="s"> package*.json ./</span>
-<span class="k">RUN </span>npm <span class="nb">install</span>
+<span class="k">RUN </span>npm ci
 <span class="k">COPY</span><span class="s"> . .</span>
 <span class="k">RUN </span>npm run build
 
-<span class="c"># Stage 2: Create the final image</span>
-<span class="k">FROM</span><span class="s"> nginx:1.19-alpine</span>
-<span class="k">COPY</span><span class="s"> --from=build /app/build /usr/share/nginx/html</span>
-<span class="k">EXPOSE</span><span class="s"> 80</span>
-<span class="k">CMD</span><span class="s"> ["nginx", "-g", "daemon off;"]</span>
+<span class="c"># Stage 2: Run (small image with only runtime)</span>
+<span class="k">FROM</span><span class="s"> nginx:alpine</span>
+<span class="k">COPY</span><span class="s"> --from=builder /app/dist /usr/share/nginx/html</span>
 </code></pre></div></div>
 
-<p>In this example, the first stage uses the node:14 image to build the application, and the second stage uses the nginx:1.19-alpine image to serve the application. The <code class="language-plaintext highlighter-rouge">COPY --from=build</code> command copies the built application files from the first stage to the final image. This results in a smaller final image without the build dependencies.</p>
+<p><strong>Result</strong>: Final image is ~25MB instead of ~1GB.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scenario</th>
+      <th>Without Multi-stage</th>
+      <th>With Multi-stage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Node.js app</td>
+      <td>~1 GB</td>
+      <td>~100 MB</td>
+    </tr>
+    <tr>
+      <td>Go binary</td>
+      <td>~800 MB</td>
+      <td>~10 MB</td>
+    </tr>
+    <tr>
+      <td>Java app</td>
+      <td>~500 MB</td>
+      <td>~200 MB</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="best-practices">Best Practices</h2>
 
-<ul>
-  <li>Use official base images: Official images are maintained and optimized by the creators of the respective software.</li>
-  <li>Be specific with base image tags: Specify an exact version or use a specific tag to avoid breaking changes in the future.</li>
-  <li>Keep layers to a minimum: Group related commands together and use a single RUN instruction whenever possible.</li>
-  <li>Use .dockerignore file: Exclude unnecessary files from the build context to reduce build time and prevent sensitive data from being included in the image.</li>
-  <li>Cache dependencies: Copy dependency files separately from the application code to take advantage of Docker’s build cache and avoid unnecessary re-installations.</li>
-  <li>Use multi-stage builds: Multi-stage builds can help reduce the final image size by only including the necessary files for the runtime environment.</li>
-  <li>Run as non-root user: Always specify a non-root user in your Dockerfile for security.</li>
-  <li>Order layers efficiently: Put commands that change less frequently (like package installation) before frequently changing items (like application code).</li>
-  <li>Use COPY instead of ADD: Unless you need ADD’s tar extraction or URL features, COPY is more predictable.</li>
-  <li>Set WORKDIR early: Establish your working directory early to avoid using long paths.</li>
-  <li>Combine RUN commands: Reduce layers by combining related commands with &amp;&amp; operators.</li>
-</ul>
+<p>These practices will make your images smaller, more secure, and faster to build.</p>
+
+<h3 id="image-size-and-security">Image Size and Security</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Practice</th>
+      <th>Why It Matters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Use minimal base images (alpine, slim)</td>
+      <td>Smaller attack surface, faster pulls</td>
+    </tr>
+    <tr>
+      <td>Run as non-root user</td>
+      <td>Prevents container escape attacks</td>
+    </tr>
+    <tr>
+      <td>Use specific version tags</td>
+      <td>Avoids surprise breaking changes</td>
+    </tr>
+    <tr>
+      <td>Scan images for vulnerabilities</td>
+      <td>Catches known security issues</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="build-speed">Build Speed</h3>
+
+<p>Order your Dockerfile to maximize cache hits. Put things that change rarely at the top:</p>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Good: dependencies change less often than code</span>
+<span class="k">COPY</span><span class="s"> package.json package-lock.json ./</span>
+<span class="k">RUN </span>npm ci
+<span class="k">COPY</span><span class="s"> . .  # Code changes invalidate only this layer</span>
+
+<span class="c"># Bad: any code change reinstalls all dependencies</span>
+<span class="k">COPY</span><span class="s"> . .</span>
+<span class="k">RUN </span>npm ci
+</code></pre></div></div>
+
+<h3 id="layer-optimization">Layer Optimization</h3>
+
+<p>Combine related commands to reduce layers and image size:</p>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Good: single layer, cleanup in same layer</span>
+<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> curl <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
+
+<span class="c"># Bad: cleanup in separate layer does not reduce size</span>
+<span class="k">RUN </span>apt-get update
+<span class="k">RUN </span>apt-get <span class="nb">install</span> <span class="nt">-y</span> curl
+<span class="k">RUN </span><span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
+</code></pre></div></div>
+
+<h3 id="essential-dockerignore">Essential .dockerignore</h3>
+
+<p>Always create a <code class="language-plaintext highlighter-rouge">.dockerignore</code> file to exclude unnecessary files:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>node_modules
+.git
+*.log
+.env
+</code></pre></div></div>
 
 <h2 id="performance-optimization">Performance Optimization</h2>
 
-<div class="performance-section">
-  <h3><i class="fas fa-tachometer-alt"></i> Docker Performance Tuning</h3>
-  
-  <p class="perf-intro">Optimizing Docker performance involves understanding resource allocation, storage drivers, networking overhead, and build optimization. These techniques can significantly improve your container performance.</p>
-  
-  <h3><i class="fas fa-memory"></i> Resource Management</h3>
-  
-  <div class="resource-optimization">
-    <h4>Memory Optimization</h4>
-    <pre><code class="language-bash"># Set memory limits and reservations
-docker run -d \
-  --name optimized-app \
-  --memory="1g" \
-  --memory-reservation="750m" \
-  --memory-swap="2g" \
-  --oom-kill-disable=false \
-  my-app
+<p>Container performance depends on resource allocation, storage configuration, and network setup. Here are the key levers you can adjust.</p>
 
-# Java application optimization
-docker run -d \
-  --name java-app \
-  --memory="2g" \
-  -e JAVA_OPTS="-Xmx1800m -Xms1800m -XX:MaxMetaspaceSize=256m" \
-  my-java-app</code></pre>
-    
-    <h4>CPU Optimization</h4>
-    <pre><code class="language-bash"># CPU limits and shares
-docker run -d \
-  --name cpu-app \
-  --cpus="2.5" \
-  --cpu-shares=1024 \
-  --cpuset-cpus="0-3" \
-  my-app
+<h3 id="resource-limits">Resource Limits</h3>
 
-# Real-time scheduling
-docker run -d \
-  --name realtime-app \
-  --cpu-rt-runtime=950000 \
-  --cpu-rt-period=1000000 \
-  my-realtime-app</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-hdd"></i> Storage Driver Performance</h3>
-  
-  <div class="storage-performance">
-    <h4>Choosing the Right Storage Driver</h4>
-    <pre><code class="language-bash"># Check current storage driver
-docker info | grep -i storage
+<p>Always set resource limits in production to prevent runaway containers from affecting other services.</p>
 
-# Configure storage driver (daemon.json)
-{
-  "storage-driver": "overlay2",
-  "storage-opts": [
-    "overlay2.override_kernel_check=true",
-    "overlay2.size=20G"
-  ]
-}
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Memory: set limit and reservation</span>
+docker run <span class="nt">-d</span> <span class="nt">--memory</span><span class="o">=</span><span class="s2">"1g"</span> <span class="nt">--memory-reservation</span><span class="o">=</span><span class="s2">"750m"</span> my-app
 
-# Performance comparison
-# overlay2: Best overall performance
-# devicemapper: Good for high I/O workloads
-# btrfs: Good for snapshots, CoW operations
-# zfs: Best for data integrity, compression</code></pre>
-    
-    <h4>Build Cache Optimization</h4>
-    <pre><code class="language-dockerfile"># Optimize Dockerfile for caching
-FROM node:18-alpine
+<span class="c"># CPU: limit to 2 cores</span>
+docker run <span class="nt">-d</span> <span class="nt">--cpus</span><span class="o">=</span><span class="s2">"2"</span> my-app
+</code></pre></div></div>
 
-# Dependencies change less frequently
-COPY package*.json ./
-RUN npm ci --only=production
+<h3 id="build-performance">Build Performance</h3>
 
-# Application code changes frequently
-COPY . .
+<p>Use BuildKit cache mounts to dramatically speed up builds:</p>
 
-# BuildKit cache mounts
-# syntax=docker/dockerfile:1
-FROM golang:1.20-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-network-wired"></i> Network Performance</h3>
-  
-  <div class="network-performance">
-    <h4>Network Driver Performance</h4>
-    <pre><code class="language-bash"># Host networking for maximum performance
-docker run -d --network host high-perf-app
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># syntax=docker/dockerfile:1</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.20</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<span class="k">RUN </span><span class="nt">--mount</span><span class="o">=</span><span class="nb">type</span><span class="o">=</span>cache,target<span class="o">=</span>/go/pkg/mod <span class="se">\
+</span>    <span class="nt">--mount</span><span class="o">=</span><span class="nb">type</span><span class="o">=</span>cache,target<span class="o">=</span>/root/.cache/go-build <span class="se">\
+</span>    go build <span class="nt">-o</span> app .
+</code></pre></div></div>
 
-# SR-IOV for near-native performance
-docker run -d \
-  --name sriov-app \
-  --network sriov-net \
-  --device=/dev/vfio/vfio \
-  high-bandwidth-app
+<h3 id="network-performance">Network Performance</h3>
 
-# Optimize bridge network
-sudo sysctl -w net.bridge.bridge-nf-call-iptables=0
-sudo sysctl -w net.bridge.bridge-nf-call-ip6tables=0</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-chart-line"></i> Monitoring and Profiling</h3>
-  
-  <div class="performance-monitoring">
-    <h4>Container Profiling</h4>
-    <pre><code class="language-bash"># CPU profiling with perf
-docker run -d --name app --cap-add SYS_ADMIN my-app
-docker exec app perf record -g -p 1 -- sleep 30
-docker exec app perf report
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Maximum performance</td>
+      <td><code class="language-plaintext highlighter-rouge">--network host</code> (no isolation)</td>
+    </tr>
+    <tr>
+      <td>Good performance + isolation</td>
+      <td>Custom bridge network</td>
+    </tr>
+    <tr>
+      <td>Multi-host communication</td>
+      <td>Overlay network</td>
+    </tr>
+  </tbody>
+</table>
 
-# Memory profiling
-docker stats --no-stream
-docker exec app cat /proc/1/smaps | grep -E "^Rss|^Pss|^Shared"
+<h3 id="monitoring">Monitoring</h3>
 
-# I/O profiling
-docker exec app iotop -b -n 1</code></pre>
-    
-    <h4>Metrics Collection</h4>
-    <pre><code class="language-yaml"># docker-compose.yml with Prometheus monitoring
-version: '3.8'
-services:
-  app:
-    image: my-app
-    ports:
-      - "8080:8080"
-      
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    ports:
-      - "8081:8080"
-      
-  prometheus:
-    image: prom/prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"</code></pre>
-  </div>
-</div>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Real-time resource usage</span>
+docker stats
+
+<span class="c"># Container-specific metrics</span>
+docker stats container-name <span class="nt">--no-stream</span>
+</code></pre></div></div>
+
+<p>For production monitoring, consider cAdvisor with Prometheus for detailed metrics and alerting.</p>
 
 <h2 id="docker-swarm-native-orchestration">Docker Swarm: Native Orchestration</h2>
 
-<div class="swarm-section">
-  <h3><i class="fas fa-th"></i> Introduction to Docker Swarm</h3>
-  
-  <p class="swarm-intro">Docker Swarm is Docker's native clustering and orchestration solution. It turns a pool of Docker hosts into a single, virtual Docker host, providing high availability and load balancing for your services.</p>
-  
-  <h3><i class="fas fa-server"></i> Setting Up a Swarm Cluster</h3>
-  
-  <div class="swarm-setup">
-    <h4>Initialize Swarm</h4>
-    <pre><code class="language-bash"># On manager node
-docker swarm init --advertise-addr 192.168.1.100
+<p>Docker Swarm turns multiple Docker hosts into a single cluster. It handles service deployment, scaling, and rolling updates with built-in load balancing.</p>
 
-# Output will include join token:
-# docker swarm join --token SWMTKN-1-xxx 192.168.1.100:2377
+<p><strong>When to use Swarm vs Kubernetes:</strong></p>
 
-# Get join tokens
-docker swarm join-token worker
-docker swarm join-token manager
+<table>
+  <thead>
+    <tr>
+      <th>Factor</th>
+      <th>Docker Swarm</th>
+      <th>Kubernetes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Complexity</td>
+      <td>Simple, quick to learn</td>
+      <td>Complex, steep learning curve</td>
+    </tr>
+    <tr>
+      <td>Setup time</td>
+      <td>Minutes</td>
+      <td>Hours to days</td>
+    </tr>
+    <tr>
+      <td>Scalability</td>
+      <td>Good for small/medium</td>
+      <td>Excellent for large scale</td>
+    </tr>
+    <tr>
+      <td>Feature set</td>
+      <td>Essential features</td>
+      <td>Comprehensive ecosystem</td>
+    </tr>
+    <tr>
+      <td>Best for</td>
+      <td>Small teams, simpler apps</td>
+      <td>Large teams, complex apps</td>
+    </tr>
+  </tbody>
+</table>
 
-# On worker nodes
-docker swarm join --token SWMTKN-1-xxx 192.168.1.100:2377
+<h3 id="quick-start">Quick Start</h3>
 
-# Verify cluster
-docker node ls</code></pre>
-    
-    <h4>Deploy Services</h4>
-    <pre><code class="language-bash"># Create a service
-docker service create \
-  --name web \
-  --replicas 3 \
-  --publish 80:80 \
-  --mount type=volume,source=web-data,destination=/data \
-  --constraint 'node.role==worker' \
-  --update-delay 10s \
-  --update-parallelism 2 \
-  nginx:alpine
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize swarm on first manager</span>
+docker swarm init
 
-# Scale service
-docker service scale web=5
+<span class="c"># Join workers (run this on each worker node)</span>
+docker swarm <span class="nb">join</span> <span class="nt">--token</span> &lt;token&gt; &lt;manager-ip&gt;:2377
 
-# Rolling update
-docker service update \
-  --image nginx:latest \
-  --update-failure-action rollback \
-  web</code></pre>
-    
-    <h4>Stack Deployment</h4>
-    <pre><code class="language-yaml"># stack.yml
-version: '3.8'
+<span class="c"># Deploy a service with 3 replicas</span>
+docker service create <span class="nt">--name</span> web <span class="nt">--replicas</span> 3 <span class="nt">-p</span> 80:80 nginx
 
-services:
-  web:
-    image: nginx:alpine
-    deploy:
-      replicas: 3
-      update_config:
-        parallelism: 1
-        delay: 10s
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-      placement:
-        constraints:
-          - node.role == worker
-          - node.labels.zone == frontend
-    ports:
-      - "80:80"
-    networks:
-      - webnet
-      
-  api:
-    image: my-api:latest
-    deploy:
-      replicas: 2
-      placement:
-        constraints:
-          - node.labels.zone == backend
-    environment:
-      - DB_HOST=db
-    networks:
-      - webnet
-      - backend
-      
-  db:
-    image: postgres:15
-    deploy:
-      placement:
-        constraints:
-          - node.labels.type == database
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    networks:
-      - backend
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
+<span class="c"># Scale up</span>
+docker service scale <span class="nv">web</span><span class="o">=</span>5
+</code></pre></div></div>
 
-networks:
-  webnet:
-    driver: overlay
-    encrypted: true
-  backend:
-    driver: overlay
-    internal: true
+<h3 id="stack-deployment">Stack Deployment</h3>
 
-volumes:
-  db-data:
-    driver: local
+<p>For multi-service applications, use stack files (compose format):</p>
 
-secrets:
-  db_password:
-    external: true</code></pre>
-    <pre><code class="language-bash"># Deploy stack
-docker stack deploy -c stack.yml myapp
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># stack.yml</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.8'</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">web</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">nginx:alpine</span>
+    <span class="na">deploy</span><span class="pi">:</span>
+      <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+      <span class="na">update_config</span><span class="pi">:</span>
+        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">delay</span><span class="pi">:</span> <span class="s">10s</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">80:80"</span>
+  <span class="na">api</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">my-api:latest</span>
+    <span class="na">deploy</span><span class="pi">:</span>
+      <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
+</code></pre></div></div>
 
-# Monitor stack
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Deploy and manage stack</span>
+docker stack deploy <span class="nt">-c</span> stack.yml myapp
 docker stack services myapp
-docker stack ps myapp
+docker stack <span class="nb">rm </span>myapp
+</code></pre></div></div>
 
-# Remove stack
-docker stack rm myapp</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-balance-scale"></i> High Availability</h3>
-  
-  <div class="swarm-ha">
-    <h4>Multi-Manager Setup</h4>
-    <pre><code class="language-bash"># Best practice: odd number of managers (3, 5, 7)
-# Promote workers to managers
-docker node promote worker1 worker2
+<h3 id="high-availability-tips">High Availability Tips</h3>
 
-# Verify manager status
-docker node ls
-
-# Configure manager availability
-docker node update --availability drain manager1</code></pre>
-    
-    <h4>Service Constraints and Preferences</h4>
-    <pre><code class="language-bash"># Node labels
-docker node update --label-add zone=frontend worker1
-docker node update --label-add zone=backend worker2
-docker node update --label-add type=database worker3
-
-# Deploy with constraints
-docker service create \
-  --name frontend \
-  --constraint 'node.labels.zone==frontend' \
-  --placement-pref 'spread=node.labels.zone' \
-  nginx</code></pre>
-  </div>
-</div>
+<ul>
+  <li>Use an <strong>odd number of managers</strong> (3, 5, or 7) for quorum</li>
+  <li>Distribute managers across availability zones</li>
+  <li>Use node labels and constraints for placement control</li>
+</ul>
 
 <h2 id="cicd-integration-with-docker">CI/CD Integration with Docker</h2>
 
-<div class="cicd-section">
-  <h3><i class="fas fa-infinity"></i> Docker in CI/CD Pipelines</h3>
-  
-  <p class="cicd-intro">Docker revolutionizes CI/CD by providing consistent environments across all pipeline stages. Here's how to integrate Docker into popular CI/CD platforms.</p>
-  
-  <h3><i class="fas fa-github"></i> GitHub Actions</h3>
-  
-  <div class="github-actions">
-    <h4>Basic Docker Build and Push</h4>
-    <pre><code class="language-yaml"># .github/workflows/docker.yml
-name: Docker CI/CD
+<p>Docker enables consistent builds across all CI/CD platforms. The pattern is always the same: build image, test, scan for vulnerabilities, push to registry, deploy.</p>
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+<h3 id="github-actions">GitHub Actions</h3>
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: $
+<p>The most common approach for GitHub-hosted projects:</p>
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-      
-    - name: Log in to Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: $
-        username: $
-        password: $
-        
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v4
-      with:
-        images: $/$
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern=
-          type=semver,pattern=.
-          type=sha
-          
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        tags: $
-        labels: $
-        cache-from: type=registry,ref=$/$:buildcache
-        cache-to: type=registry,ref=$/$:buildcache,mode=max</code></pre>
-    
-    <h4>Multi-Platform Builds</h4>
-    <pre><code class="language-yaml"># Multi-architecture build
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-      
-    - name: Build and push
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64,linux/arm/v7
-        push: true
-        tags: $</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-gitlab"></i> GitLab CI/CD</h3>
-  
-  <div class="gitlab-ci">
-    <h4>GitLab Pipeline with Docker</h4>
-    <pre><code class="language-yaml"># .gitlab-ci.yml
-variables:
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: "/certs"
-  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .github/workflows/docker.yml</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">Docker Build</span>
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
 
-stages:
-  - build
-  - test
-  - deploy
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">build</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/setup-buildx-action@v3</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/login-action@v3</span>
+      <span class="na">with</span><span class="pi">:</span>
+        <span class="na">registry</span><span class="pi">:</span> <span class="s">ghcr.io</span>
+        <span class="na">username</span><span class="pi">:</span> <span class="s">$</span>
+        <span class="na">password</span><span class="pi">:</span> <span class="s">$</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/build-push-action@v5</span>
+      <span class="na">with</span><span class="pi">:</span>
+        <span class="na">push</span><span class="pi">:</span> <span class="kc">true</span>
+        <span class="na">tags</span><span class="pi">:</span> <span class="s">ghcr.io/$:latest</span>
+        <span class="na">cache-from</span><span class="pi">:</span> <span class="s">type=gha</span>
+        <span class="na">cache-to</span><span class="pi">:</span> <span class="s">type=gha,mode=max</span>
+</code></pre></div></div>
 
-build:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build --pull -t $IMAGE_TAG .
-    - docker push $IMAGE_TAG
-    
-test:
-  stage: test
-  image: $IMAGE_TAG
-  script:
-    - pytest tests/
-    - flake8 .
-    
-scan:
-  stage: test
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - docker pull $IMAGE_TAG
-    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-        aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL $IMAGE_TAG
-        
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  script:
-    - kubectl set image deployment/app app=$IMAGE_TAG
-  only:
-    - main</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-jenkins"></i> Jenkins Pipeline</h3>
-  
-  <div class="jenkins-pipeline">
-    <h4>Declarative Pipeline with Docker</h4>
-    <pre><code class="language-groovy">// Jenkinsfile
-pipeline {
-    agent any
-    
-    environment {
-        DOCKER_REGISTRY = 'registry.company.com'
-        DOCKER_CREDENTIALS = credentials('docker-registry-creds')
-        IMAGE_NAME = "${DOCKER_REGISTRY}/myapp"
-        IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
-    }
-    
-    stages {
-        stage('Build') {
-            steps {
-                script {
-                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
-                }
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                script {
-                    docker.image("${IMAGE_NAME}:${IMAGE_TAG}").inside {
-                        sh 'npm test'
-                        sh 'npm run lint'
-                    }
-                }
-            }
-        }
-        
-        stage('Security Scan') {
-            steps {
-                sh '''
-                    docker run --rm \
-                      -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v $HOME/.cache:/root/.cache \
-                      aquasec/trivy image ${IMAGE_NAME}:${IMAGE_TAG}
-                '''
-            }
-        }
-        
-        stage('Push') {
-            when {
-                branch 'main'
-            }
-            steps {
-                script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-registry-creds') {
-                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
-                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push('latest')
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
-            steps {
-                sh '''
-                    kubectl set image deployment/myapp \
-                      myapp=${IMAGE_NAME}:${IMAGE_TAG} \
-                      --record=true
-                '''
-            }
-        }
-    }
-    
-    post {
-        always {
-            cleanWs()
-            sh 'docker system prune -f'
-        }
-    }
-}</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-cloud"></i> Cloud Native CI/CD</h3>
-  
-  <div class="cloud-native-cicd">
-    <h4>Tekton Pipeline</h4>
-    <pre><code class="language-yaml"># tekton-pipeline.yaml
-apiVersion: tekton.dev/v1beta1
-kind: Pipeline
-metadata:
-  name: docker-build-push
-spec:
-  params:
-    - name: repo-url
-      type: string
-    - name: image-reference
-      type: string
-  workspaces:
-    - name: shared-data
-  tasks:
-    - name: fetch-source
-      taskRef:
-        name: git-clone
-      workspaces:
-        - name: output
-          workspace: shared-data
-      params:
-        - name: url
-          value: $(params.repo-url)
-          
-    - name: build-push
-      runAfter: ["fetch-source"]
-      taskRef:
-        name: kaniko
-      workspaces:
-        - name: source
-          workspace: shared-data
-      params:
-        - name: IMAGE
-          value: $(params.image-reference)
-        - name: DOCKERFILE
-          value: ./Dockerfile
-        - name: CONTEXT
-          value: ./
-        - name: EXTRA_ARGS
-          value:
-            - --cache=true
-            - --cache-ttl=24h</code></pre>
-  </div>
-</div>
+<h3 id="gitlab-cicd">GitLab CI/CD</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .gitlab-ci.yml</span>
+<span class="na">build</span><span class="pi">:</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">docker:latest</span>
+  <span class="na">services</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">docker:dind</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .</span>
+    <span class="pi">-</span> <span class="s">docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA</span>
+</code></pre></div></div>
+
+<h3 id="key-cicd-practices">Key CI/CD Practices</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Practice</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cache layers</td>
+      <td>Faster builds</td>
+    </tr>
+    <tr>
+      <td>Scan images</td>
+      <td>Catch vulnerabilities before deployment</td>
+    </tr>
+    <tr>
+      <td>Tag with commit SHA</td>
+      <td>Traceable deployments</td>
+    </tr>
+    <tr>
+      <td>Use multi-stage builds</td>
+      <td>Smaller production images</td>
+    </tr>
+    <tr>
+      <td>Avoid <code class="language-plaintext highlighter-rouge">latest</code> tag in production</td>
+      <td>Reproducible deployments</td>
+    </tr>
+  </tbody>
+</table>
 
 
       </section>

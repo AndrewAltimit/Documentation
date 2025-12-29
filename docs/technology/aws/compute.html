@@ -1242,7 +1242,20 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <h1 id="aws-compute-services">AWS Compute Services</h1>
 
-<p>This guide covers AWS compute services including EC2 virtual servers and Lambda serverless functions. Start here if you’re new to AWS - the crash course will have you deploying your first cloud application in 30 minutes.</p>
+<h2 id="why-compute-services-matter">Why Compute Services Matter</h2>
+
+<p>Every application needs somewhere to run. In traditional IT, that means buying servers, racking them in a data center, and managing hardware failures. AWS compute services let you skip all of that and get straight to running your code.</p>
+
+<p>This guide covers two main approaches:</p>
+
+<ul>
+  <li><strong>EC2 (Elastic Compute Cloud)</strong>: Virtual servers you control completely, like renting computers in the cloud</li>
+  <li><strong>Lambda</strong>: Serverless functions where you just upload code and AWS handles everything else</li>
+</ul>
+
+<p><strong>Which should you choose?</strong> Start with EC2 if you need full control, have long-running processes, or are migrating existing applications. Choose Lambda for event-driven workloads, APIs, or when you want zero server management.</p>
+
+<hr />
 
 <h2 id="aws-crash-course-from-zero-to-cloud-in-30-minutes">AWS Crash Course: From Zero to Cloud in 30 Minutes</h2>
 
@@ -1563,318 +1576,340 @@ CloudWatch (Monitoring Everything)
 <h3 id="compute-services-your-applications-brain">Compute Services: Your Application’s Brain</h3>
 
 <h4 id="amazon-ec2---virtual-servers">Amazon EC2 - Virtual Servers</h4>
+
 <p>EC2 (Elastic Compute Cloud) is like renting computers in the cloud. You choose the operating system, processing power, memory, and storage. Need a small server for testing? Launch a t2.micro. Building a data processing pipeline? Spin up a compute-optimized instance.</p>
 
 <p><strong>Real-world example</strong>: A startup begins with one EC2 instance running their web application. As traffic grows, they add more instances behind a load balancer. During Black Friday, they scale to 50 instances, then scale back down afterward.</p>
 
-<p><strong>Practical EC2 Patterns</strong>:</p>
+<h3 id="choosing-the-right-instance-type">Choosing the Right Instance Type</h3>
 
-<ol>
-  <li><strong>Right-Sizing Instances</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check current utilization</span>
+<p>Consider the following when selecting an instance type: What is your workload’s primary bottleneck? CPU, memory, storage, or network?</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Instance Family</th>
+      <th>Best For</th>
+      <th>Example Use Cases</th>
+      <th>Starting Price*</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>T3/T3a</strong> (Burstable)</td>
+      <td>Variable workloads with occasional spikes</td>
+      <td>Development, small websites, microservices</td>
+      <td>~$0.01/hr</td>
+    </tr>
+    <tr>
+      <td><strong>M5/M6i</strong> (General Purpose)</td>
+      <td>Balanced compute, memory, networking</td>
+      <td>Web servers, app servers, small databases</td>
+      <td>~$0.10/hr</td>
+    </tr>
+    <tr>
+      <td><strong>C5/C6i</strong> (Compute Optimized)</td>
+      <td>CPU-intensive tasks</td>
+      <td>Batch processing, gaming servers, scientific modeling</td>
+      <td>~$0.09/hr</td>
+    </tr>
+    <tr>
+      <td><strong>R5/R6i</strong> (Memory Optimized)</td>
+      <td>Large datasets in memory</td>
+      <td>In-memory databases, real-time analytics</td>
+      <td>~$0.13/hr</td>
+    </tr>
+    <tr>
+      <td><strong>I3/I4i</strong> (Storage Optimized)</td>
+      <td>High sequential read/write</td>
+      <td>Data warehousing, distributed file systems</td>
+      <td>~$0.16/hr</td>
+    </tr>
+    <tr>
+      <td><strong>P4/G5</strong> (Accelerated)</td>
+      <td>GPU-intensive workloads</td>
+      <td>Machine learning training, video encoding</td>
+      <td>~$1.00/hr+</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>*Prices are approximate for US East, on-demand. Actual prices vary by region and change over time.</p>
+
+<h3 id="ec2-pricing-models">EC2 Pricing Models</h3>
+
+<p>You can significantly reduce costs by choosing the right pricing model:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Savings</th>
+      <th>Commitment</th>
+      <th>Best For</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>On-Demand</strong></td>
+      <td>Baseline</td>
+      <td>None</td>
+      <td>Unpredictable workloads, testing</td>
+    </tr>
+    <tr>
+      <td><strong>Reserved Instances</strong></td>
+      <td>Up to 72%</td>
+      <td>1-3 years</td>
+      <td>Steady-state production workloads</td>
+    </tr>
+    <tr>
+      <td><strong>Savings Plans</strong></td>
+      <td>Up to 72%</td>
+      <td>1-3 years</td>
+      <td>Flexible usage across instance types</td>
+    </tr>
+    <tr>
+      <td><strong>Spot Instances</strong></td>
+      <td>Up to 90%</td>
+      <td>None (can be interrupted)</td>
+      <td>Fault-tolerant batch jobs, CI/CD</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="practical-ec2-patterns">Practical EC2 Patterns</h3>
+
+<p><strong>1. Right-Sizing Instances</strong></p>
+
+<p>Check your CPU utilization with CloudWatch. If CPU stays below 20% consistently, you are likely overpaying:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check CPU utilization for the past day</span>
 aws cloudwatch get-metric-statistics <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
-  <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/EC2 <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
   <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>InstanceId,Value<span class="o">=</span>i-1234567890abcdef0 <span class="se">\</span>
-  <span class="nt">--statistics</span> Average <span class="se">\</span>
-  <span class="nt">--start-time</span> 2024-01-01T00:00:00Z <span class="se">\</span>
-  <span class="nt">--end-time</span> 2024-01-02T00:00:00Z <span class="se">\</span>
-  <span class="nt">--period</span> 3600
-</code></pre></div>    </div>
+  <span class="nt">--statistics</span> Average <span class="nt">--start-time</span> 2024-01-01T00:00:00Z <span class="se">\</span>
+  <span class="nt">--end-time</span> 2024-01-02T00:00:00Z <span class="nt">--period</span> 3600
+</code></pre></div></div>
 
-    <p>If CPU &lt; 20% consistently, you’re overpaying. Consider:</p>
-    <ul>
-      <li>t3.micro → t3.nano (save 50%)</li>
-      <li>m5.large → t3.medium (save 60% for variable workloads)</li>
-    </ul>
-  </li>
-  <li><strong>Spot Instances for Batch Processing</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Processing logs with 90% cost savings
-</span><span class="kn">import</span> <span class="n">boto3</span>
-   
-<span class="n">ec2</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">ec2</span><span class="sh">'</span><span class="p">)</span>
-   
-<span class="c1"># Request Spot instance
-</span><span class="n">response</span> <span class="o">=</span> <span class="n">ec2</span><span class="p">.</span><span class="nf">request_spot_instances</span><span class="p">(</span>
-    <span class="n">SpotPrice</span><span class="o">=</span><span class="sh">'</span><span class="s">0.10</span><span class="sh">'</span><span class="p">,</span>  <span class="c1"># Max price you'll pay
-</span>    <span class="n">InstanceCount</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">LaunchSpecification</span><span class="o">=</span><span class="p">{</span>
-        <span class="sh">'</span><span class="s">ImageId</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">ami-12345678</span><span class="sh">'</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">InstanceType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">c5.large</span><span class="sh">'</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">UserData</span><span class="sh">'</span><span class="p">:</span> <span class="n">base64</span><span class="p">.</span><span class="nf">b64encode</span><span class="p">(</span><span class="sh">'''</span><span class="s">#!/bin/bash
-            aws s3 cp s3://my-logs/raw/ /tmp/logs/ --recursive
-            /opt/process-logs.sh
-            aws s3 cp /tmp/results/ s3://my-logs/processed/ --recursive
-            shutdown -h now  # Self-terminate to save money
-        </span><span class="sh">'''</span><span class="p">.</span><span class="nf">encode</span><span class="p">()).</span><span class="nf">decode</span><span class="p">()</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Auto-Recovery for Critical Instances</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create CloudWatch alarm for auto-recovery</span>
-aws cloudwatch put-metric-alarm <span class="se">\</span>
-  <span class="nt">--alarm-name</span> ec2-recovery-i-1234567890abcdef0 <span class="se">\</span>
-  <span class="nt">--alarm-description</span> <span class="s2">"Recover instance when it fails"</span> <span class="se">\</span>
-  <span class="nt">--metric-name</span> StatusCheckFailed_System <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
-  <span class="nt">--statistic</span> Maximum <span class="se">\</span>
-  <span class="nt">--period</span> 60 <span class="se">\</span>
-  <span class="nt">--evaluation-periods</span> 2 <span class="se">\</span>
-  <span class="nt">--threshold</span> 0 <span class="se">\</span>
-  <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
+<p><strong>When to downsize</strong>: t3.micro to t3.nano saves 50%. m5.large to t3.medium saves 60% for variable workloads.</p>
+
+<p><strong>2. Spot Instances for Batch Processing</strong></p>
+
+<p>Spot instances offer up to 90% savings for interruptible workloads. The key is designing for interruption:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Request a Spot instance with a max price</span>
+aws ec2 request-spot-instances <span class="nt">--spot-price</span> <span class="s2">"0.10"</span> <span class="se">\</span>
+  <span class="nt">--instance-count</span> 1 <span class="nt">--type</span> <span class="s2">"one-time"</span> <span class="se">\</span>
+  <span class="nt">--launch-specification</span> file://spot-spec.json
+</code></pre></div></div>
+
+<p><strong>When to use Spot</strong>: Batch processing, CI/CD builds, data analysis, any job that can checkpoint and resume.</p>
+
+<p><strong>3. Auto-Recovery for Critical Instances</strong></p>
+
+<p>Configure CloudWatch alarms to automatically recover instances that fail system status checks:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Set up auto-recovery alarm</span>
+aws cloudwatch put-metric-alarm <span class="nt">--alarm-name</span> ec2-auto-recovery <span class="se">\</span>
+  <span class="nt">--metric-name</span> StatusCheckFailed_System <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
+  <span class="nt">--statistic</span> Maximum <span class="nt">--period</span> 60 <span class="nt">--evaluation-periods</span> 2 <span class="se">\</span>
+  <span class="nt">--threshold</span> 0 <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
   <span class="nt">--alarm-actions</span> arn:aws:automate:region:ec2:recover
-</code></pre></div>    </div>
-  </li>
-</ol>
+</code></pre></div></div>
 
-<p><strong>Common EC2 Pitfalls and Solutions</strong>:</p>
+<h3 id="common-ec2-pitfalls-and-solutions">Common EC2 Pitfalls and Solutions</h3>
 
-<ol>
-  <li><strong>The “Zombie Instance” Problem</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Instances running but not doing anything useful</li>
-      <li><strong>Solution</strong>: Tag instances with purpose and owner, run weekly audits
-        <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Find instances without Owner tag</span>
-aws ec2 describe-instances <span class="se">\</span>
-<span class="nt">--query</span> <span class="s1">'Reservations[].Instances[?!Tags[?Key==`Owner`]].[InstanceId,State.Name]'</span> <span class="se">\</span>
-<span class="nt">--output</span> table
-</code></pre></div>        </div>
-      </li>
-    </ul>
-  </li>
-  <li><strong>The “SSH Key Lost Forever” Disaster</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Can’t access instance after losing private key</li>
-      <li><strong>Prevention</strong>: Use Systems Manager Session Manager
-        <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Connect without SSH keys</span>
-aws ssm start-session <span class="nt">--target</span> i-1234567890abcdef0
-</code></pre></div>        </div>
-      </li>
-    </ul>
-  </li>
-  <li><strong>The “Wrong Instance Family” Performance Issue</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Application runs slower than expected</li>
-      <li><strong>Solution</strong>: Match instance to workload</li>
-      <li>CPU-intensive → C5 (compute optimized)</li>
-      <li>Memory-intensive → R5 (memory optimized)</li>
-      <li>Balanced → M5 (general purpose)</li>
-      <li>Bursty → T3 (burstable performance)</li>
-    </ul>
-  </li>
-  <li><strong>The “Public IP Changed” Confusion</strong>
-    <ul>
-      <li><strong>Symptom</strong>: IP address changes after stop/start</li>
-      <li><strong>Solution</strong>: Use Elastic IPs for static addresses
-        <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Allocate and associate Elastic IP</span>
-<span class="nv">ALLOC_ID</span><span class="o">=</span><span class="si">$(</span>aws ec2 allocate-address <span class="nt">--query</span> <span class="s1">'AllocationId'</span> <span class="nt">--output</span> text<span class="si">)</span>
-aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcdef0 <span class="nt">--allocation-id</span> <span class="nv">$ALLOC_ID</span>
-</code></pre></div>        </div>
-      </li>
-    </ul>
-  </li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>Symptom</th>
+      <th>Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Zombie Instances</td>
+      <td>Running instances doing nothing useful</td>
+      <td>Tag with owner/purpose, run weekly audits</td>
+    </tr>
+    <tr>
+      <td>Lost SSH Keys</td>
+      <td>Cannot access instance</td>
+      <td>Use Systems Manager Session Manager instead</td>
+    </tr>
+    <tr>
+      <td>Wrong Instance Family</td>
+      <td>Slower performance than expected</td>
+      <td>Match instance to workload (see table above)</td>
+    </tr>
+    <tr>
+      <td>IP Address Changes</td>
+      <td>Public IP changes after stop/start</td>
+      <td>Use Elastic IPs for static addresses</td>
+    </tr>
+    <tr>
+      <td>Unexpected Costs</td>
+      <td>Bill higher than expected</td>
+      <td>Set billing alerts, use AWS Cost Explorer</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Quick fix for lost SSH access</strong>: Use AWS Systems Manager to connect without keys:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ssm start-session <span class="nt">--target</span> i-1234567890abcdef0
+</code></pre></div></div>
+
+<p><strong>Quick fix for static IPs</strong>: Allocate an Elastic IP to prevent IP changes:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 allocate-address <span class="nt">--domain</span> vpc
+aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcdef0 <span class="nt">--allocation-id</span> eipalloc-xxx
+</code></pre></div></div>
 
 <h4 id="aws-lambda---serverless-computing">AWS Lambda - Serverless Computing</h4>
+
 <p>Lambda represents a paradigm shift. Instead of managing servers, you upload your code and AWS runs it in response to events. You pay only for the milliseconds your code executes.</p>
 
 <p><strong>Real-world example</strong>: An e-commerce site uses Lambda to resize product images. When a seller uploads a photo, Lambda automatically creates multiple sizes for different devices. No servers to manage, automatic scaling, and you only pay when images are processed.</p>
 
-<p><strong>Practical Lambda Patterns</strong>:</p>
+<h3 id="ec2-vs-lambda-when-to-use-each">EC2 vs Lambda: When to Use Each</h3>
 
-<ol>
-  <li><strong>Event-Driven Image Processing</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
-<span class="kn">import</span> <span class="n">boto3</span>
-<span class="kn">from</span> <span class="n">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
-<span class="kn">import</span> <span class="n">io</span>
-   
-<span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">)</span>
-   
-<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="c1"># Triggered by S3 upload
+<table>
+  <thead>
+    <tr>
+      <th>Factor</th>
+      <th>EC2</th>
+      <th>Lambda</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Execution time</strong></td>
+      <td>Unlimited</td>
+      <td>Max 15 minutes</td>
+    </tr>
+    <tr>
+      <td><strong>Startup time</strong></td>
+      <td>Minutes</td>
+      <td>Milliseconds (cold start: seconds)</td>
+    </tr>
+    <tr>
+      <td><strong>Pricing</strong></td>
+      <td>Per hour (even when idle)</td>
+      <td>Per millisecond of execution</td>
+    </tr>
+    <tr>
+      <td><strong>Control</strong></td>
+      <td>Full OS access</td>
+      <td>Runtime environment only</td>
+    </tr>
+    <tr>
+      <td><strong>Scaling</strong></td>
+      <td>Manual or Auto Scaling groups</td>
+      <td>Automatic, instant</td>
+    </tr>
+    <tr>
+      <td><strong>Best for</strong></td>
+      <td>Long-running apps, migrations</td>
+      <td>Event-driven, APIs, batch jobs</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="practical-lambda-patterns">Practical Lambda Patterns</h3>
+
+<p><strong>1. Event-Driven Processing</strong> (triggered by S3 uploads, database changes, etc.)</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="c1"># Get the uploaded file info from S3 trigger
 </span>    <span class="n">bucket</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">bucket</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">name</span><span class="sh">'</span><span class="p">]</span>
     <span class="n">key</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">object</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">key</span><span class="sh">'</span><span class="p">]</span>
-       
-    <span class="c1"># Download image
-</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">s3</span><span class="p">.</span><span class="nf">get_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
-    <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">].</span><span class="nf">read</span><span class="p">()))</span>
-       
-    <span class="c1"># Create thumbnails
-</span>    <span class="n">sizes</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)]</span>
-    <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">sizes</span><span class="p">:</span>
-        <span class="n">resized</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="nf">resize</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">Image</span><span class="p">.</span><span class="n">LANCZOS</span><span class="p">)</span>
-           
-        <span class="c1"># Save to S3
-</span>        <span class="nb">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="p">.</span><span class="nc">BytesIO</span><span class="p">()</span>
-        <span class="n">resized</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nb">buffer</span><span class="p">,</span> <span class="sh">'</span><span class="s">JPEG</span><span class="sh">'</span><span class="p">)</span>
-        <span class="nb">buffer</span><span class="p">.</span><span class="nf">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-           
-        <span class="n">new_key</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">thumbnails/</span><span class="si">{</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s">x</span><span class="si">{</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="sh">"</span>
-        <span class="n">s3</span><span class="p">.</span><span class="nf">put_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">new_key</span><span class="p">,</span> <span class="n">Body</span><span class="o">=</span><span class="nb">buffer</span><span class="p">.</span><span class="nf">getvalue</span><span class="p">())</span>
-       
-    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="sh">'</span><span class="s">Thumbnails created</span><span class="sh">'</span><span class="p">)}</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>API Backend Without Servers</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Lambda function for REST API
-</span><span class="kn">import</span> <span class="n">json</span>
-<span class="kn">import</span> <span class="n">boto3</span>
-<span class="kn">from</span> <span class="n">decimal</span> <span class="kn">import</span> <span class="n">Decimal</span>
-   
-<span class="n">dynamodb</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">resource</span><span class="p">(</span><span class="sh">'</span><span class="s">dynamodb</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">table</span> <span class="o">=</span> <span class="n">dynamodb</span><span class="p">.</span><span class="nc">Table</span><span class="p">(</span><span class="sh">'</span><span class="s">Users</span><span class="sh">'</span><span class="p">)</span>
-   
-<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="n">http_method</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span>
-       
-    <span class="k">if</span> <span class="n">http_method</span> <span class="o">==</span> <span class="sh">'</span><span class="s">GET</span><span class="sh">'</span><span class="p">:</span>
-        <span class="c1"># Get user by ID
-</span>        <span class="n">user_id</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">pathParameters</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">id</span><span class="sh">'</span><span class="p">]</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">table</span><span class="p">.</span><span class="nf">get_item</span><span class="p">(</span><span class="n">Key</span><span class="o">=</span><span class="p">{</span><span class="sh">'</span><span class="s">userId</span><span class="sh">'</span><span class="p">:</span> <span class="n">user_id</span><span class="p">})</span>
-           
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">headers</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">Content-Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">application/json</span><span class="sh">'</span><span class="p">},</span>
-            <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Item</span><span class="sh">'</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
-        <span class="p">}</span>
-       
-    <span class="k">elif</span> <span class="n">http_method</span> <span class="o">==</span> <span class="sh">'</span><span class="s">POST</span><span class="sh">'</span><span class="p">:</span>
-        <span class="c1"># Create new user
-</span>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">])</span>
-        <span class="n">table</span><span class="p">.</span><span class="nf">put_item</span><span class="p">(</span><span class="n">Item</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
-           
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">headers</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">Content-Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">application/json</span><span class="sh">'</span><span class="p">},</span>
-            <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">message</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">User created</span><span class="sh">'</span><span class="p">})</span>
-        <span class="p">}</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Scheduled Data Processing</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CloudWatch Events triggers this daily
-</span><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="c1"># Clean up old data
-</span>    <span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">)</span>
-       
-    <span class="c1"># List objects older than 30 days
-</span>    <span class="n">response</span> <span class="o">=</span> <span class="n">s3</span><span class="p">.</span><span class="nf">list_objects_v2</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="sh">'</span><span class="s">my-temp-bucket</span><span class="sh">'</span><span class="p">)</span>
-       
-    <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Contents</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]):</span>
-        <span class="nf">if </span><span class="p">(</span><span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">LastModified</span><span class="sh">'</span><span class="p">]).</span><span class="n">days</span> <span class="o">&gt;</span> <span class="mi">30</span><span class="p">:</span>
-            <span class="n">s3</span><span class="p">.</span><span class="nf">delete_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="sh">'</span><span class="s">my-temp-bucket</span><span class="sh">'</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">])</span>
-            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Deleted: </span><span class="si">{</span><span class="n">obj</span><span class="p">[</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
 
-<p><strong>Common Lambda Pitfalls and Solutions</strong>:</p>
+    <span class="c1"># Process the file (resize image, parse CSV, etc.)
+</span>    <span class="c1"># ...
+</span>    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Processed successfully</span><span class="sh">'</span><span class="p">}</span>
+</code></pre></div></div>
 
-<ol>
-  <li><strong>The “Cold Start” Surprise</strong>
-    <ul>
-      <li><strong>Symptom</strong>: First invocation takes 3-5 seconds</li>
-      <li><strong>Solutions</strong>:
-        <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 1. Provisioned Concurrency (costs money)
-# 2. Keep Lambda warm with scheduled pings
-# 3. Optimize package size
-</span>     
-<span class="c1"># Bad: Large deployment package
-# requirements.txt
-</span><span class="n">pandas</span><span class="o">==</span><span class="mf">1.5</span><span class="p">.</span><span class="mi">0</span>  <span class="c1"># 40MB
-</span><span class="n">numpy</span><span class="o">==</span><span class="mf">1.23</span><span class="p">.</span><span class="mi">0</span>  <span class="c1"># 20MB
-</span>     
-<span class="c1"># Good: Use Lambda Layers or lighter alternatives
-# Use AWS SDK (boto3) - pre-installed
-# Use json instead of pandas for simple data
-</span></code></pre></div>        </div>
-      </li>
-    </ul>
-  </li>
-  <li><strong>The “15-Minute Timeout” Wall</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Function times out for long processes (Lambda max timeout is 15 minutes)</li>
-      <li><strong>Solution</strong>: Break into smaller functions or use Step Functions
-        <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Step Functions state machine for long workflows
-</span><span class="p">{</span>
-<span class="sh">"</span><span class="s">Comment</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Process large dataset</span><span class="sh">"</span><span class="p">,</span>
-<span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">SplitData</span><span class="sh">"</span><span class="p">,</span>
-<span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-  <span class="sh">"</span><span class="s">SplitData</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:region:account:function:split-data</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">Next</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ProcessInParallel</span><span class="sh">"</span>
-  <span class="p">},</span>
-  <span class="sh">"</span><span class="s">ProcessInParallel</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Map</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">ItemsPath</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">$.chunks</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">MaxConcurrency</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">Iterator</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-      <span class="sh">"</span><span class="s">StartAt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ProcessChunk</span><span class="sh">"</span><span class="p">,</span>
-      <span class="sh">"</span><span class="s">States</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">ProcessChunk</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-          <span class="sh">"</span><span class="s">Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Task</span><span class="sh">"</span><span class="p">,</span>
-          <span class="sh">"</span><span class="s">Resource</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">arn:aws:lambda:region:account:function:process-chunk</span><span class="sh">"</span><span class="p">,</span>
-          <span class="sh">"</span><span class="s">End</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">Next</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">MergeResults</span><span class="sh">"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>        </div>
-      </li>
-    </ul>
-  </li>
-  <li><strong>The “Out of Memory” Crisis</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Function fails with memory errors</li>
-      <li><strong>Solution</strong>: Stream data instead of loading all at once
-```python
-        <h1 id="bad-loading-entire-file">Bad: Loading entire file</h1>
-        <p>def lambda_handler(event, context):
-  s3 = boto3.client(‘s3’)
-  obj = s3.get_object(Bucket=’bucket’, Key=’huge-file.csv’)
-  data = obj[‘Body’].read()  # Boom! Out of memory</p>
-      </li>
-    </ul>
+<p><strong>2. API Backend</strong> (with API Gateway)</p>
 
-    <h1 id="good-stream-processing">Good: Stream processing</h1>
-    <p>def lambda_handler(event, context):
-    s3 = boto3.client(‘s3’)
-    obj = s3.get_object(Bucket=’bucket’, Key=’huge-file.csv’)</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">GET</span><span class="sh">'</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">message</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Hello</span><span class="sh">'</span><span class="p">})}</span>
+    <span class="k">elif</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">POST</span><span class="sh">'</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">])</span>
+        <span class="c1"># Process data...
+</span>        <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">created</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span><span class="p">})}</span>
+</code></pre></div></div>
 
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>for line in obj['Body'].iter_lines():
-    process_line(line)  # Process one line at a time ```
-</code></pre></div>    </div>
-  </li>
-  <li><strong>The “Deployment Package Too Large” Block</strong>
-    <ul>
-      <li><strong>Symptom</strong>: Cannot upload function (&gt;50MB zipped)</li>
-      <li><strong>Solution</strong>: Use Layers and container images
-```bash
-        <h1 id="create-a-lambda-layer-for-dependencies">Create a Lambda Layer for dependencies</h1>
-        <p>pip install -r requirements.txt -t python/
-zip -r layer.zip python/</p>
-      </li>
-    </ul>
+<p><strong>3. Scheduled Tasks</strong> (with CloudWatch Events/EventBridge)</p>
 
-    <p>aws lambda publish-layer-version <br />
-  –layer-name my-dependencies <br />
-  –zip-file fileb://layer.zip <br />
-  –compatible-runtimes python3.9</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="c1"># Runs on schedule (e.g., daily cleanup, reports)
+</span>    <span class="c1"># Delete old files, send notifications, generate reports
+</span>    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Task completed</span><span class="sh">'</span><span class="p">}</span>
+</code></pre></div></div>
 
-    <h1 id="or-use-container-images-up-to-10gb">Or use container images (up to 10GB)</h1>
-    <p>FROM public.ecr.aws/lambda/python:3.9
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY app.py .
-CMD [“app.lambda_handler”]
-```</p>
-  </li>
-</ol>
+<h3 id="common-lambda-pitfalls-and-solutions">Common Lambda Pitfalls and Solutions</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>Symptom</th>
+      <th>Solution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cold Starts</td>
+      <td>First invocation takes 3-5 seconds</td>
+      <td>Use Provisioned Concurrency or keep warm with scheduled pings</td>
+    </tr>
+    <tr>
+      <td>15-Minute Timeout</td>
+      <td>Long processes fail</td>
+      <td>Break into smaller functions, use Step Functions</td>
+    </tr>
+    <tr>
+      <td>Out of Memory</td>
+      <td>Function crashes on large files</td>
+      <td>Stream data instead of loading all at once</td>
+    </tr>
+    <tr>
+      <td>Package Too Large</td>
+      <td>Cannot upload (&gt;50MB limit)</td>
+      <td>Use Lambda Layers or container images (up to 10GB)</td>
+    </tr>
+    <tr>
+      <td>High Costs</td>
+      <td>Unexpected bills</td>
+      <td>Optimize memory settings, reduce execution time</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Reducing cold starts</strong>: Keep deployment packages small. Avoid large libraries like pandas (40MB) when simpler alternatives work.</p>
+
+<p><strong>Handling long processes</strong>: Use AWS Step Functions to orchestrate multiple Lambda functions:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"StartAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ProcessChunk"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"States"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"ProcessChunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"Type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Map"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"ItemsPath"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$.chunks"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"MaxConcurrency"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Iterator"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"StartAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DoWork"</span><span class="p">,</span><span class="w"> </span><span class="nl">"States"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Handling large files</strong>: Stream instead of loading everything into memory:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Stream large files line by line
+</span><span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">s3_object</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">].</span><span class="nf">iter_lines</span><span class="p">():</span>
+    <span class="nf">process_line</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>  <span class="c1"># Process one line at a time
+</span></code></pre></div></div>
 
 <h2 id="see-also">See Also</h2>
 

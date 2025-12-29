@@ -1242,398 +1242,405 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <h1 id="aws-database-services">AWS Database Services</h1>
 
-<p>AWS offers managed database services for every use case - from traditional relational databases (RDS) to NoSQL solutions (DynamoDB). This guide covers database selection, configuration, and advanced patterns.</p>
+<h2 id="why-managed-databases-matter">Why Managed Databases Matter</h2>
 
-<h2 id="database-services-overview">Database Services Overview</h2>
+<p>Running databases yourself means handling backups, patching, replication, failover, and monitoring. AWS managed databases handle all of that, letting you focus on your application instead of database administration.</p>
 
-<h3 id="amazon-rds---managed-relational-databases">Amazon RDS - Managed Relational Databases</h3>
-<p>RDS runs traditional databases (MySQL, PostgreSQL, etc.) but handles the tedious parts - backups, patching, replication. You focus on your schema and queries while AWS keeps the database running smoothly.</p>
+<p>Consider the following when choosing a database: What type of data will you store? How will you query it? What scale do you need? How important is consistency vs. performance?</p>
+
+<hr />
+
+<h2 id="choosing-the-right-database">Choosing the Right Database</h2>
+
+<p>Before diving into specific services, understand the two main categories:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>When to Use</th>
+      <th>AWS Services</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Relational (SQL)</strong></td>
+      <td>Structured data, complex queries, transactions</td>
+      <td>RDS, Aurora</td>
+    </tr>
+    <tr>
+      <td><strong>NoSQL</strong></td>
+      <td>Flexible schemas, massive scale, simple queries</td>
+      <td>DynamoDB, DocumentDB, ElastiCache</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="quick-decision-guide">Quick Decision Guide</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Your Situation</th>
+      <th>Recommended Service</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Traditional web app with complex queries</td>
+      <td>RDS (PostgreSQL or MySQL)</td>
+    </tr>
+    <tr>
+      <td>Need maximum SQL performance</td>
+      <td>Aurora</td>
+    </tr>
+    <tr>
+      <td>High-scale with simple key-value access</td>
+      <td>DynamoDB</td>
+    </tr>
+    <tr>
+      <td>Need caching layer</td>
+      <td>ElastiCache (Redis)</td>
+    </tr>
+    <tr>
+      <td>Document storage (MongoDB compatible)</td>
+      <td>DocumentDB</td>
+    </tr>
+    <tr>
+      <td>Time-series data</td>
+      <td>Timestream</td>
+    </tr>
+    <tr>
+      <td>Graph relationships</td>
+      <td>Neptune</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="amazon-rds---managed-relational-databases">Amazon RDS - Managed Relational Databases</h2>
+
+<p>RDS runs traditional databases (MySQL, PostgreSQL, MariaDB, Oracle, SQL Server) but handles the operational burden: backups, patching, replication, and failover.</p>
 
 <p><strong>Real-world example</strong>: A SaaS application uses RDS PostgreSQL for customer data. RDS automatically backs up the database nightly, replicates to a standby instance for high availability, and can scale up during busy periods.</p>
 
-<h3 id="amazon-dynamodb---nosql-at-scale">Amazon DynamoDB - NoSQL at Scale</h3>
-<p>DynamoDB is a NoSQL database designed for applications that need consistent performance at any scale. It can handle millions of requests per second with single-digit millisecond latency.</p>
+<h3 id="when-to-use-rds">When to Use RDS</h3>
+
+<ul>
+  <li>You need SQL queries with JOINs across tables</li>
+  <li>Your data has clear relationships (users, orders, products)</li>
+  <li>You need ACID transactions (banking, inventory)</li>
+  <li>Your team knows SQL and relational databases</li>
+</ul>
+
+<h3 id="rds-instance-classes">RDS Instance Classes</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Best For</th>
+      <th>vCPUs</th>
+      <th>Memory</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>db.t3</strong></td>
+      <td>Development, small workloads</td>
+      <td>2-8</td>
+      <td>1-32 GB</td>
+    </tr>
+    <tr>
+      <td><strong>db.m5</strong></td>
+      <td>General production workloads</td>
+      <td>2-96</td>
+      <td>8-384 GB</td>
+    </tr>
+    <tr>
+      <td><strong>db.r5</strong></td>
+      <td>Memory-intensive (large datasets)</td>
+      <td>2-96</td>
+      <td>16-768 GB</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="amazon-aurora---high-performance-relational">Amazon Aurora - High-Performance Relational</h2>
+
+<p>Aurora is AWS’s cloud-native database, compatible with MySQL and PostgreSQL. It offers up to 5x the throughput of standard MySQL and 3x that of standard PostgreSQL, with automatic storage scaling up to 128 TB.</p>
+
+<h3 id="when-to-use-aurora-vs-rds">When to Use Aurora vs RDS</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Factor</th>
+      <th>RDS</th>
+      <th>Aurora</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Cost</strong></td>
+      <td>Lower for small workloads</td>
+      <td>Better value at scale</td>
+    </tr>
+    <tr>
+      <td><strong>Performance</strong></td>
+      <td>Standard</td>
+      <td>3-5x faster</td>
+    </tr>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td>Manual provisioning</td>
+      <td>Auto-scales to 128 TB</td>
+    </tr>
+    <tr>
+      <td><strong>Replicas</strong></td>
+      <td>Up to 5</td>
+      <td>Up to 15 with faster failover</td>
+    </tr>
+    <tr>
+      <td><strong>Best for</strong></td>
+      <td>Dev/test, small production</td>
+      <td>High-performance production</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="amazon-dynamodb---nosql-at-scale">Amazon DynamoDB - NoSQL at Scale</h2>
+
+<p>DynamoDB is a key-value and document database designed for applications needing consistent single-digit millisecond performance at any scale. It handles millions of requests per second without capacity planning.</p>
 
 <p><strong>Real-world example</strong>: A mobile game uses DynamoDB to store player profiles and game state. Whether 100 or 10 million players are online, DynamoDB maintains consistent performance.</p>
 
-<h3 id="amazon-aurora---high-performance-relational">Amazon Aurora - High-Performance Relational</h3>
-<p>Aurora is AWS’s MySQL and PostgreSQL-compatible database that combines the performance of commercial databases with the cost-effectiveness of open-source. It’s up to 5x faster than standard MySQL and 3x faster than standard PostgreSQL.</p>
+<h3 id="when-to-use-dynamodb">When to Use DynamoDB</h3>
 
-<h3 id="amazon-elasticache---in-memory-caching">Amazon ElastiCache - In-Memory Caching</h3>
-<p>ElastiCache provides Redis and Memcached for caching frequently accessed data. It dramatically reduces database load and improves response times.</p>
-
-<p><strong>Use cases</strong>:</p>
 <ul>
-  <li>Session storage for web applications</li>
-  <li>Caching API responses</li>
-  <li>Real-time leaderboards</li>
-  <li>Rate limiting</li>
+  <li>Simple access patterns (get item by key, query by partition)</li>
+  <li>Massive scale requirements</li>
+  <li>Need single-digit millisecond latency</li>
+  <li>Schema may evolve over time</li>
 </ul>
 
-<h3 id="dynamodb-advanced-patterns">DynamoDB Advanced Patterns</h3>
+<h3 id="when-not-to-use-dynamodb">When NOT to Use DynamoDB</h3>
 
-<h4 id="single-table-design">Single Table Design</h4>
+<ul>
+  <li>Complex queries with multiple JOINs</li>
+  <li>Ad-hoc reporting and analytics</li>
+  <li>Need for transactions across many items (limited support)</li>
+  <li>Team unfamiliar with NoSQL patterns</li>
+</ul>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># dynamodb-single-table.tf - Advanced DynamoDB single table design</span>
+<hr />
 
-<span class="c1"># Single table for all entities</span>
-<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>           <span class="o">=</span> <span class="s2">"${var.environment}-main-table"</span>
-  <span class="nx">billing_mode</span>   <span class="o">=</span> <span class="s2">"PAY_PER_REQUEST"</span>  <span class="c1"># On-demand billing</span>
-  <span class="nx">hash_key</span>       <span class="o">=</span> <span class="s2">"PK"</span>
-  <span class="nx">range_key</span>      <span class="o">=</span> <span class="s2">"SK"</span>
-  
-  <span class="c1"># Enable streams for event processing</span>
-  <span class="nx">stream_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">stream_view_type</span> <span class="o">=</span> <span class="s2">"NEW_AND_OLD_IMAGES"</span>
-  
-  <span class="c1"># Point-in-time recovery</span>
-  <span class="nx">point_in_time_recovery</span> <span class="p">{</span>
-    <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Server-side encryption</span>
-  <span class="nx">server_side_encryption</span> <span class="p">{</span>
-    <span class="nx">enabled</span>     <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">kms_key_arn</span> <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">dynamodb</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Primary key attributes</span>
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"PK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"SK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># GSI1 attributes</span>
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"GSI1PK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"GSI1SK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># GSI2 attributes</span>
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"GSI2PK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"GSI2SK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># GSI3 attributes for time-based queries</span>
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"GSI3PK"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"CreatedAt"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Global Secondary Index 1 - Entity lookups</span>
-  <span class="nx">global_secondary_index</span> <span class="p">{</span>
-    <span class="nx">name</span>            <span class="o">=</span> <span class="s2">"GSI1"</span>
-    <span class="nx">hash_key</span>        <span class="o">=</span> <span class="s2">"GSI1PK"</span>
-    <span class="nx">range_key</span>       <span class="o">=</span> <span class="s2">"GSI1SK"</span>
-    <span class="nx">projection_type</span> <span class="o">=</span> <span class="s2">"ALL"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Global Secondary Index 2 - Date-based queries</span>
-  <span class="nx">global_secondary_index</span> <span class="p">{</span>
-    <span class="nx">name</span>            <span class="o">=</span> <span class="s2">"GSI2"</span>
-    <span class="nx">hash_key</span>        <span class="o">=</span> <span class="s2">"GSI2PK"</span>
-    <span class="nx">range_key</span>       <span class="o">=</span> <span class="s2">"GSI2SK"</span>
-    <span class="nx">projection_type</span> <span class="o">=</span> <span class="s2">"ALL"</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Global Secondary Index 3 - Time-series data</span>
-  <span class="nx">global_secondary_index</span> <span class="p">{</span>
-    <span class="nx">name</span>            <span class="o">=</span> <span class="s2">"GSI3"</span>
-    <span class="nx">hash_key</span>        <span class="o">=</span> <span class="s2">"GSI3PK"</span>
-    <span class="nx">range_key</span>       <span class="o">=</span> <span class="s2">"CreatedAt"</span>
-    <span class="nx">projection_type</span> <span class="o">=</span> <span class="s2">"INCLUDE"</span>
-    <span class="nx">non_key_attributes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"EntityType"</span><span class="p">,</span> <span class="s2">"Status"</span><span class="p">,</span> <span class="s2">"UpdatedAt"</span><span class="p">]</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># TTL for temporary data</span>
-  <span class="nx">ttl</span> <span class="p">{</span>
-    <span class="nx">attribute_name</span> <span class="o">=</span> <span class="s2">"ExpiresAt"</span>
-    <span class="nx">enabled</span>        <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-    <span class="nx">Purpose</span>     <span class="o">=</span> <span class="s2">"Single table design"</span>
-  <span class="p">}</span>
-<span class="err">}</span>
+<h2 id="amazon-elasticache---in-memory-caching">Amazon ElastiCache - In-Memory Caching</h2>
 
-<span class="c1"># DynamoDB autoscaling for provisioned mode (if needed)</span>
-<span class="nx">resource</span> <span class="s2">"aws_appautoscaling_target"</span> <span class="s2">"dynamodb_table_read"</span> <span class="p">{</span>
-  <span class="nx">count</span>              <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_autoscaling</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  <span class="nx">max_capacity</span>       <span class="o">=</span> <span class="mi">40000</span>
-  <span class="nx">min_capacity</span>       <span class="o">=</span> <span class="mi">5</span>
-  <span class="nx">resource_id</span>        <span class="o">=</span> <span class="s2">"table/${aws_dynamodb_table.main.name}"</span>
-  <span class="nx">scalable_dimension</span> <span class="o">=</span> <span class="s2">"dynamodb:table:ReadCapacityUnits"</span>
-  <span class="nx">service_namespace</span>  <span class="o">=</span> <span class="s2">"dynamodb"</span>
-<span class="err">}</span>
+<p>ElastiCache provides Redis and Memcached for caching frequently accessed data. Adding a cache layer can reduce database load by 90% and improve response times from milliseconds to microseconds.</p>
 
-<span class="nx">resource</span> <span class="s2">"aws_appautoscaling_policy"</span> <span class="s2">"dynamodb_table_read"</span> <span class="p">{</span>
-  <span class="nx">count</span>              <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_autoscaling</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  <span class="nx">name</span>               <span class="o">=</span> <span class="s2">"DynamoDBReadCapacityUtilization:${aws_appautoscaling_target.dynamodb_table_read[0].resource_id}"</span>
-  <span class="nx">policy_type</span>        <span class="o">=</span> <span class="s2">"TargetTrackingScaling"</span>
-  <span class="nx">resource_id</span>        <span class="o">=</span> <span class="nx">aws_appautoscaling_target</span><span class="p">.</span><span class="nx">dynamodb_table_read</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">resource_id</span>
-  <span class="nx">scalable_dimension</span> <span class="o">=</span> <span class="nx">aws_appautoscaling_target</span><span class="p">.</span><span class="nx">dynamodb_table_read</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">scalable_dimension</span>
-  <span class="nx">service_namespace</span>  <span class="o">=</span> <span class="nx">aws_appautoscaling_target</span><span class="p">.</span><span class="nx">dynamodb_table_read</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">service_namespace</span>
-  
-  <span class="nx">target_tracking_scaling_policy_configuration</span> <span class="p">{</span>
-    <span class="nx">predefined_metric_specification</span> <span class="p">{</span>
-      <span class="nx">predefined_metric_type</span> <span class="o">=</span> <span class="s2">"DynamoDBReadCapacityUtilization"</span>
-    <span class="p">}</span>
-    <span class="nx">target_value</span> <span class="o">=</span> <span class="mi">70</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<h3 id="common-caching-patterns">Common Caching Patterns</h3>
 
-<span class="c1"># Lambda function for DynamoDB streams processing</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"stream_processor"</span> <span class="p">{</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"stream_processor.zip"</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-dynamodb-stream-processor"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">stream_processor</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.9"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">60</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">512</span>
-  
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">ENVIRONMENT</span>    <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-      <span class="nx">EVENT_BUS_NAME</span> <span class="o">=</span> <span class="nx">aws_cloudwatch_event_bus</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">tracing_config</span> <span class="p">{</span>
-    <span class="nx">mode</span> <span class="o">=</span> <span class="s2">"Active"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<table>
+  <thead>
+    <tr>
+      <th>Pattern</th>
+      <th>Use Case</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Cache-aside</strong></td>
+      <td>Read-heavy workloads</td>
+      <td>Check cache first, then database</td>
+    </tr>
+    <tr>
+      <td><strong>Write-through</strong></td>
+      <td>Need cache consistency</td>
+      <td>Write to cache and database together</td>
+    </tr>
+    <tr>
+      <td><strong>Session storage</strong></td>
+      <td>Web applications</td>
+      <td>Store user sessions in Redis</td>
+    </tr>
+    <tr>
+      <td><strong>Rate limiting</strong></td>
+      <td>API protection</td>
+      <td>Track request counts per user</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Event source mapping for DynamoDB streams</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_event_source_mapping"</span> <span class="s2">"dynamodb_stream"</span> <span class="p">{</span>
-  <span class="nx">event_source_arn</span>  <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">stream_arn</span>
-  <span class="nx">function_name</span>     <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">stream_processor</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">starting_position</span> <span class="o">=</span> <span class="s2">"LATEST"</span>
-  
-  <span class="nx">maximum_batching_window_in_seconds</span> <span class="o">=</span> <span class="mi">10</span>
-  <span class="nx">parallelization_factor</span>             <span class="o">=</span> <span class="mi">10</span>
-  <span class="nx">maximum_retry_attempts</span>             <span class="o">=</span> <span class="mi">3</span>
-  <span class="nx">maximum_record_age_in_seconds</span>      <span class="o">=</span> <span class="mi">3600</span>
-  
-  <span class="c1"># Error handling</span>
-  <span class="nx">destination_config</span> <span class="p">{</span>
-    <span class="nx">on_failure</span> <span class="p">{</span>
-      <span class="nx">destination_arn</span> <span class="o">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">dlq</span><span class="p">.</span><span class="nx">arn</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Filter criteria</span>
-  <span class="nx">filter_criteria</span> <span class="p">{</span>
-    <span class="nx">filter</span> <span class="p">{</span>
-      <span class="nx">pattern</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-        <span class="nx">eventName</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"INSERT"</span><span class="p">,</span> <span class="s2">"MODIFY"</span><span class="p">]</span>
-        <span class="nx">dynamodb</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">NewImage</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="nx">EntityType</span> <span class="o">=</span> <span class="p">{</span>
-              <span class="nx">S</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Order"</span><span class="p">]</span>
-            <span class="p">}</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">})</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="err">}</span>
+<hr />
 
-<span class="c1"># DynamoDB global tables for multi-region</span>
-<span class="nx">resource</span> <span class="s2">"aws_dynamodb_global_table"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_global_tables</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  
-  <span class="nx">name</span> <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-  
-  <span class="nx">dynamic</span> <span class="s2">"replica"</span> <span class="p">{</span>
-    <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">global_table_regions</span>
-    <span class="nx">content</span> <span class="p">{</span>
-      <span class="nx">region_name</span> <span class="o">=</span> <span class="nx">replica</span><span class="p">.</span><span class="nx">value</span>
-      
-      <span class="c1"># KMS key for each region</span>
-      <span class="nx">kms_key_arn</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">regional</span><span class="p">[</span><span class="nx">replica</span><span class="p">.</span><span class="nx">value</span><span class="p">].</span><span class="nx">arn</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<h2 id="dynamodb-best-practices">DynamoDB Best Practices</h2>
 
-<span class="c1"># DynamoDB Accelerator (DAX) cluster</span>
-<span class="nx">resource</span> <span class="s2">"aws_dax_cluster"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_dax</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  
-  <span class="nx">cluster_name</span>       <span class="o">=</span> <span class="s2">"${var.environment}-dax-cluster"</span>
-  <span class="nx">iam_role_arn</span>       <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">dax</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">node_type</span>          <span class="o">=</span> <span class="s2">"dax.r4.large"</span>
-  <span class="nx">replication_factor</span> <span class="o">=</span> <span class="mi">3</span>
-  
-  <span class="c1"># Encryption</span>
-  <span class="nx">server_side_encryption</span> <span class="p">{</span>
-    <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="c1"># Parameter group</span>
-  <span class="nx">parameter_group_name</span> <span class="o">=</span> <span class="nx">aws_dax_parameter_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-  
-  <span class="c1"># Subnet group</span>
-  <span class="nx">subnet_group_name</span> <span class="o">=</span> <span class="nx">aws_dax_subnet_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-  
-  <span class="c1"># Security</span>
-  <span class="nx">security_group_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">dax</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
-  
-  <span class="c1"># Maintenance window</span>
-  <span class="nx">maintenance_window</span> <span class="o">=</span> <span class="s2">"sun:05:00-sun:06:00"</span>
-  
-  <span class="c1"># Notifications</span>
-  <span class="nx">notification_topic_arn</span> <span class="o">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">dax_notifications</span><span class="p">.</span><span class="nx">arn</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<h3 id="key-design-principles">Key Design Principles</h3>
 
-<span class="c1"># DAX parameter group</span>
-<span class="nx">resource</span> <span class="s2">"aws_dax_parameter_group"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">count</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">enable_dax</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span>
-  <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"${var.environment}-dax-params"</span>
-  
-  <span class="nx">parameters</span> <span class="p">{</span>
-    <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"query-ttl-millis"</span>
-    <span class="nx">value</span> <span class="o">=</span> <span class="s2">"600000"</span>  <span class="c1"># 10 minutes</span>
-  <span class="p">}</span>
-  
-  <span class="nx">parameters</span> <span class="p">{</span>
-    <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"record-ttl-millis"</span>
-    <span class="nx">value</span> <span class="o">=</span> <span class="s2">"300000"</span>  <span class="c1"># 5 minutes</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<p>DynamoDB works differently from relational databases. Success depends on understanding these principles:</p>
 
-<span class="c1"># Contributor Insights for monitoring</span>
-<span class="nx">resource</span> <span class="s2">"aws_dynamodb_contributor_insights"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">table_name</span> <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-<span class="p">}</span>
+<p><strong>1. Design for your access patterns first</strong>: Unlike SQL where you model data then write queries, DynamoDB requires knowing your queries upfront.</p>
 
-<span class="c1"># CloudWatch alarms for DynamoDB</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_metric_alarm"</span> <span class="s2">"user_errors"</span> <span class="p">{</span>
-  <span class="nx">alarm_name</span>          <span class="o">=</span> <span class="s2">"${var.environment}-dynamodb-user-errors"</span>
-  <span class="nx">comparison_operator</span> <span class="o">=</span> <span class="s2">"GreaterThanThreshold"</span>
-  <span class="nx">evaluation_periods</span>  <span class="o">=</span> <span class="s2">"2"</span>
-  <span class="nx">metric_name</span>         <span class="o">=</span> <span class="s2">"UserErrors"</span>
-  <span class="nx">namespace</span>           <span class="o">=</span> <span class="s2">"AWS/DynamoDB"</span>
-  <span class="nx">period</span>              <span class="o">=</span> <span class="s2">"300"</span>
-  <span class="nx">statistic</span>           <span class="o">=</span> <span class="s2">"Sum"</span>
-  <span class="nx">threshold</span>           <span class="o">=</span> <span class="s2">"10"</span>
-  <span class="nx">alarm_description</span>   <span class="o">=</span> <span class="s2">"This metric monitors DynamoDB user errors"</span>
-  <span class="nx">alarm_actions</span>       <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
-  
-  <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">TableName</span> <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-  <span class="p">}</span>
-<span class="err">}</span>
+<p><strong>2. Use composite keys</strong>: Combine partition key (PK) and sort key (SK) to enable efficient queries.</p>
 
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_metric_alarm"</span> <span class="s2">"throttled_requests"</span> <span class="p">{</span>
-  <span class="nx">alarm_name</span>          <span class="o">=</span> <span class="s2">"${var.environment}-dynamodb-throttled-requests"</span>
-  <span class="nx">comparison_operator</span> <span class="o">=</span> <span class="s2">"GreaterThanThreshold"</span>
-  <span class="nx">evaluation_periods</span>  <span class="o">=</span> <span class="s2">"2"</span>
-  <span class="nx">metric_name</span>         <span class="o">=</span> <span class="s2">"UserErrors"</span>
-  <span class="nx">namespace</span>           <span class="o">=</span> <span class="s2">"AWS/DynamoDB"</span>
-  <span class="nx">period</span>              <span class="o">=</span> <span class="s2">"300"</span>
-  <span class="nx">statistic</span>           <span class="o">=</span> <span class="s2">"Sum"</span>
-  <span class="nx">threshold</span>           <span class="o">=</span> <span class="s2">"5"</span>
-  <span class="nx">alarm_description</span>   <span class="o">=</span> <span class="s2">"This metric monitors DynamoDB throttled requests"</span>
-  <span class="nx">alarm_actions</span>       <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
-  
-  <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">TableName</span> <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-  <span class="p">}</span>
-  
-  <span class="nx">metric_query</span> <span class="p">{</span>
-    <span class="nx">id</span>          <span class="o">=</span> <span class="s2">"throttled"</span>
-    <span class="nx">return_data</span> <span class="o">=</span> <span class="kc">true</span>
-    
-    <span class="nx">metric</span> <span class="p">{</span>
-      <span class="nx">metric_name</span> <span class="o">=</span> <span class="s2">"UserErrors"</span>
-      <span class="nx">namespace</span>   <span class="o">=</span> <span class="s2">"AWS/DynamoDB"</span>
-      <span class="nx">period</span>      <span class="o">=</span> <span class="mi">300</span>
-      <span class="nx">stat</span>        <span class="o">=</span> <span class="s2">"Sum"</span>
-      
-      <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">TableName</span> <span class="o">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="err">}</span>
+<p><strong>3. Denormalize data</strong>: Store related data together. It is okay to duplicate data across items.</p>
+
+<h3 id="single-table-design">Single Table Design</h3>
+
+<p>Advanced DynamoDB usage puts all entity types in one table, using different key patterns:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Entity</th>
+      <th>PK</th>
+      <th>SK</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>User</td>
+      <td><code class="language-plaintext highlighter-rouge">USER#123</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PROFILE</code></td>
+      <td>User profile data</td>
+    </tr>
+    <tr>
+      <td>User’s orders</td>
+      <td><code class="language-plaintext highlighter-rouge">USER#123</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#2024-01-15</code></td>
+      <td>Order summary</td>
+    </tr>
+    <tr>
+      <td>Order details</td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#456</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DETAIL</code></td>
+      <td>Full order data</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This enables fetching a user and their recent orders in a single query.</p>
+
+<h3 id="dynamodb-pricing-models">DynamoDB Pricing Models</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Best For</th>
+      <th>How It Works</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>On-Demand</strong></td>
+      <td>Variable or unpredictable workloads</td>
+      <td>Pay per request, no capacity planning</td>
+    </tr>
+    <tr>
+      <td><strong>Provisioned</strong></td>
+      <td>Steady, predictable workloads</td>
+      <td>Set read/write capacity, lower cost</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Start with On-Demand</strong> for new applications. Switch to Provisioned once you understand your traffic patterns.</p>
+
+<h3 id="essential-dynamodb-commands">Essential DynamoDB Commands</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a table with on-demand billing</span>
+aws dynamodb create-table <span class="nt">--table-name</span> MyTable <span class="se">\</span>
+  <span class="nt">--attribute-definitions</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,AttributeType<span class="o">=</span>S <span class="se">\</span>
+  <span class="nt">--key-schema</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,KeyType<span class="o">=</span>HASH <span class="se">\</span>
+  <span class="nt">--billing-mode</span> PAY_PER_REQUEST
+
+<span class="c"># Put an item</span>
+aws dynamodb put-item <span class="nt">--table-name</span> MyTable <span class="se">\</span>
+  <span class="nt">--item</span> <span class="s1">'{"PK": {"S": "USER#123"}, "name": {"S": "Alice"}}'</span>
+
+<span class="c"># Query items by partition key</span>
+aws dynamodb query <span class="nt">--table-name</span> MyTable <span class="se">\</span>
+  <span class="nt">--key-condition-expression</span> <span class="s2">"PK = :pk"</span> <span class="se">\</span>
+  <span class="nt">--expression-attribute-values</span> <span class="s1">'{":pk": {"S": "USER#123"}}'</span>
 </code></pre></div></div>
 
-<h2 id="database-selection-guide">Database Selection Guide</h2>
+<hr />
+
+<h2 id="database-selection-summary">Database Selection Summary</h2>
 
 <table>
   <thead>
     <tr>
       <th>Use Case</th>
-      <th>Recommended Service</th>
+      <th>Service</th>
       <th>Why</th>
+      <th>Cost Consideration</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Traditional applications</td>
-      <td>RDS (MySQL/PostgreSQL)</td>
-      <td>Familiar SQL, ACID compliance</td>
+      <td>Traditional web apps</td>
+      <td>RDS (PostgreSQL/MySQL)</td>
+      <td>SQL, JOINs, transactions</td>
+      <td>Pay for instance size</td>
     </tr>
     <tr>
-      <td>High-scale web apps</td>
+      <td>High-performance SQL</td>
       <td>Aurora</td>
-      <td>Better performance, auto-scaling</td>
+      <td>3-5x faster than RDS</td>
+      <td>Higher base cost, better at scale</td>
     </tr>
     <tr>
-      <td>Real-time, high-throughput</td>
+      <td>Massive scale, simple queries</td>
       <td>DynamoDB</td>
-      <td>Millisecond latency at any scale</td>
+      <td>Consistent millisecond latency</td>
+      <td>Pay per request or capacity</td>
     </tr>
     <tr>
-      <td>Session storage</td>
+      <td>Caching layer</td>
       <td>ElastiCache Redis</td>
-      <td>In-memory speed, persistence</td>
+      <td>Sub-millisecond reads</td>
+      <td>Pay for node size</td>
     </tr>
     <tr>
-      <td>Time-series data</td>
+      <td>Time-series (IoT, metrics)</td>
       <td>Timestream</td>
-      <td>Optimized for temporal queries</td>
+      <td>Built-in time functions</td>
+      <td>Pay for writes and queries</td>
     </tr>
     <tr>
-      <td>Graph relationships</td>
+      <td>Graph data (social, fraud)</td>
       <td>Neptune</td>
       <td>Native graph traversal</td>
+      <td>Pay for instance size</td>
     </tr>
     <tr>
-      <td>Document storage</td>
+      <td>MongoDB workloads</td>
       <td>DocumentDB</td>
       <td>MongoDB-compatible</td>
+      <td>Pay for instance size</td>
     </tr>
   </tbody>
 </table>
+
+<h3 id="common-patterns">Common Patterns</h3>
+
+<ul>
+  <li><strong>Web application</strong>: RDS/Aurora for main data + ElastiCache for sessions and hot data</li>
+  <li><strong>Mobile app</strong>: DynamoDB for user data + S3 for media</li>
+  <li><strong>Analytics</strong>: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena</li>
+</ul>
+
+<hr />
 
 <h2 id="see-also">See Also</h2>
 
