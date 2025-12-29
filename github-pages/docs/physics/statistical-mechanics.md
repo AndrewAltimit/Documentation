@@ -49,7 +49,7 @@ toc_icon: "cog"
       <h4><i class="fas fa-atom"></i> Microstate</h4>
       <p>Complete specification of the quantum state of every particle</p>
       <div class="visual-example">
-        <svg viewBox="0 0 420 180" style="min-width: 400px;">
+        <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
           <!-- Background container -->
           <rect x="10" y="10" width="400" height="130" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
 
@@ -107,7 +107,7 @@ toc_icon: "cog"
       <h4><i class="fas fa-temperature-high"></i> Macrostate</h4>
       <p>Specification of macroscopic variables (T, P, V, N, E)</p>
       <div class="visual-example">
-        <svg viewBox="0 0 420 200" style="min-width: 400px;">
+        <svg viewBox="0 0 420 200" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="10" y="10" width="400" height="180" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
 
@@ -165,7 +165,7 @@ toc_icon: "cog"
     <p class="ensemble-desc">Isolated system with fixed energy, volume, and particle number</p>
     
     <div class="ensemble-visual">
-      <svg viewBox="0 0 420 220" style="min-width: 400px;">
+      <svg viewBox="0 0 420 220" style="max-width: 500px; width: 100%;">
         <!-- Background -->
         <rect x="5" y="5" width="410" height="210" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -220,7 +220,7 @@ toc_icon: "cog"
     <p class="ensemble-desc">System in thermal equilibrium with heat bath at temperature T</p>
     
     <div class="ensemble-visual">
-      <svg viewBox="0 0 420 260" style="min-width: 400px;">
+      <svg viewBox="0 0 420 260" style="max-width: 500px; width: 100%;">
         <!-- Define arrow marker -->
         <defs>
           <marker id="arrowCanon" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
@@ -277,7 +277,7 @@ toc_icon: "cog"
     <p class="ensemble-desc">System can exchange particles and energy with reservoir</p>
     
     <div class="ensemble-visual">
-      <svg viewBox="0 0 420 280" style="min-width: 400px;">
+      <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
         <!-- Define arrow markers -->
         <defs>
           <marker id="arrowGrand" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
@@ -344,7 +344,7 @@ toc_icon: "cog"
   <div class="phase-space-visual">
     <p>6N-dimensional space of positions and momenta for N particles</p>
     
-    <svg viewBox="0 0 500 280" class="phase-diagram" style="min-width: 480px;">
+    <svg viewBox="0 0 500 280" class="phase-diagram" style="max-width: 500px; width: 100%;">
       <!-- Background -->
       <rect x="5" y="5" width="490" height="270" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -417,7 +417,7 @@ toc_icon: "cog"
     <div class="equation-box">$$\frac{d\rho}{dt} = \frac{\partial \rho}{\partial t} + \{\rho, H\} = 0$$</div>
     
     <div class="visual-interpretation">
-      <svg viewBox="0 0 500 200" style="min-width: 480px;">
+      <svg viewBox="0 0 500 200" style="max-width: 500px; width: 100%;">
         <!-- Background -->
         <rect x="5" y="5" width="490" height="190" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -488,7 +488,7 @@ toc_icon: "cog"
     <p>Canonical density matrix: $\rho = \frac{e^{-\beta H}}{Z}$</p>
     
     <div class="matrix-visual">
-      <svg viewBox="0 0 450 220" style="min-width: 420px;">
+      <svg viewBox="0 0 450 220" style="max-width: 500px; width: 100%;">
         <!-- Background -->
         <rect x="5" y="5" width="440" height="210" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -563,7 +563,7 @@ toc_icon: "cog"
       </div>
       
       <div class="distribution-plot">
-        <svg viewBox="0 0 480 280" style="min-width: 450px;">
+        <svg viewBox="0 0 480 280" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="5" y="5" width="470" height="270" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -629,7 +629,7 @@ toc_icon: "cog"
       </div>
       
       <div class="distribution-plot">
-        <svg viewBox="0 0 480 300" style="min-width: 450px;">
+        <svg viewBox="0 0 480 300" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="5" y="5" width="470" height="290" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -756,7 +756,7 @@ Near critical point: $G(r) \sim \frac{e^{-r/\xi}}{r^{d-2+\eta}}$
         <h4><i class="fas fa-cut"></i> First Order</h4>
         <p>Discontinuous change in first derivative of free energy</p>
         
-        <svg viewBox="0 0 400 260" class="transition-plot" style="min-width: 380px;">
+        <svg viewBox="0 0 400 260" class="transition-plot" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="5" y="5" width="390" height="250" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 
@@ -816,7 +816,7 @@ Near critical point: $G(r) \sim \frac{e^{-r/\xi}}{r^{d-2+\eta}}$
         <h4><i class="fas fa-wave-square"></i> Second Order</h4>
         <p>Continuous first derivative, discontinuous second derivative</p>
         
-        <svg viewBox="0 0 400 260" class="transition-plot" style="min-width: 380px;">
+        <svg viewBox="0 0 400 260" class="transition-plot" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="5" y="5" width="390" height="250" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
 

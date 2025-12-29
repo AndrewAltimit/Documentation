@@ -54,7 +54,7 @@ toc_icon: "cog"
       <h4>Principle of Relativity</h4>
       <p>The laws of physics are the same in all inertial reference frames</p>
       <div class="visual-demo">
-        <svg viewBox="0 0 450 200" style="min-width: 400px;">
+        <svg viewBox="0 0 450 200" style="max-width: 500px; width: 100%;">
           <!-- Define arrow marker -->
           <defs>
             <marker id="arrow-rel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -95,7 +95,7 @@ toc_icon: "cog"
       <h4>Constancy of Light Speed</h4>
       <p>The speed of light in vacuum is the same for all observers, regardless of motion</p>
       <div class="visual-demo">
-        <svg viewBox="0 0 480 220" style="min-width: 450px;">
+        <svg viewBox="0 0 480 220" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers -->
           <defs>
             <marker id="arrow-light" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -187,7 +187,7 @@ toc_icon: "cog"
   </div>
   
   <div class="spacetime-diagram">
-    <svg viewBox="0 0 500 380" style="min-width: 450px;">
+    <svg viewBox="0 0 500 380" style="max-width: 500px; width: 100%;">
       <!-- Define arrow markers -->
       <defs>
         <marker id="arrow-st" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
@@ -268,7 +268,7 @@ toc_icon: "cog"
   
   <div class="light-cone-diagram">
     <h4><i class="fas fa-hourglass-half"></i> Light Cone Structure</h4>
-    <svg viewBox="0 0 550 480" style="min-width: 500px;">
+    <svg viewBox="0 0 550 480" style="max-width: 500px; width: 100%;">
       <!-- Title -->
       <text x="275" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Light Cone and Causal Structure</text>
 
@@ -502,7 +502,7 @@ Where β = v/c.
   </div>
   
   <div class="visual-demonstration">
-    <svg viewBox="0 0 520 280" style="min-width: 480px;">
+    <svg viewBox="0 0 520 280" style="max-width: 500px; width: 100%;">
       <!-- Title -->
       <text x="260" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Length Contraction Demonstration</text>
 
@@ -635,7 +635,7 @@ $$u^\mu = \gamma(c, v_x, v_y, v_z)$$
       <h4>Equivalence Principle</h4>
       <p>The effects of gravity are locally indistinguishable from acceleration</p>
       <div class="principle-visual">
-        <svg viewBox="0 0 420 240" style="min-width: 400px;">
+        <svg viewBox="0 0 420 240" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers -->
           <defs>
             <marker id="arrow-eq" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -722,7 +722,7 @@ $$u^\mu = \gamma(c, v_x, v_y, v_z)$$
       <h4>Spacetime Curvature</h4>
       <p>Matter and energy curve spacetime, and this curvature guides motion</p>
       <div class="principle-visual">
-        <svg viewBox="0 0 420 280" style="min-width: 400px;">
+        <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
           <!-- Title -->
           <text x="210" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Spacetime Curvature by Mass</text>
 
@@ -1340,7 +1340,7 @@ $$\mathcal{M} = \frac{(m_1m_2)^{3/5}}{(m_1+m_2)^{1/5}}$$
 3. Ringdown: Quasinormal modes
 
 <div class="gw-waveform-diagram">
-  <svg viewBox="0 0 600 380" style="min-width: 550px;">
+  <svg viewBox="0 0 600 380" style="max-width: 500px; width: 100%;">
     <!-- Title -->
     <text x="300" y="25" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Gravitational Wave from Binary Black Hole Merger</text>
 
@@ -1587,7 +1587,7 @@ $$\tilde{g}_{\mu\nu} = \Omega^2 g_{\mu\nu}$$
 **Penrose diagrams:** Conformal compactification
 
 <div class="minkowski-penrose-diagram">
-  <svg viewBox="0 0 520 500" style="min-width: 480px;">
+  <svg viewBox="0 0 520 500" style="max-width: 500px; width: 100%;">
     <!-- Title -->
     <text x="260" y="25" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Penrose Diagram (Minkowski Spacetime)</text>
 

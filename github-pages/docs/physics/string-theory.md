@@ -50,7 +50,7 @@ toc_icon: "cog"
       <div class="string-card closed">
         <h4><i class="fas fa-ring"></i> Closed Strings</h4>
         <p>Form loops with no endpoints</p>
-        <svg viewBox="0 0 220 200" class="string-visual" style="min-width: 220px;">
+        <svg viewBox="0 0 220 200" class="string-visual" style="max-width: 500px; width: 100%;">
           <!-- Define gradients and markers -->
           <defs>
             <linearGradient id="stringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -94,7 +94,7 @@ toc_icon: "cog"
       <div class="string-card open">
         <h4><i class="fas fa-wave-square"></i> Open Strings</h4>
         <p>Have two distinct endpoints</p>
-        <svg viewBox="0 0 240 200" class="string-visual" style="min-width: 240px;">
+        <svg viewBox="0 0 240 200" class="string-visual" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers first -->
           <defs>
             <marker id="arrowUp2" markerWidth="10" markerHeight="10" refX="5" refY="0" orient="auto">
@@ -137,7 +137,7 @@ toc_icon: "cog"
     <div class="vibrational-modes">
       <h4>Vibrational Modes = Particles</h4>
       <div class="mode-spectrum">
-        <svg viewBox="0 0 600 260" style="min-width: 500px;">
+        <svg viewBox="0 0 600 260" style="max-width: 500px; width: 100%;">
           <!-- Define arrow -->
           <defs>
             <marker id="energyArrow" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto">
@@ -216,7 +216,7 @@ toc_icon: "cog"
     </div>
     
     <div class="scale-comparison">
-      <svg viewBox="0 0 550 150" style="min-width: 450px;">
+      <svg viewBox="0 0 550 150" style="max-width: 500px; width: 100%;">
         <!-- Title -->
         <text x="275" y="22" text-anchor="middle" font-size="16" fill="#2c3e50" font-weight="bold">Length Scales in Physics</text>
 
@@ -268,7 +268,7 @@ toc_icon: "cog"
     
     <div class="worldsheet-comparison">
       <div class="trace-item">
-        <svg viewBox="0 0 200 260" style="min-width: 200px;">
+        <svg viewBox="0 0 200 260" style="max-width: 500px; width: 100%;">
           <!-- Define arrow marker -->
           <defs>
             <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
@@ -301,7 +301,7 @@ toc_icon: "cog"
       </div>
 
       <div class="trace-item">
-        <svg viewBox="0 0 260 260" style="min-width: 260px;">
+        <svg viewBox="0 0 260 260" style="max-width: 500px; width: 100%;">
           <!-- Gradients and markers -->
           <defs>
             <linearGradient id="sheetGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -365,7 +365,7 @@ toc_icon: "cog"
         <p class="note">Where $h_{ab}$ is the induced metric on the worldsheet</p>
         
         <div class="geometric-interpretation">
-          <svg viewBox="0 0 280 200" style="min-width: 280px;">
+          <svg viewBox="0 0 280 200" style="max-width: 500px; width: 100%;">
             <defs>
               <linearGradient id="minAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" style="stop-color:#2980b9;stop-opacity:0.15" />
@@ -426,7 +426,7 @@ toc_icon: "cog"
       </div>
       
       <div class="wave-visualization">
-        <svg viewBox="0 0 420 180" style="min-width: 400px;">
+        <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers -->
           <defs>
             <marker id="waveArrowL" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
@@ -480,7 +480,7 @@ toc_icon: "cog"
         </div>
         <p>Periodic boundary condition</p>
         
-        <svg viewBox="0 0 220 180" style="min-width: 200px;">
+        <svg viewBox="0 0 220 180" style="max-width: 500px; width: 100%;">
           <defs>
             <marker id="arrowParam" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
               <path d="M 0 0 L 6 3 L 0 6" fill="#555" />
@@ -517,7 +517,7 @@ toc_icon: "cog"
               $$\frac{\partial X^\mu}{\partial \sigma} = 0$$
             </div>
             <p>Free endpoints</p>
-            <svg viewBox="0 0 180 110" style="min-width: 170px;">
+            <svg viewBox="0 0 180 110" style="max-width: 500px; width: 100%;">
               <!-- Title -->
               <text x="90" y="15" text-anchor="middle" font-size="12" fill="#2c3e50" font-weight="bold">Free Endpoints</text>
               <!-- String vibration mode 1 -->
@@ -544,7 +544,7 @@ toc_icon: "cog"
               $$X^\mu = \text{const}$$
             </div>
             <p>Fixed endpoints (D-branes)</p>
-            <svg viewBox="0 0 180 120" style="min-width: 170px;">
+            <svg viewBox="0 0 180 120" style="max-width: 500px; width: 100%;">
               <!-- Title -->
               <text x="90" y="15" text-anchor="middle" font-size="12" fill="#2c3e50" font-weight="bold">Fixed Endpoints</text>
               <!-- D-branes as surfaces -->
@@ -642,7 +642,7 @@ This fixes the spacetime dimension!
     <p class="subtitle">Five consistent 10-dimensional theories:</p>
     
     <div class="theory-web">
-      <svg viewBox="0 0 700 480" class="theory-diagram" style="min-width: 600px;">
+      <svg viewBox="0 0 700 480" class="theory-diagram" style="max-width: 500px; width: 100%;">
         <!-- Define markers and gradients -->
         <defs>
           <marker id="arrowSelf" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
@@ -748,7 +748,7 @@ This fixes the spacetime dimension!
           <li>Unoriented strings</li>
         </ul>
         <div class="visual-hint">
-          <svg viewBox="0 0 160 80" style="min-width: 140px;">
+          <svg viewBox="0 0 160 80" style="max-width: 500px; width: 100%;">
             <!-- Title -->
             <text x="80" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Open + Closed Strings</text>
             <!-- Closed string (loop) -->
@@ -771,7 +771,7 @@ This fixes the spacetime dimension!
           <li>Massless fermions of both chiralities</li>
         </ul>
         <div class="visual-hint">
-          <svg viewBox="0 0 160 90" style="min-width: 140px;">
+          <svg viewBox="0 0 160 90" style="max-width: 500px; width: 100%;">
             <defs>
               <marker id="arrowL" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
                 <path d="M 0 0 L 6 3 L 0 6" fill="#1e8449" />
@@ -807,7 +807,7 @@ This fixes the spacetime dimension!
           <li>Self-dual 4-form field</li>
         </ul>
         <div class="visual-hint">
-          <svg viewBox="0 0 160 90" style="min-width: 140px;">
+          <svg viewBox="0 0 160 90" style="max-width: 500px; width: 100%;">
             <defs>
               <marker id="arrowCh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
                 <path d="M 0 0 L 6 3 L 0 6" fill="#d35400" />
@@ -840,7 +840,7 @@ This fixes the spacetime dimension!
           <li>Right-moving: bosonic string</li>
         </ul>
         <div class="visual-hint">
-          <svg viewBox="0 0 180 90" style="min-width: 160px;">
+          <svg viewBox="0 0 180 90" style="max-width: 500px; width: 100%;">
             <!-- Title -->
             <text x="90" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Hybrid String</text>
             <!-- Closed string background -->
