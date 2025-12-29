@@ -34,7 +34,7 @@ toc: false  # Index pages typically don't need TOC
 </div>
 
 
-## 💻 Technology
+## Technology
 
 ### Infrastructure & DevOps
 - [Terraform](technology/terraform/) - Infrastructure as Code for multi-cloud deployment
@@ -66,7 +66,7 @@ toc: false  # Index pages typically don't need TOC
 ### Build Systems
 - [Please Build](technology/please-build.html) - High-performance polyglot build system
 
-## 🤖 AI/ML - Generative AI
+## AI/ML - Generative AI
 
 ### Getting Started
 - [AI/ML Documentation Overview](ai-ml/) - Start here for AI/ML content
@@ -83,7 +83,7 @@ toc: false  # Index pages typically don't need TOC
 - [Output Formats Guide](ai-ml/output-formats.html) - Images, video, audio generation
 - [Advanced Techniques & Workflows](ai-ml/advanced-techniques.html) - Professional workflows
 
-## 🔬 Physics
+## Physics
 
 ### Classical Physics
 - [Classical Mechanics](physics/classical-mechanics.html) - Newton's laws to Lagrangian formalism
@@ -99,7 +99,7 @@ toc: false  # Index pages typically don't need TOC
 - [Quantum Field Theory](physics/quantum-field-theory.html) - Fields, particles, and interactions
 - [String Theory](physics/string-theory.html) - Extra dimensions and quantum gravity
 
-## 📚 Additional Resources
+## Additional Resources
 
 ### Reference Materials
 - [Quick Reference Guide](reference/) - Commands, formulas, and cheat sheets
@@ -118,7 +118,7 @@ toc: false  # Index pages typically don't need TOC
 
 ---
 
-## 🆕 Recent Additions (2025)
+## Recent Additions (2025)
 
 - **Stable Diffusion 3**: Latest architecture and implementation guides
 - **FLUX Models**: Flow matching and fast generation techniques
@@ -127,7 +127,7 @@ toc: false  # Index pages typically don't need TOC
 - **Quantum Cloud Platforms**: Access guides for IBM, AWS, Azure quantum services
 - **Documentation Updates**: Improved navigation, fixed links, and new learning paths
 
-## 🔍 Can't Find What You Need?
+## Can't Find What You Need?
 
 1. Try our [search function](../search.html) for quick access
 2. Browse the [topic map](topic-map.html) for visual organization
