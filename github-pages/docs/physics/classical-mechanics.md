@@ -19,23 +19,23 @@ toc_icon: "cog"
 
 **Starting with the Basics**
 - [Newton's Laws: The Foundation](#newtons-laws-of-motion)
-- [Understanding Motion](#kinematics)
-- [Forces in Action](#dynamics)
+- [Understanding Motion](#kinematics-describing-motion)
+- [Forces in Action](#dynamics-forces-in-action)
 
 **Building Powerful Tools**
-- [Conservation Laws: Nature's Bookkeeping](#conservation-laws)
+- [Conservation Laws: Nature's Bookkeeping](#conservation-laws-natures-hidden-symmetries)
 - [Energy Methods: A Better Way](#work-and-energy)
-- [Beyond Point Particles](#rotational-motion)
+- [Beyond Point Particles](#rotational-motion-beyond-point-particles)
 
 **Advanced Frameworks**
-- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics)
-- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics)
-- [Modern Perspectives](#modern-applications)
+- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics-a-new-perspective)
+- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics-the-ultimate-abstraction)
+- [Modern Perspectives](#modern-perspectives-geometry-rules)
 
 **Deeper Understanding**
-- [When Newton Isn't Enough](#limitations-and-extensions)
+- [When Newton Isn't Enough](#when-classical-mechanics-fails)
 - [Chaos and Complexity](#chaos-theory-and-nonlinear-dynamics)
-- [Connections to Modern Physics](#research-frontiers)
+- [Connections to Modern Physics](#the-living-edge-of-classical-mechanics)
 
 ---
 
