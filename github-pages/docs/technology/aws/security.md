@@ -1,13 +1,17 @@
 ---
 layout: docs
 title: AWS Security & Identity
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "shield-alt"
 ---
 
-# AWS Security & Identity
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Security & Identity</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive guide to IAM, Security Hub, KMS, WAF, and security best practices for protecting your AWS infrastructure.</p>
+</div>
 
 Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers IAM, Security Hub, KMS, WAF, and security best practices.
 
@@ -462,7 +466,7 @@ resource "aws_wafv2_web_acl" "main" {
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda security configurations
 - [Networking](../networking.html) - VPC security and WAF integration
 - [Infrastructure & Operations](infrastructure.html) - Security automation and compliance monitoring

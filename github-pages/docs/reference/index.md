@@ -2,12 +2,13 @@
 layout: docs
 title: Quick Reference Guide
 description: Comprehensive quick reference for commands, formulas, algorithms, and best practices
+hide_title: true
 toc: true
 ---
 
-<div class="reference-intro">
-<h1>Quick Reference Guide</h1>
-<p>Your comprehensive resource for commands, formulas, algorithms, and best practices. Bookmark this page for instant access to essential technical references.</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quick Reference Guide</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive resource for commands, formulas, algorithms, and best practices</p>
 </div>
 
 ## 🔍 Quick Navigation
@@ -919,12 +920,12 @@ Phone: ^\+?1?\d{9,15}$
 <p>This reference guide is continuously updated. Found an error or have a suggestion? <a href="https://github.com/AndrewAltimit/Documentation">Contribute on GitHub</a>.</p>
 <p>For detailed explanations and tutorials, explore the main documentation sections:</p>
 <ul>
-<li><a href="../index.html#technology">Technology Documentation</a></li>
-<li><a href="../index.html#physics">Physics Documentation</a></li>
-<li><a href="../ai-ml/index.html">AI/ML Documentation</a></li>
-<li><a href="../artificial-intelligence/index.html">Artificial Intelligence Hub</a></li>
-<li><a href="../quantum-computing/index.html">Quantum Computing Hub</a></li>
-<li><a href="../distributed-systems/index.html">Distributed Systems Hub</a></li>
+<li><a href="../#technology">Technology Documentation</a></li>
+<li><a href="../#physics">Physics Documentation</a></li>
+<li><a href="../ai-ml/">AI/ML Documentation</a></li>
+<li><a href="../artificial-intelligence/">Artificial Intelligence Hub</a></li>
+<li><a href="../quantum-computing/">Quantum Computing Hub</a></li>
+<li><a href="../distributed-systems/">Distributed Systems Hub</a></li>
 </ul>
 </div>
 

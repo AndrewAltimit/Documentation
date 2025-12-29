@@ -5,8 +5,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence Deep Dive</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Advanced transformers, LLMs, and cutting-edge AI research</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
 
@@ -495,7 +500,7 @@ Finally, it's important for us to advocate for the responsible development and i
 - [AWS](aws/) - Cloud infrastructure for AI/ML
 
 ### Hub Page
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Navigate all AI resources
 
 ---
 
@@ -503,6 +508,6 @@ Finally, it's important for us to advocate for the responsible development and i
 - [AI Fundamentals - Complete](ai.html) - Foundation concepts and comprehensive overview
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Beginner introduction without math
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides and workflows
+- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides and workflows
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models

@@ -5,13 +5,12 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Git Version Control</h1>
-    <p class="hero-subtitle">Distributed Version Control System: Architecture, Algorithms, and Implementation</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Version Control</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Distributed Version Control System: Architecture, Algorithms, and Implementation</p>
 </div>
 
 <div class="intro-card">
@@ -1097,7 +1096,7 @@ The future of version control explores novel approaches beyond traditional DAG-b
 ### Official Documentation
 - [Git Documentation](https://git-scm.com/doc)
 - [Git Reference Manual](https://git-scm.com/docs)
-- [Git Protocol Documentation](https://github.com/git/git/blob/master/Documentation/technical/protocol-v2.txt)
+- [Git Protocol Documentation](https://git-scm.com/docs/protocol-v2)
 
 ### Implementations
 - **libgit2**: Portable C implementation

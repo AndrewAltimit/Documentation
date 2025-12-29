@@ -5,16 +5,14 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
-
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Artificial Intelligence</h1>
-    <p class="hero-subtitle">Creating Intelligent Systems</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Creating Intelligent Systems</p>
 </div>
 
 <div class="intro-card">
@@ -1773,19 +1771,19 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
 
 ### Practical Generative AI
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Comprehensive generative AI guides
+- [AI/ML Documentation Hub](../ai-ml/) - Comprehensive generative AI guides
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation
 - [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom applications
 
 ### Navigation
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Complete index of all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Complete index of all AI resources
 
 ---
 
 ## See Also
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
 - [AI Deep Dive](ai-lecture-2023.html) - Advanced concepts and research
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides
+- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Diffusion models
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning

@@ -7,8 +7,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Base Models Comparison</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive comparison of SD 1.5, SDXL, SD3, FLUX, and Pony diffusion models with their strengths, requirements, and optimal use cases.</p>
+</div>
 
 <div class="code-example" markdown="1">
 Comprehensive comparison of popular diffusion models: SD 1.5, SD 2.x, SDXL, Pony, and FLUX, with their strengths, requirements, and use cases.
@@ -545,4 +550,4 @@ The rapid evolution continues with models like Stable Cascade, Würstchen, and P
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

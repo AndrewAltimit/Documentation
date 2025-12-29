@@ -3,8 +3,13 @@ layout: docs
 title: "Distributed Systems Theory"
 permalink: /docs/advanced/distributed-systems-theory/
 parent: "Advanced Topics"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed Systems Theory</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Fundamental impossibility results, consensus algorithms, and formal verification for distributed computing</p>
+</div>
 
 **Prerequisites**: Formal methods, temporal logic, graph theory, probability theory, and complexity theory.
 
@@ -402,20 +407,20 @@ where p = honest mining power, q = attacker power, z = confirmations
 
 ---
 
-*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](/docs/distributed-systems/).*
+*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](../../distributed-systems/).*
 
 ## See Also
 
 ### Distributed Systems Documentation
-- **[Distributed Systems Hub](/docs/distributed-systems/)** - Comprehensive practical guide to building distributed systems
-- **[Kubernetes](/docs/technology/kubernetes/)** - Container orchestration implementation
-- **[Docker](/docs/technology/docker/)** - Containerization for distributed applications
-- **[AWS Cloud Services](/docs/technology/aws/)** - Cloud infrastructure for distributed systems
+- **[Distributed Systems Hub](../../distributed-systems/)** - Comprehensive practical guide to building distributed systems
+- **[Kubernetes](../../technology/kubernetes/)** - Container orchestration implementation
+- **[Docker](../../technology/docker/)** - Containerization for distributed applications
+- **[AWS Cloud Services](../../technology/aws/)** - Cloud infrastructure for distributed systems
 
 ### Related Advanced Topics
-- **[AI Mathematics](/docs/advanced/ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
-- **[Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)** - Quantum distributed computing and Byzantine agreement
-- **[Monorepo Strategies](/docs/advanced/monorepo/)** - Managing distributed system codebases at scale
+- **[AI Mathematics](../ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
+- **[Quantum Algorithms](../quantum-algorithms-research/)** - Quantum distributed computing and Byzantine agreement
+- **[Monorepo Strategies](../monorepo/)** - Managing distributed system codebases at scale
 
 ### Theoretical Foundations
 - **CAP Theorem** - Consistency, availability, and partition tolerance trade-offs
@@ -424,6 +429,6 @@ where p = honest mining power, q = attacker power, z = confirmations
 - **Consensus Algorithms** - Paxos, Raft, and modern variants
 
 ### Performance and Optimization
-- **[Performance Optimization](/docs/optimization/)** - Optimizing distributed systems
+- **[Performance Optimization](../../optimization/)** - Optimizing distributed systems
 - **Complexity Analysis** - Time and message complexity bounds
 - **Scalability Theory** - Theoretical limits of distributed coordination

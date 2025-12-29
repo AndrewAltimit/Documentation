@@ -5,8 +5,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Unreal Engine</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">UE5 game development with Nanite, Lumen, and Blueprints</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
 
@@ -551,9 +556,9 @@ Unreal Engine 5 represents not just an incremental upgrade but a paradigm shift 
 Unreal Engine continues to push the boundaries of what's possible in real-time rendering, making previously impossible creative visions achievable on consumer hardware. Whether you're an indie developer, a AAA studio, or a professional in another industry, UE5 provides the tools to bring your ideas to life with unprecedented fidelity and performance.
 
 ## See Also
-- [Game Development](../gamedev/index.html) - Game design principles and patterns
+- [Game Development](../gamedev/) - Game design principles and patterns
 - [3D Graphics](../graphics/3d-rendering.html) - Rendering pipeline and techniques
 - [AI in Games](../ai-ml/game-ai.html) - AI systems for games
-- [Virtual Reality](../vr-ar/index.html) - VR development with Unreal
-- [Performance Optimization](../optimization/index.html) - Profiling and optimization techniques
+- [Virtual Reality](../vr-ar/) - VR development with Unreal
+- [Performance Optimization](../optimization/) - Profiling and optimization techniques
 

@@ -4,7 +4,13 @@ title: "Kubernetes: Advanced Topics"
 permalink: /docs/technology/kubernetes/advanced.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Advanced Topics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Deep dives into CRDs, Operators, Service Mesh, GitOps, and production-grade deployment patterns for enterprise Kubernetes.</p>
+</div>
 
 ## Advanced Topics: Taking Kubernetes to Production
 

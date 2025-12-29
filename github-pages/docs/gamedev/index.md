@@ -1,11 +1,17 @@
 ---
 layout: docs
 title: Game Development
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "gamepad"
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Game Development</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Engines, systems, and principles for creating interactive entertainment experiences</p>
+</div>
 
 <div class="hub-intro">
   <p class="lead">Game development is a multidisciplinary field combining programming, art, design, and audio to create interactive entertainment experiences. Whether you're an indie developer building your first game, a professional working on AAA titles, or exploring specialized domains like VR and mobile, this comprehensive guide covers the engines, systems, and principles that power modern game creation.</p>
@@ -36,15 +42,15 @@ Choose your path based on your goals and experience level:
 1. Deep dive into [Unreal Engine](#unreal-engine) with Nanite and Lumen
 2. Study [Physics and Simulation](#physics-and-simulation) for realistic worlds
 3. Master [Networking and Multiplayer](#networking-and-multiplayer) systems
-4. Learn [Performance Optimization](../optimization/index.html) for target platforms
+4. Learn [Performance Optimization](../optimization/) for target platforms
 5. Understand [Console Development](#console-development) requirements and certification
 
 ### Specialized Paths
 
-**VR/AR Development:** Core game dev + [VR/AR Development](../vr-ar/index.html) + spatial audio
+**VR/AR Development:** Core game dev + [VR/AR Development](../vr-ar/) + spatial audio
 **Mobile Games:** Unity + [Mobile Development](#mobile-development) + monetization strategies
 **Technical Art:** [3D Graphics & Rendering](../graphics/3d-rendering.html) + shader programming
-**Multiplayer Specialist:** [Networking and Multiplayer](#networking-and-multiplayer) + [Performance Optimization](../optimization/index.html)
+**Multiplayer Specialist:** [Networking and Multiplayer](#networking-and-multiplayer) + [Performance Optimization](../optimization/)
 
 ## How Game Development Topics Connect
 
@@ -369,7 +375,7 @@ Scalability considerations:
 - **Multiplayer Networking**: Enhanced lag compensation techniques and client-side prediction
 - **Mobile Development**: New sections on thermal throttling management and touch UI/UX
 - **Learning Paths**: Added structured progression guides for different career paths
-- **VR Development**: Cross-linked with expanded [VR/AR Development](../vr-ar/index.html) documentation
+- **VR Development**: Cross-linked with expanded [VR/AR Development](../vr-ar/) documentation
 - **Performance**: Updated console performance targets and optimization strategies
 
 ## Related Documentation
@@ -377,9 +383,9 @@ Scalability considerations:
 ### Core Technologies
 - [Unreal Engine](../technology/unreal.html) - Complete UE5 development guide with Nanite, Lumen, and MetaSounds
 - [3D Graphics & Rendering](../graphics/3d-rendering.html) - Rendering pipeline, shaders, and real-time techniques
-- [Performance Optimization](../optimization/index.html) - Profiling, bottleneck analysis, and platform-specific optimizations
+- [Performance Optimization](../optimization/) - Profiling, bottleneck analysis, and platform-specific optimizations
 
 ### Specialized Topics
-- [VR/AR Development](../vr-ar/index.html) - Immersive experiences, spatial tracking, and XR interactions
+- [VR/AR Development](../vr-ar/) - Immersive experiences, spatial tracking, and XR interactions
 - [Game AI](../ai-ml/game-ai.html) - Behavior trees, pathfinding, and machine learning in games
 - [Networking Fundamentals](../technology/networking.html) - Low-level networking concepts for multiplayer games

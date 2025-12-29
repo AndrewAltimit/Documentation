@@ -5,16 +5,14 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
-
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section">
-  <div class="hero-content">
-    
-    <p class="hero-subtitle">The Unity of Space, Time, and Gravity</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Relativity</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The Unity of Space, Time, and Gravity</p>
 </div>
 
 <div class="intro-card">
@@ -54,14 +52,38 @@ toc_icon: "cog"
       <h4>Principle of Relativity</h4>
       <p>The laws of physics are the same in all inertial reference frames</p>
       <div class="visual-demo">
-        <svg viewBox="0 0 300 150">
-          <!-- Two reference frames -->
-          <rect x="20" y="30" width="120" height="80" fill="none" stroke="#3498db" stroke-width="2" />
-          <text x="80" y="120" text-anchor="middle" font-size="12">Frame A</text>
-          <rect x="160" y="30" width="120" height="80" fill="none" stroke="#e74c3c" stroke-width="2" />
-          <text x="220" y="120" text-anchor="middle" font-size="12">Frame B</text>
-          <path d="M 140 70 L 160 70" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="150" y="65" text-anchor="middle" font-size="10">v</text>
+        <svg viewBox="0 0 450 200" style="max-width: 500px; width: 100%;">
+          <!-- Define arrow marker -->
+          <defs>
+            <marker id="arrow-rel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+            </marker>
+          </defs>
+
+          <!-- Frame A - Stationary observer -->
+          <rect x="30" y="40" width="160" height="100" fill="#e3f2fd" stroke="#1976d2" stroke-width="3" rx="5" />
+          <text x="110" y="160" text-anchor="middle" font-size="16" font-weight="bold" fill="#1976d2">Frame A (Stationary)</text>
+          <!-- Observer in Frame A -->
+          <circle cx="110" cy="85" r="12" fill="#1976d2" />
+          <text x="110" y="90" text-anchor="middle" font-size="11" fill="white">A</text>
+          <!-- Physics symbol in Frame A -->
+          <text x="70" cy="85" font-size="14" fill="#333">F = ma</text>
+
+          <!-- Frame B - Moving observer -->
+          <rect x="260" y="40" width="160" height="100" fill="#ffebee" stroke="#c62828" stroke-width="3" rx="5" />
+          <text x="340" y="160" text-anchor="middle" font-size="16" font-weight="bold" fill="#c62828">Frame B (Moving)</text>
+          <!-- Observer in Frame B -->
+          <circle cx="340" cy="85" r="12" fill="#c62828" />
+          <text x="340" y="90" text-anchor="middle" font-size="11" fill="white">B</text>
+          <!-- Physics symbol in Frame B -->
+          <text x="300" cy="85" font-size="14" fill="#333">F = ma</text>
+
+          <!-- Velocity arrow between frames -->
+          <line x1="195" y1="90" x2="250" y2="90" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-rel)" />
+          <text x="222" y="78" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">v</text>
+
+          <!-- Caption -->
+          <text x="225" y="185" text-anchor="middle" font-size="14" fill="#555" font-style="italic">Same laws of physics in both frames</text>
         </svg>
       </div>
     </div>
@@ -71,18 +93,62 @@ toc_icon: "cog"
       <h4>Constancy of Light Speed</h4>
       <p>The speed of light in vacuum is the same for all observers, regardless of motion</p>
       <div class="visual-demo">
-        <svg viewBox="0 0 300 150">
-          <!-- Light ray constant speed -->
-          <circle cx="50" cy="75" r="5" fill="#f39c12" />
-          <path d="M 55 75 L 250 75" stroke="#f39c12" stroke-width="3" stroke-dasharray="5,5" />
-          <text x="150" y="65" text-anchor="middle" font-size="12">c = 299,792,458 m/s</text>
-          <!-- Observer 1 -->
-          <circle cx="100" cy="100" r="8" fill="#3498db" />
-          <text x="100" y="120" text-anchor="middle" font-size="10">Observer 1</text>
-          <!-- Observer 2 -->
-          <circle cx="200" cy="100" r="8" fill="#e74c3c" />
-          <path d="M 192 100 L 180 100" stroke="#e74c3c" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="200" y="120" text-anchor="middle" font-size="10">Observer 2</text>
+        <svg viewBox="0 0 480 220" style="max-width: 500px; width: 100%;">
+          <!-- Define arrow markers -->
+          <defs>
+            <marker id="arrow-light" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#e74c3c" />
+            </marker>
+            <!-- Light glow effect -->
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feFlood flood-color="#f39c12" flood-opacity="0.5" />
+              <feComposite in2="blur" operator="in" />
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Title -->
+          <text x="240" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Speed of Light is Constant for All Observers</text>
+
+          <!-- Light source -->
+          <circle cx="50" cy="100" r="15" fill="#f39c12" filter="url(#glow)" />
+          <text x="50" y="105" text-anchor="middle" font-size="12" fill="#333">Light</text>
+
+          <!-- Light ray -->
+          <line x1="70" y1="100" x2="430" y2="100" stroke="#f39c12" stroke-width="4" stroke-dasharray="10,5" />
+
+          <!-- Speed label -->
+          <rect x="160" y="55" width="180" height="30" fill="#fff3e0" stroke="#f39c12" stroke-width="2" rx="5" />
+          <text x="250" y="76" text-anchor="middle" font-size="15" font-weight="bold" fill="#e65100">c = 299,792,458 m/s</text>
+
+          <!-- Observer 1 - Stationary -->
+          <circle cx="140" cy="160" r="15" fill="#1976d2" />
+          <text x="140" y="165" text-anchor="middle" font-size="12" fill="white">1</text>
+          <text x="140" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976d2">Observer 1</text>
+          <text x="140" y="210" text-anchor="middle" font-size="12" fill="#555">(stationary)</text>
+          <!-- Speech bubble -->
+          <rect x="90" y="115" width="100" height="25" fill="#e3f2fd" stroke="#1976d2" stroke-width="1" rx="3" />
+          <text x="140" y="132" text-anchor="middle" font-size="12" fill="#1976d2">Measures: c</text>
+
+          <!-- Observer 2 - Moving toward light -->
+          <circle cx="340" cy="160" r="15" fill="#c62828" />
+          <text x="340" y="165" text-anchor="middle" font-size="12" fill="white">2</text>
+          <text x="340" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#c62828">Observer 2</text>
+          <text x="340" y="210" text-anchor="middle" font-size="12" fill="#555">(moving at 0.5c)</text>
+          <!-- Motion arrow -->
+          <line x1="375" y1="160" x2="415" y2="160" stroke="#c62828" stroke-width="3" marker-end="url(#arrow-light)" />
+          <text x="395" y="150" text-anchor="middle" font-size="14" font-weight="bold" fill="#c62828">v</text>
+          <!-- Speech bubble -->
+          <rect x="290" y="115" width="100" height="25" fill="#ffebee" stroke="#c62828" stroke-width="1" rx="3" />
+          <text x="340" y="132" text-anchor="middle" font-size="12" fill="#c62828">Measures: c</text>
+
+          <!-- Connecting lines to light ray -->
+          <line x1="140" y1="145" x2="140" y2="105" stroke="#1976d2" stroke-width="1" stroke-dasharray="3,3" />
+          <line x1="340" y1="145" x2="340" y2="105" stroke="#c62828" stroke-width="1" stroke-dasharray="3,3" />
         </svg>
       </div>
     </div>
@@ -119,83 +185,167 @@ toc_icon: "cog"
   </div>
   
   <div class="spacetime-diagram">
-    <svg viewBox="0 0 400 300">
+    <svg viewBox="0 0 500 380" style="max-width: 500px; width: 100%;">
       <!-- Define arrow markers -->
       <defs>
-        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+        <marker id="arrow-st" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,8 L12,4 z" fill="#2c3e50" />
+        </marker>
+        <marker id="arrow-st-orange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#e65100" />
         </marker>
       </defs>
+
+      <!-- Title -->
+      <text x="250" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Spacetime Diagram</text>
+
+      <!-- Background grid -->
+      <g stroke="#e0e0e0" stroke-width="1">
+        <line x1="100" y1="60" x2="100" y2="340" />
+        <line x1="150" y1="60" x2="150" y2="340" />
+        <line x1="200" y1="60" x2="200" y2="340" />
+        <line x1="300" y1="60" x2="300" y2="340" />
+        <line x1="350" y1="60" x2="350" y2="340" />
+        <line x1="400" y1="60" x2="400" y2="340" />
+        <line x1="50" y1="100" x2="450" y2="100" />
+        <line x1="50" y1="150" x2="450" y2="150" />
+        <line x1="50" y1="250" x2="450" y2="250" />
+        <line x1="50" y1="300" x2="450" y2="300" />
+      </g>
+
       <!-- Spacetime axes -->
-      <line x1="200" y1="250" x2="200" y2="50" stroke="#2c3e50" stroke-width="2" />
-      <line x1="50" y1="200" x2="350" y2="200" stroke="#2c3e50" stroke-width="2" />
-      <text x="200" y="40" text-anchor="middle" font-size="12">ct</text>
-      <text x="360" y="200" text-anchor="middle" font-size="12">x</text>
-      
-      <!-- Light cone -->
-      <path d="M 200 200 L 100 100" stroke="#f39c12" stroke-width="2" stroke-dasharray="3,3" />
-      <path d="M 200 200 L 300 100" stroke="#f39c12" stroke-width="2" stroke-dasharray="3,3" />
-      <text x="120" y="120" font-size="10" fill="#f39c12">Light</text>
-      
-      <!-- Worldline -->
-      <path d="M 150 250 Q 180 180, 200 100" stroke="#3498db" stroke-width="3" />
-      <text x="160" y="240" font-size="10" fill="#3498db">Worldline</text>
-      
-      <!-- Event points -->
-      <circle cx="200" cy="200" r="4" fill="#e74c3c" />
-      <text x="210" y="195" font-size="10">Event</text>
+      <line x1="250" y1="340" x2="250" y2="50" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-st)" />
+      <line x1="50" y1="200" x2="450" y2="200" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-st)" />
+      <text x="265" y="55" text-anchor="start" font-size="18" font-weight="bold" fill="#2c3e50">ct (time)</text>
+      <text x="455" y="205" text-anchor="start" font-size="18" font-weight="bold" fill="#2c3e50">x (space)</text>
+
+      <!-- Light cone lines -->
+      <line x1="250" y1="200" x2="100" y2="50" stroke="#e65100" stroke-width="3" stroke-dasharray="8,4" />
+      <line x1="250" y1="200" x2="400" y2="50" stroke="#e65100" stroke-width="3" stroke-dasharray="8,4" />
+      <line x1="250" y1="200" x2="100" y2="350" stroke="#e65100" stroke-width="2" stroke-dasharray="8,4" opacity="0.5" />
+      <line x1="250" y1="200" x2="400" y2="350" stroke="#e65100" stroke-width="2" stroke-dasharray="8,4" opacity="0.5" />
+
+      <!-- Light cone labels -->
+      <text x="115" y="90" font-size="14" font-weight="bold" fill="#e65100">Light (45 degrees)</text>
+      <text x="355" y="90" font-size="14" font-weight="bold" fill="#e65100">v = c</text>
+
+      <!-- Sample worldline (massive particle) -->
+      <path d="M 180 340 Q 210 270, 230 200 Q 245 140, 260 70" stroke="#1976d2" stroke-width="4" fill="none" />
+      <circle cx="180" cy="340" r="6" fill="#1976d2" />
+      <circle cx="230" cy="200" r="6" fill="#1976d2" />
+      <circle cx="260" cy="70" r="6" fill="#1976d2" />
+      <text x="145" y="355" font-size="14" font-weight="bold" fill="#1976d2">Worldline</text>
+      <text x="145" y="370" font-size="12" fill="#1976d2">(massive particle)</text>
+
+      <!-- Event at origin -->
+      <circle cx="250" cy="200" r="8" fill="#c62828" />
+      <text x="265" y="215" font-size="15" font-weight="bold" fill="#c62828">Event P</text>
+      <text x="265" y="232" font-size="12" fill="#555">(here, now)</text>
+
+      <!-- Future region label -->
+      <text x="250" y="120" text-anchor="middle" font-size="14" fill="#388e3c" font-weight="bold">FUTURE</text>
+
+      <!-- Past region label -->
+      <text x="250" y="290" text-anchor="middle" font-size="14" fill="#7b1fa2" font-weight="bold">PAST</text>
+
+      <!-- Spacelike region labels -->
+      <text x="100" y="205" text-anchor="middle" font-size="12" fill="#555">Elsewhere</text>
+      <text x="400" y="205" text-anchor="middle" font-size="12" fill="#555">Elsewhere</text>
+
+      <!-- Axis tick marks and labels -->
+      <line x1="300" y1="195" x2="300" y2="205" stroke="#2c3e50" stroke-width="2" />
+      <text x="300" y="220" text-anchor="middle" font-size="12" fill="#333">x</text>
+      <line x1="350" y1="195" x2="350" y2="205" stroke="#2c3e50" stroke-width="2" />
+      <text x="350" y="220" text-anchor="middle" font-size="12" fill="#333">2x</text>
+      <line x1="245" y1="150" x2="255" y2="150" stroke="#2c3e50" stroke-width="2" />
+      <text x="235" y="155" text-anchor="end" font-size="12" fill="#333">ct</text>
+      <line x1="245" y1="100" x2="255" y2="100" stroke="#2c3e50" stroke-width="2" />
+      <text x="235" y="105" text-anchor="end" font-size="12" fill="#333">2ct</text>
     </svg>
   </div>
   
   <div class="light-cone-diagram">
     <h4><i class="fas fa-hourglass-half"></i> Light Cone Structure</h4>
-    <svg viewBox="0 0 400 400">
-      <text x="200" y="20" text-anchor="middle" font-size="12" font-weight="bold">Light Cone and Causal Structure</text>
-      
+    <svg viewBox="0 0 550 480" style="max-width: 500px; width: 100%;">
+      <!-- Title -->
+      <text x="275" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Light Cone and Causal Structure</text>
+
+      <!-- Define gradient for cones -->
+      <defs>
+        <linearGradient id="futureCone" x1="0%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#e65100" stop-opacity="0.4" />
+          <stop offset="100%" stop-color="#ff9800" stop-opacity="0.1" />
+        </linearGradient>
+        <linearGradient id="pastCone" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#e65100" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="#ff9800" stop-opacity="0.05" />
+        </linearGradient>
+        <marker id="arrow-lc" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+        </marker>
+      </defs>
+
       <!-- 3D coordinate axes -->
-      <line x1="200" y1="200" x2="350" y2="350" stroke="#666" stroke-width="1" stroke-dasharray="2,2" />
-      <text x="355" y="355" font-size="9" fill="#666">x</text>
-      
-      <line x1="200" y1="200" x2="50" y2="350" stroke="#666" stroke-width="1" stroke-dasharray="2,2" />
-      <text x="40" y="355" font-size="9" fill="#666">y</text>
-      
-      <line x1="200" y1="380" x2="200" y2="20" stroke="#2c3e50" stroke-width="2" />
-      <text x="210" y="15" font-size="10">ct</text>
-      
+      <line x1="275" y1="240" x2="450" y2="400" stroke="#9e9e9e" stroke-width="2" stroke-dasharray="4,4" />
+      <text x="460" y="410" font-size="14" fill="#666" font-weight="bold">x</text>
+
+      <line x1="275" y1="240" x2="100" y2="400" stroke="#9e9e9e" stroke-width="2" stroke-dasharray="4,4" />
+      <text x="85" y="410" font-size="14" fill="#666" font-weight="bold">y</text>
+
+      <!-- Time axis -->
+      <line x1="275" y1="450" x2="275" y2="50" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-lc)" />
+      <text x="295" y="55" font-size="18" font-weight="bold" fill="#2c3e50">ct (time)</text>
+
       <!-- Future light cone -->
-      <path d="M 200 200 L 100 100 Q 200 50, 300 100 Z" fill="#f39c12" opacity="0.2" stroke="#f39c12" stroke-width="2" />
-      <text x="200" y="80" text-anchor="middle" font-size="10" fill="#f39c12">Future light cone</text>
-      
+      <path d="M 275 240 L 140 100 Q 275 50, 410 100 Z" fill="url(#futureCone)" stroke="#e65100" stroke-width="3" />
+      <text x="275" y="85" text-anchor="middle" font-size="16" font-weight="bold" fill="#e65100">Future Light Cone</text>
+
       <!-- Past light cone -->
-      <path d="M 200 200 L 100 300 Q 200 350, 300 300 Z" fill="#f39c12" opacity="0.1" stroke="#f39c12" stroke-width="2" stroke-dasharray="3,3" />
-      <text x="200" y="320" text-anchor="middle" font-size="10" fill="#f39c12" opacity="0.7">Past light cone</text>
-      
+      <path d="M 275 240 L 140 380 Q 275 430, 410 380 Z" fill="url(#pastCone)" stroke="#e65100" stroke-width="2" stroke-dasharray="5,3" />
+      <text x="275" y="410" text-anchor="middle" font-size="16" font-weight="bold" fill="#bf360c">Past Light Cone</text>
+
       <!-- Event at origin -->
-      <circle cx="200" cy="200" r="5" fill="#e74c3c" />
-      <text x="215" y="195" font-size="9">Event P</text>
-      
-      <!-- Timelike regions -->
-      <path d="M 180 150 L 220 150 L 210 100 L 190 100 Z" fill="#3498db" opacity="0.3" />
-      <text x="150" y="120" font-size="9" fill="#3498db">Timelike future</text>
-      <text x="150" y="135" font-size="8" fill="#3498db">(v < c possible)</text>
-      
-      <path d="M 180 250 L 220 250 L 210 300 L 190 300 Z" fill="#3498db" opacity="0.2" />
-      <text x="150" y="280" font-size="9" fill="#3498db" opacity="0.7">Timelike past</text>
-      
+      <circle cx="275" cy="240" r="10" fill="#c62828" stroke="#b71c1c" stroke-width="2" />
+      <text x="295" y="235" font-size="16" font-weight="bold" fill="#c62828">Event P</text>
+      <text x="295" y="255" font-size="13" fill="#555">(Here and Now)</text>
+
+      <!-- Timelike future region -->
+      <path d="M 240 180 L 310 180 L 295 120 L 255 120 Z" fill="#1976d2" opacity="0.25" />
+      <text x="370" y="135" font-size="15" font-weight="bold" fill="#1976d2">Timelike Future</text>
+      <text x="370" y="155" font-size="13" fill="#1565c0">(Causally connected)</text>
+      <text x="370" y="173" font-size="13" fill="#1565c0">(v &lt; c reachable)</text>
+
+      <!-- Timelike past region -->
+      <path d="M 240 300 L 310 300 L 295 360 L 255 360 Z" fill="#7b1fa2" opacity="0.2" />
+      <text x="370" y="340" font-size="15" font-weight="bold" fill="#7b1fa2">Timelike Past</text>
+      <text x="370" y="360" font-size="13" fill="#6a1b9a">(Could have caused P)</text>
+
       <!-- Spacelike region -->
-      <ellipse cx="200" cy="200" rx="80" ry="20" fill="#27ae60" opacity="0.2" />
-      <text x="300" y="200" font-size="9" fill="#27ae60">Spacelike</text>
-      <text x="300" y="215" font-size="8" fill="#27ae60">(No causal connection)</text>
-      
+      <ellipse cx="275" cy="240" rx="110" ry="30" fill="#388e3c" opacity="0.2" />
+      <text x="60" y="235" font-size="15" font-weight="bold" fill="#388e3c">Spacelike</text>
+      <text x="60" y="255" font-size="13" fill="#2e7d32">(No causal</text>
+      <text x="60" y="273" font-size="13" fill="#2e7d32">connection)</text>
+
       <!-- Sample worldlines -->
-      <path d="M 200 200 Q 210 150, 215 100" stroke="#9b59b6" stroke-width="2" />
-      <text x="220" y="90" font-size="8" fill="#9b59b6">Massive particle</text>
-      
-      <path d="M 200 200 L 250 150" stroke="#f39c12" stroke-width="2" stroke-dasharray="2,2" />
-      <text x="255" y="145" font-size="8" fill="#f39c12">Light ray</text>
-      
-      <!-- Invariant interval labels -->
-      <text x="200" y="380" text-anchor="middle" font-size="9" font-style="italic">Δs² > 0 (timelike), Δs² = 0 (null), Δs² < 0 (spacelike)</text>
+      <!-- Massive particle worldline -->
+      <path d="M 275 240 Q 290 180, 300 120" stroke="#7b1fa2" stroke-width="4" fill="none" />
+      <circle cx="300" cy="120" r="5" fill="#7b1fa2" />
+      <text x="315" y="105" font-size="14" font-weight="bold" fill="#7b1fa2">Massive particle</text>
+      <text x="315" y="120" font-size="12" fill="#7b1fa2">(v &lt; c)</text>
+
+      <!-- Light ray -->
+      <line x1="275" y1="240" x2="355" y2="160" stroke="#e65100" stroke-width="4" stroke-dasharray="6,3" />
+      <circle cx="355" cy="160" r="4" fill="#e65100" />
+      <text x="365" y="175" font-size="14" font-weight="bold" fill="#e65100">Light ray</text>
+      <text x="365" y="190" font-size="12" fill="#e65100">(v = c)</text>
+
+      <!-- Legend box -->
+      <rect x="20" y="430" width="510" height="40" fill="#fafafa" stroke="#e0e0e0" stroke-width="1" rx="5" />
+      <text x="275" y="458" text-anchor="middle" font-size="14" fill="#333">
+        <tspan font-weight="bold" fill="#1976d2">ds^2 &gt; 0</tspan> (timelike)
+        <tspan dx="20" font-weight="bold" fill="#e65100">ds^2 = 0</tspan> (null/lightlike)
+        <tspan dx="20" font-weight="bold" fill="#388e3c">ds^2 &lt; 0</tspan> (spacelike)
+      </text>
     </svg>
   </div>
 </div>
@@ -350,20 +500,64 @@ Where β = v/c.
   </div>
   
   <div class="visual-demonstration">
-    <svg viewBox="0 0 400 200">
-      <!-- Rest frame -->
-      <text x="200" y="30" text-anchor="middle" font-size="12">Rest Frame</text>
-      <rect x="100" y="40" width="200" height="40" fill="#3498db" opacity="0.3" stroke="#3498db" stroke-width="2" />
-      <text x="200" y="65" text-anchor="middle" font-size="10" fill="white">L₀</text>
-      
-      <!-- Moving frame -->
-      <text x="200" y="130" text-anchor="middle" font-size="12">Moving Frame (v = 0.8c)</text>
-      <rect x="140" y="140" width="120" height="40" fill="#e74c3c" opacity="0.3" stroke="#e74c3c" stroke-width="2" />
-      <text x="200" y="165" text-anchor="middle" font-size="10" fill="white">L = 0.6L₀</text>
-      
-      <!-- Motion arrows -->
-      <path d="M 280 160 L 320 160" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-      <text x="300" y="155" text-anchor="middle" font-size="10">v</text>
+    <svg viewBox="0 0 520 280" style="max-width: 500px; width: 100%;">
+      <!-- Title -->
+      <text x="260" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Length Contraction Demonstration</text>
+
+      <!-- Define arrow marker -->
+      <defs>
+        <marker id="arrow-lc2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+        </marker>
+        <pattern id="ruler-pattern" x="0" y="0" width="20" height="10" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="10" stroke="#555" stroke-width="1" />
+        </pattern>
+      </defs>
+
+      <!-- Rest Frame Section -->
+      <rect x="30" y="45" width="460" height="95" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="5" />
+      <text x="260" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#1565c0">Rest Frame (Object at rest)</text>
+
+      <!-- Object at rest (full length) -->
+      <rect x="80" y="85" width="300" height="40" fill="#1976d2" stroke="#0d47a1" stroke-width="3" rx="5" />
+      <text x="230" y="112" text-anchor="middle" font-size="18" font-weight="bold" fill="white">L&#x2080; = Proper Length</text>
+
+      <!-- Ruler for rest frame -->
+      <line x1="80" y1="135" x2="380" y2="135" stroke="#333" stroke-width="2" />
+      <line x1="80" y1="130" x2="80" y2="140" stroke="#333" stroke-width="2" />
+      <line x1="380" y1="130" x2="380" y2="140" stroke="#333" stroke-width="2" />
+      <text x="80" y="150" text-anchor="middle" font-size="12" fill="#333">0</text>
+      <text x="380" y="150" text-anchor="middle" font-size="12" fill="#333">L&#x2080;</text>
+
+      <!-- Moving Frame Section -->
+      <rect x="30" y="160" width="460" height="110" fill="#ffebee" stroke="#c62828" stroke-width="2" rx="5" />
+      <text x="260" y="180" text-anchor="middle" font-size="16" font-weight="bold" fill="#b71c1c">Moving Frame (v = 0.8c, gamma = 1.67)</text>
+
+      <!-- Object moving (contracted) -->
+      <rect x="140" y="200" width="180" height="40" fill="#c62828" stroke="#b71c1c" stroke-width="3" rx="5" />
+      <text x="230" y="227" text-anchor="middle" font-size="16" font-weight="bold" fill="white">L = L&#x2080;/gamma</text>
+
+      <!-- Ruler for moving frame -->
+      <line x1="140" y1="250" x2="320" y2="250" stroke="#333" stroke-width="2" />
+      <line x1="140" y1="245" x2="140" y2="255" stroke="#333" stroke-width="2" />
+      <line x1="320" y1="245" x2="320" y2="255" stroke="#333" stroke-width="2" />
+      <text x="140" y="265" text-anchor="middle" font-size="12" fill="#333">0</text>
+      <text x="320" y="265" text-anchor="middle" font-size="12" fill="#333">0.6L&#x2080;</text>
+
+      <!-- Motion arrow -->
+      <line x1="340" y1="220" x2="410" y2="220" stroke="#2c3e50" stroke-width="4" marker-end="url(#arrow-lc2)" />
+      <text x="375" y="210" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">v = 0.8c</text>
+
+      <!-- Contraction percentage -->
+      <rect x="420" y="195" width="60" height="50" fill="#fff3e0" stroke="#e65100" stroke-width="2" rx="5" />
+      <text x="450" y="218" text-anchor="middle" font-size="14" font-weight="bold" fill="#e65100">60%</text>
+      <text x="450" y="235" text-anchor="middle" font-size="11" fill="#e65100">original</text>
+
+      <!-- Comparison arrows showing contraction -->
+      <line x1="80" y1="127" x2="80" y2="195" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
+      <line x1="380" y1="127" x2="380" y2="195" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
+      <line x1="140" y1="195" x2="140" y2="127" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
+      <line x1="320" y1="195" x2="320" y2="127" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
     </svg>
   </div>
 </div>
@@ -439,20 +633,78 @@ $$u^\mu = \gamma(c, v_x, v_y, v_z)$$
       <h4>Equivalence Principle</h4>
       <p>The effects of gravity are locally indistinguishable from acceleration</p>
       <div class="principle-visual">
-        <svg viewBox="0 0 200 150">
-          <!-- Elevator in space -->
-          <rect x="30" y="30" width="60" height="80" fill="#3498db" opacity="0.3" stroke="#3498db" stroke-width="2" />
-          <text x="60" y="120" text-anchor="middle" font-size="10">Accelerating</text>
-          <circle cx="60" cy="70" r="5" fill="#2c3e50" />
-          <path d="M 60 75 L 60 90" stroke="#e74c3c" stroke-width="2" marker-end="url(#arrow)" />
-          <path d="M 60 20 L 60 10" stroke="#27ae60" stroke-width="2" marker-end="url(#arrow)" />
-          
-          <!-- On Earth -->
-          <rect x="110" y="30" width="60" height="80" fill="#95a5a6" opacity="0.3" stroke="#95a5a6" stroke-width="2" />
-          <text x="140" y="120" text-anchor="middle" font-size="10">On Earth</text>
-          <circle cx="140" cy="70" r="5" fill="#2c3e50" />
-          <path d="M 140 75 L 140 90" stroke="#e74c3c" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="140" y="105" text-anchor="middle" font-size="8">g</text>
+        <svg viewBox="0 0 420 240" style="max-width: 500px; width: 100%;">
+          <!-- Define arrow markers -->
+          <defs>
+            <marker id="arrow-eq" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#c62828" />
+            </marker>
+            <marker id="arrow-eq-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#2e7d32" />
+            </marker>
+          </defs>
+
+          <!-- Title -->
+          <text x="210" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Equivalence Principle</text>
+
+          <!-- Scenario A: Accelerating in space -->
+          <rect x="20" y="40" width="160" height="150" fill="#e3f2fd" stroke="#1976d2" stroke-width="3" rx="8" />
+          <text x="100" y="60" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565c0">In Space</text>
+          <text x="100" y="78" text-anchor="middle" font-size="12" fill="#1976d2">(Accelerating rocket)</text>
+
+          <!-- Elevator box in space -->
+          <rect x="50" y="90" width="100" height="80" fill="#bbdefb" stroke="#1976d2" stroke-width="2" rx="3" />
+
+          <!-- Person in space elevator -->
+          <circle cx="100" cy="120" r="12" fill="#1976d2" />
+          <line x1="100" y1="132" x2="100" y2="155" stroke="#1976d2" stroke-width="3" />
+          <line x1="100" y1="140" x2="85" y2="150" stroke="#1976d2" stroke-width="3" />
+          <line x1="100" y1="140" x2="115" y2="150" stroke="#1976d2" stroke-width="3" />
+
+          <!-- Acceleration arrow (upward) -->
+          <line x1="100" y1="40" x2="100" y2="15" stroke="#2e7d32" stroke-width="4" marker-end="url(#arrow-eq-green)" />
+          <text x="125" y="25" font-size="14" font-weight="bold" fill="#2e7d32">a = g</text>
+
+          <!-- Felt force (downward on person) -->
+          <line x1="100" y1="158" x2="100" y2="185" stroke="#c62828" stroke-width="3" marker-end="url(#arrow-eq)" />
+          <text x="125" y="175" font-size="12" fill="#c62828">Feels weight</text>
+
+          <!-- Stars background indicator -->
+          <text x="35" y="105" font-size="16" fill="#555">*</text>
+          <text x="140" y="120" font-size="14" fill="#555">*</text>
+          <text x="55" y="165" font-size="12" fill="#555">*</text>
+
+          <!-- Equals sign -->
+          <text x="200" y="130" text-anchor="middle" font-size="36" font-weight="bold" fill="#333">=</text>
+
+          <!-- Scenario B: On Earth -->
+          <rect x="240" y="40" width="160" height="150" fill="#fff3e0" stroke="#e65100" stroke-width="3" rx="8" />
+          <text x="320" y="60" text-anchor="middle" font-size="14" font-weight="bold" fill="#e65100">On Earth</text>
+          <text x="320" y="78" text-anchor="middle" font-size="12" fill="#e65100">(Stationary in gravity)</text>
+
+          <!-- Elevator box on Earth -->
+          <rect x="270" y="90" width="100" height="80" fill="#ffe0b2" stroke="#e65100" stroke-width="2" rx="3" />
+
+          <!-- Person in Earth elevator -->
+          <circle cx="320" cy="120" r="12" fill="#e65100" />
+          <line x1="320" y1="132" x2="320" y2="155" stroke="#e65100" stroke-width="3" />
+          <line x1="320" y1="140" x2="305" y2="150" stroke="#e65100" stroke-width="3" />
+          <line x1="320" y1="140" x2="335" y2="150" stroke="#e65100" stroke-width="3" />
+
+          <!-- Gravity arrow -->
+          <line x1="320" y1="175" x2="320" y2="205" stroke="#c62828" stroke-width="4" marker-end="url(#arrow-eq)" />
+          <text x="350" y="195" font-size="14" font-weight="bold" fill="#c62828">g</text>
+
+          <!-- Felt force (downward on person) -->
+          <line x1="320" y1="158" x2="320" y2="185" stroke="#c62828" stroke-width="3" />
+          <text x="285" y="175" font-size="12" fill="#c62828">Feels weight</text>
+
+          <!-- Ground indicator -->
+          <rect x="250" y="195" width="140" height="10" fill="#8d6e63" />
+          <text x="320" y="225" text-anchor="middle" font-size="12" fill="#5d4037">Ground</text>
+
+          <!-- Caption -->
+          <text x="210" y="235" text-anchor="middle" font-size="13" fill="#555" font-style="italic">Locally indistinguishable experiences</text>
         </svg>
       </div>
     </div>
@@ -468,24 +720,61 @@ $$u^\mu = \gamma(c, v_x, v_y, v_z)$$
       <h4>Spacetime Curvature</h4>
       <p>Matter and energy curve spacetime, and this curvature guides motion</p>
       <div class="principle-visual">
-        <svg viewBox="0 0 200 150">
-          <!-- Curved spacetime grid -->
-          <path d="M 20 30 Q 100 50, 180 30" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 20 50 Q 100 70, 180 50" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 20 70 Q 100 90, 180 70" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 20 90 Q 100 110, 180 90" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 20 110 Q 100 130, 180 110" stroke="#95a5a6" stroke-width="1" fill="none" />
-          
-          <!-- Vertical lines -->
-          <path d="M 40 20 Q 45 75, 40 130" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 70 20 Q 80 75, 70 130" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 100 20 Q 100 75, 100 130" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 130 20 Q 120 75, 130 130" stroke="#95a5a6" stroke-width="1" fill="none" />
-          <path d="M 160 20 Q 155 75, 160 130" stroke="#95a5a6" stroke-width="1" fill="none" />
-          
-          <!-- Mass -->
-          <circle cx="100" cy="75" r="15" fill="#e74c3c" />
-          <text x="100" y="80" text-anchor="middle" font-size="10" fill="white">M</text>
+        <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
+          <!-- Title -->
+          <text x="210" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Spacetime Curvature by Mass</text>
+
+          <!-- Define gradient for mass -->
+          <defs>
+            <radialGradient id="massGradient" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ef5350" />
+              <stop offset="100%" stop-color="#b71c1c" />
+            </radialGradient>
+            <marker id="arrow-curve" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L8,3 z" fill="#1976d2" />
+            </marker>
+          </defs>
+
+          <!-- Curved spacetime grid - horizontal lines -->
+          <path d="M 30 60 Q 210 75, 390 60" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 30 90 Q 210 115, 390 90" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 30 120 Q 210 160, 390 120" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 30 150 Q 210 200, 390 150" stroke="#546e7a" stroke-width="2.5" fill="none" />
+          <path d="M 30 180 Q 210 220, 390 180" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 30 210 Q 210 235, 390 210" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 30 240 Q 210 250, 390 240" stroke="#78909c" stroke-width="2" fill="none" />
+
+          <!-- Curved spacetime grid - vertical lines -->
+          <path d="M 50 50 Q 55 150, 50 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 90 50 Q 100 150, 90 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 130 50 Q 150 150, 130 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 170 50 Q 195 155, 170 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 210 50 Q 210 160, 210 255" stroke="#546e7a" stroke-width="2.5" fill="none" />
+          <path d="M 250 50 Q 225 155, 250 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 290 50 Q 270 150, 290 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 330 50 Q 320 150, 330 255" stroke="#78909c" stroke-width="2" fill="none" />
+          <path d="M 370 50 Q 365 150, 370 255" stroke="#78909c" stroke-width="2" fill="none" />
+
+          <!-- Central mass -->
+          <circle cx="210" cy="155" r="30" fill="url(#massGradient)" stroke="#b71c1c" stroke-width="3" />
+          <text x="210" y="162" text-anchor="middle" font-size="20" font-weight="bold" fill="white">M</text>
+
+          <!-- Object following geodesic -->
+          <circle cx="90" cy="90" r="8" fill="#1976d2" />
+          <path d="M 100 95 Q 150 130, 180 140" stroke="#1976d2" stroke-width="3" fill="none" stroke-dasharray="5,3" marker-end="url(#arrow-curve)" />
+          <text x="60" y="80" font-size="14" font-weight="bold" fill="#1976d2">Object</text>
+          <text x="60" y="95" font-size="12" fill="#1565c0">follows curved</text>
+          <text x="60" y="110" font-size="12" fill="#1565c0">geodesic</text>
+
+          <!-- Annotations -->
+          <text x="340" y="85" font-size="13" fill="#455a64">Flat spacetime</text>
+          <text x="340" y="100" font-size="13" fill="#455a64">(far from mass)</text>
+
+          <text x="340" y="190" font-size="13" fill="#bf360c">Curved spacetime</text>
+          <text x="340" y="205" font-size="13" fill="#bf360c">(near mass)</text>
+
+          <!-- Caption -->
+          <text x="210" y="275" text-anchor="middle" font-size="14" fill="#555" font-style="italic">"Matter tells spacetime how to curve"</text>
         </svg>
       </div>
     </div>
@@ -1049,58 +1338,91 @@ $$\mathcal{M} = \frac{(m_1m_2)^{3/5}}{(m_1+m_2)^{1/5}}$$
 3. Ringdown: Quasinormal modes
 
 <div class="gw-waveform-diagram">
-  <svg viewBox="0 0 500 300">
-    <text x="250" y="20" text-anchor="middle" font-size="12" font-weight="bold">Gravitational Wave from Binary Merger</text>
-    
+  <svg viewBox="0 0 600 380" style="max-width: 500px; width: 100%;">
+    <!-- Title -->
+    <text x="300" y="25" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Gravitational Wave from Binary Black Hole Merger</text>
+
+    <!-- Define arrow markers -->
+    <defs>
+      <marker id="arrow-gw" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+      </marker>
+    </defs>
+
     <!-- Axes -->
-    <line x1="50" y1="150" x2="450" y2="150" stroke="#2c3e50" stroke-width="2" />
-    <line x1="50" y1="50" x2="50" y2="250" stroke="#2c3e50" stroke-width="2" />
-    <text x="460" y="150" font-size="10">t</text>
-    <text x="50" y="40" font-size="10">h₊</text>
-    
-    <!-- Waveform -->
-    <!-- Inspiral phase -->
-    <path d="M 70 150 Q 80 140, 90 150 T 110 150 Q 120 135, 130 150 T 150 150 Q 160 130, 170 150 T 190 150 Q 200 120, 210 150 T 230 150" 
-          stroke="#3498db" stroke-width="2" fill="none" />
-    <text x="150" y="220" text-anchor="middle" font-size="9" fill="#3498db">Inspiral</text>
-    
-    <!-- Merger phase -->
-    <path d="M 230 150 Q 240 100, 250 150 Q 260 200, 270 150 Q 280 90, 290 150 Q 300 210, 310 150" 
-          stroke="#e74c3c" stroke-width="2" fill="none" />
-    <text x="270" y="220" text-anchor="middle" font-size="9" fill="#e74c3c">Merger</text>
-    
-    <!-- Ringdown phase -->
-    <path d="M 310 150 Q 320 180, 330 150 Q 340 170, 350 150 Q 360 160, 370 150 Q 380 155, 390 150 Q 400 152, 410 150" 
-          stroke="#27ae60" stroke-width="2" fill="none" />
-    <text x="360" y="220" text-anchor="middle" font-size="9" fill="#27ae60">Ringdown</text>
-    
+    <line x1="50" y1="200" x2="570" y2="200" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-gw)" />
+    <line x1="50" y1="320" x2="50" y2="80" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-gw)" />
+    <text x="575" y="205" font-size="16" font-weight="bold" fill="#2c3e50">Time</text>
+    <text x="55" y="75" font-size="16" font-weight="bold" fill="#2c3e50">Strain h</text>
+
+    <!-- Zero line reference -->
+    <line x1="50" y1="200" x2="550" y2="200" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4,4" />
+
+    <!-- Waveform - Inspiral phase (increasing frequency and amplitude) -->
+    <path d="M 70 200
+             Q 85 190, 100 200 T 130 200
+             Q 145 185, 160 200 T 190 200
+             Q 210 175, 230 200 T 260 200
+             Q 285 160, 310 200"
+          stroke="#1976d2" stroke-width="4" fill="none" />
+    <rect x="70" y="245" width="240" height="30" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="5" />
+    <text x="190" y="267" text-anchor="middle" font-size="16" font-weight="bold" fill="#1565c0">INSPIRAL</text>
+
+    <!-- Waveform - Merger phase (peak amplitude) -->
+    <path d="M 310 200
+             Q 330 130, 350 200
+             Q 370 280, 390 200
+             Q 405 110, 420 200"
+          stroke="#c62828" stroke-width="4" fill="none" />
+    <rect x="310" y="245" width="110" height="30" fill="#ffebee" stroke="#c62828" stroke-width="2" rx="5" />
+    <text x="365" y="267" text-anchor="middle" font-size="16" font-weight="bold" fill="#b71c1c">MERGER</text>
+
+    <!-- Waveform - Ringdown phase (decaying oscillation) -->
+    <path d="M 420 200
+             Q 440 230, 460 200
+             Q 475 220, 490 200
+             Q 500 210, 510 200
+             Q 515 205, 520 200
+             L 550 200"
+          stroke="#2e7d32" stroke-width="4" fill="none" />
+    <rect x="420" y="245" width="130" height="30" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" rx="5" />
+    <text x="485" y="267" text-anchor="middle" font-size="16" font-weight="bold" fill="#1b5e20">RINGDOWN</text>
+
     <!-- Phase boundaries -->
-    <line x1="230" y1="60" x2="230" y2="240" stroke="#666" stroke-width="1" stroke-dasharray="3,3" />
-    <line x1="310" y1="60" x2="310" y2="240" stroke="#666" stroke-width="1" stroke-dasharray="3,3" />
-    
-    <!-- Binary system illustration -->
-    <g transform="translate(150, 80)">
-      <!-- Orbiting masses -->
-      <circle cx="-10" cy="0" r="5" fill="#3498db" />
-      <circle cx="10" cy="0" r="5" fill="#3498db" />
-      <path d="M -10 0 A 10 10 0 0 1 10 0" stroke="#3498db" stroke-width="1" fill="none" stroke-dasharray="2,2" />
+    <line x1="310" y1="90" x2="310" y2="240" stroke="#757575" stroke-width="2" stroke-dasharray="6,4" />
+    <line x1="420" y1="90" x2="420" y2="240" stroke="#757575" stroke-width="2" stroke-dasharray="6,4" />
+
+    <!-- Binary system illustrations -->
+    <!-- Inspiral - two orbiting black holes -->
+    <g transform="translate(190, 55)">
+      <circle cx="-20" cy="0" r="10" fill="#1976d2" stroke="#0d47a1" stroke-width="2" />
+      <circle cx="20" cy="0" r="10" fill="#1976d2" stroke="#0d47a1" stroke-width="2" />
+      <ellipse cx="0" cy="0" rx="30" ry="8" fill="none" stroke="#1976d2" stroke-width="2" stroke-dasharray="4,3" />
+      <text x="0" y="35" text-anchor="middle" font-size="13" fill="#1565c0">Orbiting BHs</text>
     </g>
-    
-    <g transform="translate(270, 80)">
-      <!-- Merging masses -->
-      <circle cx="0" cy="0" r="8" fill="#e74c3c" />
+
+    <!-- Merger - coalescing -->
+    <g transform="translate(365, 55)">
+      <circle cx="0" cy="0" r="18" fill="#c62828" stroke="#b71c1c" stroke-width="2" />
+      <text x="0" y="35" text-anchor="middle" font-size="13" fill="#b71c1c">Coalescing</text>
     </g>
-    
-    <g transform="translate(360, 80)">
-      <!-- Final black hole -->
-      <circle cx="0" cy="0" r="10" fill="#27ae60" />
-      <!-- Oscillation rings -->
-      <circle cx="0" cy="0" r="15" fill="none" stroke="#27ae60" stroke-width="1" opacity="0.5" />
-      <circle cx="0" cy="0" r="20" fill="none" stroke="#27ae60" stroke-width="1" opacity="0.3" />
+
+    <!-- Ringdown - final black hole -->
+    <g transform="translate(485, 55)">
+      <circle cx="0" cy="0" r="16" fill="#2e7d32" stroke="#1b5e20" stroke-width="2" />
+      <circle cx="0" cy="0" r="24" fill="none" stroke="#2e7d32" stroke-width="2" opacity="0.5" />
+      <circle cx="0" cy="0" r="32" fill="none" stroke="#2e7d32" stroke-width="1" opacity="0.3" />
+      <text x="0" y="50" text-anchor="middle" font-size="13" fill="#1b5e20">Final BH</text>
     </g>
-    
-    <!-- Frequency evolution -->
-    <text x="250" y="270" text-anchor="middle" font-size="9">f ∝ (time to merger)⁻³/⁸</text>
+
+    <!-- Annotations -->
+    <text x="190" y="310" text-anchor="middle" font-size="13" fill="#1565c0">Frequency increases</text>
+    <text x="365" y="310" text-anchor="middle" font-size="13" fill="#b71c1c">Peak amplitude</text>
+    <text x="485" y="310" text-anchor="middle" font-size="13" fill="#1b5e20">Damped oscillation</text>
+
+    <!-- Frequency evolution formula -->
+    <rect x="150" y="335" width="300" height="35" fill="#fafafa" stroke="#e0e0e0" stroke-width="1" rx="5" />
+    <text x="300" y="360" text-anchor="middle" font-size="15" fill="#333">Chirp: f proportional to (time to merger)^(-3/8)</text>
   </svg>
 </div>
 
@@ -1263,47 +1585,99 @@ $$\tilde{g}_{\mu\nu} = \Omega^2 g_{\mu\nu}$$
 **Penrose diagrams:** Conformal compactification
 
 <div class="minkowski-penrose-diagram">
-  <svg viewBox="0 0 400 400">
-    <text x="200" y="20" text-anchor="middle" font-size="12" font-weight="bold">Penrose Diagram (Minkowski Space)</text>
-    
-    <!-- Diamond boundary -->
-    <path d="M 200 50 L 350 200 L 200 350 L 50 200 Z" fill="none" stroke="#2c3e50" stroke-width="2" />
-    
-    <!-- Light rays (45-degree lines) -->
-    <!-- From past null infinity -->
-    <line x1="50" y1="200" x2="200" y2="50" stroke="#f39c12" stroke-width="1" stroke-dasharray="2,2" />
-    <line x1="50" y1="200" x2="200" y2="350" stroke="#f39c12" stroke-width="1" stroke-dasharray="2,2" />
-    <line x1="100" y1="150" x2="250" y2="300" stroke="#f39c12" stroke-width="1" stroke-dasharray="2,2" />
-    <line x1="150" y1="100" x2="300" y2="250" stroke="#f39c12" stroke-width="1" stroke-dasharray="2,2" />
-    
+  <svg viewBox="0 0 520 500" style="max-width: 500px; width: 100%;">
+    <!-- Title -->
+    <text x="260" y="25" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Penrose Diagram (Minkowski Spacetime)</text>
+
+    <!-- Background for diagram area -->
+    <rect x="85" y="65" width="350" height="350" fill="#fafafa" />
+
+    <!-- Diamond boundary (conformal boundary) -->
+    <path d="M 260 70 L 430 240 L 260 410 L 90 240 Z" fill="#fff" stroke="#2c3e50" stroke-width="3" />
+
+    <!-- Shaded regions -->
+    <!-- Future region -->
+    <path d="M 260 70 L 340 150 L 260 230 L 180 150 Z" fill="#e3f2fd" opacity="0.4" />
+    <!-- Past region -->
+    <path d="M 260 410 L 340 330 L 260 250 L 180 330 Z" fill="#f3e5f5" opacity="0.4" />
+
+    <!-- Light rays (45-degree lines) - multiple rays -->
+    <g stroke="#e65100" stroke-width="2" stroke-dasharray="5,4">
+      <!-- Outgoing light rays from origin -->
+      <line x1="260" y1="240" x2="345" y2="155" />
+      <line x1="260" y1="240" x2="175" y2="155" />
+      <!-- Incoming light rays to origin -->
+      <line x1="175" y1="325" x2="260" y2="240" />
+      <line x1="345" y1="325" x2="260" y2="240" />
+      <!-- Additional light rays -->
+      <line x1="130" y1="240" x2="260" y2="110" />
+      <line x1="390" y1="240" x2="260" y2="110" />
+    </g>
+
     <!-- Timelike worldlines -->
-    <path d="M 125 275 Q 200 200, 200 50" stroke="#3498db" stroke-width="2" />
-    <path d="M 275 275 Q 250 200, 200 50" stroke="#3498db" stroke-width="2" />
-    
-    <!-- Spacelike hypersurfaces -->
-    <line x1="100" y1="150" x2="300" y2="150" stroke="#27ae60" stroke-width="1.5" />
-    <line x1="125" y1="125" x2="275" y2="125" stroke="#27ae60" stroke-width="1.5" opacity="0.5" />
-    <line x1="150" y1="100" x2="250" y2="100" stroke="#27ae60" stroke-width="1.5" opacity="0.3" />
-    <text x="320" y="150" font-size="9" fill="#27ae60">t = const</text>
-    
-    <!-- Infinity labels -->
-    <text x="200" y="40" text-anchor="middle" font-size="10">i⁺</text>
-    <text x="200" y="365" text-anchor="middle" font-size="10">i⁻</text>
-    <text x="360" y="200" text-anchor="middle" font-size="10">i⁰</text>
-    <text x="40" y="200" text-anchor="middle" font-size="10">i⁰</text>
-    
-    <!-- Null infinity labels -->
-    <text x="280" y="120" font-size="10" transform="rotate(45 280 120)">ℐ⁺</text>
-    <text x="120" y="120" font-size="10" transform="rotate(-45 120 120)">ℐ⁺</text>
-    <text x="280" y="280" font-size="10" transform="rotate(-45 280 280)">ℐ⁻</text>
-    <text x="120" y="280" font-size="10" transform="rotate(45 120 280)">ℐ⁻</text>
-    
-    <!-- Center point -->
-    <circle cx="200" cy="200" r="3" fill="#e74c3c" />
-    <text x="210" y="195" font-size="9">Origin</text>
-    
-    <!-- Causal structure labels -->
-    <text x="200" y="380" text-anchor="middle" font-size="9" font-style="italic">All of Minkowski space fits in this diamond</text>
+    <path d="M 175 360 Q 220 300, 260 240 Q 260 160, 260 70" stroke="#1976d2" stroke-width="3" fill="none" />
+    <path d="M 345 360 Q 300 300, 260 240 Q 260 160, 260 70" stroke="#1976d2" stroke-width="3" fill="none" />
+
+    <!-- Spacelike hypersurfaces (constant time slices) -->
+    <g stroke="#388e3c" stroke-width="2">
+      <line x1="140" y1="190" x2="380" y2="190" />
+      <line x1="165" y1="165" x2="355" y2="165" />
+      <line x1="190" y1="140" x2="330" y2="140" opacity="0.6" />
+      <line x1="215" y1="115" x2="305" y2="115" opacity="0.4" />
+    </g>
+    <text x="395" y="192" font-size="14" fill="#388e3c" font-weight="bold">t = const</text>
+
+    <!-- Center point (origin) -->
+    <circle cx="260" cy="240" r="8" fill="#c62828" stroke="#b71c1c" stroke-width="2" />
+    <text x="275" y="235" font-size="14" font-weight="bold" fill="#c62828">Origin</text>
+    <text x="275" y="252" font-size="12" fill="#c62828">(r=0, t=0)</text>
+
+    <!-- Infinity labels with better styling -->
+    <!-- Future timelike infinity i+ -->
+    <circle cx="260" cy="70" r="6" fill="#1976d2" />
+    <text x="260" y="55" text-anchor="middle" font-size="18" font-weight="bold" fill="#1976d2">i+</text>
+    <text x="260" y="45" text-anchor="middle" font-size="11" fill="#555">(future timelike infinity)</text>
+
+    <!-- Past timelike infinity i- -->
+    <circle cx="260" cy="410" r="6" fill="#7b1fa2" />
+    <text x="260" y="435" text-anchor="middle" font-size="18" font-weight="bold" fill="#7b1fa2">i-</text>
+    <text x="260" y="450" text-anchor="middle" font-size="11" fill="#555">(past timelike infinity)</text>
+
+    <!-- Spatial infinity i0 (right) -->
+    <circle cx="430" cy="240" r="6" fill="#388e3c" />
+    <text x="455" y="245" text-anchor="start" font-size="18" font-weight="bold" fill="#388e3c">i0</text>
+
+    <!-- Spatial infinity i0 (left) -->
+    <circle cx="90" cy="240" r="6" fill="#388e3c" />
+    <text x="65" y="245" text-anchor="end" font-size="18" font-weight="bold" fill="#388e3c">i0</text>
+    <text x="50" y="262" text-anchor="middle" font-size="10" fill="#555">(spatial</text>
+    <text x="50" y="275" text-anchor="middle" font-size="10" fill="#555">infinity)</text>
+
+    <!-- Null infinity labels (Script I) -->
+    <!-- Future null infinity (upper right) -->
+    <text x="370" y="130" font-size="20" font-weight="bold" fill="#e65100" transform="rotate(45 370 130)">I+</text>
+    <!-- Future null infinity (upper left) -->
+    <text x="150" y="130" font-size="20" font-weight="bold" fill="#e65100" transform="rotate(-45 150 130)">I+</text>
+    <!-- Past null infinity (lower right) -->
+    <text x="370" y="350" font-size="20" font-weight="bold" fill="#bf360c" transform="rotate(-45 370 350)">I-</text>
+    <!-- Past null infinity (lower left) -->
+    <text x="150" y="350" font-size="20" font-weight="bold" fill="#bf360c" transform="rotate(45 150 350)">I-</text>
+
+    <!-- Legend -->
+    <rect x="15" y="65" width="70" height="100" fill="#fafafa" stroke="#e0e0e0" stroke-width="1" rx="5" />
+    <text x="50" y="82" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Legend</text>
+    <line x1="22" y1="95" x2="45" y2="95" stroke="#e65100" stroke-width="2" stroke-dasharray="4,3" />
+    <text x="50" y="99" font-size="10" fill="#333">Light ray</text>
+    <line x1="22" y1="115" x2="45" y2="115" stroke="#1976d2" stroke-width="2" />
+    <text x="50" y="119" font-size="10" fill="#333">Worldline</text>
+    <line x1="22" y1="135" x2="45" y2="135" stroke="#388e3c" stroke-width="2" />
+    <text x="50" y="139" font-size="10" fill="#333">t = const</text>
+    <circle cx="30" cy="152" r="4" fill="#c62828" />
+    <text x="50" y="156" font-size="10" fill="#333">Event</text>
+
+    <!-- Caption -->
+    <rect x="100" y="460" width="320" height="30" fill="#fff3e0" stroke="#e65100" stroke-width="1" rx="5" />
+    <text x="260" y="482" text-anchor="middle" font-size="14" fill="#e65100" font-style="italic">All of infinite Minkowski spacetime fits in this finite diamond</text>
   </svg>
 </div>
 

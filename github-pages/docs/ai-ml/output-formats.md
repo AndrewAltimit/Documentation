@@ -7,10 +7,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
-# Diffusion Model Outputs: From Text to 3D
-{: .no_toc }
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Diffusion Model Outputs</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the complete spectrum of diffusion outputs across text, images, audio, video, and 3D for professional multi-modal workflows.</p>
+</div>
 
 <div class="code-example" markdown="1">
 Diffusion models have revolutionized content generation across every medium – from Stable Diffusion's stunning visuals to Gemini's text generation, from AudioLDM's soundscapes to 3D Gaussian Splatting. This guide covers the complete spectrum of diffusion model outputs and how to work with them professionally.
@@ -1715,4 +1718,4 @@ Remember: **All diffusion models share core principles** – master these, and y
 - [ControlNet](controlnet.html) - Precise control over generation
 - [LoRA Training](lora-training.html) - Train custom models
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

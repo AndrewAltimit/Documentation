@@ -4,8 +4,13 @@ title: "Monorepo Strategies and Management"
 permalink: /docs/advanced/monorepo/
 parent: "Advanced Topics"
 description: "Comprehensive guide to monorepo architecture, tools, and best practices for managing large-scale codebases"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monorepo Strategies and Management</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive architecture patterns, tooling, and best practices for managing large-scale unified codebases</p>
+</div>
 
 ## Introduction
 
@@ -835,9 +840,9 @@ Monorepos can significantly improve development workflow for teams working on re
 
 ## Related Advanced Topics
 
-- [AI Mathematics](/docs/advanced/ai-mathematics/) - Managing ML research codebases
-- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - Distributed build systems
-- [Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research/) - Quantum software repositories
+- [AI Mathematics](../ai-mathematics/) - Managing ML research codebases
+- [Distributed Systems Theory](../distributed-systems-theory/) - Distributed build systems
+- [Quantum Algorithms Research](../quantum-algorithms-research/) - Quantum software repositories
 
 ## Additional Resources
 

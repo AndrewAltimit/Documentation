@@ -1,24 +1,19 @@
 ---
 layout: docs
 title: Quantum Mechanics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Mechanics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**Exploring the Quantum Realm: Where Reality Defies Intuition**
-
-*Journey through the fundamental theory that governs the microscopic world*
-
-Quantum mechanics is the fundamental theory that describes the behavior of matter and energy at the atomic and subatomic scale. It reveals a probabilistic, non-deterministic universe where particles exhibit wave-like properties, and observation plays a fundamental role in determining physical reality.
-
----
 
 ## Quick Start: Quantum Mechanics Crash Course
 
@@ -177,16 +172,7 @@ This geometric view helps understand:
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/de_broglie_thesis.pdf"> Paper: <b><i>On the Theory of Quanta</i></b> - Louis de Broglie</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=qCmtegdqOOA"> Video: <b><i>Double Slit Experiment Explained</i></b></a></p>
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/wave-particle-duality.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/wave-particle-duality.png" alt="Wave-Particle Duality" width="70%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Wave-particle_duality">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Wave-Particle Duality Visualization</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Wave-particle_duality"> Article: <b><i>Wave-Particle Duality - Wikipedia</i></b></a></p>
 
 All matter and radiation exhibit both wave and particle properties. This duality is captured by de Broglie's relation:
 
@@ -204,16 +190,7 @@ Where:
 
 Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowledge of complementary variables:
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/uncertainty-principle.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/uncertainty-principle.gif" alt="Uncertainty Principle Animation" width="60%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a></p>
 
 **Position-Momentum Uncertainty:**
 $$
@@ -419,9 +396,6 @@ Where n = 1, 2, 3, ...
 
 ### Harmonic Oscillator
 
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/quantum-harmonic-oscillator.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/quantum-harmonic-oscillator.png" alt="Quantum Harmonic Oscillator" width="350px" style="float:right; margin: 20px;">
-</a>
 
 **Potential:** V(x) = ½mω²x²
 
@@ -440,16 +414,7 @@ Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1.
 
 ### Hydrogen Atom
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/hydrogen-orbitals.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/hydrogen-orbitals.png" alt="Hydrogen Atom Orbitals" width="80%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Hydrogen_atom">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Hydrogen Atom Electron Orbitals</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Hydrogen_atom"> Article: <b><i>Hydrogen Atom Electron Orbitals - Wikipedia</i></b></a></p>
 
 **Energy levels:**
 $$
@@ -520,16 +485,7 @@ $$
 
 ### Tunneling
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/quantum-tunneling.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/quantum-tunneling.gif" alt="Quantum Tunneling Animation" width="70%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Quantum_tunnelling">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Quantum Tunneling Visualization</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Quantum_tunnelling"> Article: <b><i>Quantum Tunneling - Wikipedia</i></b></a></p>
 
 Particles can penetrate classically forbidden regions. For a rectangular barrier:
 
@@ -654,16 +610,7 @@ Quantum computing leverages quantum mechanics principles for computation. Here's
 
 ### Qubits
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/bloch-sphere.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/bloch-sphere.png" alt="Bloch Sphere" width="40%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Bloch_sphere">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>The Bloch Sphere Representation</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Bloch_sphere"> Article: <b><i>The Bloch Sphere Representation - Wikipedia</i></b></a></p>
 
 The quantum analog of classical bits:
 
@@ -1040,16 +987,7 @@ plt.show()
 
 ### Double-Slit Experiment
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/double-slit-experiment.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/double-slit-experiment.png" alt="Double Slit Experiment" width="75%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://www.feynmanlectures.caltech.edu/III_01.html">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Lecture: <b><i>The Feynman Lectures - Quantum Behavior</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/III_01.html"> Lecture: <b><i>The Feynman Lectures - Quantum Behavior</i></b></a></p>
 
 Demonstrates wave-particle duality:
 - Single particles create interference patterns

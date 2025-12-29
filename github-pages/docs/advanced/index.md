@@ -4,9 +4,13 @@ title: "Advanced Topics Research Hub"
 permalink: /docs/advanced/
 has_children: true
 toc: false
+hide_title: true
 ---
 
-# Advanced Topics Research Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Topics Research Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous mathematical treatments and cutting-edge research in theoretical computer science, quantum computing, and AI foundations</p>
+</div>
 
 Welcome to the research-oriented section of our documentation. This area contains rigorous mathematical treatments, formal proofs, and cutting-edge research topics spanning theoretical computer science, quantum computing, and mathematical foundations of AI.
 
@@ -22,7 +26,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Foundations of Machine Learning
 
-**[AI Mathematics: Theoretical Foundations](/docs/advanced/ai-mathematics/)**
+**[AI Mathematics: Theoretical Foundations](ai-mathematics/)**
 - Computational learning theory (PAC learning, VC dimension, Rademacher complexity)
 - Statistical learning theory and generalization bounds
 - Optimization landscapes and convergence analysis
@@ -33,7 +37,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Distributed Computing Theory
 
-**[Distributed Systems Theory](/docs/advanced/distributed-systems-theory/)**
+**[Distributed Systems Theory](distributed-systems-theory/)**
 - FLP impossibility theorem and consensus limitations
 - CAP theorem and consistency models
 - Byzantine fault tolerance and agreement protocols
@@ -44,7 +48,7 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 ### Quantum Computing Foundations
 
-**[Quantum Algorithms Research](/docs/advanced/quantum-algorithms-research/)**
+**[Quantum Algorithms Research](quantum-algorithms-research/)**
 - Quantum complexity theory and computational models
 - Quantum error correction codes and fault tolerance
 - Topological quantum computing approaches
@@ -112,13 +116,13 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Start with computational learning theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
+1. Start with computational learning theory in [AI Mathematics](ai-mathematics/)
    - PAC learning framework and VC dimension
    - Rademacher complexity and uniform convergence
-2. Progress to [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/)
+2. Progress to [Distributed Systems Theory](distributed-systems-theory/)
    - Consensus impossibility results
    - Byzantine fault tolerance protocols
-3. Explore complexity connections in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
+3. Explore complexity connections in [Quantum Algorithms](quantum-algorithms-research/)
    - BQP complexity class and quantum speedups
    - Quantum query complexity
 
@@ -129,13 +133,13 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Begin with measure-theoretic foundations in [AI Mathematics](/docs/advanced/ai-mathematics/)
+1. Begin with measure-theoretic foundations in [AI Mathematics](ai-mathematics/)
    - Functional analysis in learning theory
    - Information-theoretic bounds
-2. Study topological and algebraic methods in [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
+2. Study topological and algebraic methods in [Quantum Algorithms](quantum-algorithms-research/)
    - Topological quantum computing
    - Group representation theory in quantum circuits
-3. Examine logic and verification in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
+3. Examine logic and verification in [Distributed Systems](distributed-systems-theory/)
    - Temporal logic specifications
    - Formal verification techniques
 
@@ -146,14 +150,14 @@ Choose your path based on your background and research interests:
 
 <div class="code-example" markdown="1">
 **Learning Path:**
-1. Start with [Quantum Algorithms](/docs/advanced/quantum-algorithms-research/)
+1. Start with [Quantum Algorithms](quantum-algorithms-research/)
    - Quantum error correction codes
    - Adiabatic quantum computing
    - NISQ algorithm development
-2. Connect to information theory in [AI Mathematics](/docs/advanced/ai-mathematics/)
+2. Connect to information theory in [AI Mathematics](ai-mathematics/)
    - Quantum information bounds
    - Statistical mechanics of learning
-3. Study fault tolerance in [Distributed Systems](/docs/advanced/distributed-systems-theory/)
+3. Study fault tolerance in [Distributed Systems](distributed-systems-theory/)
    - Classical error correction parallels
    - Distributed quantum computing
 
@@ -263,9 +267,9 @@ Researchers wanting to contribute should:
 
 ### Practical Implementations
 For applied guides and working code examples, see:
-- **[Technology Documentation](../technology/index.html)** - Practical implementations of distributed systems, cloud computing
-- **[Quantum Computing Hub](../quantum-computing/index.html)** - Programming quantum computers with Qiskit and Cirq
-- **[AI/ML Documentation](../ai-ml/index.html)** - Practical machine learning guides and tools
+- **[Technology Documentation](../technology/)** - Practical implementations of distributed systems, cloud computing
+- **[Quantum Computing Hub](../quantum-computing/)** - Programming quantum computers with Qiskit and Cirq
+- **[AI/ML Documentation](../ai-ml/)** - Practical machine learning guides and tools
 
 ### Foundational Physics
 Theoretical physics foundations for quantum computing:
@@ -274,7 +278,7 @@ Theoretical physics foundations for quantum computing:
 - **[Statistical Mechanics](../physics/statistical-mechanics.html)** - Connections to machine learning theory
 
 ### Mathematical Background
-- **[Mathematical Reference](../reference/index.html)** - Formulas, constants, and quick references
+- **[Mathematical Reference](../reference/)** - Formulas, constants, and quick references
 - **[Computational Physics](../physics/computational-physics.html)** - Numerical methods and simulations
 
 ---
@@ -303,6 +307,6 @@ Understanding these connections enables interdisciplinary research and novel pro
 
 ---
 
-*These advanced topics represent the cutting edge of theoretical computer science and quantum physics. For practical, accessible content, visit our [main documentation](../index.html). The theoretical foundations here support the applied work throughout the site.*
+*These advanced topics represent the cutting edge of theoretical computer science and quantum physics. For practical, accessible content, visit our [main documentation](../). The theoretical foundations here support the applied work throughout the site.*
 
 **Questions or corrections?** Visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation) to contribute.

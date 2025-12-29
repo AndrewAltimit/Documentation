@@ -1,15 +1,30 @@
 ---
 layout: docs
 title: AWS Compute Services
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-# AWS Compute Services
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Compute Services</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">EC2 virtual servers, Lambda serverless functions, Auto Scaling, and container patterns for running your applications in the cloud.</p>
+</div>
 
-This guide covers AWS compute services including EC2 virtual servers and Lambda serverless functions. Start here if you're new to AWS - the crash course will have you deploying your first cloud application in 30 minutes.
+## Why Compute Services Matter
+
+Every application needs somewhere to run. In traditional IT, that means buying servers, racking them in a data center, and managing hardware failures. AWS compute services let you skip all of that and get straight to running your code.
+
+This guide covers two main approaches:
+
+- **EC2 (Elastic Compute Cloud)**: Virtual servers you control completely, like renting computers in the cloud
+- **Lambda**: Serverless functions where you just upload code and AWS handles everything else
+
+**Which should you choose?** Start with EC2 if you need full control, have long-running processes, or are migrating existing applications. Choose Lambda for event-driven workloads, APIs, or when you want zero server management.
+
+---
 
 ## AWS Crash Course: From Zero to Cloud in 30 Minutes
 
@@ -292,296 +307,193 @@ Let's explore the services you'll use most often, understanding not just what th
 ### Compute Services: Your Application's Brain
 
 #### Amazon EC2 - Virtual Servers
+
 EC2 (Elastic Compute Cloud) is like renting computers in the cloud. You choose the operating system, processing power, memory, and storage. Need a small server for testing? Launch a t2.micro. Building a data processing pipeline? Spin up a compute-optimized instance.
 
 **Real-world example**: A startup begins with one EC2 instance running their web application. As traffic grows, they add more instances behind a load balancer. During Black Friday, they scale to 50 instances, then scale back down afterward.
 
-**Practical EC2 Patterns**:
+### Choosing the Right Instance Type
 
-1. **Right-Sizing Instances**
-   ```bash
-   # Check current utilization
-   aws cloudwatch get-metric-statistics \
-     --namespace AWS/EC2 \
-     --metric-name CPUUtilization \
-     --dimensions Name=InstanceId,Value=i-1234567890abcdef0 \
-     --statistics Average \
-     --start-time 2024-01-01T00:00:00Z \
-     --end-time 2024-01-02T00:00:00Z \
-     --period 3600
-   ```
-   
-   If CPU < 20% consistently, you're overpaying. Consider:
-   - t3.micro → t3.nano (save 50%)
-   - m5.large → t3.medium (save 60% for variable workloads)
+Consider the following when selecting an instance type: What is your workload's primary bottleneck? CPU, memory, storage, or network?
 
-2. **Spot Instances for Batch Processing**
-   ```python
-   # Example: Processing logs with 90% cost savings
-   import boto3
-   
-   ec2 = boto3.client('ec2')
-   
-   # Request Spot instance
-   response = ec2.request_spot_instances(
-       SpotPrice='0.10',  # Max price you'll pay
-       InstanceCount=1,
-       LaunchSpecification={
-           'ImageId': 'ami-12345678',
-           'InstanceType': 'c5.large',
-           'UserData': base64.b64encode('''#!/bin/bash
-               aws s3 cp s3://my-logs/raw/ /tmp/logs/ --recursive
-               /opt/process-logs.sh
-               aws s3 cp /tmp/results/ s3://my-logs/processed/ --recursive
-               shutdown -h now  # Self-terminate to save money
-           '''.encode()).decode()
-       }
-   )
-   ```
+| Instance Family | Best For | Example Use Cases | Starting Price* |
+|-----------------|----------|-------------------|-----------------|
+| **T3/T3a** (Burstable) | Variable workloads with occasional spikes | Development, small websites, microservices | ~$0.01/hr |
+| **M5/M6i** (General Purpose) | Balanced compute, memory, networking | Web servers, app servers, small databases | ~$0.10/hr |
+| **C5/C6i** (Compute Optimized) | CPU-intensive tasks | Batch processing, gaming servers, scientific modeling | ~$0.09/hr |
+| **R5/R6i** (Memory Optimized) | Large datasets in memory | In-memory databases, real-time analytics | ~$0.13/hr |
+| **I3/I4i** (Storage Optimized) | High sequential read/write | Data warehousing, distributed file systems | ~$0.16/hr |
+| **P4/G5** (Accelerated) | GPU-intensive workloads | Machine learning training, video encoding | ~$1.00/hr+ |
 
-3. **Auto-Recovery for Critical Instances**
-   ```bash
-   # Create CloudWatch alarm for auto-recovery
-   aws cloudwatch put-metric-alarm \
-     --alarm-name ec2-recovery-i-1234567890abcdef0 \
-     --alarm-description "Recover instance when it fails" \
-     --metric-name StatusCheckFailed_System \
-     --namespace AWS/EC2 \
-     --statistic Maximum \
-     --period 60 \
-     --evaluation-periods 2 \
-     --threshold 0 \
-     --comparison-operator GreaterThanThreshold \
-     --alarm-actions arn:aws:automate:region:ec2:recover
-   ```
+*Prices are approximate for US East, on-demand. Actual prices vary by region and change over time.
 
-**Common EC2 Pitfalls and Solutions**:
+### EC2 Pricing Models
 
-1. **The "Zombie Instance" Problem**
-   - **Symptom**: Instances running but not doing anything useful
-   - **Solution**: Tag instances with purpose and owner, run weekly audits
-   ```bash
-   # Find instances without Owner tag
-   aws ec2 describe-instances \
-     --query 'Reservations[].Instances[?!Tags[?Key==`Owner`]].[InstanceId,State.Name]' \
-     --output table
-   ```
+You can significantly reduce costs by choosing the right pricing model:
 
-2. **The "SSH Key Lost Forever" Disaster**
-   - **Symptom**: Can't access instance after losing private key
-   - **Prevention**: Use Systems Manager Session Manager
-   ```bash
-   # Connect without SSH keys
-   aws ssm start-session --target i-1234567890abcdef0
-   ```
+| Model | Savings | Commitment | Best For |
+|-------|---------|------------|----------|
+| **On-Demand** | Baseline | None | Unpredictable workloads, testing |
+| **Reserved Instances** | Up to 72% | 1-3 years | Steady-state production workloads |
+| **Savings Plans** | Up to 72% | 1-3 years | Flexible usage across instance types |
+| **Spot Instances** | Up to 90% | None (can be interrupted) | Fault-tolerant batch jobs, CI/CD |
 
-3. **The "Wrong Instance Family" Performance Issue**
-   - **Symptom**: Application runs slower than expected
-   - **Solution**: Match instance to workload
-   - CPU-intensive → C5 (compute optimized)
-   - Memory-intensive → R5 (memory optimized)  
-   - Balanced → M5 (general purpose)
-   - Bursty → T3 (burstable performance)
+### Practical EC2 Patterns
 
-4. **The "Public IP Changed" Confusion**
-   - **Symptom**: IP address changes after stop/start
-   - **Solution**: Use Elastic IPs for static addresses
-   ```bash
-   # Allocate and associate Elastic IP
-   ALLOC_ID=$(aws ec2 allocate-address --query 'AllocationId' --output text)
-   aws ec2 associate-address --instance-id i-1234567890abcdef0 --allocation-id $ALLOC_ID
-   ```
+**1. Right-Sizing Instances**
+
+Check your CPU utilization with CloudWatch. If CPU stays below 20% consistently, you are likely overpaying:
+
+```bash
+# Check CPU utilization for the past day
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/EC2 --metric-name CPUUtilization \
+  --dimensions Name=InstanceId,Value=i-1234567890abcdef0 \
+  --statistics Average --start-time 2024-01-01T00:00:00Z \
+  --end-time 2024-01-02T00:00:00Z --period 3600
+```
+
+**When to downsize**: t3.micro to t3.nano saves 50%. m5.large to t3.medium saves 60% for variable workloads.
+
+**2. Spot Instances for Batch Processing**
+
+Spot instances offer up to 90% savings for interruptible workloads. The key is designing for interruption:
+
+```bash
+# Request a Spot instance with a max price
+aws ec2 request-spot-instances --spot-price "0.10" \
+  --instance-count 1 --type "one-time" \
+  --launch-specification file://spot-spec.json
+```
+
+**When to use Spot**: Batch processing, CI/CD builds, data analysis, any job that can checkpoint and resume.
+
+**3. Auto-Recovery for Critical Instances**
+
+Configure CloudWatch alarms to automatically recover instances that fail system status checks:
+
+```bash
+# Set up auto-recovery alarm
+aws cloudwatch put-metric-alarm --alarm-name ec2-auto-recovery \
+  --metric-name StatusCheckFailed_System --namespace AWS/EC2 \
+  --statistic Maximum --period 60 --evaluation-periods 2 \
+  --threshold 0 --comparison-operator GreaterThanThreshold \
+  --alarm-actions arn:aws:automate:region:ec2:recover
+```
+
+### Common EC2 Pitfalls and Solutions
+
+| Problem | Symptom | Solution |
+|---------|---------|----------|
+| Zombie Instances | Running instances doing nothing useful | Tag with owner/purpose, run weekly audits |
+| Lost SSH Keys | Cannot access instance | Use Systems Manager Session Manager instead |
+| Wrong Instance Family | Slower performance than expected | Match instance to workload (see table above) |
+| IP Address Changes | Public IP changes after stop/start | Use Elastic IPs for static addresses |
+| Unexpected Costs | Bill higher than expected | Set billing alerts, use AWS Cost Explorer |
+
+**Quick fix for lost SSH access**: Use AWS Systems Manager to connect without keys:
+```bash
+aws ssm start-session --target i-1234567890abcdef0
+```
+
+**Quick fix for static IPs**: Allocate an Elastic IP to prevent IP changes:
+```bash
+aws ec2 allocate-address --domain vpc
+aws ec2 associate-address --instance-id i-1234567890abcdef0 --allocation-id eipalloc-xxx
+```
 
 #### AWS Lambda - Serverless Computing
+
 Lambda represents a paradigm shift. Instead of managing servers, you upload your code and AWS runs it in response to events. You pay only for the milliseconds your code executes.
 
 **Real-world example**: An e-commerce site uses Lambda to resize product images. When a seller uploads a photo, Lambda automatically creates multiple sizes for different devices. No servers to manage, automatic scaling, and you only pay when images are processed.
 
-**Practical Lambda Patterns**:
+### EC2 vs Lambda: When to Use Each
 
-1. **Event-Driven Image Processing**
-   ```python
-   import json
-   import boto3
-   from PIL import Image
-   import io
-   
-   s3 = boto3.client('s3')
-   
-   def lambda_handler(event, context):
-       # Triggered by S3 upload
-       bucket = event['Records'][0]['s3']['bucket']['name']
-       key = event['Records'][0]['s3']['object']['key']
-       
-       # Download image
-       response = s3.get_object(Bucket=bucket, Key=key)
-       img = Image.open(io.BytesIO(response['Body'].read()))
-       
-       # Create thumbnails
-       sizes = [(128, 128), (256, 256), (512, 512)]
-       for size in sizes:
-           resized = img.resize(size, Image.LANCZOS)
-           
-           # Save to S3
-           buffer = io.BytesIO()
-           resized.save(buffer, 'JPEG')
-           buffer.seek(0)
-           
-           new_key = f"thumbnails/{size[0]}x{size[1]}/{key}"
-           s3.put_object(Bucket=bucket, Key=new_key, Body=buffer.getvalue())
-       
-       return {'statusCode': 200, 'body': json.dumps('Thumbnails created')}
-   ```
+| Factor | EC2 | Lambda |
+|--------|-----|--------|
+| **Execution time** | Unlimited | Max 15 minutes |
+| **Startup time** | Minutes | Milliseconds (cold start: seconds) |
+| **Pricing** | Per hour (even when idle) | Per millisecond of execution |
+| **Control** | Full OS access | Runtime environment only |
+| **Scaling** | Manual or Auto Scaling groups | Automatic, instant |
+| **Best for** | Long-running apps, migrations | Event-driven, APIs, batch jobs |
 
-2. **API Backend Without Servers**
-   ```python
-   # Lambda function for REST API
-   import json
-   import boto3
-   from decimal import Decimal
-   
-   dynamodb = boto3.resource('dynamodb')
-   table = dynamodb.Table('Users')
-   
-   def lambda_handler(event, context):
-       http_method = event['httpMethod']
-       
-       if http_method == 'GET':
-           # Get user by ID
-           user_id = event['pathParameters']['id']
-           response = table.get_item(Key={'userId': user_id})
-           
-           return {
-               'statusCode': 200,
-               'headers': {'Content-Type': 'application/json'},
-               'body': json.dumps(response.get('Item', {}), default=str)
-           }
-       
-       elif http_method == 'POST':
-           # Create new user
-           body = json.loads(event['body'])
-           table.put_item(Item=body)
-           
-           return {
-               'statusCode': 201,
-               'headers': {'Content-Type': 'application/json'},
-               'body': json.dumps({'message': 'User created'})
-           }
-   ```
+### Practical Lambda Patterns
 
-3. **Scheduled Data Processing**
-   ```python
-   # CloudWatch Events triggers this daily
-   def lambda_handler(event, context):
-       # Clean up old data
-       s3 = boto3.client('s3')
-       
-       # List objects older than 30 days
-       response = s3.list_objects_v2(Bucket='my-temp-bucket')
-       
-       for obj in response.get('Contents', []):
-           if (datetime.now(timezone.utc) - obj['LastModified']).days > 30:
-               s3.delete_object(Bucket='my-temp-bucket', Key=obj['Key'])
-               print(f"Deleted: {obj['Key']}")
-   ```
+**1. Event-Driven Processing** (triggered by S3 uploads, database changes, etc.)
 
-**Common Lambda Pitfalls and Solutions**:
+```python
+def lambda_handler(event, context):
+    # Get the uploaded file info from S3 trigger
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = event['Records'][0]['s3']['object']['key']
 
-1. **The "Cold Start" Surprise**
-   - **Symptom**: First invocation takes 3-5 seconds
-   - **Solutions**:
-     ```python
-     # 1. Provisioned Concurrency (costs money)
-     # 2. Keep Lambda warm with scheduled pings
-     # 3. Optimize package size
-     
-     # Bad: Large deployment package
-     # requirements.txt
-     pandas==1.5.0  # 40MB
-     numpy==1.23.0  # 20MB
-     
-     # Good: Use Lambda Layers or lighter alternatives
-     # Use AWS SDK (boto3) - pre-installed
-     # Use json instead of pandas for simple data
-     ```
+    # Process the file (resize image, parse CSV, etc.)
+    # ...
+    return {'statusCode': 200, 'body': 'Processed successfully'}
+```
 
-2. **The "15-Minute Timeout" Wall**
-   - **Symptom**: Function times out for long processes (Lambda max timeout is 15 minutes)
-   - **Solution**: Break into smaller functions or use Step Functions
-   ```python
-   # Step Functions state machine for long workflows
-   {
-     "Comment": "Process large dataset",
-     "StartAt": "SplitData",
-     "States": {
-       "SplitData": {
-         "Type": "Task",
-         "Resource": "arn:aws:lambda:region:account:function:split-data",
-         "Next": "ProcessInParallel"
-       },
-       "ProcessInParallel": {
-         "Type": "Map",
-         "ItemsPath": "$.chunks",
-         "MaxConcurrency": 10,
-         "Iterator": {
-           "StartAt": "ProcessChunk",
-           "States": {
-             "ProcessChunk": {
-               "Type": "Task",
-               "Resource": "arn:aws:lambda:region:account:function:process-chunk",
-               "End": true
-             }
-           }
-         },
-         "Next": "MergeResults"
-       }
-     }
-   }
-   ```
+**2. API Backend** (with API Gateway)
 
-3. **The "Out of Memory" Crisis**
-   - **Symptom**: Function fails with memory errors
-   - **Solution**: Stream data instead of loading all at once
-   ```python
-   # Bad: Loading entire file
-   def lambda_handler(event, context):
-       s3 = boto3.client('s3')
-       obj = s3.get_object(Bucket='bucket', Key='huge-file.csv')
-       data = obj['Body'].read()  # Boom! Out of memory
-   
-   # Good: Stream processing
-   def lambda_handler(event, context):
-       s3 = boto3.client('s3')
-       obj = s3.get_object(Bucket='bucket', Key='huge-file.csv')
-       
-       for line in obj['Body'].iter_lines():
-           process_line(line)  # Process one line at a time
-   ```
+```python
+def lambda_handler(event, context):
+    if event['httpMethod'] == 'GET':
+        return {'statusCode': 200, 'body': json.dumps({'message': 'Hello'})}
+    elif event['httpMethod'] == 'POST':
+        data = json.loads(event['body'])
+        # Process data...
+        return {'statusCode': 201, 'body': json.dumps({'created': True})}
+```
 
-4. **The "Deployment Package Too Large" Block**
-   - **Symptom**: Cannot upload function (>50MB zipped)
-   - **Solution**: Use Layers and container images
-   ```bash
-   # Create a Lambda Layer for dependencies
-   pip install -r requirements.txt -t python/
-   zip -r layer.zip python/
-   
-   aws lambda publish-layer-version \
-     --layer-name my-dependencies \
-     --zip-file fileb://layer.zip \
-     --compatible-runtimes python3.9
-   
-   # Or use container images (up to 10GB)
-   FROM public.ecr.aws/lambda/python:3.9
-   COPY requirements.txt .
-   RUN pip install -r requirements.txt
-   COPY app.py .
-   CMD ["app.lambda_handler"]
-   ```
+**3. Scheduled Tasks** (with CloudWatch Events/EventBridge)
+
+```python
+def lambda_handler(event, context):
+    # Runs on schedule (e.g., daily cleanup, reports)
+    # Delete old files, send notifications, generate reports
+    return {'statusCode': 200, 'body': 'Task completed'}
+```
+
+### Common Lambda Pitfalls and Solutions
+
+| Problem | Symptom | Solution |
+|---------|---------|----------|
+| Cold Starts | First invocation takes 3-5 seconds | Use Provisioned Concurrency or keep warm with scheduled pings |
+| 15-Minute Timeout | Long processes fail | Break into smaller functions, use Step Functions |
+| Out of Memory | Function crashes on large files | Stream data instead of loading all at once |
+| Package Too Large | Cannot upload (>50MB limit) | Use Lambda Layers or container images (up to 10GB) |
+| High Costs | Unexpected bills | Optimize memory settings, reduce execution time |
+
+**Reducing cold starts**: Keep deployment packages small. Avoid large libraries like pandas (40MB) when simpler alternatives work.
+
+**Handling long processes**: Use AWS Step Functions to orchestrate multiple Lambda functions:
+
+```json
+{
+  "StartAt": "ProcessChunk",
+  "States": {
+    "ProcessChunk": {
+      "Type": "Map",
+      "ItemsPath": "$.chunks",
+      "MaxConcurrency": 10,
+      "Iterator": { "StartAt": "DoWork", "States": {...} }
+    }
+  }
+}
+```
+
+**Handling large files**: Stream instead of loading everything into memory:
+
+```python
+# Stream large files line by line
+for line in s3_object['Body'].iter_lines():
+    process_line(line)  # Process one line at a time
+```
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Storage Services](storage.html) - S3 and EBS for your data
 - [Database Services](databases.html) - RDS and DynamoDB
 - [Networking](../networking.html) - VPC and load balancers

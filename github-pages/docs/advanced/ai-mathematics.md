@@ -3,8 +3,13 @@ layout: docs
 title: "Advanced AI Mathematics"
 permalink: /docs/advanced/ai-mathematics/
 parent: "Advanced Topics"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced AI Mathematics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Statistical learning theory, optimization landscapes, and rigorous mathematical foundations for machine learning</p>
+</div>
 
 **Prerequisites**: Graduate-level mathematics including measure theory, functional analysis, and probability theory.
 
@@ -176,7 +181,7 @@ $$\Theta(x, x') = \lim_{m \to \infty} \langle \nabla_\theta f(x; \theta), \nabla
 
 **Mean Field Limit**: As width → ∞, neurons become independent:
 
-$$\frac{\partial \rho_t}{\partial t} = -\nabla \cdot (\rho_t \nabla_w \mathcal{L}[\rho_t](w))$$
+$$\frac{\partial \rho_t}{\partial t} = -\nabla \cdot \left(\rho_t \nabla_w \mathcal{L}\left[\rho_t\right](w)\right)$$
 
 where ρₜ is empirical distribution of parameters.
 
@@ -255,10 +260,10 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ---
 
-*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](/docs/artificial-intelligence/).*
+*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../../artificial-intelligence/).*
 
 ## Related Advanced Topics
 
-- [Quantum Machine Learning](/docs/advanced/quantum-algorithms-research/) - Intersection of quantum computing and ML
-- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - For distributed ML training
-- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing large ML codebases
+- [Quantum Machine Learning](../quantum-algorithms-research/) - Intersection of quantum computing and ML
+- [Distributed Systems Theory](../distributed-systems-theory/) - For distributed ML training
+- [Monorepo Strategies](../monorepo/) - Managing large ML codebases

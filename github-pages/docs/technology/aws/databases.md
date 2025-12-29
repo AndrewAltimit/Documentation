@@ -1,372 +1,202 @@
 ---
 layout: docs
 title: AWS Database Services
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "database"
 ---
 
-# AWS Database Services
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Database Services</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">RDS, Aurora, DynamoDB, and ElastiCache managed database solutions for relational, NoSQL, and caching workloads.</p>
+</div>
 
-AWS offers managed database services for every use case - from traditional relational databases (RDS) to NoSQL solutions (DynamoDB). This guide covers database selection, configuration, and advanced patterns.
+## Why Managed Databases Matter
 
-## Database Services Overview
+Running databases yourself means handling backups, patching, replication, failover, and monitoring. AWS managed databases handle all of that, letting you focus on your application instead of database administration.
 
-### Amazon RDS - Managed Relational Databases
-RDS runs traditional databases (MySQL, PostgreSQL, etc.) but handles the tedious parts - backups, patching, replication. You focus on your schema and queries while AWS keeps the database running smoothly.
+Consider the following when choosing a database: What type of data will you store? How will you query it? What scale do you need? How important is consistency vs. performance?
+
+---
+
+## Choosing the Right Database
+
+Before diving into specific services, understand the two main categories:
+
+| Category | When to Use | AWS Services |
+|----------|-------------|--------------|
+| **Relational (SQL)** | Structured data, complex queries, transactions | RDS, Aurora |
+| **NoSQL** | Flexible schemas, massive scale, simple queries | DynamoDB, DocumentDB, ElastiCache |
+
+### Quick Decision Guide
+
+| Your Situation | Recommended Service |
+|----------------|---------------------|
+| Traditional web app with complex queries | RDS (PostgreSQL or MySQL) |
+| Need maximum SQL performance | Aurora |
+| High-scale with simple key-value access | DynamoDB |
+| Need caching layer | ElastiCache (Redis) |
+| Document storage (MongoDB compatible) | DocumentDB |
+| Time-series data | Timestream |
+| Graph relationships | Neptune |
+
+---
+
+## Amazon RDS - Managed Relational Databases
+
+RDS runs traditional databases (MySQL, PostgreSQL, MariaDB, Oracle, SQL Server) but handles the operational burden: backups, patching, replication, and failover.
 
 **Real-world example**: A SaaS application uses RDS PostgreSQL for customer data. RDS automatically backs up the database nightly, replicates to a standby instance for high availability, and can scale up during busy periods.
 
-### Amazon DynamoDB - NoSQL at Scale
-DynamoDB is a NoSQL database designed for applications that need consistent performance at any scale. It can handle millions of requests per second with single-digit millisecond latency.
+### When to Use RDS
+
+- You need SQL queries with JOINs across tables
+- Your data has clear relationships (users, orders, products)
+- You need ACID transactions (banking, inventory)
+- Your team knows SQL and relational databases
+
+### RDS Instance Classes
+
+| Class | Best For | vCPUs | Memory |
+|-------|----------|-------|--------|
+| **db.t3** | Development, small workloads | 2-8 | 1-32 GB |
+| **db.m5** | General production workloads | 2-96 | 8-384 GB |
+| **db.r5** | Memory-intensive (large datasets) | 2-96 | 16-768 GB |
+
+---
+
+## Amazon Aurora - High-Performance Relational
+
+Aurora is AWS's cloud-native database, compatible with MySQL and PostgreSQL. It offers up to 5x the throughput of standard MySQL and 3x that of standard PostgreSQL, with automatic storage scaling up to 128 TB.
+
+### When to Use Aurora vs RDS
+
+| Factor | RDS | Aurora |
+|--------|-----|--------|
+| **Cost** | Lower for small workloads | Better value at scale |
+| **Performance** | Standard | 3-5x faster |
+| **Storage** | Manual provisioning | Auto-scales to 128 TB |
+| **Replicas** | Up to 5 | Up to 15 with faster failover |
+| **Best for** | Dev/test, small production | High-performance production |
+
+---
+
+## Amazon DynamoDB - NoSQL at Scale
+
+DynamoDB is a key-value and document database designed for applications needing consistent single-digit millisecond performance at any scale. It handles millions of requests per second without capacity planning.
 
 **Real-world example**: A mobile game uses DynamoDB to store player profiles and game state. Whether 100 or 10 million players are online, DynamoDB maintains consistent performance.
 
-### Amazon Aurora - High-Performance Relational
-Aurora is AWS's MySQL and PostgreSQL-compatible database that combines the performance of commercial databases with the cost-effectiveness of open-source. It's up to 5x faster than standard MySQL and 3x faster than standard PostgreSQL.
+### When to Use DynamoDB
 
-### Amazon ElastiCache - In-Memory Caching
-ElastiCache provides Redis and Memcached for caching frequently accessed data. It dramatically reduces database load and improves response times.
+- Simple access patterns (get item by key, query by partition)
+- Massive scale requirements
+- Need single-digit millisecond latency
+- Schema may evolve over time
 
-**Use cases**:
-- Session storage for web applications
-- Caching API responses
-- Real-time leaderboards
-- Rate limiting
+### When NOT to Use DynamoDB
 
-### DynamoDB Advanced Patterns
+- Complex queries with multiple JOINs
+- Ad-hoc reporting and analytics
+- Need for transactions across many items (limited support)
+- Team unfamiliar with NoSQL patterns
 
-#### Single Table Design
+---
 
-```hcl
-# dynamodb-single-table.tf - Advanced DynamoDB single table design
+## Amazon ElastiCache - In-Memory Caching
 
-# Single table for all entities
-resource "aws_dynamodb_table" "main" {
-  name           = "${var.environment}-main-table"
-  billing_mode   = "PAY_PER_REQUEST"  # On-demand billing
-  hash_key       = "PK"
-  range_key      = "SK"
-  
-  # Enable streams for event processing
-  stream_enabled   = true
-  stream_view_type = "NEW_AND_OLD_IMAGES"
-  
-  # Point-in-time recovery
-  point_in_time_recovery {
-    enabled = true
-  }
-  
-  # Server-side encryption
-  server_side_encryption {
-    enabled     = true
-    kms_key_arn = aws_kms_key.dynamodb.arn
-  }
-  
-  # Primary key attributes
-  attribute {
-    name = "PK"
-    type = "S"
-  }
-  
-  attribute {
-    name = "SK"
-    type = "S"
-  }
-  
-  # GSI1 attributes
-  attribute {
-    name = "GSI1PK"
-    type = "S"
-  }
-  
-  attribute {
-    name = "GSI1SK"
-    type = "S"
-  }
-  
-  # GSI2 attributes
-  attribute {
-    name = "GSI2PK"
-    type = "S"
-  }
-  
-  attribute {
-    name = "GSI2SK"
-    type = "S"
-  }
-  
-  # GSI3 attributes for time-based queries
-  attribute {
-    name = "GSI3PK"
-    type = "S"
-  }
-  
-  attribute {
-    name = "CreatedAt"
-    type = "S"
-  }
-  
-  # Global Secondary Index 1 - Entity lookups
-  global_secondary_index {
-    name            = "GSI1"
-    hash_key        = "GSI1PK"
-    range_key       = "GSI1SK"
-    projection_type = "ALL"
-  }
-  
-  # Global Secondary Index 2 - Date-based queries
-  global_secondary_index {
-    name            = "GSI2"
-    hash_key        = "GSI2PK"
-    range_key       = "GSI2SK"
-    projection_type = "ALL"
-  }
-  
-  # Global Secondary Index 3 - Time-series data
-  global_secondary_index {
-    name            = "GSI3"
-    hash_key        = "GSI3PK"
-    range_key       = "CreatedAt"
-    projection_type = "INCLUDE"
-    non_key_attributes = ["EntityType", "Status", "UpdatedAt"]
-  }
-  
-  # TTL for temporary data
-  ttl {
-    attribute_name = "ExpiresAt"
-    enabled        = true
-  }
-  
-  tags = {
-    Environment = var.environment
-    Purpose     = "Single table design"
-  }
-}
+ElastiCache provides Redis and Memcached for caching frequently accessed data. Adding a cache layer can reduce database load by 90% and improve response times from milliseconds to microseconds.
 
-# DynamoDB autoscaling for provisioned mode (if needed)
-resource "aws_appautoscaling_target" "dynamodb_table_read" {
-  count              = var.enable_autoscaling ? 1 : 0
-  max_capacity       = 40000
-  min_capacity       = 5
-  resource_id        = "table/${aws_dynamodb_table.main.name}"
-  scalable_dimension = "dynamodb:table:ReadCapacityUnits"
-  service_namespace  = "dynamodb"
-}
+### Common Caching Patterns
 
-resource "aws_appautoscaling_policy" "dynamodb_table_read" {
-  count              = var.enable_autoscaling ? 1 : 0
-  name               = "DynamoDBReadCapacityUtilization:${aws_appautoscaling_target.dynamodb_table_read[0].resource_id}"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.dynamodb_table_read[0].resource_id
-  scalable_dimension = aws_appautoscaling_target.dynamodb_table_read[0].scalable_dimension
-  service_namespace  = aws_appautoscaling_target.dynamodb_table_read[0].service_namespace
-  
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "DynamoDBReadCapacityUtilization"
-    }
-    target_value = 70
-  }
-}
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| **Cache-aside** | Read-heavy workloads | Check cache first, then database |
+| **Write-through** | Need cache consistency | Write to cache and database together |
+| **Session storage** | Web applications | Store user sessions in Redis |
+| **Rate limiting** | API protection | Track request counts per user |
 
-# Lambda function for DynamoDB streams processing
-resource "aws_lambda_function" "stream_processor" {
-  filename         = "stream_processor.zip"
-  function_name    = "${var.environment}-dynamodb-stream-processor"
-  role            = aws_iam_role.stream_processor.arn
-  handler         = "index.handler"
-  runtime         = "python3.9"
-  timeout         = 60
-  memory_size     = 512
-  
-  environment {
-    variables = {
-      ENVIRONMENT    = var.environment
-      EVENT_BUS_NAME = aws_cloudwatch_event_bus.main.name
-    }
-  }
-  
-  tracing_config {
-    mode = "Active"
-  }
-}
+---
 
-# Event source mapping for DynamoDB streams
-resource "aws_lambda_event_source_mapping" "dynamodb_stream" {
-  event_source_arn  = aws_dynamodb_table.main.stream_arn
-  function_name     = aws_lambda_function.stream_processor.arn
-  starting_position = "LATEST"
-  
-  maximum_batching_window_in_seconds = 10
-  parallelization_factor             = 10
-  maximum_retry_attempts             = 3
-  maximum_record_age_in_seconds      = 3600
-  
-  # Error handling
-  destination_config {
-    on_failure {
-      destination_arn = aws_sqs_queue.dlq.arn
-    }
-  }
-  
-  # Filter criteria
-  filter_criteria {
-    filter {
-      pattern = jsonencode({
-        eventName = ["INSERT", "MODIFY"]
-        dynamodb = {
-          NewImage = {
-            EntityType = {
-              S = ["Order"]
-            }
-          }
-        }
-      })
-    }
-  }
-}
+## DynamoDB Best Practices
 
-# DynamoDB global tables for multi-region
-resource "aws_dynamodb_global_table" "main" {
-  count = var.enable_global_tables ? 1 : 0
-  
-  name = aws_dynamodb_table.main.name
-  
-  dynamic "replica" {
-    for_each = var.global_table_regions
-    content {
-      region_name = replica.value
-      
-      # KMS key for each region
-      kms_key_arn = data.aws_kms_key.regional[replica.value].arn
-    }
-  }
-}
+### Key Design Principles
 
-# DynamoDB Accelerator (DAX) cluster
-resource "aws_dax_cluster" "main" {
-  count = var.enable_dax ? 1 : 0
-  
-  cluster_name       = "${var.environment}-dax-cluster"
-  iam_role_arn       = aws_iam_role.dax.arn
-  node_type          = "dax.r4.large"
-  replication_factor = 3
-  
-  # Encryption
-  server_side_encryption {
-    enabled = true
-  }
-  
-  # Parameter group
-  parameter_group_name = aws_dax_parameter_group.main.name
-  
-  # Subnet group
-  subnet_group_name = aws_dax_subnet_group.main.name
-  
-  # Security
-  security_group_ids = [aws_security_group.dax.id]
-  
-  # Maintenance window
-  maintenance_window = "sun:05:00-sun:06:00"
-  
-  # Notifications
-  notification_topic_arn = aws_sns_topic.dax_notifications.arn
-  
-  tags = {
-    Environment = var.environment
-  }
-}
+DynamoDB works differently from relational databases. Success depends on understanding these principles:
 
-# DAX parameter group
-resource "aws_dax_parameter_group" "main" {
-  count = var.enable_dax ? 1 : 0
-  name  = "${var.environment}-dax-params"
-  
-  parameters {
-    name  = "query-ttl-millis"
-    value = "600000"  # 10 minutes
-  }
-  
-  parameters {
-    name  = "record-ttl-millis"
-    value = "300000"  # 5 minutes
-  }
-}
+**1. Design for your access patterns first**: Unlike SQL where you model data then write queries, DynamoDB requires knowing your queries upfront.
 
-# Contributor Insights for monitoring
-resource "aws_dynamodb_contributor_insights" "main" {
-  table_name = aws_dynamodb_table.main.name
-}
+**2. Use composite keys**: Combine partition key (PK) and sort key (SK) to enable efficient queries.
 
-# CloudWatch alarms for DynamoDB
-resource "aws_cloudwatch_metric_alarm" "user_errors" {
-  alarm_name          = "${var.environment}-dynamodb-user-errors"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "UserErrors"
-  namespace           = "AWS/DynamoDB"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "10"
-  alarm_description   = "This metric monitors DynamoDB user errors"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-  
-  dimensions = {
-    TableName = aws_dynamodb_table.main.name
-  }
-}
+**3. Denormalize data**: Store related data together. It is okay to duplicate data across items.
 
-resource "aws_cloudwatch_metric_alarm" "throttled_requests" {
-  alarm_name          = "${var.environment}-dynamodb-throttled-requests"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "UserErrors"
-  namespace           = "AWS/DynamoDB"
-  period              = "300"
-  statistic           = "Sum"
-  threshold           = "5"
-  alarm_description   = "This metric monitors DynamoDB throttled requests"
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-  
-  dimensions = {
-    TableName = aws_dynamodb_table.main.name
-  }
-  
-  metric_query {
-    id          = "throttled"
-    return_data = true
-    
-    metric {
-      metric_name = "UserErrors"
-      namespace   = "AWS/DynamoDB"
-      period      = 300
-      stat        = "Sum"
-      
-      dimensions = {
-        TableName = aws_dynamodb_table.main.name
-      }
-    }
-  }
-}
+### Single Table Design
+
+Advanced DynamoDB usage puts all entity types in one table, using different key patterns:
+
+| Entity | PK | SK | Example |
+|--------|----|----|---------|
+| User | `USER#123` | `PROFILE` | User profile data |
+| User's orders | `USER#123` | `ORDER#2024-01-15` | Order summary |
+| Order details | `ORDER#456` | `DETAIL` | Full order data |
+
+This enables fetching a user and their recent orders in a single query.
+
+### DynamoDB Pricing Models
+
+| Mode | Best For | How It Works |
+|------|----------|--------------|
+| **On-Demand** | Variable or unpredictable workloads | Pay per request, no capacity planning |
+| **Provisioned** | Steady, predictable workloads | Set read/write capacity, lower cost |
+
+**Start with On-Demand** for new applications. Switch to Provisioned once you understand your traffic patterns.
+
+### Essential DynamoDB Commands
+
+```bash
+# Create a table with on-demand billing
+aws dynamodb create-table --table-name MyTable \
+  --attribute-definitions AttributeName=PK,AttributeType=S \
+  --key-schema AttributeName=PK,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+
+# Put an item
+aws dynamodb put-item --table-name MyTable \
+  --item '{"PK": {"S": "USER#123"}, "name": {"S": "Alice"}}'
+
+# Query items by partition key
+aws dynamodb query --table-name MyTable \
+  --key-condition-expression "PK = :pk" \
+  --expression-attribute-values '{":pk": {"S": "USER#123"}}'
 ```
 
-## Database Selection Guide
+---
 
-| Use Case | Recommended Service | Why |
-|----------|-------------------|-----|
-| Traditional applications | RDS (MySQL/PostgreSQL) | Familiar SQL, ACID compliance |
-| High-scale web apps | Aurora | Better performance, auto-scaling |
-| Real-time, high-throughput | DynamoDB | Millisecond latency at any scale |
-| Session storage | ElastiCache Redis | In-memory speed, persistence |
-| Time-series data | Timestream | Optimized for temporal queries |
-| Graph relationships | Neptune | Native graph traversal |
-| Document storage | DocumentDB | MongoDB-compatible |
+## Database Selection Summary
+
+| Use Case | Service | Why | Cost Consideration |
+|----------|---------|-----|-------------------|
+| Traditional web apps | RDS (PostgreSQL/MySQL) | SQL, JOINs, transactions | Pay for instance size |
+| High-performance SQL | Aurora | 3-5x faster than RDS | Higher base cost, better at scale |
+| Massive scale, simple queries | DynamoDB | Consistent millisecond latency | Pay per request or capacity |
+| Caching layer | ElastiCache Redis | Sub-millisecond reads | Pay for node size |
+| Time-series (IoT, metrics) | Timestream | Built-in time functions | Pay for writes and queries |
+| Graph data (social, fraud) | Neptune | Native graph traversal | Pay for instance size |
+| MongoDB workloads | DocumentDB | MongoDB-compatible | Pay for instance size |
+
+### Common Patterns
+
+- **Web application**: RDS/Aurora for main data + ElastiCache for sessions and hot data
+- **Mobile app**: DynamoDB for user data + S3 for media
+- **Analytics**: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena
+
+---
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - Lambda with DynamoDB patterns
 - [Storage Services](storage.html) - S3 for database backups
 - [Security](security.html) - Database encryption and access control

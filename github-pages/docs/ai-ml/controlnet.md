@@ -646,4 +646,4 @@ The key to mastery is experimentation: try different preprocessors, adjust stren
 - [Model Types](model-types.html) - ControlNet model types and compatibility
 - [Base Models Comparison](base-models-comparison.html) - ControlNet support across models
 - [AI Fundamentals](../technology/ai.html) - Core neural network concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

@@ -1,11 +1,17 @@
 ---
 layout: docs
 title: 3D Graphics & Rendering
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cube"
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">3D Graphics & Rendering</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Real-time rendering pipelines, shading techniques, and GPU architectures for interactive visuals</p>
+</div>
 
 <div class="hub-intro">
   <p class="lead">3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.</p>
@@ -419,8 +425,8 @@ Reduce draw calls:
 ---
 
 ## See Also
-- [Game Development](../gamedev/index.html) - Game engines, physics, and multiplayer systems
-- [Performance Optimization](../optimization/index.html) - GPU profiling and optimization techniques
+- [Game Development](../gamedev/) - Game engines, physics, and multiplayer systems
+- [Performance Optimization](../optimization/) - GPU profiling and optimization techniques
 - [Unreal Engine](../technology/unreal.html) - UE5 Nanite, Lumen, and MetaSounds
-- [VR/AR Development](../vr-ar/index.html) - Immersive rendering and XR techniques
-- [Physics Documentation](../physics/index.html) - Mathematical foundations
+- [VR/AR Development](../vr-ar/) - Immersive rendering and XR techniques
+- [Physics Documentation](../physics/) - Mathematical foundations

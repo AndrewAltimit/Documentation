@@ -3,57 +3,68 @@ layout: docs
 title: Kubernetes
 permalink: /docs/technology/kubernetes/
 toc: false
+hide_title: true
 ---
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Kubernetes</h1>
-    <p class="hero-subtitle">Container Orchestration at Scale</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Container Orchestration at Scale</p>
 </div>
 
 <div class="intro-card">
   <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments.</p>
 </div>
 
+## Why Kubernetes?
+
+Running containers on a single machine is straightforward. But what happens when you need to run hundreds of containers across dozens of servers, ensure they stay healthy, handle traffic spikes, and deploy updates without downtime? This is where Kubernetes becomes essential.
+
+**Consider the following scenario**: Your web application runs in containers and traffic has grown beyond what a single server can handle. You need to:
+- Run multiple copies of your application across different servers
+- Automatically restart crashed containers
+- Route user requests to healthy instances
+- Deploy new versions without interrupting service
+- Scale up during peak hours and down during quiet periods
+
+Without Kubernetes, you would need custom scripts, manual intervention, and constant monitoring. Kubernetes handles all of this automatically through a declarative approach: you describe what you want, and Kubernetes makes it happen.
+
 ## Quick Navigation
 
 ### [Fundamentals](fundamentals.html)
-Learn Kubernetes basics from containers to core concepts.
+**Start here if you are new to Kubernetes.** Learn the building blocks that everything else depends on.
 
-- Quick start guide
-- Understanding container orchestration
-- Pods, Deployments, and ReplicaSets
-- Services and networking basics
-- Labels, selectors, and namespaces
+- Quick start guide to deploy your first application
+- Core architecture: how Kubernetes works under the hood
+- Pods, Deployments, and ReplicaSets explained
+- Services: giving your applications stable network addresses
+- Labels, selectors, and namespaces for organization
 
 ### [Workloads & Storage](workloads.html)
-Advanced workload management and persistent data.
+**Move here once you understand the basics.** Learn how to handle real-world requirements like persistent data and specialized workloads.
 
-- StatefulSets, DaemonSets, and Jobs
-- Persistent Volumes and Claims
-- Storage Classes
-- Configuration management
-- Secrets and ConfigMaps
-- Security best practices
+- StatefulSets for databases and stateful applications
+- DaemonSets for cluster-wide agents (monitoring, logging)
+- Jobs and CronJobs for batch processing
+- Persistent storage that survives pod restarts
+- Configuration and secrets management
+- Security hardening for production
 
 ### [Operations](operations.html)
-Day-to-day cluster management and tooling.
+**Essential for anyone managing Kubernetes clusters.** Day-to-day tools and techniques for running reliable systems.
 
-- kubectl mastery and command reference
-- Helm package manager
-- Common architectural patterns
-- Troubleshooting guide
-- Best practices for production
+- kubectl command reference and power-user tips
+- Helm: package management for Kubernetes
+- Proven architectural patterns (sidecar, ambassador, init containers)
+- Troubleshooting guide for common issues
+- Production best practices
 
 ### [Advanced Topics](advanced.html)
-Production-grade Kubernetes and beyond.
+**For experienced practitioners.** Deep dives into production-grade deployments and the broader ecosystem.
 
-- Real-world case studies
-- Certification path
-- Performance tuning
-- Ecosystem tools
-- Future directions
+- Real-world case studies from production environments
+- Certification paths (CKA, CKAD, CKS)
+- Performance tuning and optimization
+- Ecosystem tools and integrations
 
 ---
 
@@ -74,11 +85,26 @@ Production-grade Kubernetes and beyond.
   </div>
 </div>
 
+## When to Use Kubernetes
+
+Kubernetes adds complexity, so it is important to understand when it provides value:
+
+| Scenario | Kubernetes? | Why |
+|----------|-------------|-----|
+| Single application on one server | No | Docker Compose is simpler |
+| Multiple services, need scaling | Yes | Automated scaling and load balancing |
+| Microservices architecture | Yes | Service discovery and networking built-in |
+| Need zero-downtime deployments | Yes | Rolling updates are native |
+| Consistent dev/staging/prod | Yes | Same configuration across environments |
+| Team needs self-service deployment | Yes | Declarative configs enable GitOps |
+
+**Not ready for Kubernetes yet?** Start with [Docker](../docker/) to learn container fundamentals first.
+
 ---
 
 ## See Also
 
-- [Docker](/docs/technology/docker/) - Container fundamentals
-- [AWS EKS](/docs/technology/aws/compute.html) - Managed Kubernetes on AWS
-- [Terraform](/docs/technology/terraform/) - Infrastructure as code for K8s
-- [CI/CD](/docs/technology/ci-cd.html) - Continuous deployment pipelines
+- [Docker](../docker/) - Container fundamentals
+- [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
+- [Terraform](../terraform/) - Infrastructure as code for K8s
+- [CI/CD](../ci-cd.html) - Continuous deployment pipelines

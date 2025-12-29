@@ -1,24 +1,19 @@
 ---
 layout: docs
 title: Thermodynamics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Thermodynamics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The science of heat, energy, and work, governing everything from steam engines to the fate of the universe.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**The Science of Heat and Energy: From Steam Engines to Stars**
-
-*Explore the fundamental laws that govern energy transformation and the arrow of time*
-
-Thermodynamics is the branch of physics that deals with heat, work, temperature, and the statistical behavior of systems with large numbers of particles. It bridges the microscopic world of atoms and molecules with the macroscopic properties we observe.
-
----
 
 ## Overview
 
@@ -28,8 +23,7 @@ Thermodynamics is the branch of physics that deals with heat, work, temperature,
 - [State Functions and Properties](#state-functions-and-properties)
 
 **Applications**
-- [Heat Engines](#heat-engines)
-- [Refrigerators and Heat Pumps](#refrigerators-and-heat-pumps)
+- [Heat Engines and Refrigerators](#heat-engines-and-refrigerators)
 - [Phase Transitions](#phase-transitions)
 
 **Advanced Topics**
@@ -45,16 +39,7 @@ Thermodynamics is the branch of physics that deals with heat, work, temperature,
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.gutenberg.org/files/33229/33229-pdf.pdf"> Paper: <b><i>Reflections on the Motive Power of Fire</i></b> - Sadi Carnot</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=Xb05CaG7TsQ"> Video: <b><i>The Laws of Thermodynamics Explained</i></b></a></p>
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/thermodynamics-laws.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/thermodynamics-laws.png" alt="The Four Laws of Thermodynamics" width="80%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Laws_of_thermodynamics">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Visual Summary of Thermodynamic Laws</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Laws_of_thermodynamics"> Article: <b><i>Laws of Thermodynamics - Wikipedia</i></b></a></p>
 
 #### Zeroth Law
 If two systems are in thermal equilibrium with a third system, they are in thermal equilibrium with each other. This law establishes temperature as a fundamental thermodynamic property.
@@ -116,16 +101,7 @@ graph TD
 
 </details>
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/pv-diagrams-processes.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/pv-diagrams-processes.gif" alt="P-V Diagrams for Different Processes" width="70%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://phet.colorado.edu/en/simulation/gas-properties">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Interactive: <b><i>Gas Properties Simulation</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://phet.colorado.edu/en/simulation/gas-properties"> Interactive: <b><i>Gas Properties Simulation</i></b></a></p>
 
 ### Isothermal Process
 Temperature remains constant: $T = \text{constant}$
@@ -156,9 +132,6 @@ Work done: $W = 0$
 ## State Functions and Properties
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Lecture: <b><i>The Laws of Thermodynamics - Feynman Lectures</i></b></a></p>
 
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/state-functions-diagram.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/state-functions-diagram.png" alt="State Functions Relationships" width="400px" style="float:right; margin: 20px;">
-</a>
 
 ### Internal Energy (U)
 Total energy contained within a system, excluding kinetic and potential energy of the system as a whole.

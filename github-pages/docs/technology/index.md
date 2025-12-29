@@ -2,9 +2,13 @@
 layout: docs
 title: Technology Documentation Hub
 toc: false
+hide_title: true
 ---
 
-# Technology Documentation Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Technology Documentation Hub</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your gateway to DevOps, cloud, and modern infrastructure knowledge</p>
+</div>
 
 Welcome to our comprehensive technology knowledge base. This collection covers foundational concepts from networking and databases to cutting-edge topics in cloud infrastructure, containerization, and quantum computing.
 
@@ -54,11 +58,11 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 ## Related Resources
 
 ### Cross-Disciplinary Topics
-- **[AI/ML Hub](../ai-ml/index.html)** - Specialized machine learning and generative AI documentation
-- **[Quantum Computing Hub](../quantum-computing/index.html)** - From quantum theory to programming
-- **[Distributed Systems](../distributed-systems/index.html)** - Architecture and implementation patterns
-- **[Reference Sheets](../reference/index.html)** - Quick reference materials and cheat sheets
-- **[Physics Documentation](../physics/index.html)** - Quantum mechanics for quantum computing
+- **[AI/ML Hub](../ai-ml/)** - Specialized machine learning and generative AI documentation
+- **[Quantum Computing Hub](../quantum-computing/)** - From quantum theory to programming
+- **[Distributed Systems](../distributed-systems/)** - Architecture and implementation patterns
+- **[Reference Sheets](../reference/)** - Quick reference materials and cheat sheets
+- **[Physics Documentation](../physics/)** - Quantum mechanics for quantum computing
 
 ---
 
@@ -70,7 +74,7 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 
 **Cloud Engineer?** Focus on [AWS](aws/), [Terraform](terraform/), and [Kubernetes](kubernetes/) for production infrastructure.
 
-**Exploring AI?** Begin with [AI Fundamentals - Simplified](ai-fundamentals-simple.html), then explore the [AI/ML Hub](../ai-ml/index.html).
+**Exploring AI?** Begin with [AI Fundamentals - Simplified](ai-fundamentals-simple.html), then explore the [AI/ML Hub](../ai-ml/).
 
 **Quantum Computing Interest?** Start with [Physics - Quantum Mechanics](../physics/quantum-mechanics.html), then dive into [Quantum Computing](quantumcomputing.html).
 
@@ -109,7 +113,7 @@ Each technology builds upon and integrates with others, creating a comprehensive
 
 ## Quick Reference
 
-Need commands and configurations? Check our [Technology Reference Section](../reference/index.html#technology-references) for:
+Need commands and configurations? Check our [Technology Reference Section](../reference/#technology-references) for:
 - Docker and Kubernetes command references
 - Git command cheat sheets
 - AWS CLI quick reference

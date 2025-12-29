@@ -1,11 +1,17 @@
 ---
 layout: docs
 title: Performance Optimization
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "tachometer-alt"
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Performance Optimization</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master profiling-driven development, eliminate bottlenecks, and build responsive applications that scale</p>
+</div>
 
 <div class="hub-intro">
   <p class="lead">Master the art and science of performance optimization. From profiling-driven development to hardware-aware programming, learn systematic approaches to eliminate bottlenecks, achieve target frame rates, and build responsive applications that scale across platforms.</p>
@@ -644,10 +650,10 @@ Alerts on:
 ## Related Documentation
 
 ### Graphics and Game Development
-- [Game Development](../gamedev/index.html) - Game development fundamentals and workflows
+- [Game Development](../gamedev/) - Game development fundamentals and workflows
 - [3D Graphics & Rendering](../graphics/3d-rendering.html) - Advanced rendering techniques and optimization
 - [Unreal Engine](../technology/unreal.html) - UE5 profiling tools and performance guidelines
-- [VR/AR Development](../vr-ar/index.html) - VR performance requirements and optimization strategies
+- [VR/AR Development](../vr-ar/) - VR performance requirements and optimization strategies
 
 ### Systems and Infrastructure
 - [Docker](../technology/docker/) - Container performance optimization
@@ -655,7 +661,7 @@ Alerts on:
 - [Distributed Systems Theory](../advanced/distributed-systems-theory/) - Theoretical foundations for distributed performance
 
 ### Cross-Cutting Topics
-- [Advanced Research Topics](../advanced/index.html) - Graduate-level systems and theory
+- [Advanced Research Topics](../advanced/) - Graduate-level systems and theory
 - [Quantum Computing](../technology/quantumcomputing.html) - Quantum algorithm optimization
 
 ---

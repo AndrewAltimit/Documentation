@@ -2,9 +2,13 @@
 layout: docs
 title: Artificial Intelligence Fundamentals
 section: technology
+hide_title: true
 ---
 
-# Artificial Intelligence Fundamentals
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence Fundamentals</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Core AI concepts and terminology for beginners</p>
+</div>
 
 ## Overview
 
@@ -216,11 +220,11 @@ Ready to go deeper? Here's your learning path:
 - [LoRA Training](../ai-ml/lora-training.html) - Train your own AI models
 
 ### Explore the Hub
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Complete navigation for all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Complete navigation for all AI resources
 
 ---
 
 ## See Also
 - [AI Fundamentals - Complete](ai.html) - Technical deep-dive with mathematical foundations
 - [AI Deep Dive](ai-lecture-2023.html) - Advanced topics and research
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Practical AI tools and guides
+- [AI/ML Documentation Hub](../ai-ml/) - Practical AI tools and guides

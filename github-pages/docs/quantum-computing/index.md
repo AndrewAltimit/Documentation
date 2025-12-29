@@ -4,11 +4,14 @@ title: Quantum Computing
 nav_order: 25
 has_children: true
 permalink: /docs/quantum-computing/
+hide_title: true
 toc: false  # Index pages typically don't need TOC
 ---
 
-
-# Quantum Computing Documentation Hub
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computing</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Harness quantum mechanics for computation beyond classical limits</p>
+</div>
 
 Quantum computing harnesses the bizarre phenomena of quantum mechanics to perform computations impossible for classical computers. From cryptography-breaking algorithms to molecular simulation and optimization, quantum computers promise to revolutionize how we solve complex problems across science, finance, and technology.
 

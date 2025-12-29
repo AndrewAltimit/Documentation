@@ -4,7 +4,13 @@ title: "Terraform: Advanced Topics"
 permalink: /docs/technology/terraform/advanced.html
 toc: true
 toc_sticky: true
+hide_title: true
 ---
+
+<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: Advanced Topics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Deep dive into troubleshooting, debugging, and the future of Infrastructure as Code.</p>
+</div>
 
 ## Common Pitfalls and Troubleshooting
 
@@ -613,4 +619,4 @@ This comprehensive documentation transforms Terraform from a simple provisioning
 - [Kubernetes](../kubernetes/) - Container orchestration infrastructure
 - [CI/CD](../ci-cd.html) - Infrastructure automation in pipelines
 - [Cybersecurity](../cybersecurity.html) - Security practices for infrastructure
-- [Distributed Systems](../../distributed-systems/index.html) - Distributed infrastructure principles
+- [Distributed Systems](../../distributed-systems/) - Distributed infrastructure principles

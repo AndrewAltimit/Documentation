@@ -1,48 +1,41 @@
 ---
 layout: docs
 title: Classical Mechanics
+hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Classical Mechanics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The foundation of physics describing motion and forces, from Newton's laws to the elegant formulations of Lagrange and Hamilton.</p>
+</div>
 
 <!-- Custom styles are now loaded via main.scss -->
-
----
-
-**The Foundation of Physics: Understanding Motion and Forces**
-
-*Explore the fundamental principles that govern the motion of everyday objects*
-
-Have you ever wondered why a ball follows a curved path when thrown, or how engineers design bridges that don't collapse? Classical mechanics provides the answers. It's the branch of physics that describes the motion of everyday objects—from the coffee cup on your desk to the planets orbiting our sun.
-
-At its heart, classical mechanics is about understanding cause and effect in the physical world. Push something, and it moves. Drop something, and it falls. But as we'll discover, these simple observations lead to profound mathematical frameworks that revolutionized our understanding of nature and enabled the modern technological world.
-
----
 
 ## Journey Through Classical Mechanics
 
 **Starting with the Basics**
 - [Newton's Laws: The Foundation](#newtons-laws-of-motion)
-- [Understanding Motion](#kinematics)
-- [Forces in Action](#dynamics)
+- [Understanding Motion](#kinematics-describing-motion)
+- [Forces in Action](#dynamics-forces-in-action)
 
 **Building Powerful Tools**
-- [Conservation Laws: Nature's Bookkeeping](#conservation-laws)
+- [Conservation Laws: Nature's Bookkeeping](#conservation-laws-natures-hidden-symmetries)
 - [Energy Methods: A Better Way](#work-and-energy)
-- [Beyond Point Particles](#rotational-motion)
+- [Beyond Point Particles](#rotational-motion-beyond-point-particles)
 
 **Advanced Frameworks**
-- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics)
-- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics)
-- [Modern Perspectives](#modern-applications)
+- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics-a-new-perspective)
+- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics-the-ultimate-abstraction)
+- [Modern Perspectives](#modern-perspectives-geometry-rules)
 
 **Deeper Understanding**
-- [When Newton Isn't Enough](#limitations-and-extensions)
+- [When Newton Isn't Enough](#when-classical-mechanics-fails)
 - [Chaos and Complexity](#chaos-theory-and-nonlinear-dynamics)
-- [Connections to Modern Physics](#research-frontiers)
+- [Connections to Modern Physics](#the-living-edge-of-classical-mechanics)
 
 ---
 
@@ -56,16 +49,7 @@ Before Newton, motion was a mystery. Objects moved, but why? Newton's genius was
 
 The foundation of classical mechanics is built upon Newton's three laws of motion:
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/newtons-laws-diagram.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/newtons-laws-diagram.png" alt="Newton's Three Laws of Motion" width="80%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://en.wikipedia.org/wiki/Newton%27s_laws_of_motion">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Article: <b><i>Newton's Laws Visual Summary</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Newton%27s_laws_of_motion"> Article: <b><i>Newton's Laws of Motion - Wikipedia</i></b></a></p>
 
 #### First Law (Law of Inertia)
 An object at rest stays at rest and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force.
@@ -77,9 +61,6 @@ $$
 
 #### Second Law (Law of Acceleration)
 
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/f-equals-ma.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/f-equals-ma.gif" alt="F=ma Animation" width="350px" style="float:right; margin: 20px;">
-</a>
 
 The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass.
 
@@ -148,16 +129,7 @@ $$
 
 #### Conservation of Momentum
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/momentum-conservation.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/momentum-conservation.gif" alt="Momentum Conservation in Collisions" width="70%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://www.physicsclassroom.com/class/momentum/Lesson-2/Momentum-Conservation-Principle">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Momentum Conservation in Collisions</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.physicsclassroom.com/class/momentum/Lesson-2/Momentum-Conservation-Principle"> Tutorial: <b><i>Momentum Conservation in Collisions</i></b></a></p>
 
 The total momentum of an isolated system remains constant.
 
@@ -215,16 +187,7 @@ Kinematics describes motion without asking "why?"—that's dynamics. It's like s
 
 ### Projectile Motion
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/projectile-motion.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/projectile-motion.png" alt="Projectile Motion Trajectory" width="75%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://phet.colorado.edu/en/simulations/projectile-motion">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Interactive: <b><i>Projectile Motion Simulator</i></b> - PhET</a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://phet.colorado.edu/en/simulations/projectile-motion"> Interactive: <b><i>Projectile Motion Simulator</i></b> - PhET</a></p>
 
 For projectile motion under constant gravitational acceleration:
 
@@ -286,9 +249,6 @@ $$
 ### Simple Harmonic Motion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/matplotlib/matplotlib/blob/main/galleries/examples/animation/simple_anim.py"> Code: <b><i>SHM Animation with Matplotlib</i></b></a></p>
 
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/shm-animation.gif">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/shm-animation.gif" alt="Simple Harmonic Motion" width="400px" style="float:right; margin: 20px;">
-</a>
 
 Objects that experience a restoring force proportional to displacement exhibit simple harmonic motion.
 
@@ -359,16 +319,7 @@ Analogous to linear motion:
 
 ### Moment of Inertia
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/moment-of-inertia-shapes.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/moment-of-inertia-shapes.png" alt="Moment of Inertia for Common Shapes" width="80%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://hyperphysics.phy-astr.gsu.edu/hbase/mi.html">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Reference: <b><i>Moment of Inertia Tables</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://hyperphysics.phy-astr.gsu.edu/hbase/mi.html"> Reference: <b><i>Moment of Inertia Tables</i></b></a></p>
 
 The rotational equivalent of mass:
 
@@ -404,16 +355,7 @@ Newton's greatest triumph wasn't just explaining how things move—it was recogn
 ### Newton's Law of Universal Gravitation
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.wilbourhall.org/pdfs/NewtonPrincipia.pdf"> Paper: <b><i>Principia - Book III: The System of the World</i></b></a></p>
 
-<center>
-<a href="https://andrewaltimit.github.io/Documentation/images/physics/universal-gravitation.png">
-<img src="https://andrewaltimit.github.io/Documentation/images/physics/universal-gravitation.png" alt="Universal Gravitation" width="60%">
-</a>
-<br>
-<p class="referenceBoxes type2">
-<a href="https://www.physicsclassroom.com/class/circles/Lesson-3/Newton-s-Law-of-Universal-Gravitation">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"> Tutorial: <b><i>Understanding Universal Gravitation</i></b></a>
-</p>
-</center>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.physicsclassroom.com/class/circles/Lesson-3/Newton-s-Law-of-Universal-Gravitation"> Tutorial: <b><i>Understanding Universal Gravitation</i></b></a></p>
 
 Every particle attracts every other particle with a force:
 
