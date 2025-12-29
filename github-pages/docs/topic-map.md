@@ -1,7 +1,8 @@
 ---
 layout: docs
-title: Interactive Learning Map - Your Journey Starts Here
+title: Topic Map
 toc: false
+hide_title: true
 ---
 
 <div class="hero-section topic-map-hero">
@@ -101,16 +102,6 @@ Linux → Git → Docker → CI/CD → Kubernetes → Monitoring
    ↓      ↓       ↓       ↓         ↓           ↓
 Shell  Branching Compose Jenkins   Helm    Prometheus
 ```
-
-## Customize Your Experience
-
-{% include learning-mode-toggle.html %}
-
-### Personalization Options
-- **Track Progress**: Your visited topics are highlighted
-- **Save Paths**: Bookmark your learning journey
-- **Skip Ahead**: Test out of beginner content
-- **Deep Dive**: Access research papers and advanced materials
 
 ## Pro Tips
 
