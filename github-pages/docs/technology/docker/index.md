@@ -3,13 +3,12 @@ layout: docs
 title: Docker
 permalink: /docs/technology/docker/
 toc: false
+hide_title: true
 ---
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Containers</h1>
-    <p class="hero-subtitle">Build, Ship, and Run Anywhere</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Containers</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build, Ship, and Run Anywhere</p>
 </div>
 
 <div class="intro-card">

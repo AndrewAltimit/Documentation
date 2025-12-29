@@ -3,13 +3,12 @@ layout: docs
 title: Terraform
 permalink: /docs/technology/terraform/
 toc: false
+hide_title: true
 ---
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Terraform</h1>
-    <p class="hero-subtitle">Infrastructure as Code: Theory and Practice</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Infrastructure as Code: Theory and Practice</p>
 </div>
 
 <div class="intro-card">

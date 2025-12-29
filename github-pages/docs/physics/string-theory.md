@@ -5,16 +5,15 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
 
 <!-- Custom styles for string theory visualizations -->
 <link rel="stylesheet" href="{{ '/assets/css/physics-string-theory.css' | relative_url }}">
 
-<div class="hero-section">
-  <div class="hero-content">
-    
-    <p class="hero-subtitle">The Quest for a Theory of Everything</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">String Theory</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The Quest for a Theory of Everything</p>
 </div>
 
 <div class="intro-card">

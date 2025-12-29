@@ -5,16 +5,14 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
+hide_title: true
 ---
-
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section">
-  <div class="hero-content">
-    
-    <p class="hero-subtitle">Exploring the Quantum World of Materials</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Condensed Matter Physics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Exploring the Quantum World of Materials</p>
 </div>
 
 <div class="intro-card">

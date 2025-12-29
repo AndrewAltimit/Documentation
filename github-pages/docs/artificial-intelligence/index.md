@@ -5,17 +5,15 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "brain"
+hide_title: true
 ---
 
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From Fundamentals to Advanced Research</p>
+</div>
 
 <div class="intro-card">
-  <div class="hero-section">
-    <div class="hero-content">
-      <h1 class="hero-title">Artificial Intelligence</h1>
-      <p class="hero-subtitle">From Fundamentals to Advanced Research</p>
-    </div>
-  </div>
-  
   <p class="lead-text">Welcome to our comprehensive AI documentation hub. Whether you're beginning your journey in artificial intelligence or diving into advanced research topics, you'll find resources tailored to your level.</p>
   
   <div class="key-insights">
