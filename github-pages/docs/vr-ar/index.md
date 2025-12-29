@@ -23,9 +23,9 @@ Before diving into XR development, you should have:
 
 **Essential Skills:**
 - **3D programming fundamentals** - Understanding of 3D math, transforms, and coordinate systems
-- **Game engine experience** - Familiarity with Unity or Unreal Engine (see our [Game Development Hub](../gamedev/index.html))
+- **Game engine experience** - Familiarity with Unity or Unreal Engine (see our [Game Development Hub](../gamedev/))
 - **Graphics programming** - Basic knowledge of rendering pipelines (see [3D Graphics & Rendering](../graphics/3d-rendering.html))
-- **Performance optimization** - Understanding of profiling and optimization techniques (see [Performance Optimization](../optimization/index.html))
+- **Performance optimization** - Understanding of profiling and optimization techniques (see [Performance Optimization](../optimization/))
 
 **Recommended Knowledge:**
 - Object-oriented programming (C# for Unity, C++ for Unreal)
@@ -80,7 +80,7 @@ Perfect for creating immersive gaming experiences on Quest, PSVR2, or PC VR.
    └─→ Meta Quest native SDK
 ```
 
-**Key Resources:** [Game Development Hub](../gamedev/index.html), [Unreal Engine Guide](../technology/unreal.html)
+**Key Resources:** [Game Development Hub](../gamedev/), [Unreal Engine Guide](../technology/unreal.html)
 
 ### Path 2: Mobile AR Developer
 
@@ -108,7 +108,7 @@ Focus on smartphone AR experiences using ARKit (iOS) or ARCore (Android).
    └─→ App Store deployment
 ```
 
-**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Performance Optimization](../optimization/index.html)
+**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Performance Optimization](../optimization/)
 
 ### Path 3: Enterprise XR Developer
 
@@ -136,7 +136,7 @@ Build productivity and training applications for HoloLens, Magic Leap, or enterp
    └─→ Maintenance and updates
 ```
 
-**Key Resources:** [Unreal Engine Guide](../technology/unreal.html), [Performance Optimization](../optimization/index.html)
+**Key Resources:** [Unreal Engine Guide](../technology/unreal.html), [Performance Optimization](../optimization/)
 
 ### Path 4: WebXR Developer
 
@@ -164,7 +164,7 @@ Create browser-based XR experiences accessible on any device.
    └─→ Analytics and telemetry
 ```
 
-**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Game Development Hub](../gamedev/index.html)
+**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Game Development Hub](../gamedev/)
 
 ## Understanding XR Technologies
 
@@ -697,7 +697,7 @@ XR-specific challenges:
 
 ## Related Documentation
 
-- [Game Development](../gamedev/index.html) - Game development fundamentals
+- [Game Development](../gamedev/) - Game development fundamentals
 - [3D Graphics & Rendering](../graphics/3d-rendering.html) - Rendering pipeline
 - [Unreal Engine](../technology/unreal.html) - UE5 VR development
-- [Performance Optimization](../optimization/index.html) - Optimization techniques
+- [Performance Optimization](../optimization/) - Optimization techniques

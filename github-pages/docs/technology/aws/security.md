@@ -462,7 +462,7 @@ resource "aws_wafv2_web_acl" "main" {
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda security configurations
 - [Networking](../networking.html) - VPC security and WAF integration
 - [Infrastructure & Operations](infrastructure.html) - Security automation and compliance monitoring

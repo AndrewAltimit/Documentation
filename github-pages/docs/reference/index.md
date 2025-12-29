@@ -919,12 +919,12 @@ Phone: ^\+?1?\d{9,15}$
 <p>This reference guide is continuously updated. Found an error or have a suggestion? <a href="https://github.com/AndrewAltimit/Documentation">Contribute on GitHub</a>.</p>
 <p>For detailed explanations and tutorials, explore the main documentation sections:</p>
 <ul>
-<li><a href="../index.html#technology">Technology Documentation</a></li>
-<li><a href="../index.html#physics">Physics Documentation</a></li>
-<li><a href="../ai-ml/index.html">AI/ML Documentation</a></li>
-<li><a href="../artificial-intelligence/index.html">Artificial Intelligence Hub</a></li>
-<li><a href="../quantum-computing/index.html">Quantum Computing Hub</a></li>
-<li><a href="../distributed-systems/index.html">Distributed Systems Hub</a></li>
+<li><a href="../#technology">Technology Documentation</a></li>
+<li><a href="../#physics">Physics Documentation</a></li>
+<li><a href="../ai-ml/">AI/ML Documentation</a></li>
+<li><a href="../artificial-intelligence/">Artificial Intelligence Hub</a></li>
+<li><a href="../quantum-computing/">Quantum Computing Hub</a></li>
+<li><a href="../distributed-systems/">Distributed Systems Hub</a></li>
 </ul>
 </div>
 

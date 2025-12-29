@@ -1773,19 +1773,19 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
 
 ### Practical Generative AI
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Comprehensive generative AI guides
+- [AI/ML Documentation Hub](../ai-ml/) - Comprehensive generative AI guides
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation
 - [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom applications
 
 ### Navigation
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Complete index of all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Complete index of all AI resources
 
 ---
 
 ## See Also
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
 - [AI Deep Dive](ai-lecture-2023.html) - Advanced concepts and research
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides
+- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Diffusion models
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning

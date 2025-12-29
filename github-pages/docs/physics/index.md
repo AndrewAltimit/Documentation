@@ -40,7 +40,7 @@ Welcome to our comprehensive physics knowledge base. This collection covers fund
 ### Cross-Disciplinary Topics
 - **[Quantum Computing](../technology/quantumcomputing.html)** - Where physics meets computation
 - **[AI Mathematics](../advanced/ai-mathematics/)** - Statistical mechanics connections to ML
-- **[Advanced Research Topics](../advanced/index.html)** - Graduate-level physics and mathematics
+- **[Advanced Research Topics](../advanced/)** - Graduate-level physics and mathematics
 
 ---
 
@@ -77,7 +77,7 @@ Each field builds upon and connects to others, creating a rich tapestry of physi
 
 ## Quick Reference
 
-Need formulas and constants? Check our [Physics Reference Section](../reference/index.html#physics-formulas--constants) for:
+Need formulas and constants? Check our [Physics Reference Section](../reference/#physics-formulas--constants) for:
 - Fundamental constants with latest CODATA values
 - Key equations organized by topic
 - Common approximations and useful relations

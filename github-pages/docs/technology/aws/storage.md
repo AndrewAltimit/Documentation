@@ -174,7 +174,7 @@ Start
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EBS with EC2, S3 with Lambda
 - [Databases](databases.html) - Database storage considerations
 - [Infrastructure & Operations](infrastructure.html) - Storage IaC and cost optimization

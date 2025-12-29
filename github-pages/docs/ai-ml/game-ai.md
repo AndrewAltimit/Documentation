@@ -550,10 +550,10 @@ Efficient queries:
 
 ## Related Documentation
 
-- [Game Development](../gamedev/index.html) - Game development fundamentals
+- [Game Development](../gamedev/) - Game development fundamentals
 - [AI Fundamentals](../technology/ai.html) - Machine learning foundations
 - [Unreal Engine](../technology/unreal.html) - UE5 AI systems
-- [Performance Optimization](../optimization/index.html) - Optimization techniques
+- [Performance Optimization](../optimization/) - Optimization techniques
 
 ---
 
@@ -563,6 +563,6 @@ Efficient queries:
 - [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
-- [Game Development](../gamedev/index.html) - Game development fundamentals
+- [Game Development](../gamedev/) - Game development fundamentals
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

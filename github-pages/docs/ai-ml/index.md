@@ -295,7 +295,7 @@ For theoretical foundations and broader AI concepts:
 - [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical reference
 - [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research topics
 - [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Navigate all AI resources
 
 <div class="code-example bg-yellow-000" markdown="1">
 **Note**: This documentation assumes you have access to NVIDIA GPUs. While some models can run on CPU or Apple Silicon, performance will be significantly slower and some features may not be available.

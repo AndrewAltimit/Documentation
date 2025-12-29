@@ -84,6 +84,6 @@ Looking for a quick command reference? See [Docker Essentials](../docker-essenti
 ## See Also
 
 - [Docker Essentials](../docker-essentials.html) - Quick command reference
-- [Kubernetes](../kubernetes/index.html) - Container orchestration
+- [Kubernetes](../kubernetes/) - Container orchestration
 - [AWS ECS](../aws/compute.html) - Managed container service
 - [CI/CD](../ci-cd.html) - Continuous deployment

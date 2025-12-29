@@ -216,11 +216,11 @@ Ready to go deeper? Here's your learning path:
 - [LoRA Training](../ai-ml/lora-training.html) - Train your own AI models
 
 ### Explore the Hub
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Complete navigation for all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Complete navigation for all AI resources
 
 ---
 
 ## See Also
 - [AI Fundamentals - Complete](ai.html) - Technical deep-dive with mathematical foundations
 - [AI Deep Dive](ai-lecture-2023.html) - Advanced topics and research
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Practical AI tools and guides
+- [AI/ML Documentation Hub](../ai-ml/) - Practical AI tools and guides

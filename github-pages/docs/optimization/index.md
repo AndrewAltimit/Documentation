@@ -644,10 +644,10 @@ Alerts on:
 ## Related Documentation
 
 ### Graphics and Game Development
-- [Game Development](../gamedev/index.html) - Game development fundamentals and workflows
+- [Game Development](../gamedev/) - Game development fundamentals and workflows
 - [3D Graphics & Rendering](../graphics/3d-rendering.html) - Advanced rendering techniques and optimization
 - [Unreal Engine](../technology/unreal.html) - UE5 profiling tools and performance guidelines
-- [VR/AR Development](../vr-ar/index.html) - VR performance requirements and optimization strategies
+- [VR/AR Development](../vr-ar/) - VR performance requirements and optimization strategies
 
 ### Systems and Infrastructure
 - [Docker](../technology/docker/) - Container performance optimization
@@ -655,7 +655,7 @@ Alerts on:
 - [Distributed Systems Theory](../advanced/distributed-systems-theory/) - Theoretical foundations for distributed performance
 
 ### Cross-Cutting Topics
-- [Advanced Research Topics](../advanced/index.html) - Graduate-level systems and theory
+- [Advanced Research Topics](../advanced/) - Graduate-level systems and theory
 - [Quantum Computing](../technology/quantumcomputing.html) - Quantum algorithm optimization
 
 ---

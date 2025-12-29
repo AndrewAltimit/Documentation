@@ -613,4 +613,4 @@ This comprehensive documentation transforms Terraform from a simple provisioning
 - [Kubernetes](../kubernetes/) - Container orchestration infrastructure
 - [CI/CD](../ci-cd.html) - Infrastructure automation in pipelines
 - [Cybersecurity](../cybersecurity.html) - Security practices for infrastructure
-- [Distributed Systems](../../distributed-systems/index.html) - Distributed infrastructure principles
+- [Distributed Systems](../../distributed-systems/) - Distributed infrastructure principles

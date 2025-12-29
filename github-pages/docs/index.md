@@ -69,7 +69,7 @@ toc: false  # Index pages typically don't need TOC
 ## 🤖 AI/ML - Generative AI
 
 ### Getting Started
-- [AI/ML Documentation Overview](ai-ml/index.html) - Start here for AI/ML content
+- [AI/ML Documentation Overview](ai-ml/) - Start here for AI/ML content
 - [Stable Diffusion Fundamentals](ai-ml/stable-diffusion-fundamentals.html) - Core concepts explained
 - [Base Models Comparison](ai-ml/base-models-comparison.html) - SD 1.5, SDXL, FLUX, SD3 compared
 
@@ -102,16 +102,16 @@ toc: false  # Index pages typically don't need TOC
 ## 📚 Additional Resources
 
 ### Reference Materials
-- [Quick Reference Guide](reference/index.html) - Commands, formulas, and cheat sheets
+- [Quick Reference Guide](reference/) - Commands, formulas, and cheat sheets
 - [Topic Map](topic-map.html) - Visual navigation of all content
 
 ### Specialized Hubs
-- [Distributed Systems](distributed-systems/index.html) - Architecture and implementation
-- [Artificial Intelligence Hub](artificial-intelligence/index.html) - Comprehensive AI resources
-- [Quantum Computing Hub](quantum-computing/index.html) - Quantum theory to programming
+- [Distributed Systems](distributed-systems/) - Architecture and implementation
+- [Artificial Intelligence Hub](artificial-intelligence/) - Comprehensive AI resources
+- [Quantum Computing Hub](quantum-computing/) - Quantum theory to programming
 
 ### Research & Advanced Topics
-- [Advanced Topics Hub](advanced/index.html) - Graduate-level mathematics and theory
+- [Advanced Topics Hub](advanced/) - Graduate-level mathematics and theory
 - [AI Mathematics](advanced/ai-mathematics/) - Statistical learning theory
 - [Distributed Systems Theory](advanced/distributed-systems-theory/) - Formal methods
 - [Quantum Algorithms Research](advanced/quantum-algorithms-research/) - Cutting-edge algorithms
@@ -132,8 +132,8 @@ toc: false  # Index pages typically don't need TOC
 1. Try our [search function](../search.html) for quick access
 2. Browse the [topic map](topic-map.html) for visual organization
 3. Visit section-specific index pages for detailed subcategories:
-   - [AI/ML Hub](ai-ml/index.html) - Generative AI and machine learning
-   - [Artificial Intelligence Hub](artificial-intelligence/index.html) - Comprehensive AI resources
-   - [Quantum Computing Hub](quantum-computing/index.html) - Quantum computing from basics to research
-   - [Distributed Systems Hub](distributed-systems/index.html) - Architecture and implementation
-   - [Reference Guide](reference/index.html) - Quick reference materials
+   - [AI/ML Hub](ai-ml/) - Generative AI and machine learning
+   - [Artificial Intelligence Hub](artificial-intelligence/) - Comprehensive AI resources
+   - [Quantum Computing Hub](quantum-computing/) - Quantum computing from basics to research
+   - [Distributed Systems Hub](distributed-systems/) - Architecture and implementation
+   - [Reference Guide](reference/) - Quick reference materials

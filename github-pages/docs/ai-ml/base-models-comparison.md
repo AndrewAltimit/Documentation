@@ -545,4 +545,4 @@ The rapid evolution continues with models like Stable Cascade, Würstchen, and P
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

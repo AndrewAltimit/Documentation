@@ -419,8 +419,8 @@ Reduce draw calls:
 ---
 
 ## See Also
-- [Game Development](../gamedev/index.html) - Game engines, physics, and multiplayer systems
-- [Performance Optimization](../optimization/index.html) - GPU profiling and optimization techniques
+- [Game Development](../gamedev/) - Game engines, physics, and multiplayer systems
+- [Performance Optimization](../optimization/) - GPU profiling and optimization techniques
 - [Unreal Engine](../technology/unreal.html) - UE5 Nanite, Lumen, and MetaSounds
-- [VR/AR Development](../vr-ar/index.html) - Immersive rendering and XR techniques
-- [Physics Documentation](../physics/index.html) - Mathematical foundations
+- [VR/AR Development](../vr-ar/) - Immersive rendering and XR techniques
+- [Physics Documentation](../physics/) - Mathematical foundations

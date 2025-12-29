@@ -54,11 +54,11 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 ## Related Resources
 
 ### Cross-Disciplinary Topics
-- **[AI/ML Hub](../ai-ml/index.html)** - Specialized machine learning and generative AI documentation
-- **[Quantum Computing Hub](../quantum-computing/index.html)** - From quantum theory to programming
-- **[Distributed Systems](../distributed-systems/index.html)** - Architecture and implementation patterns
-- **[Reference Sheets](../reference/index.html)** - Quick reference materials and cheat sheets
-- **[Physics Documentation](../physics/index.html)** - Quantum mechanics for quantum computing
+- **[AI/ML Hub](../ai-ml/)** - Specialized machine learning and generative AI documentation
+- **[Quantum Computing Hub](../quantum-computing/)** - From quantum theory to programming
+- **[Distributed Systems](../distributed-systems/)** - Architecture and implementation patterns
+- **[Reference Sheets](../reference/)** - Quick reference materials and cheat sheets
+- **[Physics Documentation](../physics/)** - Quantum mechanics for quantum computing
 
 ---
 
@@ -70,7 +70,7 @@ Welcome to our comprehensive technology knowledge base. This collection covers f
 
 **Cloud Engineer?** Focus on [AWS](aws/), [Terraform](terraform/), and [Kubernetes](kubernetes/) for production infrastructure.
 
-**Exploring AI?** Begin with [AI Fundamentals - Simplified](ai-fundamentals-simple.html), then explore the [AI/ML Hub](../ai-ml/index.html).
+**Exploring AI?** Begin with [AI Fundamentals - Simplified](ai-fundamentals-simple.html), then explore the [AI/ML Hub](../ai-ml/).
 
 **Quantum Computing Interest?** Start with [Physics - Quantum Mechanics](../physics/quantum-mechanics.html), then dive into [Quantum Computing](quantumcomputing.html).
 
@@ -109,7 +109,7 @@ Each technology builds upon and integrates with others, creating a comprehensive
 
 ## Quick Reference
 
-Need commands and configurations? Check our [Technology Reference Section](../reference/index.html#technology-references) for:
+Need commands and configurations? Check our [Technology Reference Section](../reference/#technology-references) for:
 - Docker and Kubernetes command references
 - Git command cheat sheets
 - AWS CLI quick reference

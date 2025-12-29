@@ -930,7 +930,7 @@ resource "aws_cloudfront_realtime_log_config" "main" {
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda in VPC
 - [Security](security.html) - Network security and WAF
 - [Infrastructure & Operations](infrastructure.html) - VPC IaC templates

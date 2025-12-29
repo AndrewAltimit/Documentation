@@ -366,7 +366,7 @@ resource "aws_cloudwatch_metric_alarm" "throttled_requests" {
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - Lambda with DynamoDB patterns
 - [Storage Services](storage.html) - S3 for database backups
 - [Security](security.html) - Database encryption and access control

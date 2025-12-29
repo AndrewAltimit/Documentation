@@ -495,7 +495,7 @@ Finally, it's important for us to advocate for the responsible development and i
 - [AWS](aws/) - Cloud infrastructure for AI/ML
 
 ### Hub Page
-- [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
+- [AI Documentation Hub](../artificial-intelligence/) - Navigate all AI resources
 
 ---
 
@@ -503,6 +503,6 @@ Finally, it's important for us to advocate for the responsible development and i
 - [AI Fundamentals - Complete](ai.html) - Foundation concepts and comprehensive overview
 - [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Beginner introduction without math
 - [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
-- [AI/ML Documentation Hub](../ai-ml/index.html) - Generative AI guides and workflows
+- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides and workflows
 - [Quantum Computing](quantumcomputing.html) - Quantum machine learning
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models

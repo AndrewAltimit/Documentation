@@ -406,4 +406,4 @@ The key to mastery is experimentation: try different models, samplers, and techn
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Advanced Techniques](advanced-techniques.html) - Expert generation techniques
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

@@ -126,7 +126,7 @@ Shell  Branching Compose Jenkins   Helm    Prometheus
   <h2>Ready to Start Your Journey?</h2>
   <p>Pick a topic that interests you and dive in. Remember, every expert started exactly where you are now.</p>
   <a href="#quick-start-guides" class="btn btn-primary">Choose Your Starting Point</a>
-  <a href="/index.html" class="btn btn-secondary">Back to Documentation Home</a>
+  <a href="/" class="btn btn-secondary">Back to Documentation Home</a>
 </div>
 
 <style>

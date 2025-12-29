@@ -402,15 +402,15 @@ where p = honest mining power, q = attacker power, z = confirmations
 
 ---
 
-*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](../distributed-systems/index.html).*
+*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](../../distributed-systems/).*
 
 ## See Also
 
 ### Distributed Systems Documentation
-- **[Distributed Systems Hub](../distributed-systems/index.html)** - Comprehensive practical guide to building distributed systems
-- **[Kubernetes](../technology/kubernetes/index.html)** - Container orchestration implementation
-- **[Docker](../technology/docker/index.html)** - Containerization for distributed applications
-- **[AWS Cloud Services](../technology/aws/index.html)** - Cloud infrastructure for distributed systems
+- **[Distributed Systems Hub](../../distributed-systems/)** - Comprehensive practical guide to building distributed systems
+- **[Kubernetes](../../technology/kubernetes/)** - Container orchestration implementation
+- **[Docker](../../technology/docker/)** - Containerization for distributed applications
+- **[AWS Cloud Services](../../technology/aws/)** - Cloud infrastructure for distributed systems
 
 ### Related Advanced Topics
 - **[AI Mathematics](../ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
@@ -424,6 +424,6 @@ where p = honest mining power, q = attacker power, z = confirmations
 - **Consensus Algorithms** - Paxos, Raft, and modern variants
 
 ### Performance and Optimization
-- **[Performance Optimization](../optimization/index.html)** - Optimizing distributed systems
+- **[Performance Optimization](../../optimization/)** - Optimizing distributed systems
 - **Complexity Analysis** - Time and message complexity bounds
 - **Scalability Theory** - Theoretical limits of distributed coordination

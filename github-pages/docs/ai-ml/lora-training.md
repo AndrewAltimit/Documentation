@@ -722,4 +722,4 @@ LoRA training opens up endless possibilities for customizing AI image generation
 - [Base Models Comparison](base-models-comparison.html) - Choosing the right base for training
 - [Advanced Techniques](advanced-techniques.html) - Expert LoRA usage patterns
 - [AI Fundamentals](../technology/ai.html) - Neural network training concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

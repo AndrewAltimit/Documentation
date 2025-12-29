@@ -777,4 +777,4 @@ The key to mastering these techniques is understanding the underlying principles
 - [ControlNet](controlnet.html) - Precise control over generation
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

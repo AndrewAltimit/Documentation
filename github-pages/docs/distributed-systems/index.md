@@ -1008,12 +1008,12 @@ class SecureClient:
 - **[Quantum Algorithms](../advanced/quantum-algorithms-research/)** - Quantum distributed computing and networking
 
 ### Performance and Optimization
-- **[Performance Optimization](../optimization/index.html)** - Optimizing distributed systems performance
+- **[Performance Optimization](../optimization/)** - Optimizing distributed systems performance
 - **Database Performance** - Distributed database tuning and query optimization
 - **Network Optimization** - Reducing latency and improving throughput in distributed systems
 
 ### Related Concepts
-- **[Quantum Distributed Systems](../quantum-computing/index.html#quantum-networking)** - Quantum networking and distributed quantum computing
+- **[Quantum Distributed Systems](../quantum-computing/#quantum-networking)** - Quantum networking and distributed quantum computing
 - **Blockchain and Consensus** - Distributed ledgers and cryptocurrencies
 - **Edge Computing** - Pushing computation to the network edge
 - **Serverless Architectures** - Function-as-a-Service patterns and distributed serverless systems

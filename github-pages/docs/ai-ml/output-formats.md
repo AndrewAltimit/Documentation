@@ -1715,4 +1715,4 @@ Remember: **All diffusion models share core principles** – master these, and y
 - [ControlNet](controlnet.html) - Precise control over generation
 - [LoRA Training](lora-training.html) - Train custom models
 - [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

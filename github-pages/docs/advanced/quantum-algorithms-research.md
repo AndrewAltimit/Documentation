@@ -406,7 +406,7 @@ Error: O(t²/n) for first-order Trotter.
 
 ---
 
-*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../quantum-computing/index.html).*
+*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../../quantum-computing/).*
 
 ## Related Advanced Topics
 

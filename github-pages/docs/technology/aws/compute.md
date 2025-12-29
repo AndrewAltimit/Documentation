@@ -581,7 +581,7 @@ Lambda represents a paradigm shift. Instead of managing servers, you upload your
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Storage Services](storage.html) - S3 and EBS for your data
 - [Database Services](databases.html) - RDS and DynamoDB
 - [Networking](../networking.html) - VPC and load balancers

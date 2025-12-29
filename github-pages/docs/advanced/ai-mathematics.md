@@ -176,7 +176,7 @@ $$\Theta(x, x') = \lim_{m \to \infty} \langle \nabla_\theta f(x; \theta), \nabla
 
 **Mean Field Limit**: As width → ∞, neurons become independent:
 
-$$\frac{\partial \rho_t}{\partial t} = -\nabla \cdot (\rho_t \nabla_w \mathcal{L}[\rho_t](w))$$
+$$\frac{\partial \rho_t}{\partial t} = -\nabla \cdot \left(\rho_t \nabla_w \mathcal{L}\left[\rho_t\right](w)\right)$$
 
 where ρₜ is empirical distribution of parameters.
 
@@ -255,7 +255,7 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ---
 
-*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../artificial-intelligence/index.html).*
+*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../../artificial-intelligence/).*
 
 ## Related Advanced Topics
 

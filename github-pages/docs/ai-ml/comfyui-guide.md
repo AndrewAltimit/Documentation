@@ -700,4 +700,4 @@ Start with simple workflows and gradually incorporate more complex nodes and tec
 - [Base Models Comparison](base-models-comparison.html) - Choosing the right base model
 - [Advanced Techniques](advanced-techniques.html) - Expert workflow patterns
 - [Output Formats](output-formats.html) - Image formats and optimization
-- [AI/ML Documentation Hub](index.html) - Complete AI/ML documentation index
+- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

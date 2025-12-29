@@ -261,9 +261,9 @@ Researchers wanting to contribute should:
 
 ### Practical Implementations
 For applied guides and working code examples, see:
-- **[Technology Documentation](../technology/index.html)** - Practical implementations of distributed systems, cloud computing
-- **[Quantum Computing Hub](../quantum-computing/index.html)** - Programming quantum computers with Qiskit and Cirq
-- **[AI/ML Documentation](../ai-ml/index.html)** - Practical machine learning guides and tools
+- **[Technology Documentation](../technology/)** - Practical implementations of distributed systems, cloud computing
+- **[Quantum Computing Hub](../quantum-computing/)** - Programming quantum computers with Qiskit and Cirq
+- **[AI/ML Documentation](../ai-ml/)** - Practical machine learning guides and tools
 
 ### Foundational Physics
 Theoretical physics foundations for quantum computing:
@@ -272,7 +272,7 @@ Theoretical physics foundations for quantum computing:
 - **[Statistical Mechanics](../physics/statistical-mechanics.html)** - Connections to machine learning theory
 
 ### Mathematical Background
-- **[Mathematical Reference](../reference/index.html)** - Formulas, constants, and quick references
+- **[Mathematical Reference](../reference/)** - Formulas, constants, and quick references
 - **[Computational Physics](../physics/computational-physics.html)** - Numerical methods and simulations
 
 ---
@@ -301,6 +301,6 @@ Understanding these connections enables interdisciplinary research and novel pro
 
 ---
 
-*These advanced topics represent the cutting edge of theoretical computer science and quantum physics. For practical, accessible content, visit our [main documentation](../index.html). The theoretical foundations here support the applied work throughout the site.*
+*These advanced topics represent the cutting edge of theoretical computer science and quantum physics. For practical, accessible content, visit our [main documentation](../). The theoretical foundations here support the applied work throughout the site.*
 
 **Questions or corrections?** Visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation) to contribute.

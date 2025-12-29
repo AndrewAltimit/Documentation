@@ -585,7 +585,7 @@ $$\sigma = \lim_{\omega \to 0} \frac{1}{\omega} \int_0^{\infty} dt e^{i\omega t}
 Hohenberg-Kohn theorem: Ground state density determines all properties.
 
 Kohn-Sham equations:
-$$\left[-\frac{\hbar^2}{2m}\nabla^2 + v_{eff}[n](r)\right]\psi_i(r) = \epsilon_i\psi_i(r)$$
+$$\left[-\frac{\hbar^2}{2m}\nabla^2 + v_{\text{eff}}\left[n\right](r)\right]\psi_i(r) = \epsilon_i\psi_i(r)$$
 
 ## Advanced Topics
 

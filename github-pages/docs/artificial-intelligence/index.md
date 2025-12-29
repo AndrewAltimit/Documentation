@@ -46,7 +46,7 @@ toc_icon: "brain"
 - **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics/)
 
 ### 🛠️ Practical AI/ML Tools
-Our comprehensive [AI/ML Documentation](../ai-ml/index.html) covers:
+Our comprehensive [AI/ML Documentation](../ai-ml/) covers:
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html)
 - [ComfyUI Guide](../ai-ml/comfyui-guide.html)
 - [LoRA Training](../ai-ml/lora-training.html)
@@ -172,7 +172,7 @@ Choose a path based on your goals:
 1. [AI Fundamentals - Complete](../technology/ai.html) *(Foundation)*
 2. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Modern architectures)*
 3. [AI Mathematics](../advanced/ai-mathematics/) *(Theoretical foundations)*
-4. [Quantum Computing](../quantum-computing/index.html) *(Quantum ML)*
+4. [Quantum Computing](../quantum-computing/) *(Quantum ML)*
 
 ## Related Topics
 
@@ -184,7 +184,7 @@ Choose a path based on your goals:
 
 ### Theoretical Foundations
 - [Quantum Computing](../technology/quantumcomputing.html)
-- [Quantum Computing Hub](../quantum-computing/index.html)
+- [Quantum Computing Hub](../quantum-computing/)
 - [Statistical Mechanics](../physics/statistical-mechanics.html)
 
 ## Current Trends & Research

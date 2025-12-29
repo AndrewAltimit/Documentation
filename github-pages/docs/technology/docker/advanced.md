@@ -852,4 +852,4 @@ The future of application deployment is containerized, and you're now equipped w
 - [AWS](../aws/) - ECS, EKS, and cloud container services
 - [Terraform](../terraform/) - Infrastructure as Code for container deployments
 - [Networking](../networking.html) - Network concepts and container networking
-- [Distributed Systems](../../distributed-systems/index.html) - Distributed computing principles
+- [Distributed Systems](../../distributed-systems/) - Distributed computing principles

@@ -2220,7 +2220,7 @@ Start small, think big, and build amazing things. The cloud is your platform for
 
 ## See Also
 
-- [AWS Hub](index.html) - Overview of all AWS documentation
+- [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda deployment
 - [Storage Services](storage.html) - S3 and EBS management
 - [Database Services](databases.html) - RDS and DynamoDB
