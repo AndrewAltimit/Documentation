@@ -1097,7 +1097,7 @@ The future of version control explores novel approaches beyond traditional DAG-b
 ### Official Documentation
 - [Git Documentation](https://git-scm.com/doc)
 - [Git Reference Manual](https://git-scm.com/docs)
-- [Git Protocol Documentation](https://github.com/git/git/blob/master/Documentation/technical/protocol-v2.txt)
+- [Git Protocol Documentation](https://git-scm.com/docs/protocol-v2)
 
 ### Implementations
 - **libgit2**: Portable C implementation

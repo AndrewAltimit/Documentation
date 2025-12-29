@@ -483,7 +483,7 @@ Choosing the right branching strategy depends on your team's needs, project requ
 - [Git Documentation](https://git-scm.com/doc)
 - [Atlassian Git Tutorials](https://www.atlassian.com/git/tutorials/comparing-workflows)
 - [GitHub Flow Guide](https://guides.github.com/introduction/flow/)
-- [GitLab Flow Documentation](https://docs.gitlab.com/ee/topics/gitlab_flow.html)
+- [GitLab Flow Documentation](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/)
 - [A Successful Git Branching Model](https://nvie.com/posts/a-successful-git-branching-model/) (Original Git Flow article)
 - [Trunk Based Development](https://trunkbaseddevelopment.com/)
 

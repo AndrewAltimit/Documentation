@@ -588,6 +588,6 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 - [Official Documentation](https://please.build/)
 - [GitHub Repository](https://github.com/thought-machine/please)
 - [Rule Examples](https://github.com/thought-machine/please/tree/master/test)
-- [Please Community Slack](https://please-build.slack.com/)
+- [Please Community Discussions](https://github.com/thought-machine/please/discussions)
 - [Build Language Reference](https://please.build/language.html)
 - [Please FAQ](https://please.build/faq.html) - Common questions and answers

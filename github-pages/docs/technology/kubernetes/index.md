@@ -78,7 +78,7 @@ Production-grade Kubernetes and beyond.
 
 ## See Also
 
-- [Docker](/docs/technology/docker/) - Container fundamentals
-- [AWS EKS](/docs/technology/aws/compute.html) - Managed Kubernetes on AWS
-- [Terraform](/docs/technology/terraform/) - Infrastructure as code for K8s
-- [CI/CD](/docs/technology/ci-cd.html) - Continuous deployment pipelines
+- [Docker](../docker/index.html) - Container fundamentals
+- [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
+- [Terraform](../terraform/index.html) - Infrastructure as code for K8s
+- [CI/CD](../ci-cd.html) - Continuous deployment pipelines

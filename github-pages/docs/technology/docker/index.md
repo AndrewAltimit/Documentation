@@ -77,13 +77,13 @@ Real-world examples and advanced techniques.
 
 ## Quick Reference
 
-Looking for a quick command reference? See [Docker Essentials](/docs/technology/docker-essentials.html) for commonly used commands.
+Looking for a quick command reference? See [Docker Essentials](../docker-essentials.html) for commonly used commands.
 
 ---
 
 ## See Also
 
-- [Docker Essentials](/docs/technology/docker-essentials.html) - Quick command reference
-- [Kubernetes](/docs/technology/kubernetes/) - Container orchestration
-- [AWS ECS](/docs/technology/aws/compute.html) - Managed container service
-- [CI/CD](/docs/technology/ci-cd.html) - Continuous deployment
+- [Docker Essentials](../docker-essentials.html) - Quick command reference
+- [Kubernetes](../kubernetes/index.html) - Container orchestration
+- [AWS ECS](../aws/compute.html) - Managed container service
+- [CI/CD](../ci-cd.html) - Continuous deployment

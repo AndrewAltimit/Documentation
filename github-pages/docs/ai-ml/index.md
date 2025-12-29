@@ -294,7 +294,7 @@ For theoretical foundations and broader AI concepts:
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - No-math introduction to AI
 - [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical reference
 - [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research topics
-- [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory
+- [AI Mathematics](../advanced/ai-mathematics.html) - Statistical learning theory
 - [AI Documentation Hub](../artificial-intelligence/index.html) - Navigate all AI resources
 
 <div class="code-example bg-yellow-000" markdown="1">

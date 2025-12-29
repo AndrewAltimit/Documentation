@@ -269,4 +269,3 @@ HSET user:1000:settings theme "dark" language "en"
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [MySQL Documentation](https://dev.mysql.com/doc/)
 - [MongoDB Documentation](https://docs.mongodb.com/)
-- [Database Design Patterns](https://www.databasepatterns.com/)

@@ -255,10 +255,10 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ---
 
-*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](/docs/artificial-intelligence/).*
+*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../artificial-intelligence/index.html).*
 
 ## Related Advanced Topics
 
-- [Quantum Machine Learning](/docs/advanced/quantum-algorithms-research/) - Intersection of quantum computing and ML
-- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - For distributed ML training
-- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing large ML codebases
+- [Quantum Machine Learning](quantum-algorithms-research.html) - Intersection of quantum computing and ML
+- [Distributed Systems Theory](distributed-systems-theory.html) - For distributed ML training
+- [Monorepo Strategies](monorepo.html) - Managing large ML codebases

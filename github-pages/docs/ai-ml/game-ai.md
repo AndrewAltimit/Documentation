@@ -1,6 +1,8 @@
 ---
 layout: docs
 title: Game AI Systems
+parent: AI/ML Documentation
+nav_order: 8
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

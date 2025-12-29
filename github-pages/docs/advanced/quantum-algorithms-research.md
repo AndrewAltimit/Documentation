@@ -406,10 +406,10 @@ Error: O(t²/n) for first-order Trotter.
 
 ---
 
-*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](/docs/quantum-computing/).*
+*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../quantum-computing/index.html).*
 
 ## Related Advanced Topics
 
-- [AI Mathematics](/docs/advanced/ai-mathematics/) - Quantum machine learning foundations
-- [Distributed Systems Theory](/docs/advanced/distributed-systems-theory/) - Distributed quantum computing
-- [Monorepo Strategies](/docs/advanced/monorepo/) - Managing quantum software projects
+- [AI Mathematics](ai-mathematics.html) - Quantum machine learning foundations
+- [Distributed Systems Theory](distributed-systems-theory.html) - Distributed quantum computing
+- [Monorepo Strategies](monorepo.html) - Managing quantum software projects
