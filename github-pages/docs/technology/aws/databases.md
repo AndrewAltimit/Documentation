@@ -192,6 +192,27 @@ aws dynamodb query --table-name MyTable \
 - **Mobile app**: DynamoDB for user data + S3 for media
 - **Analytics**: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Match Model to Access Pattern</h4>
+    <p>Relational (RDS/Aurora) for complex queries and transactions; DynamoDB for massive scale with known key-based access.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Aurora Scales, RDS Starts Cheap</h4>
+    <p>Use RDS for dev/test and small workloads; move to Aurora when you need 3-5x throughput and storage that auto-grows.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Design DynamoDB Queries First</h4>
+    <p>Unlike SQL, you model the table around access patterns. Composite keys and single-table design enable efficient queries.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Cache to Cut Load</h4>
+    <p>An ElastiCache (Redis) layer can absorb 90% of read traffic and drop response times to sub-millisecond.</p>
+  </div>
+</div>
+
 ---
 
 ## See Also

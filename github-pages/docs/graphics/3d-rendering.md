@@ -17,35 +17,36 @@ toc_icon: "cube"
   <p class="lead">3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.</p>
 </div>
 
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-stream"></i><h4>Pipeline, Not Magic</h4><p>Every frame is a fixed sequence of stages: transform geometry, decide which pixels are covered, then shade them. Understanding the stages tells you where time goes.</p></div>
+  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Massively Parallel</h4><p>A GPU runs thousands of threads at once. Performance comes from feeding that parallelism evenly, not from clever serial tricks.</p></div>
+  <div class="insight-card"><i class="fas fa-balance-scale"></i><h4>Rasterize vs Trace</h4><p>Rasterization is fast and approximate; ray tracing is accurate and expensive. Modern engines blend both ("hybrid rendering").</p></div>
+  <div class="insight-card"><i class="fas fa-tachometer-alt"></i><h4>Budget Driven</h4><p>At 60 FPS you have ~16 ms per frame. Rendering is a constant negotiation between visual fidelity and that fixed time budget.</p></div>
+</div>
+
 ## The Rendering Pipeline
 
 ### Overview
 
-The graphics pipeline processes geometry through a series of stages:
+Rendering answers two questions for every pixel: *what surface is visible here?* and *what color is that surface?* The graphics pipeline processes geometry through a fixed sequence of stages to answer them. Vertices flow in at the top, get transformed and assembled into triangles, are converted to candidate pixels (fragments), and finally shaded and composited into the framebuffer.
 
+```mermaid
+flowchart TD
+    A["Application Stage (CPU)<br/>scene setup, culling, draw calls"] --> B["Vertex Shader<br/>transform vertices to clip space"]
+    B --> C{"Optional<br/>geometry stages"}
+    C --> D["Tessellation<br/>subdivide patches"]
+    C --> E["Geometry Shader<br/>emit/modify primitives"]
+    D --> F["Clipping & Culling<br/>discard off-screen / backfaces"]
+    E --> F
+    C --> F
+    F --> G["Rasterization<br/>triangles to fragments"]
+    G --> H["Fragment / Pixel Shader<br/>compute color & lighting"]
+    H --> I["Depth & Stencil Test"]
+    I --> J["Blending"]
+    J --> K["Framebuffer Output"]
 ```
-Application Stage (CPU)
-    │
-    ▼
-Geometry Processing (GPU)
-├── Vertex Shader
-├── Tessellation (optional)
-├── Geometry Shader (optional)
-└── Clipping & Culling
-    │
-    ▼
-Rasterization
-    │
-    ▼
-Fragment/Pixel Processing
-├── Pixel Shader
-├── Depth Testing
-├── Stencil Testing
-└── Blending
-    │
-    ▼
-Framebuffer Output
-```
+
+The CPU-side **application stage** is where your engine lives: it decides what to draw, performs high-level culling, and issues draw calls. Everything below it runs on the GPU. The fixed-function stages (rasterization, depth test, blend) are configured but not programmed; the programmable stages (vertex, fragment, and optionally tessellation/geometry/compute) are where shader code runs.
 
 ### Coordinate Spaces
 
@@ -91,6 +92,26 @@ void main() {
     gl_Position = projection * view * worldPos;
 }
 ```
+
+### Rasterization vs Ray Tracing
+
+The two dominant paradigms for visibility determination take opposite approaches. **Rasterization** projects each triangle onto the screen and asks "which pixels does it cover?" — it iterates over geometry. **Ray tracing** shoots a ray through each pixel and asks "what does this ray hit?" — it iterates over pixels. Rasterization is the basis of real-time graphics because it maps perfectly onto GPU parallelism and avoids expensive scene-wide queries; ray tracing produces physically correct shadows, reflections, and global illumination but historically required offline render farms.
+
+| Aspect | Rasterization | Ray Tracing |
+|--------|---------------|-------------|
+| Core question | Which pixels does this triangle cover? | What does this ray hit? |
+| Iterates over | Geometry (triangles) | Pixels (rays) |
+| Cost scaling | Linear in triangles + overdraw | Scales with rays × scene complexity (mitigated by BVH) |
+| Shadows | Approximate (shadow maps) | Exact, soft from area lights |
+| Reflections | Screen-space / probes (incomplete) | Accurate, off-screen reflections |
+| Global illumination | Baked or screen-space approximations | Natural multi-bounce |
+| Hardware | Universal, decades of optimization | RT cores (RTX, RDNA2+) needed for real-time |
+| Typical use | Primary visibility, real-time base | Shadows, reflections, GI in hybrid pipelines |
+
+<div class="tip-card" markdown="1">
+#### Hybrid Rendering Is the Norm
+Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for speed, then fire rays only for the effects where rasterization fails — shadows, reflections, and indirect light. This pays the ray-tracing cost only where it buys the most visual quality. UE5's Lumen and ray-traced shadows are exactly this strategy.
+</div>
 
 ## Lighting and Shading
 
@@ -323,24 +344,24 @@ Modern standard approach:
 
 ### Parallelism Model
 
-GPUs execute thousands of threads simultaneously:
+GPUs execute thousands of threads simultaneously. Hardware is organized as a hierarchy of compute units, and the software thread model mirrors it:
 
+```mermaid
+flowchart TD
+    GPU["GPU"] --> SM["Streaming Multiprocessors (SM)"]
+    GPU --> L2["L2 Cache"]
+    GPU --> VRAM["Video Memory (VRAM)"]
+    SM --> Cores["CUDA Cores / Stream Processors"]
+    SM --> SMem["Shared Memory"]
+    SM --> L1["L1 Cache"]
+    subgraph Thread Model
+      Grid["Grid (whole dispatch)"] --> Block["Thread Block (shares memory)"]
+      Block --> Warp["Warp / Wavefront (32 / 64 lock-step threads)"]
+      Warp --> Thread["Thread (one lane)"]
+    end
 ```
-GPU
-├── Streaming Multiprocessors (SM)
-│   ├── CUDA Cores / Stream Processors
-│   ├── Shared Memory
-│   └── L1 Cache
-├── L2 Cache
-├── Memory Controllers
-└── Video Memory (VRAM)
 
-Thread Hierarchy:
-- Thread: Single execution unit
-- Warp/Wavefront: 32/64 threads executing together
-- Thread Block: Group of warps with shared memory
-- Grid: All thread blocks for a dispatch
-```
+Threads within a **warp** execute in lock-step (SIMT). When threads in a warp take different branches, the GPU runs *both* paths and masks the inactive lanes — this is **warp divergence**, the reason branchy shaders are slow. Keeping all 32/64 lanes doing the same work is the single most important shader-performance principle.
 
 ### Memory Hierarchy
 
@@ -423,6 +444,17 @@ Reduce draw calls:
 - **Vulkan/DirectX 12**: Updated modern graphics API best practices
 
 ---
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>The pipeline is fixed</h4><p>Vertices → triangles → fragments → framebuffer. Knowing which stage dominates a frame is the first step in optimizing it.</p></div>
+  <div class="takeaway-card"><h4>Rasterize first, trace selectively</h4><p>Rasterization wins on speed; ray tracing wins on accuracy. Hybrid pipelines rasterize visibility and trace only shadows, reflections, and GI.</p></div>
+  <div class="takeaway-card"><h4>PBR is the material standard</h4><p>Albedo, metallic, and roughness drive a physically grounded Cook-Torrance BRDF that behaves consistently under any lighting.</p></div>
+  <div class="takeaway-card"><h4>Draw calls and overdraw cost</h4><p>Batching, instancing, LODs, and culling exist to reduce CPU-side draw calls and wasted GPU shading.</p></div>
+  <div class="takeaway-card"><h4>Avoid warp divergence</h4><p>The GPU shades 32/64 threads in lock-step. Branchy shaders and uneven work waste lanes — keep work uniform.</p></div>
+  <div class="takeaway-card"><h4>TAA + upscaling are default</h4><p>Temporal accumulation (TAA) plus DLSS/FSR now deliver the best quality-per-millisecond for anti-aliasing.</p></div>
+</div>
 
 ## See Also
 - [Game Development](../gamedev/) - Game engines, physics, and multiplayer systems

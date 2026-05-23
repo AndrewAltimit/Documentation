@@ -48,18 +48,32 @@ Before diving in, familiarize yourself with these building blocks:
 
 ### Multi-AZ Architecture
 
-For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another.
+For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another. The diagram below shows a canonical three-tier VPC spanning two AZs, with traffic flowing inward from the internet to public, then private, then data subnets.
 
+```mermaid
+flowchart TB
+    IGW([Internet Gateway])
+    subgraph VPC["VPC 10.0.0.0/16"]
+        direction LR
+        subgraph AZA["Availability Zone A"]
+            PubA["Public 10.0.1.0/24<br/>ALB · NAT GW"]
+            PrivA["Private 10.0.10.0/24<br/>App Servers"]
+            DataA["Data 10.0.100.0/24<br/>RDS Primary"]
+            PubA --> PrivA --> DataA
+        end
+        subgraph AZB["Availability Zone B"]
+            PubB["Public 10.0.2.0/24<br/>ALB · NAT GW"]
+            PrivB["Private 10.0.20.0/24<br/>App Servers"]
+            DataB["Data 10.0.200.0/24<br/>RDS Standby"]
+            PubB --> PrivB --> DataB
+        end
+    end
+    IGW --> PubA
+    IGW --> PubB
+    DataA -. "synchronous replication" .- DataB
 ```
-VPC (10.0.0.0/16)
-├── Public Subnet AZ-A (10.0.1.0/24)    ├── Public Subnet AZ-B (10.0.2.0/24)
-│   ├── NAT Gateway                      │   ├── NAT Gateway
-│   └── Load Balancer                    │   └── Load Balancer
-├── Private Subnet AZ-A (10.0.10.0/24)  ├── Private Subnet AZ-B (10.0.20.0/24)
-│   └── Application Servers              │   └── Application Servers
-└── Data Subnet AZ-A (10.0.100.0/24)    └── Data Subnet AZ-B (10.0.200.0/24)
-    └── RDS Primary                          └── RDS Standby
-```
+
+The public subnets hold internet-facing resources (load balancers, NAT gateways). Private subnets hold application servers that reach the internet only outbound via NAT. Data subnets isolate databases with no internet route at all.
 
 **Real-world example**: An e-commerce application runs web servers in public subnets (accessible from the internet) and databases in private subnets (only accessible from web servers). If AZ-A experiences an outage, traffic automatically routes to AZ-B.
 
@@ -118,6 +132,8 @@ aws apigateway create-usage-plan --name "BasicPlan" \
 aws apigateway create-authorizer --rest-api-id xxx \
   --name "JWTAuthorizer" --type TOKEN \
   --authorizer-uri "arn:aws:lambda:region:account:function:authorizer"
+```
+
 ---
 
 ## CloudFront - Content Delivery Network
@@ -197,6 +213,53 @@ aws elbv2 create-target-group --name my-targets \
   --protocol HTTP --port 80 --vpc-id vpc-xxx \
   --health-check-path /health --health-check-interval-seconds 30
 ```
+
+### End-to-End Request Flow
+
+A typical request for a global web application touches several networking layers before reaching your servers:
+
+```mermaid
+flowchart LR
+    User([User]) --> CF[CloudFront Edge]
+    CF -->|cache miss| ALB[Application Load Balancer]
+    ALB --> SG{Security Group}
+    SG --> EC2A[App Server AZ-A]
+    SG --> EC2B[App Server AZ-B]
+    CF -->|cache hit| User
+```
+
+Cached responses return directly from the nearest edge location. Cache misses route to the origin load balancer, which checks the security group and distributes traffic to healthy targets across AZs.
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Single NAT Gateway:</strong> Placing one NAT Gateway for all AZs creates a single point of failure and incurs cross-AZ data transfer charges. Deploy one per AZ.</li>
+    <li><strong>Overly broad security groups:</strong> <code>0.0.0.0/0</code> on port 22 (SSH) exposes instances to the entire internet. Scope inbound rules to known CIDRs or use Session Manager instead.</li>
+    <li><strong>Overlapping CIDR blocks:</strong> VPCs you intend to peer (or connect to on-premises) must not overlap. Plan address space before creation.</li>
+    <li><strong>Forgetting CloudFront invalidation costs:</strong> Frequent <code>/*</code> invalidations add up. Use versioned object names (<code>app.v2.js</code>) so the CDN caches forever.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>VPC = Network Isolation</h4>
+    <p>Public subnets for internet-facing resources, private for app tiers, data subnets with no internet route for databases.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Multi-AZ by Default</h4>
+    <p>Spread subnets and NAT gateways across at least two AZs so a single data center failure does not take you offline.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>ALB for HTTP, NLB for Speed</h4>
+    <p>Use Application Load Balancers for path/host routing; reach for Network Load Balancers only when you need ultra-low latency or static IPs.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>CloudFront Cuts Latency</h4>
+    <p>Serve static assets from edge locations and force origin access through Origin Access Control to keep S3 buckets private.</p>
+  </div>
+</div>
 
 ---
 

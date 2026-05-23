@@ -54,20 +54,19 @@ Choose your path based on your goals and experience level:
 
 ## How Game Development Topics Connect
 
-```
-Game Design ──────────┐
-                      ├──→ Core Systems ──→ Game Loop
-Programming ──────────┤         │              │
-                      │         ↓              ↓
-Physics & AI ─────────┘    Gameplay ──→ Integration
-                           Systems          │
-                               │            │
-Art & Audio ──────────────────┴────────────┤
-                                            ↓
-Networking ──────────→ Optimization ──→ Polish & Ship
-                            │
-Platform ────────────────────┘
-Deployment
+```mermaid
+flowchart TD
+    GD["Game Design"] --> CS["Core Systems"]
+    PR["Programming"] --> CS
+    PA["Physics & AI"] --> CS
+    CS --> GL["Game Loop"]
+    GL --> GS["Gameplay Systems"]
+    AA["Art & Audio"] --> GS
+    GS --> INT["Integration"]
+    NET["Networking"] --> OPT["Optimization"]
+    PLAT["Platform & Deployment"] --> OPT
+    INT --> OPT
+    OPT --> SHIP["Polish & Ship"]
 ```
 
 Each discipline feeds into the core systems, which integrate into cohesive gameplay experiences that are optimized and shipped across platforms.
@@ -103,6 +102,15 @@ The modern game development process typically follows these stages:
    - Monetization optimization
 
 ## Game Engines
+
+### Engine at a Glance
+
+| Engine | Language | Best For | Licensing | Standout Feature |
+|--------|----------|----------|-----------|------------------|
+| Unreal Engine 5 | C++ / Blueprints | AAA, high-fidelity 3D | Royalty after revenue threshold | Nanite + Lumen |
+| Unity | C# | Indie, mobile, cross-platform | Subscription tiers | Asset Store + reach |
+| Godot | GDScript / C# | 2D, lightweight 3D, open source | MIT (free, no royalties) | Scene system, tiny footprint |
+| Custom (id Tech, Frostbite, Decima) | C++ | Studio-specific AAA needs | Proprietary | Tailored to one game family |
 
 ### Unreal Engine
 
@@ -377,6 +385,17 @@ Scalability considerations:
 - **Learning Paths**: Added structured progression guides for different career paths
 - **VR Development**: Cross-linked with expanded [VR/AR Development](../vr-ar/) documentation
 - **Performance**: Updated console performance targets and optimization strategies
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>The game loop is the heartbeat</h4><p>Input → update → render, every frame. A fixed-timestep simulation with variable rendering is the standard for stable physics and smooth visuals.</p></div>
+  <div class="takeaway-card"><h4>Pick the engine for the job</h4><p>Unreal for high-fidelity AAA, Unity for cross-platform and mobile reach, Godot for lightweight 2D and open-source freedom.</p></div>
+  <div class="takeaway-card"><h4>Composition beats inheritance</h4><p>ECS and component-based architectures give cache-friendly, parallelizable, flexible game objects at scale.</p></div>
+  <div class="takeaway-card"><h4>Design the core loop first</h4><p>Engagement comes from a satisfying repeatable activity (collect → build → battle → reward) tuned to player motivation.</p></div>
+  <div class="takeaway-card"><h4>Multiplayer is prediction + reconciliation</h4><p>Authoritative servers plus client-side prediction and lag compensation hide latency without enabling cheating.</p></div>
+  <div class="takeaway-card"><h4>Ship within a budget</h4><p>Platform targets (30/60 FPS, memory, thermals) drive optimization and certification from day one, not at the end.</p></div>
+</div>
 
 ## Related Documentation
 

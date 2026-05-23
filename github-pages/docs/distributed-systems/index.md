@@ -14,6 +14,13 @@ toc: false  # Index pages typically don't need TOC
 Comprehensive documentation for distributed systems architecture, design patterns, and implementation strategies. From consensus algorithms to microservices, from message queuing to service mesh.
 </div>
 
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-network-wired"></i><h4>Failure is the default</h4><p>Networks partition, nodes crash, clocks drift. Distributed systems are designed assuming components <em>will</em> fail, not hoping they won't.</p></div>
+  <div class="insight-card"><i class="fas fa-vote-yea"></i><h4>Consensus enables coordination</h4><p>Paxos, Raft, and BFT let unreliable nodes agree on a single value — the foundation of replicated state machines and distributed databases.</p></div>
+  <div class="insight-card"><i class="fas fa-sliders-h"></i><h4>Consistency is a dial</h4><p>From linearizable to eventual, you trade coordination latency for stronger guarantees. Choose the weakest model your app tolerates.</p></div>
+  <div class="insight-card"><i class="fas fa-eye"></i><h4>Observability is mandatory</h4><p>You cannot debug what you cannot see. Tracing, metrics, and structured logs are first-class design concerns, not afterthoughts.</p></div>
+</div>
+
 ## Table of contents
 {: .no_toc .text-delta }
 
@@ -174,6 +181,13 @@ Every distributed system must choose between:
 - **Partition Tolerance**: System continues despite network failures
 
 In practice, partition tolerance is mandatory, so systems choose between CP (consistent but may be unavailable) or AP (available but may be inconsistent).
+
+```mermaid
+flowchart TD
+    P{"Network partition<br/>occurs"} --> Q{"During the partition,<br/>what do you sacrifice?"}
+    Q -- "reject requests<br/>to stay consistent" --> CP["CP system<br/>e.g. etcd, ZooKeeper, HBase"]
+    Q -- "answer requests,<br/>reconcile later" --> AP["AP system<br/>e.g. Cassandra, DynamoDB, Riak"]
+```
 
 #### FLP Impossibility
 
@@ -997,6 +1011,17 @@ class SecureClient:
 4. **Documentation**: API specs and runbooks
 5. **Code Reviews**: Distributed systems expertise
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>Design for failure</h4><p>Assume every node, link, and dependency can fail. Idempotency, timeouts, retries, and circuit breakers turn failure from catastrophic to routine.</p></div>
+  <div class="takeaway-card"><h4>Pick your CAP side deliberately</h4><p>Partitions are unavoidable, so decide up front whether each service is CP or AP — and document why.</p></div>
+  <div class="takeaway-card"><h4>Keep services stateless</h4><p>Push state into databases and caches so services scale horizontally and recover by simply restarting.</p></div>
+  <div class="takeaway-card"><h4>Use proven patterns</h4><p>Leader election, distributed locks, sagas, and event-driven messaging solve recurring problems — don't reinvent them.</p></div>
+  <div class="takeaway-card"><h4>Observe everything</h4><p>Distributed tracing, metrics, and structured logs are the only way to reason about emergent, multi-node behavior.</p></div>
+  <div class="takeaway-card"><h4>Start simple</h4><p>Add complexity only when scale demands it. A well-run monolith beats a poorly-run microservice mesh.</p></div>
+</div>
+
 ## See Also
 
 ### Core Technology Pages
@@ -1017,7 +1042,7 @@ class SecureClient:
 - **Network Optimization** - Reducing latency and improving throughput in distributed systems
 
 ### Related Concepts
-- **[Quantum Distributed Systems](../quantum-computing/#quantum-networking)** - Quantum networking and distributed quantum computing
+- **[Quantum Distributed Systems](../quantum-computing/)** - Quantum networking and distributed quantum computing
 - **Blockchain and Consensus** - Distributed ledgers and cryptocurrencies
 - **Edge Computing** - Pushing computation to the network edge
 - **Serverless Architectures** - Function-as-a-Service patterns and distributed serverless systems

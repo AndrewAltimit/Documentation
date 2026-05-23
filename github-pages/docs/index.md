@@ -4,31 +4,34 @@ title: Complete Documentation Index
 toc: false  # Index pages typically don't need TOC
 ---
 
-<div class="hero-section">
-  <div class="hero-content">
-    <h1 class="hero-title">Documentation Hub</h1>
-    <p class="hero-subtitle">Comprehensive Technical Knowledge Base</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #4facfe 100%);">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Documentation Index</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Every page, organized by category &mdash; from beginner guides to graduate-level theory.</p>
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Explore our complete collection of technical documentation covering physics, technology, AI/ML, and advanced research topics. From beginner tutorials to graduate-level theory, find the knowledge you need.</p>
+  <p class="lead-text">This is the complete listing of all documentation. Use the jump links below to skip to a section, or <a href="../search.html">search</a> if you know what you're after.</p>
 
   <div class="key-insights">
     <div class="insight-card">
-      <i class="fas fa-atom"></i>
-      <h4>Physics</h4>
-      <p>Quantum mechanics to string theory</p>
-    </div>
-    <div class="insight-card">
       <i class="fas fa-server"></i>
-      <h4>Technology</h4>
+      <h4><a href="#technology">Technology</a></h4>
       <p>Infrastructure, DevOps, and cloud</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-brain"></i>
-      <h4>AI/ML</h4>
+      <h4><a href="#aiml---generative-ai">AI / ML</a></h4>
       <p>Generative AI and machine learning</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-atom"></i>
+      <h4><a href="#physics">Physics</a></h4>
+      <p>Quantum mechanics to string theory</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-flask"></i>
+      <h4><a href="#research--advanced-topics">Advanced</a></h4>
+      <p>Graduate-level theory and research</p>
     </div>
   </div>
 </div>
@@ -56,7 +59,13 @@ toc: false  # Index pages typically don't need TOC
 
 ### Advanced Technologies
 - [Quantum Computing](technology/quantumcomputing.html) - From qubits to quantum algorithms
+
+### Game & Real-Time Development
 - [Unreal Engine](technology/unreal.html) - UE5 game development guide
+- [Game Development](gamedev/) - Engines, loops, and architecture
+- [3D Graphics & Rendering](graphics/3d-rendering.html) - Rasterization, shading, and pipelines
+- [VR / AR Development](vr-ar/) - Immersive computing fundamentals
+- [Game AI](ai-ml/game-ai.html) - Pathfinding, behavior trees, and decision-making
 
 ### Artificial Intelligence
 - [AI Fundamentals - Simplified](technology/ai-fundamentals-simple.html) - No-math introduction
@@ -94,10 +103,11 @@ toc: false  # Index pages typically don't need TOC
 - [Relativity](physics/relativity.html) - Special and general relativity explained
 - [Quantum Mechanics](physics/quantum-mechanics.html) - Wave functions to entanglement
 
-### Advanced Topics
+### Advanced & Computational
 - [Condensed Matter Physics](physics/condensed-matter.html) - Solids, superconductors, topology
 - [Quantum Field Theory](physics/quantum-field-theory.html) - Fields, particles, and interactions
 - [String Theory](physics/string-theory.html) - Extra dimensions and quantum gravity
+- [Computational Physics](physics/computational-physics.html) - Numerical methods and simulation
 
 ## Additional Resources
 
@@ -109,6 +119,7 @@ toc: false  # Index pages typically don't need TOC
 - [Distributed Systems](distributed-systems/) - Architecture and implementation
 - [Artificial Intelligence Hub](artificial-intelligence/) - Comprehensive AI resources
 - [Quantum Computing Hub](quantum-computing/) - Quantum theory to programming
+- [Performance Optimization](optimization/) - Profiling, tuning, and scalability
 
 ### Research & Advanced Topics
 - [Advanced Topics Hub](advanced/) - Graduate-level mathematics and theory

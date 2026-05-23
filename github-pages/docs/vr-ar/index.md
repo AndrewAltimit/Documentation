@@ -13,12 +13,17 @@ toc_icon: "vr-cardboard"
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Building immersive spatial computing experiences for virtual and augmented reality</p>
 </div>
 
-# VR & AR Development Hub
-
 Welcome to the comprehensive guide for Extended Reality (XR) development. From standalone VR experiences to mobile AR applications, this resource covers the technical foundations and best practices for building immersive spatial computing experiences.
 
 <div class="hub-intro">
   <p class="lead">Virtual Reality (VR) and Augmented Reality (AR) represent transformative technologies that create immersive experiences by either fully replacing or enhancing the user's perception of reality. These technologies demand specialized development approaches, strict performance requirements, and careful attention to human factors to create comfortable, engaging experiences.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-stopwatch"></i><h4>Latency is comfort</h4><p>Motion-to-photon latency under ~20 ms and a rock-steady frame rate are not nice-to-haves — they are the difference between immersion and nausea.</p></div>
+  <div class="insight-card"><i class="fas fa-glasses"></i><h4>Render twice, every frame</h4><p>Stereo rendering doubles the work. Single-pass stereo, foveation, and reprojection exist to claw that cost back.</p></div>
+  <div class="insight-card"><i class="fas fa-hand-pointer"></i><h4>Interaction is spatial</h4><p>Hands, controllers, and gaze replace mouse and keyboard. Comfortable locomotion and reachable UI define the experience.</p></div>
+  <div class="insight-card"><i class="fas fa-globe"></i><h4>AR must understand reality</h4><p>Plane detection, occlusion, and light estimation anchor virtual content believably in the physical world.</p></div>
 </div>
 
 ## Getting Started
@@ -176,18 +181,16 @@ Create browser-based XR experiences accessible on any device.
 
 ### The Reality-Virtuality Continuum
 
+First described by Milgram & Kishino (1994), XR spans a continuum from the fully physical world to the fully synthetic, with AR and MR occupying the blended middle:
+
+```mermaid
+flowchart LR
+    R["Real Environment<br/>physical world only"] --> AR["Augmented Reality<br/>digital overlays<br/><i>Pokemon GO, Snapchat</i>"]
+    AR --> MR["Mixed Reality<br/>digital interacts with physical<br/><i>HoloLens, Quest MR</i>"]
+    MR --> V["Virtual Reality<br/>fully synthetic<br/><i>Beat Saber, VRChat</i>"]
 ```
-Real          │ Augmented    │ Mixed        │ Virtual
-Environment   │ Reality (AR) │ Reality (MR) │ Reality (VR)
-──────────────┼──────────────┼──────────────┼──────────────
-Physical      │ Digital      │ Digital      │ Fully
-world only    │ overlays on  │ interacts    │ synthetic
-              │ physical     │ with physical│ environment
-              │              │              │
-Examples:     │ Pokemon GO   │ HoloLens     │ Beat Saber
-              │ Snapchat     │ Magic Leap   │ Half-Life Alyx
-              │ Google Maps  │ Quest MR     │ VRChat
-```
+
+The further right on the continuum, the more the system must render and the less it relies on the real world — pushing performance demands up and shifting the design challenge from *world understanding* (AR) to *presence and comfort* (VR).
 
 ### XR Hardware Landscape
 
@@ -700,6 +703,17 @@ XR-specific challenges:
 - AR glasses approaching viability
 - Spatial computing as new paradigm
 - AI integration for scene understanding
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>Comfort is the prime directive</h4><p>Hold target frame rate and minimize latency. Teleport locomotion, snap turning, and comfort vignettes prevent motion sickness.</p></div>
+  <div class="takeaway-card"><h4>Optimize for stereo</h4><p>Single-pass stereo, aggressive LOD, foveated rendering, and forward rendering reclaim the cost of drawing two eyes 90+ times a second.</p></div>
+  <div class="takeaway-card"><h4>AR needs world understanding</h4><p>Plane detection, occlusion, and light estimation (ARKit/ARCore) make virtual objects feel physically present.</p></div>
+  <div class="takeaway-card"><h4>Choose the right stack</h4><p>Unity XR and Unreal cover most platforms; WebXR enables zero-install reach; native SDKs squeeze out maximum performance.</p></div>
+  <div class="takeaway-card"><h4>Design UI in 3D space</h4><p>Place UI 1–2 m away, size text by visual angle, and avoid focus conflicts at arm's length.</p></div>
+  <div class="takeaway-card"><h4>Test on real hardware</h4><p>Emulators cannot teach comfort. On-device testing with diverse users is non-negotiable.</p></div>
+</div>
 
 ## Related Documentation
 

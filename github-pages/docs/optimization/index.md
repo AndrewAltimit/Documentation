@@ -19,6 +19,13 @@ toc_icon: "tachometer-alt"
 
 Performance optimization is the systematic process of identifying and eliminating bottlenecks to achieve target frame rates, reduce latency, minimize memory usage, and improve overall application responsiveness. Effective optimization requires profiling-driven decisions, understanding hardware characteristics, and applying appropriate techniques at the right level of the software stack.
 
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-chart-line"></i><h4>Measure before you cut</h4><p>Intuition about bottlenecks is usually wrong. Profile in a release build, on real workloads, before changing a line.</p></div>
+  <div class="insight-card"><i class="fas fa-superscript"></i><h4>Big O beats micro-tuning</h4><p>An $O(n^2) \to O(n \log n)$ algorithmic fix dwarfs any amount of constant-factor hand-optimization.</p></div>
+  <div class="insight-card"><i class="fas fa-memory"></i><h4>Memory is the modern bottleneck</h4><p>A cache miss costs ~200 cycles. Data-oriented layout (SoA) often beats raw compute optimization.</p></div>
+  <div class="insight-card"><i class="fas fa-stopwatch-20"></i><h4>Budget, then defend it</h4><p>Convert your FPS target to a millisecond budget per frame, then track regressions in CI so wins don't erode.</p></div>
+</div>
+
 ## Learning Paths
 
 ### Game/Real-time Developer Path
@@ -144,34 +151,16 @@ Frame Rate Target → Frame Time Budget
 
 ### The Optimization Process
 
-```
-1. Define Performance Targets
-   ├── Frame rate (30/60/90/120 FPS)
-   ├── Frame time budget (33/16/11/8 ms)
-   ├── Memory limits
-   └── Loading times
+Optimization is a disciplined loop, not a one-shot effort. Each pass targets the current bottleneck, verifies the win, and repeats — because fixing the top bottleneck simply promotes the next one.
 
-2. Profile Current State
-   ├── CPU profiling
-   ├── GPU profiling
-   ├── Memory profiling
-   └── I/O profiling
-
-3. Identify Bottlenecks
-   ├── Is it CPU or GPU bound?
-   ├── Which subsystem dominates?
-   └── What's the critical path?
-
-4. Apply Targeted Fixes
-   ├── Algorithmic improvements
-   ├── Data structure changes
-   ├── Caching and pooling
-   └── Platform-specific optimizations
-
-5. Verify and Iterate
-   ├── Re-profile after changes
-   ├── Check for regressions
-   └── Document findings
+```mermaid
+flowchart TD
+    A["1. Define targets<br/>FPS, frame-time budget, memory, load times"] --> B["2. Profile current state<br/>CPU / GPU / memory / I/O"]
+    B --> C["3. Identify bottleneck<br/>CPU- or GPU-bound? which subsystem?"]
+    C --> D["4. Apply targeted fix<br/>algorithm, data layout, caching, platform"]
+    D --> E["5. Verify & iterate<br/>re-profile, check regressions, document"]
+    E -->|next bottleneck| B
+    E -->|targets met| F["Ship"]
 ```
 
 ## CPU Optimization
@@ -646,6 +635,17 @@ Alerts on:
 - New asset streaming strategies for open-world games
 - Enhanced texture compression format recommendations
 - Updated memory profiling tool coverage
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>Profile, don't guess</h4><p>Always measure in a release build on representative, worst-case workloads before optimizing anything.</p></div>
+  <div class="takeaway-card"><h4>Fix the biggest win first</h4><p>Algorithmic complexity, then the hottest path the profiler reveals. Defer micro-optimizations until they're justified.</p></div>
+  <div class="takeaway-card"><h4>Respect the memory hierarchy</h4><p>Cache-friendly data-oriented layouts and pooling often beat raw compute changes by avoiding ~200-cycle misses.</p></div>
+  <div class="takeaway-card"><h4>Know your bound</h4><p>CPU- vs GPU-bound, fill-rate vs geometry vs bandwidth — the bottleneck class dictates which fixes matter.</p></div>
+  <div class="takeaway-card"><h4>Optimize per platform</h4><p>Mobile fights thermals and battery; consoles offer fixed hardware; PC demands scalable quality settings.</p></div>
+  <div class="takeaway-card"><h4>Guard against regressions</h4><p>Automated performance tests in CI catch the slow creep of frame-time and memory regressions over time.</p></div>
+</div>
 
 ## Related Documentation
 

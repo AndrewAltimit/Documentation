@@ -51,19 +51,58 @@ Different goals require different starting points. Find your path below:
 
 ### Documentation Overview
 
-**Understanding the Foundations**
-- [**Stable Diffusion Fundamentals**](stable-diffusion-fundamentals.html) - How diffusion models transform noise into images
-- [**Model Types**](model-types.html) - The building blocks: LoRAs, VAEs, CLIP, and how they work together
-- [**Base Models Comparison**](base-models-comparison.html) - SD 1.5 vs SDXL vs FLUX: choosing the right foundation
+Explore the full library, grouped by purpose:
 
-**Practical Tools**
-- [**ComfyUI Guide**](comfyui-guide.html) - Visual workflow builder for complex generation pipelines
-- [**LoRA Training**](lora-training.html) - Create custom models for specific styles, characters, or concepts
-- [**ControlNet**](controlnet.html) - Guide generation with poses, edges, depth maps, and more
+#### Understanding the Foundations
 
-**Going Further**
-- [**Output Formats**](output-formats.html) - Working with generated content across image, video, and 3D
-- [**Advanced Techniques**](advanced-techniques.html) - Expert workflows and optimization strategies
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-wave-square"></i> <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></h4>
+    <p>How diffusion models turn noise into images, and the parameters that control your results.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-cubes"></i> <a href="model-types.html">Model Types</a></h4>
+    <p>The building blocks — checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter — and how they fit together.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-balance-scale"></i> <a href="base-models-comparison.html">Base Models Comparison</a></h4>
+    <p>SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony — choosing the right foundation for your task and hardware.</p>
+  </div>
+</div>
+
+#### Practical Tools
+
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-project-diagram"></i> <a href="comfyui-guide.html">ComfyUI Guide</a></h4>
+    <p>The node-based workflow builder for complex, automatable generation pipelines.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-graduation-cap"></i> <a href="lora-training.html">LoRA Training</a></h4>
+    <p>Train custom models for your own styles, characters, or concepts on consumer hardware.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-sliders-h"></i> <a href="controlnet.html">ControlNet</a></h4>
+    <p>Guide composition with poses, edges, depth maps, and segmentation for precise control.</p>
+  </div>
+</div>
+
+#### Going Further
+
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-file-export"></i> <a href="output-formats.html">Output Formats</a></h4>
+    <p>Diffusion across every medium — image, video, audio, and 3D — and how to export each.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-flask"></i> <a href="advanced-techniques.html">Advanced Techniques</a></h4>
+    <p>Latent interpolation, regional prompting, flow matching, distillation, and expert optimization.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-gamepad"></i> <a href="game-ai.html">Game AI Systems</a></h4>
+    <p>Pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.</p>
+  </div>
+</div>
 
 ## Getting Started
 

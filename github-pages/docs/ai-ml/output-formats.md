@@ -41,11 +41,15 @@ Diffusion models work by gradually denoising random data into coherent outputs. 
 
 ### The Unified Diffusion Pipeline
 
-```
-[Noise] → [Diffusion Process] → [Latent Space] → [Decoder] → [Output Format]
-   ↓            ↓                    ↓              ↓            ↓
- Random    Model Type          Conditioning    VAE/Decoder   Your Asset
-         (Text/Image/etc)      (Prompts)      (Specific)
+Every modality shares the same backbone — only the conditioning and the decoder change:
+
+```mermaid
+flowchart LR
+    Noise["Noise<br/>(random)"] --> Diff["Diffusion process<br/>(text / image / audio / …)"]
+    Cond["Conditioning<br/>(prompts)"] -.-> Diff
+    Diff --> Latent["Latent space"]
+    Latent --> Dec["Decoder<br/>(modality-specific VAE)"]
+    Dec --> Out["Output format<br/>(your asset)"]
 ```
 
 As of 2024, diffusion models dominate generative AI. Understanding their outputs across all modalities – and how to optimize them – is crucial for modern AI workflows. This guide provides comprehensive coverage of every diffusion-powered format.
@@ -1702,6 +1706,16 @@ Video Diffusion Outputs:
 - **Cross-Modal Workflows**: Combine text + image, audio + video
 
 Remember: **All diffusion models share core principles** – master these, and you'll excel across every modality.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **One principle, every medium.** Noise → conditioned denoising → latent → decoder applies whether the output is text, image, audio, video, or 3D — only the conditioning and decoder change.
+- **The decoder is the final quality gate.** Match it to the modality (image VAE, audio vocoder, mesh extractor) and pick the right export format for your destination.
+- **Temporal/structural coherence is the hard part** for video and 3D — frame interpolation, motion modules, and consistency techniques exist to address it.
+- **Preserve metadata.** Recording seeds, prompts, and parameters makes outputs reproducible and workflows debuggable.
+- **Cross-modal pipelines compound value:** text → image, image → video, audio + video — the shared latent paradigm makes these combinations natural.
+</div>
 
 ---
 

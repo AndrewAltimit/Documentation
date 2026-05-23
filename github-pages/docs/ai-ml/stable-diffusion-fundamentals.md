@@ -82,9 +82,11 @@ When you generate an image, the model runs in reverse:
 
 Your text prompt guides which "clean" image the model steers toward. Each step removes a bit of noise while nudging the result toward matching your description.
 
-```
-Pure noise → Shapes emerge → Details form → Final image
-  Step 1         Step 10          Step 25        Step 30
+```mermaid
+flowchart LR
+    N["Pure noise<br/>(step 1)"] --> S["Shapes emerge<br/>(step 10)"] --> D["Details form<br/>(step 25)"] --> F["Final image<br/>(step 30)"]
+    P["Text prompt"] -. guides every step .-> S
+    P -.-> D
 ```
 
 ### Why This Matters Practically
@@ -141,6 +143,17 @@ Here is what happens when you click "Generate":
 3. **Denoising loop runs** - For each step, the U-Net predicts noise and removes it
 4. **VAE decodes the result** - The final latent gets converted to a viewable image
 
+```mermaid
+flowchart LR
+    Prompt["Text prompt"] --> TE["Text Encoder<br/>(CLIP / T5)"]
+    Seed["Seed"] --> Noise["Random latent noise"]
+    TE --> Loop
+    Noise --> Loop["U-Net denoising loop<br/>(× N steps)"]
+    Loop --> Latent["Clean latent"]
+    Latent --> VAE["VAE Decode"]
+    VAE --> Img["Final image"]
+```
+
 In code form, the core loop looks like this:
 
 ```python
@@ -180,7 +193,11 @@ The "sampler" determines exactly how noise gets removed at each step. Different 
 
 CFG (Classifier-Free Guidance) scale controls how strongly the model follows your prompt versus generating more "natural" images.
 
-The model actually runs your prompt twice internally - once with your text and once without. CFG scale determines how much to amplify the difference between these two predictions.
+The model actually runs your prompt twice internally - once with your text and once without. CFG scale determines how much to amplify the difference between these two predictions:
+
+$$\hat{\varepsilon} = \varepsilon_{\text{uncond}} + w \cdot \left(\varepsilon_{\text{cond}} - \varepsilon_{\text{uncond}}\right)$$
+
+Here $\varepsilon_{\text{cond}}$ is the noise prediction with your prompt, $\varepsilon_{\text{uncond}}$ is the prediction without it, and $w$ is the CFG scale. At $w=1$ the prompt is followed loosely; larger $w$ pushes the result harder toward your text (at the cost of saturation and artifacts).
 
 ### Choosing CFG Values
 
@@ -363,6 +380,16 @@ With this foundation, you are ready to explore:
 - [ComfyUI Guide](comfyui-guide.html) for building practical workflows
 - [LoRA Training](lora-training.html) for creating custom styles
 - [Model Types](model-types.html) for understanding all the components
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Generation is iterative denoising.** Starting from random noise, the U-Net predicts and removes noise step by step, steered by your prompt, then the VAE decodes the final latent.
+- **Three networks cooperate:** the text encoder (translates words), the U-Net/DiT (denoises), and the VAE (compresses/decompresses). LoRAs modify the U-Net.
+- **The big four parameters** are steps (25-35 is plenty), CFG scale ($\hat\varepsilon = \varepsilon_{\text{uncond}} + w(\varepsilon_{\text{cond}} - \varepsilon_{\text{uncond}})$, use 5-9), sampler (DPM++ 2M is a great default), and seed (fix it for reproducibility).
+- **Generate at native resolution, then upscale** — going larger up front causes repetition artifacts.
+- **Prompt order matters:** put the most important elements first; use negative prompts and light weighting rather than heavy stacking.
+</div>
 
 ---
 

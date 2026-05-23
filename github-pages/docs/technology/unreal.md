@@ -15,7 +15,27 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Unreal Engine is a powerful real-time 3D creation platform developed by Epic Games. Originally designed for game development, it has evolved into a versatile tool used across industries including film, architecture, automotive design, and virtual production. With the release of Unreal Engine 5, Epic has introduced revolutionary technologies like Nanite virtualized geometry and Lumen global illumination, setting new standards for visual fidelity and performance. This comprehensive guide covers everything from basic concepts to advanced features in UE5.
+<div class="intro-card">
+  <p class="lead-text">Unreal Engine is a real-time 3D creation platform from Epic Games. Born for games, it now powers film virtual production, architecture, and automotive design. Unreal Engine 5 introduced <strong>Nanite</strong> virtualized geometry and <strong>Lumen</strong> dynamic global illumination, removing two of the oldest technical ceilings in real-time rendering. This guide covers UE5 from core editor concepts to advanced systems.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-cubes"></i>
+    <h4>Nanite</h4>
+    <p>Film-quality geometry with no manual LODs</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-lightbulb"></i>
+    <h4>Lumen</h4>
+    <p>Fully dynamic global illumination, no lightmap baking</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-project-diagram"></i>
+    <h4>Blueprints</h4>
+    <p>Visual scripting alongside C++</p>
+  </div>
+</div>
 
 ## Advantages of Unreal Engine 5 over Unreal Engine 4
 

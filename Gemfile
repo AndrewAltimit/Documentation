@@ -14,3 +14,6 @@ gem "jekyll-avatar"
 gem "jekyll-mentions"
 gem "jekyll-include-cache"
 gem "jekyll-remote-theme"
+
+# Link/anchor validation for CI (run against the built _site)
+gem "html-proofer", "~> 5.0"

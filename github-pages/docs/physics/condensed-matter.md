@@ -1673,6 +1673,35 @@ $$H_F = H_0 + V \cos(\omega t)$$
 3. **Balents et al.** - *Superconductivity and strong correlations in moiré flat bands* (2020)
 4. **Khajetoorians et al.** - *Creating designer quantum states of matter atom-by-atom* (2019)
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>More is different</h4>
+    <p>Collective behavior of $\sim 10^{23}$ particles produces emergent phenomena absent at the single-particle level.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Band structure governs solids</h4>
+    <p>Whether a material is a metal, insulator, or semiconductor follows from how electron bands fill.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Quasiparticles simplify the many-body problem</h4>
+    <p>Phonons, holes, and Cooper pairs let us treat strongly interacting systems with effective single-particle pictures.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Symmetry breaking creates order</h4>
+    <p>Magnetism and superconductivity arise when the ground state breaks a symmetry of the Hamiltonian.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Topology classifies new phases</h4>
+    <p>Topological insulators and the quantum Hall effect are robust against disorder because they are protected by topology.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Where quantum tech is built</h4>
+    <p>Superconducting qubits, spintronics, and 2D materials make condensed matter the engine room of quantum technology.</p>
+  </div>
+</div>
+
 ## See Also
 
 ### Core Physics Topics:

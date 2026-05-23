@@ -63,6 +63,27 @@ Imagine a busy restaurant kitchen:
 
 **Continuous Delivery**: A variation where code is automatically prepared for release but requires manual approval to deploy.
 
+### The Pipeline at a Glance
+
+A commit flows through automated stages, each a gate that must pass before the next runs. The split between Delivery and Deployment is simply whether the final promotion to production is manual or automatic.
+
+```mermaid
+flowchart LR
+    COMMIT["git push / PR"] --> BUILD["Build"]
+    BUILD --> TEST["Test and Lint"]
+    TEST --> SCAN["Security Scan"]
+    SCAN --> STAGE["Deploy to Staging"]
+    STAGE --> GATE{"Approval?"}
+    GATE -->|manual = Delivery| PROD["Deploy to Production"]
+    GATE -->|automatic = Deployment| PROD
+    PROD --> MON["Monitor and Rollback if needed"]
+    style BUILD fill:#4facfe,color:#fff
+    style TEST fill:#4facfe,color:#fff
+    style SCAN fill:#4facfe,color:#fff
+    style STAGE fill:#00c9a7,color:#fff
+    style PROD fill:#00c9a7,color:#fff
+```
+
 ## CI/CD Crash Course (30 Minutes)
 
 ### Your First Pipeline
@@ -905,6 +926,7 @@ jobs:
 **Challenge**: Deploy to multiple app stores with different requirements
 
 **Solution**:
+{% raw %}
 ```yaml
 name: Mobile App Release
 
@@ -952,6 +974,7 @@ jobs:
           curl -X POST $SLACK_WEBHOOK \
             -d '{"text":"Version ${{ github.ref }} released to app stores!"}'
 ```
+{% endraw %}
 
 ## Advanced Topics
 
@@ -985,6 +1008,7 @@ companyPipeline {
 
 ### Multi-Cloud Deployments
 
+{% raw %}
 ```yaml
 multi-cloud-deploy:
   strategy:
@@ -1005,6 +1029,7 @@ multi-cloud-deploy:
             ;;
         esac
 ```
+{% endraw %}
 
 ## Getting Started Checklist
 

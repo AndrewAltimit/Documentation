@@ -251,6 +251,15 @@ Sometimes denormalization improves performance. Amazon might store customer name
 
 ## Modeling Relationships: Connecting Your Data
 
+The three cardinalities below are the building blocks of every schema. A many-to-many relationship is always resolved with a **junction table** that holds a foreign key to each side:
+
+```mermaid
+erDiagram
+    USER ||--|| PROFILE : "has (1:1)"
+    AUTHOR ||--o{ BOOK : "writes (1:N)"
+    STUDENT }o--o{ COURSE : "enrolls (M:N via junction)"
+```
+
 ### One-to-One
 Each record in Table A relates to one record in Table B.
 

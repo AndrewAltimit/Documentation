@@ -1833,6 +1833,35 @@ def riemann(Gamma, coords):
   <p>The theory of relativity fundamentally changed our understanding of the universe, revealing that space and time are interwoven and dynamic, shaped by matter and energy. Its predictions continue to be confirmed with ever-increasing precision, while also pointing toward new physics yet to be discovered.</p>
 </div>
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>The speed of light is absolute</h4>
+    <p>$c$ is the same in every inertial frame; simultaneity, length, and time become observer-dependent.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Space and time are one</h4>
+    <p>Special relativity unifies them into spacetime, with the invariant interval $ds^2$ replacing separate distances and durations.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Mass is energy</h4>
+    <p>$E = mc^2$ (more generally $E^2 = (pc)^2 + (mc^2)^2$) — rest mass is a reservoir of energy.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Gravity is geometry</h4>
+    <p>General relativity recasts gravity as the curvature of spacetime: $G_{\mu\nu} = 8\pi G\, T_{\mu\nu}$.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Free fall follows geodesics</h4>
+    <p>Objects in free fall move along the straightest possible paths through curved spacetime.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Confirmed across scales</h4>
+    <p>From GPS clock corrections to gravitational waves and black-hole images, relativity passes every test.</p>
+  </div>
+</div>
+
 ## See Also
 
 ### Core Physics Topics:

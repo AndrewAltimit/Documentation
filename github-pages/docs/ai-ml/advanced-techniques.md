@@ -51,7 +51,11 @@ def latent_interpolation(latent_a, latent_b, steps=10):
 
 ### Spherical Linear Interpolation (SLERP)
 
-Better for maintaining consistency during interpolation:
+Linear interpolation cuts a straight chord through latent space, which can pass through low-quality regions. SLERP instead follows the arc of the hypersphere, preserving the magnitude that diffusion models expect:
+
+$$\text{slerp}(\mathbf{a}, \mathbf{b}; \alpha) = \frac{\sin\big((1-\alpha)\theta\big)}{\sin\theta}\,\mathbf{a} + \frac{\sin(\alpha\theta)}{\sin\theta}\,\mathbf{b}, \qquad \theta = \arccos\!\left(\frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert}\right)$$
+
+This keeps interpolated latents on the sphere, producing smoother, higher-quality transitions:
 
 ```python
 def slerp(latent_a, latent_b, alpha):
@@ -73,15 +77,18 @@ def slerp(latent_a, latent_b, alpha):
 
 ### Latent Space Navigation
 
-```python
-# ComfyUI workflow for latent exploration
-[Latent A] → [Latent Interpolate] → [KSampler] → [Preview]
-                ↑
-          [Latent B]
-          
-# Advanced: Multi-dimensional navigation
-[Center Latent] → [Add Noise Direction 1] → [Blend]
-                → [Add Noise Direction 2] ↗
+A ComfyUI exploration workflow blends two (or more) latents before sampling:
+
+```mermaid
+flowchart LR
+    A["Latent A"] --> Interp["Latent Interpolate"]
+    B["Latent B"] --> Interp
+    Interp --> KS["KSampler"] --> Prev["Preview"]
+    subgraph Multi["Multi-dimensional navigation"]
+        C["Center latent"] --> Blend["Blend"]
+        D1["+ Noise direction 1"] --> Blend
+        D2["+ Noise direction 2"] --> Blend
+    end
 ```
 
 ### Latent Composition
@@ -528,7 +535,11 @@ def add_training(generator, discriminator, real_images):
 
 ### Flow Matching
 
-Alternative to diffusion used in FLUX/SD3:
+The alternative to traditional diffusion used in FLUX and SD3. Instead of predicting noise, the model learns a **velocity field** that transports a sample along a straight path from noise $\mathbf{x}_0$ to data $\mathbf{x}_1$. The interpolant and its target velocity are simply:
+
+$$\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \qquad \mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$$
+
+The model is trained to match that velocity, $\mathcal{L} = \mathbb{E}\big[\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0)\rVert^2\big]$. Because the target paths are nearly straight, sampling needs far fewer ODE steps than classic diffusion:
 
 ```python
 def flow_matching_loss(model, x0, x1, t):
@@ -768,6 +779,16 @@ Key trends shaping the future:
 - **Neural Compression**: Extreme model compression without quality loss
 
 The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations. As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Interpolate on the sphere, not the chord.** SLERP preserves latent magnitude for smoother transitions than linear blending.
+- **Regional prompting and attention masking** let different parts of one image follow different prompts — far more reliable than cramming everything into one prompt.
+- **Distillation buys speed.** LCM and ADD compress 30+ steps down to 1-8, enabling near-real-time generation with a modest quality trade-off.
+- **Flow matching (FLUX/SD3) learns a velocity field** along near-straight noise→data paths ($\mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$), needing fewer sampling steps than classic diffusion.
+- **Compose, don't replace.** The strongest results come from layering techniques (multi-stage upscaling, SAG, regional control) — and from changing one variable at a time while you tune.
+</div>
 
 ---
 

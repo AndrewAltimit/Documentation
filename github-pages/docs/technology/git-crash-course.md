@@ -1,400 +1,327 @@
 ---
 layout: docs
-title: Git Fundamentals
+title: Git Crash Course
 section: technology
+toc: true
+toc_sticky: true
 hide_title: true
 ---
 
 <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Essential version control concepts for modern software development</p>
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Crash Course</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From zero to your first pull request — the fastest on-ramp to version control</p>
 </div>
 
-## Overview
+<div class="intro-card">
+  <p class="lead-text">This is the <strong>learning path</strong> for people new to Git. It follows a single story — create a repo, make commits, branch, push, and open a pull request — in the order you actually do them, with just enough explanation to keep moving. When you want depth, syntax, or strategy, follow the cross-links to the companion pages.</p>
+</div>
 
-Git is a distributed version control system designed for non-linear development workflows and efficient handling of large projects. Its architecture enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications. Git serves as the foundation for platforms including GitHub, GitLab, and Bitbucket.
+<div class="tip-card">
+  <h4>How the four Git pages fit together</h4>
+  <ul>
+    <li><strong>This page (Crash Course)</strong> — a guided first walkthrough; read it top to bottom.</li>
+    <li><a href="git.html">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — the alphabetical lookup cheat sheet for every command.</li>
+    <li><a href="branching.html">Branching Strategies</a> — team workflows: Git Flow, GitHub Flow, trunk-based.</li>
+  </ul>
+</div>
 
-## Core Concepts
+## Why version control?
 
-### Repository
-A Git repository is a database containing all project files and the complete revision history. Repositories can be local (on a developer's machine) or remote (on a server).
+Before Git, people emailed `report_final_v2_REALLY_final.docx` around. Version control replaces that chaos with a single source of truth that remembers **every** change, **who** made it, and **why** — and lets many people work in parallel without overwriting each other.
 
-### Working Directory
-The working directory contains the actual files that developers modify. It represents the current state of the project on the local filesystem.
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-history"></i>
+    <h4>Full History</h4>
+    <p>Every saved version is recoverable forever</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-users"></i>
+    <h4>Collaboration</h4>
+    <p>Many people edit the same project safely</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-flask"></i>
+    <h4>Safe Experiments</h4>
+    <p>Try ideas in a branch; throw it away if it fails</p>
+  </div>
+</div>
 
-### Staging Area (Index)
-The staging area is an intermediate layer between the working directory and repository. Files must be explicitly added to the staging area before being committed to the repository.
+## The mental model: three areas
 
-### Commit
-A commit represents a snapshot of the project at a specific point in time. Each commit contains:
-- A unique SHA-1 hash identifier
-- Author information
-- Timestamp
-- Commit message
-- Pointer to parent commit(s)
-- Reference to a tree object representing the project state
+Almost every Git command moves your work between three places. Internalize this picture and the commands stop feeling random.
 
-## Basic Commands
-
-### Repository Initialization
-```bash
-git init                    # Initialize a new repository
-git clone <repository-url>  # Clone an existing repository
+```mermaid
+flowchart LR
+    WD["Working Directory<br/>(files you edit)"] -->|git add| STAGE["Staging Area<br/>(what goes in next commit)"]
+    STAGE -->|git commit| REPO["Local Repository<br/>(.git history)"]
+    REPO -->|git push| REMOTE["Remote<br/>(GitHub / GitLab)"]
+    REMOTE -->|git pull / fetch| REPO
+    REPO -->|git checkout| WD
 ```
 
-### File Operations
-```bash
-git status                  # Display working directory status
-git add <file>             # Stage specific file
-git add .                  # Stage all changes
-git commit -m "<message>"  # Create a commit with staged changes
-```
+| Area | What it holds | You change it with |
+|------|---------------|--------------------|
+| Working Directory | The actual files on disk you are editing | Your editor |
+| Staging Area (Index) | The exact snapshot you are about to commit | `git add` |
+| Local Repository | The committed history on your machine | `git commit` |
+| Remote | The shared copy others pull from | `git push` |
 
-### History and Inspection
-```bash
-git log                    # View commit history
-git log --oneline         # Condensed commit history
-git diff                  # Show unstaged changes
-git diff --staged         # Show staged changes
-```
+## Step 1 — One-time setup
 
-### Remote Operations
-```bash
-git remote add origin <url>  # Add remote repository
-git push origin <branch>     # Push commits to remote
-git pull origin <branch>     # Fetch and merge remote changes
-git fetch origin            # Fetch remote changes without merging
-```
+Tell Git who you are (this stamps every commit) and pick sensible defaults.
 
-## Workflow Patterns
-
-### Standard Git Operations Sequence
-The Git version control workflow consists of four primary operations:
-- **Modification**: Changes to working directory files
-- **Staging**: Addition of changes to the index via `git add`
-- **Committing**: Creation of immutable snapshots via `git commit`
-- **Synchronization**: Remote repository updates via `git push`
-
-### Feature Branch Operations
-- **Branch Creation**: `git checkout -b feature-name`
-- **Change Management**: Modifications followed by staging and committing
-- **Remote Synchronization**: `git push origin feature-name`
-- **Integration**: Pull request submission and merge after review
-
-### Git Flow
-A branching model designed around project releases:
-- **main/master**: Production-ready code
-- **develop**: Integration branch for features
-- **feature/**: Individual feature branches
-- **release/**: Preparation for production release
-- **hotfix/**: Emergency fixes for production
-
-### GitHub Flow
-A workflow optimized for continuous deployment environments:
-1. Create branch from main
-2. Add commits
-3. Open pull request
-4. Discuss and review
-5. Deploy for testing
-6. Merge to main
-
-## File States
-
-Git tracks files in three states:
-
-**Modified**: File has been changed but not staged
-**Staged**: File marked for inclusion in next commit  
-**Committed**: File safely stored in local repository
-
-## Configuration
-
-### User Configuration
 ```bash
 git config --global user.name "Your Name"
-git config --global user.email "email@example.com"
+git config --global user.email "you@example.com"
+git config --global init.defaultBranch main   # name the first branch "main"
+git config --global pull.rebase false          # default merge behavior on pull
 ```
 
-### Editor Configuration
+Check it worked:
+
 ```bash
-git config --global core.editor "vim"
+git config --list
 ```
 
-### View Configuration
+## Step 2 — Start a repository
+
+You either **create** a new one or **clone** an existing project.
+
 ```bash
-git config --list          # Show all settings
-git config user.name       # Show specific setting
+# Option A: brand-new project in the current folder
+git init
+
+# Option B: copy an existing project from a remote
+git clone https://github.com/owner/repo.git
 ```
 
-## Common Operations
+`git init` creates a hidden `.git/` directory — that folder *is* your repository (the history database). Delete it and you delete the version control, not the files.
 
-### Undoing Changes
+## Step 3 — The core loop: edit → add → commit
+
+This is the cycle you will repeat thousands of times.
+
 ```bash
-git checkout -- <file>     # Discard working directory changes
-git reset HEAD <file>      # Unstage file
-git reset --soft HEAD~1    # Undo last commit, keep changes
-git reset --hard HEAD~1    # Undo last commit, discard changes
+# 1. See what changed
+git status
+
+# 2. Stage the changes you want to save together
+git add file1.py file2.py
+git add .              # stage everything that changed
+
+# 3. Save a snapshot with a message explaining WHY
+git commit -m "Add login form validation"
 ```
 
-### Branching
+<div class="tip-card">
+  <h4>What makes a good commit?</h4>
+  <p>One logical change per commit, with a message written in the imperative mood ("Add", "Fix", "Remove" — not "Added"/"Fixing"). Keep the first line under ~50 characters. Future-you reading <code>git log</code> will thank present-you.</p>
+</div>
+
+Inspect your history any time:
+
 ```bash
-git branch                 # List branches
-git branch <name>         # Create branch
-git checkout <branch>     # Switch branches
-git checkout -b <branch>  # Create and switch branch
-git merge <branch>        # Merge branch into current
-git branch -d <branch>    # Delete branch
+git log --oneline --graph    # compact, visual history
+git diff                     # changes you have NOT staged yet
+git diff --staged            # changes that ARE staged for next commit
 ```
 
-### Stashing
+## Step 4 — Branching: work without breaking things
+
+A branch is a cheap, movable pointer to a commit. Create one per feature or fix so `main` always stays stable.
+
 ```bash
-git stash                 # Save uncommitted changes
-git stash pop            # Apply and remove latest stash
-git stash list           # List all stashes
-git stash apply          # Apply stash without removing
+git switch -c feature/login   # create and switch to a new branch (Git 2.23+)
+# ...edit, add, commit as usual...
+git switch main               # jump back to main
+git switch feature/login      # and back to your work
 ```
 
-## Standards and Conventions
-
-### Commit Message Specification
-- **Mood**: Imperative ("Add feature" not "Added feature")
-- **Subject Line**: Maximum 50 characters
-- **Format**: Blank line between subject and body
-- **Body**: Maximum 72 characters per line, documenting rationale
-
-#### Conventional Commits (2023-2024 Standard)
-Many projects now follow the Conventional Commits specification:
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
+```mermaid
+gitGraph
+    commit id: "init"
+    commit id: "homepage"
+    branch feature/login
+    checkout feature/login
+    commit id: "add form"
+    commit id: "validate"
+    checkout main
+    commit id: "fix typo"
+    merge feature/login
+    commit id: "release"
 ```
 
-Types:
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation changes
-- **style**: Code style changes (formatting, semicolons, etc.)
-- **refactor**: Code refactoring
-- **test**: Test additions or modifications
-- **chore**: Maintenance tasks
+> `git switch` and `git restore` (Git 2.23+) are the modern, clearer replacements for the overloaded `git checkout`. You will still see `checkout` everywhere — it does both jobs.
 
-Example:
-```
-feat(auth): add OAuth2 integration
+## Step 5 — Share your work: push and pull
 
-Implemented Google and GitHub OAuth2 providers with
-proper token refresh and error handling.
+`origin` is the conventional name for your main remote. The first push sets up tracking with `-u`.
 
-Closes #123
-```
-
-### Commit Granularity
-- **Atomic Commits**: Single logical change per commit
-- **Build Integrity**: All commits must maintain build stability
-- **Documentation**: Each commit requires descriptive message
-
-### Branch Naming Convention
-- **Format**: `<type>/<description>`
-- **Standard Prefixes**: feature/, bugfix/, hotfix/, release/
-- **Separator**: Hyphen for word separation
-
-## .gitignore
-
-The `.gitignore` file specifies which files Git should ignore:
-
-```gitignore
-# Compiled files
-*.class
-*.o
-*.pyc
-
-# Directories
-build/
-node_modules/
-.venv/
-
-# IDE files
-.idea/
-.vscode/
-*.swp
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Environment files
-.env
-.env.local
-```
-
-## Advanced Git Features
-
-### Git Worktree
-Manage multiple working trees attached to the same repository:
 ```bash
-# Create a new worktree for a hotfix
-git worktree add ../hotfix-branch hotfix/critical-bug
+# Push your branch to the remote for the first time
+git push -u origin feature/login
 
-# List all worktrees
-git worktree list
+# Later pushes on the same branch are just:
+git push
 
-# Remove worktree
-git worktree remove ../hotfix-branch
+# Bring down changes others have pushed
+git pull
 ```
 
-### Partial Clone and Sparse Checkout
-Work with large repositories more efficiently:
+```mermaid
+sequenceDiagram
+    participant You as Your machine
+    participant GH as GitHub (remote)
+    participant Team as Teammate
+    You->>You: edit + git commit
+    You->>GH: git push
+    GH->>Team: git pull
+    Team->>GH: their commits (git push)
+    GH->>You: git pull (get teammate's work)
+```
+
+## Step 6 — Open a pull request
+
+A pull request (PR) — called a merge request on GitLab — proposes merging your branch into `main`. It is where review, automated tests, and discussion happen before code lands.
+
+1. Push your branch (Step 5).
+2. On GitHub/GitLab, open a PR from your branch into `main`.
+3. Teammates review; CI runs tests automatically.
+4. After approval, **merge** — your work is now in `main`.
+5. Delete the branch; pull `main` locally to stay current.
+
 ```bash
-# Clone with limited history
-git clone --filter=blob:none --sparse <url>
-
-# Enable sparse checkout
-git sparse-checkout init --cone
-
-# Add directories to checkout
-git sparse-checkout set src/frontend docs
+# Using the GitHub CLI from the terminal
+gh pr create --fill
+gh pr status
 ```
 
-### Git Maintenance (Git 2.31+)
-Automatic repository optimization:
+See [Branching Strategies](branching.html) for how teams structure this at scale.
+
+## The 12 commands that cover 90% of daily work
+
+<div class="command-grid">
+  <div class="command-card"><code>git status</code><p>What changed, what's staged</p></div>
+  <div class="command-card"><code>git add &lt;file&gt;</code><p>Stage changes</p></div>
+  <div class="command-card"><code>git commit -m "msg"</code><p>Save a snapshot</p></div>
+  <div class="command-card"><code>git log --oneline</code><p>View history</p></div>
+  <div class="command-card"><code>git diff</code><p>See unstaged changes</p></div>
+  <div class="command-card"><code>git switch -c &lt;br&gt;</code><p>New branch</p></div>
+  <div class="command-card"><code>git switch &lt;br&gt;</code><p>Change branch</p></div>
+  <div class="command-card"><code>git merge &lt;br&gt;</code><p>Combine branches</p></div>
+  <div class="command-card"><code>git pull</code><p>Get remote changes</p></div>
+  <div class="command-card"><code>git push</code><p>Send your commits</p></div>
+  <div class="command-card"><code>git stash</code><p>Shelve work temporarily</p></div>
+  <div class="command-card"><code>git restore &lt;file&gt;</code><p>Discard local edits</p></div>
+</div>
+
+## "Oh no" — fixing common mistakes
+
+Everyone breaks something early on. These get you out of the most common holes safely.
+
+<div class="challenge-cards">
+  <div class="challenge-card">
+    <h4>I committed too early / wrong message</h4>
+    <pre><code>git commit --amend -m "Better message"</code></pre>
+    <p>Rewrites the last commit. Don't amend commits you have already pushed and shared.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I want to undo the last commit but keep the code</h4>
+    <pre><code>git reset --soft HEAD~1</code></pre>
+    <p>Removes the commit, leaves the changes staged so you can recommit.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I need to drop everything since the last commit</h4>
+    <pre><code>git restore .</code></pre>
+    <p>Discards uncommitted edits. This is destructive — make sure you mean it.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I'm mid-task and need to switch branches</h4>
+    <pre><code>git stash
+git switch other-branch
+# later:
+git stash pop</code></pre>
+    <p>Shelves your work-in-progress and brings it back later.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I think I lost a commit</h4>
+    <pre><code>git reflog</code></pre>
+    <p>Shows where HEAD has been; almost nothing is ever truly gone. Check out the hash to recover it.</p>
+  </div>
+</div>
+
+## Handling merge conflicts (the calm version)
+
+A conflict just means two branches changed the same lines. Git pauses and asks you to choose.
+
 ```bash
-# Enable automatic maintenance
-git maintenance start
-
-# Run maintenance tasks manually
-git maintenance run --auto
+git merge feature/login
+# CONFLICT in app.py
 ```
 
-## Security Best Practices
+Open the file; Git marks the clash:
 
-### Signing Commits
-Ensure commit authenticity with GPG or SSH signatures:
+```text
+<<<<<<< HEAD
+greeting = "Hello"
+=======
+greeting = "Hi there"
+>>>>>>> feature/login
+```
+
+Edit the file to the version you want, delete the `<<<<<<<`/`=======`/`>>>>>>>` markers, then:
+
 ```bash
-# Configure GPG signing
-git config --global user.signingkey YOUR_GPG_KEY_ID
-git config --global commit.gpgsign true
-
-# Sign a specific commit
-git commit -S -m "Signed commit"
-
-# Verify signatures
-git log --show-signature
+git add app.py
+git commit          # completes the merge
 ```
 
-### SSH Key Authentication (Recommended)
-GitHub deprecated password authentication. Use SSH keys:
-```bash
-# Generate ED25519 key (recommended)
-ssh-keygen -t ed25519 -C "your_email@example.com"
+If it goes sideways, `git merge --abort` returns you to safety.
 
-# Add to SSH agent
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-```
+## Where to go next
 
-## Git with AI Tools (2023-2024)
+<div class="command-grid">
+  <div class="step-card">
+    <h4>Understand the machinery</h4>
+    <p>Read <a href="git.html">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</p>
+  </div>
+  <div class="step-card">
+    <h4>Look up a command</h4>
+    <p>Keep <a href="git-reference.html">Git Command Reference</a> open as your cheat sheet for rebase, cherry-pick, bisect, and more.</p>
+  </div>
+  <div class="step-card">
+    <h4>Work on a team</h4>
+    <p>Pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd.html">CI/CD</a>.</p>
+  </div>
+</div>
 
-### GitHub Copilot Integration
-- AI-powered code suggestions in your editor
-- Context-aware commit message generation
-- Automated PR descriptions
+## Key Takeaways
 
-### GitLab AI Features
-- Code suggestions
-- Vulnerability explanation
-- Code review summaries
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Three areas:</strong> working directory → staging (<code>add</code>) → repository (<code>commit</code>) → remote (<code>push</code>).</li>
+    <li><strong>The core loop is edit → <code>add</code> → <code>commit</code>,</strong> repeated endlessly with clear messages.</li>
+    <li><strong>Branch for every change</strong> so <code>main</code> stays stable; merge via pull requests.</li>
+    <li><strong>Almost nothing is unrecoverable</strong> — <code>git reflog</code> and <code>git reset</code> are your safety net.</li>
+    <li><strong>A dozen commands</strong> cover the vast majority of daily work; learn the rest as you need them.</li>
+  </ul>
+</div>
 
-## Performance Tips
-
-### Large File Storage (LFS)
-Handle large binary files efficiently:
-```bash
-# Track large files
-git lfs track "*.psd"
-git lfs track "*.zip"
-
-# View tracked patterns
-git lfs track
-
-# Clone with LFS files
-git lfs clone <repository>
-```
-
-### Optimizing Repository Performance
-```bash
-# Optimize repository
-git gc --aggressive --prune=now
-
-# Repack objects
-git repack -a -d --depth=250 --window=250
-
-# Clean unnecessary files
-git clean -fd
-```
-
-## Integration with Modern Development
-
-### CI/CD Integration
-Git hooks for automated workflows:
-```bash
-# Pre-push hook example
-#!/bin/sh
-# .git/hooks/pre-push
-npm test && npm run lint
-```
-
-### Monorepo Management
-Tools for managing large codebases:
-- **Nx**: Powerful monorepo build system
-- **Lerna**: JavaScript monorepo tool
-- **Bazel**: Google's build tool
-- **Rush**: Microsoft's monorepo manager
-
-## Error Recovery Procedures
-
-### Commit Recovery
-```bash
-# Find lost commits
-git reflog
-
-# Restore lost commit
-git checkout -b recovery-branch <commit-hash>
-```
-
-### Fixing Commit Mistakes
-```bash
-# Change last commit message
-git commit --amend -m "New message"
-
-# Add forgotten files to last commit
-git add forgotten-file.txt
-git commit --amend --no-edit
-```
-
-### Resolving Merge Conflicts
-```bash
-# Use mergetool
-git mergetool
-
-# Accept theirs/ours for specific files
-git checkout --theirs path/to/file
-git checkout --ours path/to/file
-```
-
-## Related Git Documentation
-
-- [Git Version Control](git.html) - Deep dive into Git internals and architecture
-- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
-- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
-- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git.html">Git Version Control</a> — architecture and internals deep dive</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — complete command cheat sheet</li>
+    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, trunk-based development</li>
+    <li><a href="ci-cd.html">CI/CD</a> — automate testing and deployment from your commits</li>
+  </ul>
+</div>
 
 ## References
 
+- [Pro Git Book](https://git-scm.com/book) — free, comprehensive, beginner-friendly
+- [GitHub Skills](https://skills.github.com/) — interactive hands-on exercises
 - [Official Git Documentation](https://git-scm.com/doc)
-- [Pro Git Book](https://git-scm.com/book) - Free comprehensive guide
-- [Git Reference Manual](https://git-scm.com/docs)
-- [GitHub Skills](https://skills.github.com/) - Git practice environment
-- [Conventional Commits](https://www.conventionalcommits.org/) - Commit message standard
-- [Git Flow](https://nvie.com/posts/a-successful-git-branching-model/) - Original Git Flow model
+- [Conventional Commits](https://www.conventionalcommits.org/) — a popular commit message convention

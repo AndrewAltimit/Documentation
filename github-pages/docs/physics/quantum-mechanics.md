@@ -1558,6 +1558,35 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 
 ---
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>The state is a wave function</h4>
+    <p>All knowable information lives in $\psi$; $|\psi|^2$ gives the probability density of measurement outcomes.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Observables are operators</h4>
+    <p>Measurable quantities correspond to Hermitian operators; their eigenvalues are the possible results.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Uncertainty is fundamental</h4>
+    <p>$\Delta x\,\Delta p \geq \hbar/2$ is not a measurement limitation but a property of conjugate observables.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Evolution is unitary, measurement is not</h4>
+    <p>The Schrödinger equation evolves states deterministically; measurement projects them probabilistically.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Entanglement has no classical analog</h4>
+    <p>Correlations between subsystems can exceed anything classical, powering quantum computing and teleportation.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Classical physics is the $\hbar \to 0$ limit</h4>
+    <p>Decoherence and the correspondence principle recover familiar classical behavior at macroscopic scales.</p>
+  </div>
+</div>
+
 ## See Also
 - [Classical Mechanics](classical-mechanics.html) - The classical limit of quantum mechanics
 - [Statistical Mechanics](statistical-mechanics.html) - Quantum statistics and many-body systems

@@ -404,3 +404,34 @@ func TestWebServerModule(t *testing.T) {
 - Run unit tests on every PR
 - Run integration tests nightly or before releases (they are slow and cost money)
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Structure for Scale</h4>
+    <p>Separate state per environment and per blast-radius boundary so a change to one stack cannot accidentally affect another.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Compliance as Code</h4>
+    <p>Encode guardrails (encryption, tagging, allowed regions) as policy so violations are caught at plan time, not in an audit.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Test Before You Trust</h4>
+    <p>Validate and lint on every PR; reserve slow, costly integration tests for nightly or pre-release runs.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Plan for Disaster Recovery</h4>
+    <p>Version-controlled config plus remote state lets you rebuild a region from scratch — practice it before you need it.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Core Concepts](core-concepts.html) - The HCL and workflow fundamentals
+- [State &amp; Modules](state-modules.html) - Remote state and reusable modules
+- [Advanced Topics](advanced.html) - Meta-programming and Policy as Code
+- [AWS Cloud Services](../aws/) - Provisioning targets and reference architectures
+- [Kubernetes](../kubernetes/) - Cluster provisioning patterns
+

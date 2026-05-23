@@ -13,8 +13,41 @@ hide_title: true
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">This quick reference covers the most commonly used Docker commands for daily development work. For comprehensive explanations and deeper concepts, see our <a href="docker/">full Docker documentation</a>.</p>
+  <p class="lead-text">This is a <strong>command cheat sheet</strong> — the Docker commands you reach for during daily development, grouped by task. It assumes you already know what containers are. For the concepts behind these commands (images, layers, namespaces, networking, security), start with the <a href="docker/">Docker section</a>.</p>
 </div>
+
+<div class="tip-card">
+  <h4>Cheat sheet vs. concepts</h4>
+  <ul>
+    <li><strong>This page (Essentials)</strong> — fast command lookup for the terminal.</li>
+    <li><a href="docker/fundamentals.html">Docker Fundamentals</a> — how images, layers, and the runtime actually work.</li>
+    <li><a href="docker/dockerfiles.html">Dockerfiles</a> and <a href="docker/advanced.html">Advanced Docker</a> — building and optimizing your own images.</li>
+  </ul>
+</div>
+
+### Jump to a task
+
+<div class="command-grid">
+  <div class="command-card"><a href="#container-lifecycle"><b>Container Lifecycle</b></a><p>run, stop, exec, logs</p></div>
+  <div class="command-card"><a href="#image-management"><b>Images</b></a><p>build, pull, tag, push</p></div>
+  <div class="command-card"><a href="#docker-compose"><b>Compose</b></a><p>up, down, multi-service</p></div>
+  <div class="command-card"><a href="#networking"><b>Networking</b></a><p>networks &amp; volumes</p></div>
+  <div class="command-card"><a href="#debugging--troubleshooting"><b>Debugging</b></a><p>stats, inspect, top</p></div>
+  <div class="command-card"><a href="#system-maintenance"><b>Cleanup</b></a><p>prune &amp; disk usage</p></div>
+</div>
+
+### The mental model
+
+```mermaid
+flowchart LR
+    DF["Dockerfile"] -->|docker build| IMG["Image<br/>(read-only template)"]
+    IMG -->|docker run| CON["Container<br/>(running instance)"]
+    REG[("Registry<br/>Docker Hub")] -->|docker pull| IMG
+    IMG -->|docker push| REG
+    CON -->|docker commit| IMG
+```
+
+A **Dockerfile** is a recipe; `docker build` turns it into an **image** (an immutable template); `docker run` starts a **container** (a live instance) from that image. Registries store and share images.
 
 ## Container Lifecycle
 
@@ -338,11 +371,26 @@ docker container prune --filter "until=24h"
 
 ---
 
-## Related Documentation
+## Key Takeaways
 
-- **[Docker Fundamentals](docker/fundamentals.html)** - Core concepts and architecture explained
-- **[Docker Storage & Security](docker/storage-security.html)** - Volumes, networking, and security best practices
-- **[Dockerfiles Guide](docker/dockerfiles.html)** - Building custom images
-- **[Advanced Docker](docker/advanced.html)** - Multi-stage builds, optimization, and orchestration
-- **[Kubernetes](kubernetes/)** - Container orchestration at scale
-- **[CI/CD](ci-cd.html)** - Automating Docker workflows in pipelines
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Build → run → ship:</strong> <code>docker build</code> makes images, <code>docker run</code> starts containers, <code>push</code>/<code>pull</code> move images through a registry.</li>
+    <li><strong>Use <code>-d</code> for background, <code>-it</code> for an interactive shell, <code>-p</code> to publish ports, <code>-v</code> to mount volumes.</strong></li>
+    <li><strong><code>docker-compose up -d</code></strong> manages multi-container apps from a single YAML file.</li>
+    <li><strong>Reclaim disk with <code>docker system prune</code></strong> — add <code>-a --volumes</code> for an aggressive cleanup.</li>
+    <li><strong>Debug live containers</strong> with <code>logs -f</code>, <code>exec -it ... bash</code>, <code>stats</code>, and <code>inspect</code>.</li>
+  </ul>
+</div>
+
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="docker/fundamentals.html">Docker Fundamentals</a> — core concepts and architecture explained</li>
+    <li><a href="docker/storage-security.html">Docker Storage &amp; Security</a> — volumes, networking, and security best practices</li>
+    <li><a href="docker/dockerfiles.html">Dockerfiles Guide</a> — building custom images</li>
+    <li><a href="docker/advanced.html">Advanced Docker</a> — multi-stage builds, optimization, and orchestration</li>
+    <li><a href="kubernetes/">Kubernetes</a> — container orchestration at scale</li>
+    <li><a href="ci-cd.html">CI/CD</a> — automating Docker workflows in pipelines</li>
+  </ul>
+</div>

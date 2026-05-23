@@ -24,13 +24,17 @@ As of 2024, ControlNet has evolved significantly with new control types, better 
 
 ### How ControlNet Works
 
-```
-Input Image → Preprocessor → Control Map
-                                ↓
-Text Prompt → Base Model + ControlNet → Controlled Output
+```mermaid
+flowchart LR
+    Ref["Input/reference image"] --> Pre["Preprocessor<br/>(pose, edge, depth…)"]
+    Pre --> Map["Control map"]
+    Prompt["Text prompt"] --> Base["Base diffusion model"]
+    Map --> CN["ControlNet<br/>(trainable encoder copy)"]
+    Base --> CN
+    CN --> Out["Controlled output"]
 ```
 
-ControlNet creates a trainable copy of the diffusion model's encoder blocks, which learns to respond to specific spatial conditions while preserving the original model's generation capabilities.
+ControlNet creates a trainable copy of the diffusion model's encoder blocks, which learns to respond to specific spatial conditions while preserving the original model's generation capabilities. The preprocessor extracts a structural "control map" (a stick-figure pose, an edge outline, a depth gradient) from your reference image; ControlNet then injects that structure into every denoising step.
 
 ## ControlNet Types
 
@@ -635,6 +639,16 @@ class InteractiveControl:
 ControlNet transforms diffusion models from probabilistic generators into precision tools. By understanding the various control types and their optimal applications, you can achieve unprecedented control over AI image generation while maintaining the creative capabilities of the base models.
 
 The key to mastery is experimentation: try different preprocessors, adjust strengths, and combine controls creatively. As the technology evolves, ControlNet continues to bridge the gap between artistic vision and AI capabilities.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **ControlNet adds spatial control** to diffusion by injecting a structural "control map" (pose, edge, depth, segmentation) into every denoising step.
+- **The preprocessor matters as much as the model** — choose it to match your input (OpenPose for figures, Canny for edges, Depth for 3D structure).
+- **Strength is a dial, not a switch.** Rarely use 100%; tune it (and consider strength scheduling) so structure guides without overriding the prompt.
+- **Combine deliberately:** ControlNet for structure + IP-Adapter for style + a LoRA for subject — but stacking 3+ ControlNets rarely helps.
+- **Match versions and resolution.** Use ControlNets built for your base family (SD1.5/SDXL/FLUX) and align control resolution with generation resolution.
+</div>
 
 ---
 

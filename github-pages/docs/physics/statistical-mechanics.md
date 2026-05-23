@@ -1429,6 +1429,35 @@ class VariationalWavefunction(nn.Module):
 3. **Abanin et al.** - *Colloquium: Many-body localization, thermalization, and entanglement* (2019)
 4. **Carrasquilla** - *Machine learning for quantum matter* (2020)
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Entropy counts microstates</h4>
+    <p>Boltzmann's $S = k_B \ln \Omega$ links microscopic configurations to macroscopic thermodynamics.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>The partition function is everything</h4>
+    <p>From $Z$ you derive all thermodynamics: free energy, entropy, energy, and response functions.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Ensembles agree at large $N$</h4>
+    <p>Microcanonical, canonical, and grand canonical descriptions become equivalent in the thermodynamic limit.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Quantum statistics matter</h4>
+    <p>Bosons (Bose–Einstein) and fermions (Fermi–Dirac) behave radically differently at low temperature.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Phase transitions are collective</h4>
+    <p>Singularities in $Z$ emerge only in the thermodynamic limit; universality groups them by symmetry and dimension.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Fluctuations encode response</h4>
+    <p>The fluctuation–dissipation theorem connects equilibrium fluctuations to how a system responds to perturbation.</p>
+  </div>
+</div>
+
 ## See Also
 
 <div class="see-also-grid">

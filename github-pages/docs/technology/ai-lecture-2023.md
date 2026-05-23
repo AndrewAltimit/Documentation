@@ -30,8 +30,6 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 **Neural Networks: A Foundation for AI**
 - [Key Components and Architecture](#key-components-and-architecture)
 - [Supervised and Unsupervised Learning](#supervised-and-unsupervised-learning)
-- [Convolutional Neural Networks (CNNs)](#convolutional-neural-networks-cnns)
-- [Recurrent Neural Networks (RNNs)](#recurrent-neural-networks-rnns)
 
 **The Transformer Era: A Turning Point in NLP**
 - [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformers)
@@ -89,13 +87,45 @@ Neural networks are computational models that are designed to mimic the way the 
 </center>
 
 ### Supervised and Unsupervised Learning
-- Classification, regression, clustering, and dimensionality reduction
 
-### Convolutional Neural Networks (CNNs)
-- Applications in image and video processing
+Two broad training regimes determine what kind of signal the network learns from:
 
-### Recurrent Neural Networks (RNNs)
-- Sequential data and natural language processing
+| Paradigm | Training signal | Typical tasks | Example outputs |
+|----------|-----------------|---------------|-----------------|
+| **Supervised** | Labeled (input → known output) pairs | Classification, regression | "spam / not spam", house price |
+| **Unsupervised** | Unlabeled data; structure only | Clustering, dimensionality reduction | customer segments, embeddings |
+| **Self-supervised** | Labels derived from the data itself | Pre-training LLMs (next-token prediction) | GPT, BERT representations |
+| **Reinforcement** | Reward signal from environment | Control, alignment (RLHF) | game agents, tuned chatbots |
+
+Self-supervised learning is the engine behind modern foundation models: by predicting masked or
+next tokens, a model learns rich representations from raw text without human labels.
+
+### Neural Network Architecture Families
+
+Before transformers dominated, several specialized architectures defined the field. Each is still relevant for specific data shapes:
+
+<div class="architecture-cards">
+  <div class="arch-card cnn">
+    <h4><i class="fas fa-image"></i> CNN — Convolutional</h4>
+    <p>Slides learnable filters across grid-like data to detect local patterns (edges → shapes → objects). Translation-invariant and parameter-efficient.</p>
+    <p><strong>Best for:</strong> images, video, spatial data. <strong>Examples:</strong> ResNet, EfficientNet.</p>
+  </div>
+  <div class="arch-card rnn">
+    <h4><i class="fas fa-stream"></i> RNN — Recurrent</h4>
+    <p>Processes sequences one step at a time, carrying a hidden state forward. Struggles with long-range dependencies (vanishing gradients).</p>
+    <p><strong>Best for:</strong> short sequences, time series. <strong>Largely superseded by transformers.</strong></p>
+  </div>
+  <div class="arch-card lstm">
+    <h4><i class="fas fa-memory"></i> LSTM / GRU</h4>
+    <p>Gated recurrent cells that learn what to remember and forget, mitigating the vanishing-gradient problem of plain RNNs.</p>
+    <p><strong>Best for:</strong> longer sequences where transformers are too costly.</p>
+  </div>
+  <div class="arch-card transformer">
+    <h4><i class="fas fa-network-wired"></i> Transformer</h4>
+    <p>Replaces recurrence with self-attention, processing all positions in parallel and modeling arbitrary long-range relationships.</p>
+    <p><strong>Best for:</strong> language, vision, audio — the modern default. <strong>Examples:</strong> GPT, BERT, ViT.</p>
+  </div>
+</div>
 
 ## Transformers
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> Article: <b><i>The Illustrated Transformer</i></b></a></p>
@@ -146,6 +176,23 @@ Neural networks are computational models that are designed to mimic the way the 
 
 - **Softmax:** Generate a probability distribution over the target vocabulary. It converts the logits (raw output values) from the final linear layer into probabilities, ensuring that they sum to 1. In various NLP tasks, such as machine translation or text summarization, the Transformer uses the softmax output probabilities to select the most likely word or token at each position in the generated sequence.
 
+The encoder–decoder data flow, with self-attention at each layer:
+
+```mermaid
+flowchart TB
+    subgraph Input
+        Tok[Token Embeddings] --> Pos[+ Positional Encoding]
+    end
+    subgraph Encoder["Encoder × N"]
+        Pos --> ESA[Multi-Head Self-Attention] --> EAN[Add & Norm] --> EFF[Feed-Forward] --> EAN2[Add & Norm]
+    end
+    subgraph Decoder["Decoder × N"]
+        DSA[Masked Self-Attention] --> DAN[Add & Norm] --> XA[Cross-Attention] --> DAN2[Add & Norm] --> DFF[Feed-Forward] --> DAN3[Add & Norm]
+    end
+    EAN2 -- keys/values --> XA
+    DAN3 --> Lin[Linear] --> SM[Softmax] --> Out[Output Probabilities]
+```
+
 
 <center>
 <br>
@@ -167,7 +214,11 @@ The self-attention mechanism works as follows:
 
 2. **Linear transformation:** For each input token, three vectors are derived by applying three separate linear transformations (i.e., multiplication by three weight matrices). These three vectors are called the Query (Q), Key (K), and Value (V) vectors. See the video below this list for an analogy to help understand the concept of self-attention.
 
-3. **Scaled Dot-Product Attention:** For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows.
+3. **Scaled Dot-Product Attention:** For each input token, the similarity between its Query vector and the Key vectors of all other tokens in the sequence is computed using dot products. These similarities are then scaled by a factor (usually the square root of the dimension of the Key vector) to prevent large dot products from dominating the softmax function that follows. Formally, the entire mechanism is captured by a single equation:
+
+$$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V$$
+
+where $Q$, $K$, $V$ are the Query, Key, and Value matrices and $d_k$ is the key dimension. The $\sqrt{d_k}$ term keeps the dot products in a numerically stable range so the softmax doesn't saturate.
 
 4. **Softmax normalization:** The scaled similarity scores are passed through a softmax function, which normalizes them into a probability distribution. This results in a set of attention weights that sum to one, representing the relative importance of each token in the input sequence concerning the current token.
 
@@ -481,6 +532,16 @@ As the workplace evolves, so should our skills. To remain relevant in the job ma
 **Advocate for responsible AI development and implementation**
 
 Finally, it's important for us to advocate for the responsible development and implementation of AI. This means ensuring that AI systems are transparent, fair, and accountable. By pushing for ethical AI, we can work towards a future where AI benefits everyone, without exacerbating inequalities or causing undue harm.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Transformers replaced recurrence with attention.** Self-attention — $\text{softmax}(QK^\top/\sqrt{d_k})V$ — lets every token directly attend to every other, modeling long-range dependencies in parallel.
+- **Architecture follows the data.** CNNs for grids/images, RNN/LSTM for short sequences, transformers as the modern default for language, vision, and audio.
+- **Scale + self-supervision = foundation models.** Predicting masked or next tokens on huge corpora yields general-purpose representations (BERT, GPT) that fine-tune to many tasks.
+- **The frontier is multimodal, long-context, agentic.** Models now span text/image/audio, handle 100K–1M tokens, and use tools autonomously.
+- **Capability raises the stakes on safety.** Bias, misinformation, prompt injection, and accountability are engineering concerns, not afterthoughts.
+</div>
 
 ## Related AI Documentation
 

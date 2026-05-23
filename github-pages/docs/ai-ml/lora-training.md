@@ -49,9 +49,13 @@ Pre-made models cannot generate everything. When you need consistent characters,
 
 ### What LoRA Training Actually Does
 
-LoRA adds small adjustment layers to an existing model. Instead of changing the entire model (which would require days of training and 100GB+ of data), LoRA learns focused modifications using your small dataset.
+LoRA (Low-Rank Adaptation) adds small adjustment layers to an existing model. Instead of changing the entire model (which would require days of training and 100GB+ of data), LoRA learns focused modifications using your small dataset.
 
-The result: A 20-200MB file that transforms how the base model handles your specific subject while preserving everything else it knows.
+Mathematically, rather than updating a large weight matrix $W$ directly, LoRA freezes $W$ and learns a low-rank correction $\Delta W = BA$, where $B$ and $A$ are far smaller matrices:
+
+$$W' = W + \Delta W = W + BA, \qquad A \in \mathbb{R}^{r \times k},\; B \in \mathbb{R}^{d \times r}$$
+
+The **rank** $r$ (typically 4-128) is tiny compared to the full matrix dimensions, so you train only a few million parameters instead of billions. The result: a 20-200MB file that transforms how the base model handles your specific subject while preserving everything else it knows.
 
 ## Requirements
 
@@ -187,6 +191,19 @@ A rough formula: **100 steps per training image**
 3. **Checkpoints** - Periodic saves let you test progress
 4. **Completion** - Final LoRA file is saved
 
+The training loop itself is the same denoising objective the base model was trained on, except only the small LoRA matrices are updated:
+
+```mermaid
+flowchart LR
+    Img["Training image + caption"] --> Noise["Add random noise"]
+    Noise --> Pred["Model predicts the noise<br/>(base weights frozen)"]
+    Pred --> Loss["Loss = how wrong was the prediction?"]
+    Loss --> Update["Update only LoRA matrices A, B"]
+    Update --> Img
+    Loss --> Ckpt((Checkpoint?))
+    Ckpt -->|every N steps| Save["Save & sample"]
+```
+
 ### Monitoring Training
 
 Watch these indicators:
@@ -318,6 +335,16 @@ Your LoRA only activates when you include the trigger word in your prompt. If re
 LoRA training gives you the ability to add anything to AI image generation - your own art style, consistent characters, specific objects, or personal likenesses. The key is quality data and patient iteration.
 
 Start with a small dataset and simple settings. If results are not quite right, you now know how to diagnose the problem and adjust. Each training run teaches you something about what works for your specific use case.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **LoRA = a tiny low-rank correction** $\Delta W = BA$ added to frozen base weights — you train millions of parameters, not billions, producing a 20-200MB file.
+- **Data quality beats quantity.** 15-30 well-captioned, varied images often beat hundreds of repetitive ones; a unique trigger word avoids vocabulary conflicts.
+- **Rank trades capacity for size.** Low rank (4-16) for styles, higher (32-128) for complex characters or likenesses.
+- **Watch the loss and the samples, not just the step count.** Stop when samples match your intent and loss stabilizes; save checkpoints so you can pick the best, not the last.
+- **Overfitting is the #1 failure** — too many steps or too little data makes the LoRA reproduce training images instead of generalizing.
+</div>
 
 ---
 

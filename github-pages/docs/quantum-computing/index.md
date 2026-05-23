@@ -8,7 +8,7 @@ hide_title: true
 toc: false  # Index pages typically don't need TOC
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+<div class="hero-section" style="background: linear-gradient(135deg, #0f2027 0%, #2c5364 50%, #00c6ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computing</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Harness quantum mechanics for computation beyond classical limits</p>
 </div>
@@ -31,20 +31,20 @@ Quantum computing harnesses the bizarre phenomena of quantum mechanics to perfor
 
 Understanding the relationships between quantum computing concepts helps navigate this complex field:
 
-```
-Quantum Mechanics ──────┐
-                        ├─→ Quantum Computing Basics ─→ Quantum Algorithms ─→ Applications
-Linear Algebra ─────────┘           │                          │
-                                    │                          ├─→ Cryptography
-                                    ↓                          ├─→ Optimization
-                              Quantum Gates                    ├─→ Simulation
-                                    │                          └─→ Machine Learning
-                                    ↓
-                         Quantum Circuits & Programming
-                                    │
-                         ┌──────────┴──────────┐
-                         ↓                     ↓
-                   Quantum Hardware      Error Correction
+```mermaid
+flowchart TD
+    QM[Quantum Mechanics] --> Basics[Quantum Computing Basics]
+    LA[Linear Algebra] --> Basics
+    Basics --> Gates[Quantum Gates]
+    Gates --> Circuits[Quantum Circuits & Programming]
+    Basics --> Algos[Quantum Algorithms]
+    Circuits --> HW[Quantum Hardware]
+    Circuits --> QEC[Error Correction]
+    Algos --> Apps[Applications]
+    Apps --> Crypto[Cryptography]
+    Apps --> Opt[Optimization]
+    Apps --> Sim[Simulation]
+    Apps --> QML[Machine Learning]
 ```
 
 ## Overview
@@ -58,22 +58,22 @@ Whether you're exploring quantum concepts for the first time, writing your first
 ### Fundamentals
 - [**Introduction to Quantum Computing**](../technology/quantumcomputing.html) - Comprehensive introduction covering all aspects
 - [**Quantum Mechanics Basics**](../physics/quantum-mechanics.html) - Fundamental quantum principles
-- [**Quantum Information Theory**](#quantum-information-theory) - How quantum mechanics enables computation
+- [**Bits to Qubits**](../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits) - How quantum mechanics enables computation
 
 ### Quantum Algorithms
 - [**Advanced Quantum Algorithms Research**](../advanced/quantum-algorithms-research/) - Rigorous theoretical foundations
-- [**Classical Quantum Algorithms**](#classical-quantum-algorithms) - Shor's, Grover's, and foundational algorithms
-- [**NISQ Era Algorithms**](#nisq-era-algorithms) - Variational algorithms for near-term devices
+- [**Classical Quantum Algorithms**](../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations) - Shor's, Grover's, and foundational algorithms
+- [**Modern Quantum Algorithms**](../technology/quantumcomputing.html#modern-quantum-algorithms-beyond-the-classics) - Phase estimation, HHL, quantum walks
 
 ### Quantum Programming
-- [**Getting Started with Qiskit**](#quantum-programming-frameworks) - IBM's quantum development kit
-- [**Quantum Circuit Design**](#quantum-circuit-design) - Building quantum algorithms
-- [**Quantum Simulators**](#quantum-simulators) - Practice without quantum hardware
+- [**Getting Started with Qiskit**](#hello-quantum-a-bell-state) - IBM's quantum development kit
+- [**Quantum Gates & Circuits**](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) - Building quantum algorithms
+- [**Quick Start Below**](#step-by-step-quick-start) - Install a framework and run your first circuit
 
 ### Quantum Hardware
-- [**Quantum Computing Platforms**](#quantum-hardware-platforms) - Superconducting, ion trap, and other implementations
-- [**Cloud Quantum Services**](#cloud-quantum-computing) - Access quantum computers online
-- [**Quantum Error Correction**](#quantum-error-correction) - Protecting quantum information
+- [**Quantum Computing Platforms**](../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware) - Superconducting, ion trap, and other implementations
+- [**Cloud Quantum Services**](#step-by-step-quick-start) - Access quantum computers online
+- [**Quantum Error Correction**](../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information) - Protecting quantum information
 
 ### Applications
 - [**Quantum Cryptography**](#quantum-cryptography) - Secure communication and post-quantum security
@@ -90,8 +90,8 @@ Choose your quantum journey based on your background and goals:
 
 **Journey:**
 1. Start with [Introduction to Quantum Computing](../technology/quantumcomputing.html) - Get the big picture
-2. Learn about [qubits and superposition](#what-is-a-qubit) - The quantum difference
-3. Explore [quantum algorithms](#classical-quantum-algorithms) - See what's possible
+2. Learn about [qubits and superposition](../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits) - The quantum difference
+3. Explore [quantum algorithms](../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations) - See what's possible
 4. Understand [applications](#applications-and-use-cases) - Real-world impact
 5. Follow [quantum computing news](#communities) - Stay informed
 
@@ -105,12 +105,12 @@ Choose your quantum journey based on your background and goals:
 
 **Journey:**
 1. Review [quantum mechanics basics](../physics/quantum-mechanics.html) - Essential physics
-2. Learn [quantum gates and circuits](#quantum-gates) - Building blocks
-3. Choose a framework: [Qiskit](#ibm-qiskit), [Cirq](#google-cirq), or [Q#](#microsoft-q)
-4. Build your first [Bell state circuit](#quantum-programming-frameworks)
-5. Implement [Grover's algorithm](#grovers-algorithm) - Classic quantum speedup
-6. Try [NISQ algorithms](#nisq-era-algorithms) (VQE, QAOA) - Near-term practical
-7. Run on [real quantum hardware](#cloud-quantum-computing) - Beyond simulation
+2. Learn [quantum gates and circuits](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) - Building blocks
+3. Choose a framework: Qiskit, Cirq, or Q# (see [Quick Start](#step-by-step-quick-start))
+4. Build your first [Bell state circuit](#hello-quantum-a-bell-state)
+5. Implement [Grover's algorithm](../technology/quantumcomputing.html#grovers-algorithm-searching-the-unsearchable) - Classic quantum speedup
+6. Try NISQ algorithms (VQE, QAOA) - Near-term practical
+7. Run on [real quantum hardware](#step-by-step-quick-start) - Beyond simulation
 
 **Time Investment:** 20-40 hours for proficiency
 
@@ -122,12 +122,12 @@ Choose your quantum journey based on your background and goals:
 
 **Journey:**
 1. Master [quantum mechanics](../physics/quantum-mechanics.html) - Deep foundation
-2. Study [quantum information theory](#quantum-information-theory) - Formal framework
-3. Analyze [classical quantum algorithms](#classical-quantum-algorithms) - Shor's, Grover's, QFT
+2. Study quantum information theory - Formal framework
+3. Analyze [classical quantum algorithms](../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations) - Shor's, Grover's, QFT
 4. Dive into [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory
-5. Explore [quantum complexity theory](#research-topics) - Computational limits
-6. Investigate [error correction](#quantum-error-correction) - Fault tolerance
-7. Contribute to current [research areas](#research-topics) - Push boundaries
+5. Explore [quantum complexity theory](../technology/quantumcomputing.html#the-deeper-theory-quantum-complexity-and-fundamental-limits) - Computational limits
+6. Investigate [error correction](../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information) - Fault tolerance
+7. Contribute to current research areas - Push boundaries
 
 **Time Investment:** Ongoing research commitment
 
@@ -139,12 +139,12 @@ Choose your quantum journey based on your background and goals:
 
 **Journey:**
 1. Apply your [quantum mechanics](../physics/quantum-mechanics.html) knowledge - You have a head start
-2. Learn [quantum information theory](#quantum-information-theory) - New perspective
-3. Understand [quantum gates](#quantum-gates) - Physics to computation
-4. Study [quantum hardware platforms](#quantum-hardware-platforms) - Physical implementations
+2. Learn quantum information theory - New perspective
+3. Understand [quantum gates](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) - Physics to computation
+4. Study [quantum hardware platforms](../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware) - Physical implementations
 5. Explore [quantum simulation](#quantum-simulation) applications - Natural fit
-6. Investigate [error correction](#quantum-error-correction) - Physics of noise
-7. Try [programming frameworks](#quantum-programming-frameworks) - Hands-on practice
+6. Investigate [error correction](../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information) - Physics of noise
+7. Try programming frameworks (see [Quick Start](#step-by-step-quick-start)) - Hands-on practice
 
 **Time Investment:** 10-20 hours to transition knowledge
 
@@ -201,182 +201,56 @@ Choose your quantum journey based on your background and goals:
 - Fault-tolerant quantum computing
 - Quantum-classical hybrid algorithms
 
-## Quantum Computing Basics
+## Core Concepts at a Glance
 
-### What is a Qubit?
+This hub links out to the in-depth material. The table below is a fast orientation; for full
+explanations, worked math, and circuit examples see
+[Introduction to Quantum Computing](../technology/quantumcomputing.html).
 
-A quantum bit (qubit) is the fundamental unit of quantum information. Unlike classical bits that are either 0 or 1, qubits can exist in **superposition** - a combination of both states simultaneously:
+A single qubit lives in a superposition
 
-```
-|ψ⟩ = α|0⟩ + β|1⟩
-```
+$$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \qquad |\alpha|^2 + |\beta|^2 = 1$$
 
-Where α and β are complex numbers satisfying |α|² + |β|² = 1.
+and $n$ qubits span a $2^n$-dimensional state space — the root of quantum computing's power.
 
-### Key Quantum Phenomena
+| Concept | One-line meaning | Where to go deep |
+|---------|------------------|------------------|
+| Superposition | A qubit is a weighted blend of $\lvert0\rangle$ and $\lvert1\rangle$ until measured | [Bits to Qubits](../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits) |
+| Entanglement | Correlated qubits whose joint state can't be factored | [Entanglement](../technology/quantumcomputing.html#from-one-qubit-to-many-the-magic-of-entanglement) |
+| Quantum gates | Reversible unitary operations (H, X, CNOT, …) | [Quantum Gates](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) |
+| Algorithms | Shor's, Grover's, QFT, VQE, QAOA | [Algorithms](../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations) |
+| Error correction | Surface codes turn noisy physical qubits into reliable logical ones | [QEC](../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information) |
+| Hardware | Superconducting, trapped-ion, photonic, neutral-atom | [Building QCs](../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware) |
 
-1. **Superposition**: Qubits exist in multiple states until measured
-2. **Entanglement**: Qubits can be correlated regardless of distance
-3. **Interference**: Quantum amplitudes can add or cancel
-4. **Measurement**: Observing a qubit collapses it to a definite state
+### Quantum vs Classical Speedups
 
-### Quantum Gates
+| Algorithm | Problem | Classical | Quantum | Status |
+|-----------|---------|-----------|---------|--------|
+| Grover's | Unstructured search | $O(N)$ | $O(\sqrt{N})$ | Proven quadratic |
+| Shor's | Integer factoring | super-polynomial | polynomial | Needs fault tolerance |
+| QFT / phase estimation | Period finding | exponential | polynomial | Core subroutine |
+| VQE / QAOA | Chemistry, optimization | varies | heuristic | NISQ-era, hybrid |
 
-Quantum gates manipulate qubits, similar to logic gates in classical computing:
+### Hello Quantum: a Bell State
 
-- **Pauli Gates** (X, Y, Z): Single-qubit rotations
-- **Hadamard Gate** (H): Creates superposition
-- **CNOT Gate**: Creates entanglement between qubits
-- **Phase Gates** (S, T): Add quantum phases
+The canonical first program: a Hadamard creates superposition, a CNOT entangles the pair.
 
-## Classical Quantum Algorithms
-
-### Shor's Algorithm
-Factors large integers exponentially faster than known classical algorithms:
-- **Application**: Breaking RSA encryption
-- **Speedup**: Exponential (superpolynomial)
-- **Requirements**: Thousands of logical qubits
-
-### Grover's Algorithm
-Searches unsorted databases with quadratic speedup:
-- **Application**: Database search, optimization
-- **Speedup**: Quadratic (√N vs N)
-- **Requirements**: Modest number of qubits
-
-### Quantum Fourier Transform
-The quantum analog of the discrete Fourier transform:
-- **Application**: Period finding, phase estimation
-- **Speedup**: Exponential for certain problems
-- **Requirements**: Key component of many algorithms
-
-## NISQ Era Algorithms
-
-Current quantum computers are "Noisy Intermediate-Scale Quantum" (NISQ) devices. Algorithms designed for NISQ devices include:
-
-### Variational Quantum Eigensolver (VQE)
-- Finds ground states of molecules
-- Hybrid classical-quantum algorithm
-- Applications in quantum chemistry
-
-### Quantum Approximate Optimization Algorithm (QAOA)
-- Solves combinatorial optimization problems
-- Parameterized quantum circuits
-- Potential near-term advantage
-
-### Quantum Machine Learning
-- Quantum neural networks
-- Quantum kernel methods
-- Feature mapping to quantum states
-
-## Quantum Programming Frameworks
-
-### IBM Qiskit
 ```python
-from qiskit import QuantumCircuit, execute, Aer
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
 
-# Create a quantum circuit
 qc = QuantumCircuit(2, 2)
-qc.h(0)  # Hadamard gate
-qc.cx(0, 1)  # CNOT gate
+qc.h(0)           # superposition on qubit 0
+qc.cx(0, 1)       # entangle qubit 1 with qubit 0
 qc.measure_all()
 
-# Run on simulator
-backend = Aer.get_backend('qasm_simulator')
-result = execute(qc, backend, shots=1000).result()
+result = AerSimulator().run(transpile(qc, AerSimulator()), shots=1000).result()
+print(result.get_counts())   # ~50% '00', ~50% '11'
 ```
 
-### Google Cirq
-```python
-import cirq
-
-# Create qubits and circuit
-q0, q1 = cirq.LineQubit.range(2)
-circuit = cirq.Circuit(
-    cirq.H(q0),
-    cirq.CNOT(q0, q1),
-    cirq.measure(q0, q1, key='result')
-)
-```
-
-### Microsoft Q#
-```qsharp
-operation BellState() : (Result, Result) {
-    use (q0, q1) = (Qubit(), Qubit());
-    H(q0);
-    CNOT(q0, q1);
-    return (M(q0), M(q1));
-}
-```
-
-## Quantum Hardware Platforms
-
-### Superconducting Qubits
-- **Leaders**: IBM, Google, Rigetti
-- **Pros**: Fast gates, scalable fabrication
-- **Cons**: Requires extreme cooling (mK temperatures)
-- **Current Scale**: 100-1000 qubits
-
-### Trapped Ions
-- **Leaders**: IonQ, Honeywell, Alpine Quantum Technologies
-- **Pros**: High fidelity, long coherence times
-- **Cons**: Slower gates, scaling challenges
-- **Current Scale**: 10-100 qubits
-
-### Photonic Quantum Computing
-- **Leaders**: Xanadu, PsiQuantum
-- **Pros**: Room temperature operation, networked
-- **Cons**: Probabilistic gates, photon loss
-- **Applications**: Sampling, communication
-
-### Other Approaches
-- **Neutral Atoms**: QuEra, Pasqal
-- **Topological Qubits**: Microsoft
-- **Silicon Spin Qubits**: Intel, SiQure
-
-## Cloud Quantum Computing
-
-Access quantum computers through cloud services:
-
-### IBM Quantum Network
-- Free tier with 5-qubit devices
-- Premium access to 20+ qubit systems
-- Qiskit Runtime for optimized execution
-
-### Amazon Braket
-- Access to multiple quantum technologies
-- Integrated with AWS services
-- Pay-per-shot pricing model
-
-### Azure Quantum
-- Multiple hardware providers
-- Quantum development kit
-- Integration with classical HPC
-
-### Google Quantum AI
-- Research collaborations
-- Quantum supremacy experiments
-- Open-source Cirq framework
-
-## Quantum Error Correction
-
-Protecting quantum information from decoherence and errors:
-
-### Types of Quantum Errors
-- **Bit Flip**: |0⟩ ↔ |1⟩
-- **Phase Flip**: |+⟩ ↔ |-⟩
-- **Depolarization**: Random Pauli errors
-- **Amplitude Damping**: Energy loss
-
-### Error Correction Codes
-- **Shor's 9-qubit code**: First quantum error correction code
-- **Steane 7-qubit code**: More efficient CSS code
-- **Surface codes**: Leading approach for scalability
-- **Topological codes**: Inherent error protection
-
-### Fault-Tolerant Computing
-- Threshold theorem: Arbitrary computation with sufficient error correction
-- Logical qubits from many physical qubits
-- Current overhead: ~1000:1 physical to logical
+The output state is the Bell state $|\Phi^+\rangle = \tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$ —
+measuring one qubit instantly determines the other. Equivalent Cirq and Q# versions and a
+full gate walkthrough are in the [detailed guide](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world).
 
 ## Applications and Use Cases
 
@@ -523,7 +397,7 @@ Your circuit:
 - Created **entanglement** with the CNOT gate (CX)
 - Showed **quantum correlation** - both qubits always match!
 
-Learn more about these concepts in our [quantum gates section](#quantum-gates).
+Learn more about these concepts in the [quantum gates section](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world).
 
 **4. Run on Real Quantum Hardware (1 hour)**
 
@@ -581,4 +455,22 @@ Based on your background, select a [learning path](#learning-paths):
 
 ---
 
-Ready to begin your quantum journey? Start with our [Introduction to Quantum Computing](../technology/quantumcomputing.html) or dive into [hands-on programming](#quantum-programming-frameworks). The quantum future is being built today, and you can be part of it!
+Ready to begin your quantum journey? Start with our [Introduction to Quantum Computing](../technology/quantumcomputing.html) or dive into [hands-on programming](#step-by-step-quick-start). The quantum future is being built today, and you can be part of it!
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Qubits are not just faster bits.** Superposition ($|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$) and entanglement give access to a $2^n$-dimensional state space, but measurement collapses it — algorithms must steer probability toward the right answer via interference.
+- **Speedups are problem-specific.** Grover's gives a quadratic edge for search; Shor's threatens RSA but needs fault-tolerant hardware; VQE/QAOA are heuristic NISQ-era tools today.
+- **We are in the NISQ era.** Real machines (IBM, Google Willow, IonQ) have hundreds to ~1000+ noisy qubits; surface-code error correction is the bridge to fault tolerance.
+- **You can start now.** A free cloud account plus Qiskit lets you run a Bell state on real hardware in an afternoon.
+</div>
+
+<div class="see-also-card" markdown="1">
+#### See Also
+- [Introduction to Quantum Computing](../technology/quantumcomputing.html) - The full deep-dive (gates, algorithms, error correction, hardware)
+- [Quantum Mechanics](../physics/quantum-mechanics.html) - The physics underpinning qubits
+- [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
+- [AI/ML Documentation](../ai-ml/) - Where quantum machine learning connects to classical ML
+- [Artificial Intelligence Hub](../artificial-intelligence/) - Quantum ML in context
+</div>
