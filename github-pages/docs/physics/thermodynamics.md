@@ -89,6 +89,22 @@ As temperature approaches absolute zero, the entropy of a perfect crystal approa
 
 $$\lim_{T \to 0} S = 0$$
 
+### The Four Laws at a Glance
+
+The four laws were discovered out of order — the First and Second came first in the 19th century, the Zeroth and Third were recognized later as logically prior or complementary. Read together they form a complete grammar for energy and disorder.
+
+| Law | One-line statement | Defines / forbids | Key equation |
+|-----|--------------------|-------------------|--------------|
+| Zeroth | Equilibrium is transitive | *Defines* temperature as a measurable property | $T_A = T_C,\ T_B = T_C \Rightarrow T_A = T_B$ |
+| First | Energy is conserved | *Forbids* perpetual motion of the first kind (energy from nothing) | $dU = \delta Q - \delta W$ |
+| Second | Entropy of an isolated system never decreases | *Forbids* perpetual motion of the second kind (100% heat-to-work) | $dS \geq 0$ |
+| Third | Entropy approaches a constant as $T \to 0$ | *Forbids* reaching absolute zero in finite steps | $\lim_{T \to 0} S = S_0$ |
+
+<div class="tip-card">
+  <h4>Why four laws are enough</h4>
+  <p>The Zeroth gives you a thermometer, the First a ledger for energy, the Second a direction for time and a ceiling on efficiency, and the Third a fixed reference point for entropy. Everything else on this page — enthalpy, free energies, Maxwell relations, engine cycles — is bookkeeping built on top of these four statements. They hold whether the working substance is steam, a magnet, light, or a black hole, which is why thermodynamics is often called the most portable theory in physics.</p>
+</div>
+
 ## Thermodynamic Processes
 
 <details>
@@ -143,6 +159,19 @@ Volume remains constant: $V = \text{constant}$
 
 Work done: $W = 0$
 
+### Comparing the Four Processes
+
+Each idealized process holds one quantity fixed, and that single constraint determines everything else through the First Law $dU = \delta Q - \delta W$. The table summarizes the ideal-gas results so you can see the pattern at a glance.
+
+| Process | Held constant | First Law reduces to | Work $W$ | Heat $Q$ |
+|---------|---------------|----------------------|----------|----------|
+| Isothermal | $T$ | $\delta Q = \delta W$ (since $\Delta U = 0$) | $nRT\ln(V_f/V_i)$ | $= W$ |
+| Adiabatic | $Q$ | $\Delta U = -W$ | $-\Delta U = -nC_V\Delta T$ | $0$ |
+| Isobaric | $P$ | $\Delta U = Q - P\Delta V$ | $P(V_f - V_i)$ | $nC_P\Delta T$ |
+| Isochoric | $V$ | $\Delta U = Q$ | $0$ | $nC_V\Delta T$ |
+
+The adiabat is always steeper than the isotherm on a $P$-$V$ diagram (because $\gamma > 1$): an adiabatically compressed gas heats up, so its pressure rises faster than the isothermal $PV = \text{const}$ would predict. This single fact is what makes the Carnot and Otto cycles enclose area — and therefore do net work.
+
 ## State Functions and Properties
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Lecture: <b><i>The Laws of Thermodynamics - Feynman Lectures</i></b></a></p>
 
@@ -179,6 +208,22 @@ Determines spontaneity at constant temperature and pressure:
 $$F = U - TS$$
 
 Useful for processes at constant temperature and volume.
+
+### Choosing the Right Potential
+
+The four potentials $U, H, F, G$ are not different physics — they are the *same* energy budget viewed through different "natural variables," obtained from one another by Legendre transforms (swapping a variable for its conjugate, e.g. $V \leftrightarrow P$ or $S \leftrightarrow T$). You pick the one whose natural variables match what your experiment actually holds fixed, and minimizing it predicts equilibrium.
+
+| Potential | Definition | Natural variables | Minimized (equilibrium) when held fixed | Typical use |
+|-----------|------------|-------------------|------------------------------------------|-------------|
+| Internal energy $U$ | — | $S, V$ | isolated system | Foundational; isentropic processes |
+| Enthalpy $H$ | $U + PV$ | $S, P$ | constant pressure | Flow processes, heats of reaction |
+| Helmholtz $F$ | $U - TS$ | $T, V$ | constant $T, V$ | Statistical mechanics, sealed rigid container |
+| Gibbs $G$ | $U - TS + PV$ | $T, P$ | constant $T, P$ | Chemistry, phase equilibria (lab conditions) |
+
+<div class="tip-card">
+  <h4>Why free energy, not energy?</h4>
+  <p>A hot cup of coffee cooling in a room does not minimize its energy — it dumps energy to the room. What the combined system minimizes is the <em>free</em> energy, which balances the system's drive toward lower energy against the universe's drive toward higher entropy ($F = U - TS$ trades off the two). Because most lab and biological processes happen at fixed temperature and pressure, the Gibbs free energy $G$ is the single most useful quantity in chemistry: $\Delta G < 0$ is the universal criterion for "this will happen on its own."</p>
+</div>
 
 ## Maxwell Relations
 

@@ -895,10 +895,27 @@ One of the most important decisions in network programming is choosing between T
 - Flow control
 - Congestion control
 
-**Three-way Handshake**:
-1. SYN →
-2. ← SYN-ACK
-3. ACK →
+**Three-way Handshake**: before any data flows, TCP establishes a connection and agrees on initial sequence numbers. Tearing it down takes a separate four-way exchange (each side closes its half independently):
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: Connection setup (3-way handshake)
+    C->>S: SYN (seq=x)
+    S->>C: SYN-ACK (seq=y, ack=x+1)
+    C->>S: ACK (ack=y+1)
+    Note over C,S: Data transfer
+    C->>S: data + ACKs
+    S->>C: data + ACKs
+    Note over C,S: Connection teardown
+    C->>S: FIN
+    S->>C: ACK
+    S->>C: FIN
+    C->>S: ACK
+```
+
+The handshake costs one full round trip before any payload moves — which is why connection reuse (HTTP keep-alive) and 0-RTT protocols like QUIC matter so much for latency.
 
 **Use Cases**:
 - Web browsing (HTTP)
@@ -953,6 +970,23 @@ HTTP is how browsers talk to servers. HTTPS adds encryption, protecting your dat
 - 3xx: Redirection (301 Moved)
 - 4xx: Client error (404 Not Found)
 - 5xx: Server error (500 Internal Error)
+
+#### Well-Known Ports
+
+Ports identify which application a transport-layer segment belongs to. The range 0–1023 is reserved for well-known services; knowing the common ones speeds up firewall rules and troubleshooting:
+
+| Port | Protocol | Service |
+|------|----------|---------|
+| 22  | TCP | SSH |
+| 25  | TCP | SMTP (mail relay) |
+| 53  | TCP/UDP | DNS |
+| 80  | TCP | HTTP |
+| 123 | UDP | NTP (time sync) |
+| 143 | TCP | IMAP |
+| 443 | TCP/UDP | HTTPS (TCP) and HTTP/3 over QUIC (UDP) |
+| 3306 | TCP | MySQL |
+| 5432 | TCP | PostgreSQL |
+| 6379 | TCP | Redis |
 
 ### DNS: The Internet's Directory Service
 

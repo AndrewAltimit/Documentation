@@ -256,6 +256,21 @@ sequenceDiagram
     API->>E: persist actual state
 ```
 
+### The Reconciliation Loop
+
+The single most important idea in Kubernetes is the **control loop** (or reconciliation loop). Every controller runs the same endless cycle: observe the current state, compare it to the desired state recorded in etcd, and take action to close the gap. There is no one-shot "deploy" step — the system is *continuously* driven toward your declared intent, which is precisely why a deleted pod reappears and a crashed container restarts.
+
+```mermaid
+flowchart LR
+    D["Desired state<br/>(your YAML in etcd)"] --> C{"Observe &<br/>compare"}
+    A["Actual state<br/>(what's running)"] --> C
+    C -->|"drift detected"| ACT["Take corrective action<br/>(create/delete/update pods)"]
+    ACT --> A
+    C -->|"in sync"| C
+```
+
+This is a **level-triggered** design (it reacts to the current level of state) rather than **edge-triggered** (reacting to one-time events). If a controller misses an event, it simply re-observes reality on its next pass and still converges — making Kubernetes robust to restarts, network blips, and lost messages.
+
 ### Kubernetes Objects: The Building Blocks
 
 With the architecture understood, let us explore the objects you will work with daily. Each object type solves a specific problem, and choosing the right one depends on your application's needs.
@@ -733,6 +748,65 @@ spec:
 ```
 
 **Real-world Job use cases**: database migrations, data imports, report generation, sending batch emails, cleanup tasks.
+
+## Keeping Pods Healthy: Probes and Resources
+
+A Deployment will restart a *crashed* container automatically, but many failures are subtler: a process that is still running yet stuck in a deadlock, or one that has started but is not yet ready to serve traffic. Health probes and resource limits are how you tell Kubernetes what "healthy" actually means for your application.
+
+### Liveness, Readiness, and Startup Probes
+
+The three probe types answer three different questions, and confusing them is one of the most common production mistakes.
+
+| Probe | Question it answers | Action on failure |
+|-------|---------------------|-------------------|
+| **Liveness** | "Is the container alive, or wedged?" | Restart the container |
+| **Readiness** | "Can it serve traffic right now?" | Remove the pod from Service endpoints (no restart) |
+| **Startup** | "Has a slow-starting app finished booting?" | Hold off liveness/readiness checks until it passes |
+
+```yaml
+spec:
+  containers:
+  - name: web
+    image: myapp:1.4
+    readinessProbe:          # Gate traffic until the app is ready
+      httpGet:
+        path: /healthz/ready
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    livenessProbe:           # Restart if the app wedges
+      httpGet:
+        path: /healthz/live
+        port: 8080
+      periodSeconds: 15
+      failureThreshold: 3
+```
+
+**Why the distinction matters**: a failing *readiness* probe quietly pulls the pod out of rotation so users are never routed to it, then re-adds it once healthy — ideal for warm-ups or temporary overload. A failing *liveness* probe kills and restarts the container. Pointing a liveness probe at a dependency you do not control (such as a database) is a classic anti-pattern: a brief database hiccup triggers a restart storm that makes the outage worse.
+
+### Requests and Limits
+
+Every container can declare how much CPU and memory it *requests* (the amount guaranteed and used by the scheduler for placement) and its *limit* (the hard ceiling).
+
+```yaml
+    resources:
+      requests:
+        cpu: "250m"        # 0.25 of a core, used for scheduling
+        memory: "256Mi"
+      limits:
+        cpu: "500m"        # throttled above this
+        memory: "512Mi"    # killed (OOMKilled) above this
+```
+
+The request and limit values also determine the pod's **Quality of Service class**, which decides who gets evicted first when a node runs low on memory:
+
+| QoS class | Condition | Eviction priority |
+|-----------|-----------|-------------------|
+| **Guaranteed** | requests == limits for every container | Evicted last |
+| **Burstable** | requests set, but < limits | Evicted in the middle |
+| **BestEffort** | no requests or limits set | Evicted first |
+
+**Practical guidance**: always set memory requests *and* limits — CPU is compressible (excess use is throttled) but memory is not (excess use gets the container OOMKilled). Setting at least requests on every production workload prevents one greedy pod from starving its neighbors.
 
 ## Networking: Connecting Your Applications
 

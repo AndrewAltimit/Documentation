@@ -42,6 +42,27 @@ toc_icon: "cog"
   </div>
 </div>
 
+### The Landscape of Classical Mechanics
+
+Classical mechanics is not a single recipe but a family of equivalent viewpoints that grew more abstract and more powerful over three centuries. The map below shows how the three great formulations relate, what mathematical home each lives in, and where each one ultimately points — toward chaos, statistical mechanics, and quantum theory. Keep it in mind as a guide while reading: every later section is a stop on this route.
+
+```mermaid
+graph TD
+    N["Newtonian Mechanics<br/>F = ma<br/>(vectors, forces)"] --> L["Lagrangian Mechanics<br/>L = T - V<br/>(configuration space)"]
+    L --> H["Hamiltonian Mechanics<br/>H = T + V<br/>(phase space)"]
+    N -.->|same physics| L
+    L -.->|same physics| H
+    L --> NO["Noether's Theorem<br/>symmetry to conservation"]
+    H --> HJ["Hamilton-Jacobi<br/>action as a field"]
+    H --> CH["Chaos and<br/>nonlinear dynamics"]
+    H --> SM["Statistical<br/>Mechanics"]
+    HJ --> QM["Quantum Mechanics<br/>path integral"]
+    classDef core fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
+    classDef bridge fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    class N,L,H core;
+    class NO,HJ,CH,SM,QM bridge;
+```
+
 ---
 
 ## The Foundation: Newton's Revolution
@@ -353,6 +374,23 @@ $$
 
 This is Kepler's Third Law for circular orbits.
 
+### The Effective Potential: Reducing Orbits to One Dimension
+
+Real orbits are rarely circular. The deeper insight is that any motion in a central force $-\dfrac{GMm}{r^2}\hat{r}$ conserves angular momentum $L = mr^2\dot{\phi}$, and that single fact lets us collapse a two-dimensional orbit into an equivalent one-dimensional problem in the radius alone. Substituting $\dot{\phi} = L/(mr^2)$ into the energy gives:
+
+$$E = \tfrac{1}{2}m\dot{r}^2 + V_{\text{eff}}(r), \qquad V_{\text{eff}}(r) = -\frac{GMm}{r} + \frac{L^2}{2mr^2}$$
+
+The first term is the genuine gravitational attraction; the second is the **centrifugal barrier** — a repulsive contribution that arises purely from angular momentum and keeps the orbit from collapsing to the center. A particle now behaves like a bead rolling in the one-dimensional landscape $V_{\text{eff}}(r)$:
+
+| Total energy $E$ | Shape of orbit |
+|------------------|----------------|
+| $E < 0$, at minimum of $V_{\text{eff}}$ | Circular |
+| $E < 0$, above minimum | Ellipse (bound) |
+| $E = 0$ | Parabola (escape, marginally unbound) |
+| $E > 0$ | Hyperbola (unbound flyby) |
+
+This single picture unifies planets, comets, and interstellar flybys, and it reproduces all of Kepler's laws. It is also the template for the radial Schrödinger equation of the hydrogen atom, where the same $-1/r$ attraction and $L^2/2mr^2$ barrier reappear — a preview of how classical structure carries into quantum mechanics.
+
 ## Oscillations and Waves: Patterns in Motion
 
 ### The Universality of Oscillations
@@ -418,6 +456,17 @@ $$
 $$
 
 These equations provide a powerful alternative to Newton's laws. No constraint forces appear—they're automatically accounted for by choosing appropriate coordinates.
+
+<div class="example-card">
+  <h4>Worked Example: the simple pendulum the easy way</h4>
+  <p>A mass $m$ swings on a rigid rod of length $\ell$. With Newton you would resolve the tension and gravity along the arc — bookkeeping that involves a force (the tension) you do not even care about. Lagrange asks only for the energies, written in the single natural coordinate, the angle $\theta$:</p>
+  $$L = T - V = \tfrac{1}{2}m\ell^2\dot{\theta}^2 - mg\ell(1 - \cos\theta)$$
+  <p>Now turn the crank. The two pieces of the Euler-Lagrange equation are</p>
+  $$\frac{\partial L}{\partial \dot{\theta}} = m\ell^2\dot{\theta}, \qquad \frac{\partial L}{\partial \theta} = -mg\ell\sin\theta,$$
+  <p>so $\frac{d}{dt}(m\ell^2\dot{\theta}) - (-mg\ell\sin\theta) = 0$, which collapses to the familiar pendulum equation:</p>
+  $$\ddot{\theta} + \frac{g}{\ell}\sin\theta = 0.$$
+  <p>The tension never appeared — the rigid-rod constraint was absorbed the instant we chose $\theta$ as the coordinate. For small swings, $\sin\theta \approx \theta$ gives simple harmonic motion with $\omega = \sqrt{g/\ell}$, recovering the result of the earlier oscillations section from a completely different starting point.</p>
+</div>
 
 ### Generalized Coordinates: Freedom from Cartesian Tyranny
 
@@ -553,6 +602,17 @@ $$
 - Jacobi identity: {f, {g, h}} + {g, {h, f}} + {h, {f, g}} = 0
 
 **Time evolution:** df/dt = {f, H} + ∂f/∂t
+
+This last equation is the Hamiltonian counterpart of Newton's second law: it says *every* observable evolves by taking its Poisson bracket with the Hamiltonian. The fundamental brackets of the coordinates and momenta, $\{q_i, p_j\} = \delta_{ij}$, encode the entire structure of phase space. The parallel with quantum mechanics is exact and is the cleanest statement of the classical-quantum correspondence:
+
+| Concept | Classical (Poisson) | Quantum (commutator) |
+|---------|---------------------|----------------------|
+| Fundamental relation | $\{q, p\} = 1$ | $[\hat{q}, \hat{p}] = i\hbar$ |
+| Time evolution | $\dfrac{df}{dt} = \{f, H\}$ | $\dfrac{d\hat{A}}{dt} = \dfrac{i}{\hbar}[\hat{H}, \hat{A}]$ |
+| Conserved quantity | $\{f, H\} = 0$ | $[\hat{f}, \hat{H}] = 0$ |
+| Correspondence | $\{f, g\}$ | $\dfrac{1}{i\hbar}[\hat{f}, \hat{g}]$ |
+
+Dirac noticed this structural identity in 1925 and used it to build canonical quantization: replace Poisson brackets by commutators divided by $i\hbar$, and classical mechanics becomes quantum mechanics. The bridge is built into the formalism itself.
 
 ### Canonical Transformations
 

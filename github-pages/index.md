@@ -38,10 +38,12 @@ hide_title: true
 
 <div class="category-grid">
 
-  <a class="category-card tech" href="docs/technology/">
-    <div class="category-icon"><i class="fas fa-server"></i></div>
-    <h3>Technology</h3>
-    <p>Containers, orchestration, cloud, infrastructure-as-code, version control, networking, and security.</p>
+  <div class="category-card tech">
+    <a class="category-card__main" href="docs/technology/">
+      <div class="category-icon"><i class="fas fa-server"></i></div>
+      <h3>Technology</h3>
+      <p>Containers, orchestration, cloud, infrastructure-as-code, version control, networking, and security.</p>
+    </a>
     <div class="category-links">
       <a href="docs/technology/docker/">Docker</a> &middot;
       <a href="docs/technology/kubernetes/">Kubernetes</a> &middot;
@@ -49,64 +51,74 @@ hide_title: true
       <a href="docs/technology/terraform/">Terraform</a> &middot;
       <a href="docs/technology/git.html">Git</a>
     </div>
-  </a>
+  </div>
 
-  <a class="category-card aiml" href="docs/ai-ml/">
-    <div class="category-icon"><i class="fas fa-brain"></i></div>
-    <h3>AI / ML</h3>
-    <p>Generative AI in depth: diffusion models, fine-tuning, visual workflows, and production techniques.</p>
+  <div class="category-card aiml">
+    <a class="category-card__main" href="docs/ai-ml/">
+      <div class="category-icon"><i class="fas fa-brain"></i></div>
+      <h3>AI / ML</h3>
+      <p>Generative AI in depth: diffusion models, fine-tuning, visual workflows, and production techniques.</p>
+    </a>
     <div class="category-links">
       <a href="docs/ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion</a> &middot;
       <a href="docs/ai-ml/lora-training.html">LoRA</a> &middot;
       <a href="docs/ai-ml/comfyui-guide.html">ComfyUI</a> &middot;
       <a href="docs/ai-ml/controlnet.html">ControlNet</a>
     </div>
-  </a>
+  </div>
 
-  <a class="category-card physics" href="docs/physics/">
-    <div class="category-icon"><i class="fas fa-atom"></i></div>
-    <h3>Physics</h3>
-    <p>From classical mechanics and thermodynamics to quantum field theory and string theory.</p>
+  <div class="category-card physics">
+    <a class="category-card__main" href="docs/physics/">
+      <div class="category-icon"><i class="fas fa-atom"></i></div>
+      <h3>Physics</h3>
+      <p>From classical mechanics and thermodynamics to quantum field theory and string theory.</p>
+    </a>
     <div class="category-links">
       <a href="docs/physics/classical-mechanics.html">Mechanics</a> &middot;
       <a href="docs/physics/quantum-mechanics.html">Quantum</a> &middot;
       <a href="docs/physics/relativity.html">Relativity</a> &middot;
       <a href="docs/physics/quantum-field-theory.html">QFT</a>
     </div>
-  </a>
+  </div>
 
-  <a class="category-card advanced" href="docs/advanced/">
-    <div class="category-icon"><i class="fas fa-flask"></i></div>
-    <h3>Advanced Research</h3>
-    <p>Graduate-level theory: statistical learning, formal methods, and quantum algorithms.</p>
+  <div class="category-card advanced">
+    <a class="category-card__main" href="docs/advanced/">
+      <div class="category-icon"><i class="fas fa-flask"></i></div>
+      <h3>Advanced Research</h3>
+      <p>Graduate-level theory: statistical learning, formal methods, and quantum algorithms.</p>
+    </a>
     <div class="category-links">
       <a href="docs/advanced/ai-mathematics/">AI Mathematics</a> &middot;
       <a href="docs/advanced/distributed-systems-theory/">Distributed Theory</a> &middot;
       <a href="docs/advanced/quantum-algorithms-research/">Quantum Algorithms</a>
     </div>
-  </a>
+  </div>
 
-  <a class="category-card tech" href="docs/distributed-systems/">
-    <div class="category-icon"><i class="fas fa-network-wired"></i></div>
-    <h3>Specialized Hubs</h3>
-    <p>Curated deep-dive hubs spanning distributed systems, AI, and quantum computing.</p>
+  <div class="category-card tech">
+    <a class="category-card__main" href="docs/distributed-systems/">
+      <div class="category-icon"><i class="fas fa-network-wired"></i></div>
+      <h3>Specialized Hubs</h3>
+      <p>Curated deep-dive hubs spanning distributed systems, AI, and quantum computing.</p>
+    </a>
     <div class="category-links">
       <a href="docs/distributed-systems/">Distributed Systems</a> &middot;
       <a href="docs/artificial-intelligence/">AI Hub</a> &middot;
       <a href="docs/quantum-computing/">Quantum Computing</a>
     </div>
-  </a>
+  </div>
 
-  <a class="category-card reference" href="docs/reference/">
-    <div class="category-icon"><i class="fas fa-bookmark"></i></div>
-    <h3>Quick Reference</h3>
-    <p>Command cheat sheets, physics formulas, complexity tables, and best-practice checklists.</p>
+  <div class="category-card reference">
+    <a class="category-card__main" href="docs/reference/">
+      <div class="category-icon"><i class="fas fa-bookmark"></i></div>
+      <h3>Quick Reference</h3>
+      <p>Command cheat sheets, physics formulas, complexity tables, and best-practice checklists.</p>
+    </a>
     <div class="category-links">
       <a href="docs/reference/index.html#command-line-references">Commands</a> &middot;
       <a href="docs/reference/index.html#physics-formulas--constants">Formulas</a> &middot;
       <a href="docs/reference/index.html#algorithms--data-structures">Big-O</a>
     </div>
-  </a>
+  </div>
 
 </div>
 

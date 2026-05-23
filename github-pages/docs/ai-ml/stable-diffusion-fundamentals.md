@@ -38,6 +38,17 @@ Stable Diffusion, released in 2022, made AI image generation accessible by solvi
 
 Stable Diffusion instead works in "latent space" - a compressed mathematical representation where a 512x512 image becomes a much smaller 64x64 representation. This compression reduces computation by roughly 50x while preserving the information needed for high-quality images.
 
+This is the defining idea of **latent diffusion**: do the expensive, iterative denoising in the small latent space, and only touch full-resolution pixels at the very start (encode) and very end (decode).
+
+```mermaid
+flowchart LR
+    Px["Pixel image<br/>512×512×3"] -- "VAE encode" --> Lat["Latent<br/>64×64×4"]
+    Lat -- "diffusion happens here<br/>(cheap, iterative)" --> Lat2["Denoised latent"]
+    Lat2 -- "VAE decode" --> Px2["Pixel image<br/>512×512×3"]
+```
+
+A 512x512 RGB image is roughly 786,000 numbers; its latent is about 16,000 - a ~48x reduction in what the denoiser has to process each step.
+
 | Model Generation | Year | Key Advance | Native Resolution |
 |------------------|------|-------------|-------------------|
 | SD 1.x | 2022 | Latent space diffusion | 512x512 |
@@ -63,6 +74,18 @@ During training, the model learns by observing what happens when you gradually d
 
 Repeat this millions of times with varying amounts of noise, and the model learns to recognize and predict noise at any level. It never learns to "create" images directly - it learns to clean them up.
 
+#### The Forward Process, More Precisely
+
+The "gradually destroy" step is called the **forward (diffusion) process**. At each timestep $t$ the image is mixed with a little more Gaussian noise according to a fixed schedule, so that a clean latent $x_0$ is corrupted into $x_t$ in a single closed-form step:
+
+$$x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I)$$
+
+Here $\bar{\alpha}_t$ runs from near 1 (almost no noise) at small $t$ to near 0 (pure noise) at the final step. The network $\epsilon_\theta(x_t, t, c)$ is trained to predict the noise $\epsilon$ that was added, given the noisy latent $x_t$, the timestep $t$, and the text conditioning $c$. The loss is simply the squared error between predicted and actual noise:
+
+$$\mathcal{L} = \mathbb{E}_{x_0, \epsilon, t}\left[\, \lVert \epsilon - \epsilon_\theta(x_t, t, c) \rVert^2 \,\right]$$
+
+This is why the architecture is sometimes called a "noise predictor." Everything else - sampling, CFG, schedulers - is built on top of this one trained function.
+
 ### Generation: Reversing the Process
 
 When you generate an image, the model runs in reverse:
@@ -79,6 +102,14 @@ flowchart LR
     N["Pure noise<br/>(step 1)"] --> S["Shapes emerge<br/>(step 10)"] --> D["Details form<br/>(step 25)"] --> F["Final image<br/>(step 30)"]
     P["Text prompt"] -. guides every step .-> S
     P -.-> D
+```
+
+The forward and reverse processes mirror each other - training learns the arrow going right (adding noise), generation runs the arrow going left (removing it):
+
+```mermaid
+flowchart LR
+    X0["Clean latent<br/>x₀"] -- "forward: add noise" --> XT["Pure noise<br/>x_T"]
+    XT -. "reverse: predict & subtract noise (learned)" .-> X0
 ```
 
 ### Why This Matters Practically
@@ -238,6 +269,19 @@ The seed determines the random starting noise:
 - **Fixed number** - Same prompt + seed = same image (mostly)
 - **Seed variation** - Change seed slightly to explore similar results
 
+### Denoising Strength (img2img)
+
+So far we have started from pure noise (text-to-image). You can also start from an existing image - **image-to-image**. Instead of beginning at full noise, the image is encoded to a latent, noised *partially*, and the denoising loop finishes the rest. The **denoising strength** (0-1) controls how much noise is added, which is effectively how much freedom the model has to change the input:
+
+| Denoising Strength | Effect | Use Case |
+|--------------------|--------|----------|
+| 0.2-0.4 | Subtle refinement, preserves the original | Cleanup, light restyle, upscale detailing |
+| 0.5-0.65 | Balanced - keeps composition, changes content | Style transfer, variations |
+| 0.7-0.85 | Heavy reinterpretation | Sketch-to-image, big style changes |
+| 0.9-1.0 | Nearly text-to-image | Original used only as a loose color/layout hint |
+
+The same dial drives inpainting (denoise only inside a mask) and the high-resolution "hires fix" pass (upscale the latent, then denoise at ~0.4 to add detail without redrawing the scene). For locking composition more firmly than img2img can, see [ControlNet](controlnet.html).
+
 ## Writing Effective Prompts
 
 Your prompt is the primary way you communicate with the model. Understanding how the model interprets prompts helps you get better results.
@@ -352,7 +396,16 @@ The field moves quickly. Here are the major developments that change how generat
 
 ### Better Architectures
 
-Newer models like FLUX and SD3 use "flow matching" instead of traditional diffusion. This produces straighter paths from noise to image, allowing faster generation with better quality.
+Newer models like FLUX and SD3 use "flow matching" (specifically **rectified flow**) instead of traditional DDPM-style diffusion. Rather than learning to predict the noise at each timestep, the network learns a **velocity field** - the direction to move a sample at every point along a path from noise to data. Training pairs a random noise sample $x_0$ with a real data sample $x_1$ and asks the model to predict the straight-line velocity between them:
+
+$$v_\theta(x_t, t) \approx x_1 - x_0, \qquad x_t = (1 - t)\, x_0 + t\, x_1$$
+
+Because the target paths are (close to) straight lines, the ODE that generates an image can be solved in far fewer steps than the curved trajectories of classic diffusion - this is why FLUX and SD3 reach high quality at 20-28 steps, and why distilled variants like FLUX.1-schnell work in as few as 1-4.
+
+| Approach | Network predicts | Path shape | Models |
+|----------|------------------|-----------|--------|
+| DDPM diffusion | Noise $\epsilon$ at timestep $t$ | Curved | SD 1.5, SD 2.x, SDXL |
+| Rectified flow | Velocity $x_1 - x_0$ | Near-straight | SD3, FLUX |
 
 ## Putting It Into Practice
 

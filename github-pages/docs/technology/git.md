@@ -107,6 +107,31 @@ flowchart RL
 
 Because objects are addressed by the hash of their content, identical files anywhere in history share a single blob, and any tampering changes the hash — giving Git both deduplication and cryptographic integrity.
 
+#### Seeing the Object Model Directly
+
+The abstract model becomes concrete with Git's *plumbing* commands. The session below creates a blob, wraps it in a tree, and seals that tree into a commit — the exact three steps `git commit` performs internally:
+
+```bash
+# 1. Store a blob and get its hash
+$ echo "hello" | git hash-object -w --stdin
+ce013625030ba8dba906f756967f9e9ca394464a
+
+# 2. Inspect any object: its type, and its content
+$ git cat-file -t ce013625        # -> blob
+$ git cat-file -p ce013625        # -> hello
+
+# 3. A commit is just text pointing at a tree and parent(s)
+$ git cat-file -p HEAD
+tree   a1b2c3...        # the snapshot
+parent d4e5f6...        # previous commit (omitted for the root commit)
+author  Jane Dev <jane@example.com> 1700000000 +0000
+committer Jane Dev <jane@example.com> 1700000000 +0000
+
+    Add greeting
+```
+
+The hash of a blob depends only on its content (plus a `blob <size>\0` header), never on its filename or location — that is why renaming a file or copying it elsewhere costs zero extra storage.
+
 ### Storage Model
 
 ```
@@ -124,6 +149,34 @@ Because objects are addressed by the hash of their content, identical files anyw
 ├── index             # Staging area
 └── config            # Repository configuration
 ```
+
+### The Three Trees
+
+Almost every day-to-day Git command moves data between three "trees" (snapshots of the project). Understanding them demystifies `add`, `commit`, `reset`, and `checkout` — they are all just different ways of synchronizing these three states.
+
+| Tree | Lives in | Represents | Advanced by |
+|------|----------|------------|-------------|
+| **HEAD** | `.git` (the commit it points to) | Last commit — the snapshot you started from | `git commit` |
+| **Index** (staging area) | `.git/index` | The proposed *next* snapshot | `git add` |
+| **Working tree** | Files on disk | Your actual edits, staged or not | Editing files |
+
+```mermaid
+flowchart LR
+    WT["Working tree<br/>(files on disk)"] -->|git add| IDX["Index<br/>(staged snapshot)"]
+    IDX -->|git commit| HEAD["HEAD<br/>(committed snapshot)"]
+    HEAD -->|git checkout / reset --hard| WT
+    HEAD -->|git reset --mixed| IDX
+```
+
+This is why the three `reset` modes differ only in *how far* they propagate a move of HEAD:
+
+| Command | Moves HEAD | Resets Index | Resets Working tree |
+|---------|:----------:|:------------:|:-------------------:|
+| `git reset --soft`  | Yes | No  | No  |
+| `git reset --mixed` (default) | Yes | Yes | No  |
+| `git reset --hard`  | Yes | Yes | Yes |
+
+A `--soft` reset leaves your staged changes intact (useful for re-doing a commit message); a `--hard` reset discards everything back to the target commit (and is the one command capable of destroying uncommitted work).
 
 ## Configuration Management
 
@@ -438,6 +491,32 @@ git merge -s recursive <branch>  # Default
 git merge -s ours <branch>       # Keep current content
 git merge -s octopus b1 b2 b3    # Multiple branches
 ```
+
+### Merge vs Rebase
+
+Both `merge` and `rebase` integrate work from one branch into another, but they produce different histories. A **merge** preserves the true topology by creating a merge commit with two parents; a **rebase** rewrites your commits so they appear to have been built on top of the latest base, yielding a linear history. The diagrams below show a feature branch `B1 → B2` integrated into `main` (`M1 → M2 → M3`).
+
+```mermaid
+flowchart LR
+    subgraph Merge["git merge (preserves topology)"]
+        direction LR
+        m1((M1)) --> m2((M2)) --> m3((M3)) --> mc((Merge))
+        m2 --> b1((B1)) --> b2((B2)) --> mc
+    end
+    subgraph Rebase["git rebase (linear history)"]
+        direction LR
+        r1((M1)) --> r2((M2)) --> r3((M3)) --> rb1((B1')) --> rb2((B2'))
+    end
+```
+
+| | Merge | Rebase |
+|---|-------|--------|
+| History | Non-linear; true graph | Linear, easier to read |
+| Commit hashes | Preserved | Rewritten (new commits) |
+| Traceability | Records when integration happened | Loses the original branch point |
+| Safe on shared branches? | Yes | No — never rebase commits others have pulled |
+
+**Golden rule of rebasing**: rebase only commits that exist solely in your local repository. Rewriting published history forces every collaborator to recover manually.
 
 ### Rebase Operations
 

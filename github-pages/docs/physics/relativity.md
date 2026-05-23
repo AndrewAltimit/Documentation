@@ -37,6 +37,32 @@ hide_title: true
   </div>
 </div>
 
+### The Logic of Relativity
+
+Both theories unfold from a single stubborn fact and a single guiding principle, each forcing the next conclusion. The chain below shows how one experimental observation (the constancy of light speed) cascades into the entire structure of special relativity, and how one further principle (equivalence) extends it into general relativity. Read it as the skeleton of this page.
+
+```mermaid
+graph TD
+    MM["Light speed c is the same<br/>for every observer"] --> POST["Two postulates of<br/>special relativity"]
+    POST --> LT["Lorentz transformations"]
+    LT --> TD["Time dilation"]
+    LT --> LC["Length contraction"]
+    LT --> RS["Relativity of simultaneity"]
+    LT --> EMC["Mass-energy equivalence<br/>E = mc^2"]
+    TD --> ST["Spacetime as one<br/>four-dimensional arena"]
+    LC --> ST
+    RS --> ST
+    ST --> EP["Equivalence principle:<br/>gravity = acceleration"]
+    EMC --> EP
+    EP --> CURV["Mass-energy curves spacetime"]
+    CURV --> EFE["Einstein field equations"]
+    EFE --> PRED["Black holes, lensing,<br/>gravitational waves, cosmology"]
+    classDef sr fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
+    classDef gr fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    class MM,POST,LT,TD,LC,RS,EMC,ST sr;
+    class EP,CURV,EFE,PRED gr;
+```
+
 ## Special Relativity
 
 <div class="section-intro">
@@ -614,6 +640,18 @@ $$F = \frac{dp}{dt} = \frac{d(\gamma mv)}{dt}$$
 #### Relativistic Kinetic Energy
 
 $$KE = (\gamma - 1)mc^2$$
+
+<div class="tip-card">
+  <h4>Reading the energy-momentum relation</h4>
+  <p>The relation $E^2 = (pc)^2 + (mc^2)^2$ is one of the most useful equations in all of physics, and it reads like a Pythagorean theorem for energy. Two limits make it intuitive. For a slow particle ($p \to 0$) it reduces to $E = mc^2$ plus, on Taylor-expanding, the Newtonian $\tfrac{1}{2}mv^2$ — classical kinetic energy is just the first correction to the rest energy. For a <em>massless</em> particle like the photon ($m = 0$) it collapses to $E = pc$, which is why light carries momentum despite having no mass. The rest mass $m$ is the invariant "length" of the energy-momentum four-vector: every observer disagrees on $E$ and $p$ separately, but all agree on $m$.</p>
+</div>
+
+<div class="example-card">
+  <h4>Worked Example: how much energy is locked in one gram?</h4>
+  <p>Mass-energy equivalence says even a stationary object stores energy $E = mc^2$. For $m = 1\ \text{gram} = 10^{-3}\ \text{kg}$:</p>
+  $$E = (10^{-3}\ \text{kg})(3.0\times10^{8}\ \text{m/s})^2 = 9\times10^{13}\ \text{J}.$$
+  <p>That is roughly the energy released by 20 kilotons of TNT — comparable to the Hiroshima bomb — from a single gram of matter. The reason chemistry never reveals this is that chemical bonds release a billionth of the rest energy; only nuclear and particle processes tap a meaningful fraction. The mass of a charged battery, a compressed spring, or a hot object is genuinely (if immeasurably) larger than its de-energized state.</p>
+</div>
 
 ### Four-Vectors and Tensor Notation
 
