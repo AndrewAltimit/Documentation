@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
-                               >
-                              AI Fundamentals
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                               class="active">
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
-                               class="active">
-                              AI Simplified
+                            <a href="/Documentation/docs/technology/ai.html"
+                               >
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1453,56 +1769,153 @@ document.addEventListener('DOMContentLoaded', function() {
       <section class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Core AI concepts and terminology for beginners</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Core AI concepts and terminology — explained in plain English, no math required.</p>
 </div>
+
+<div class="intro-card">
+  <p class="lead-text">This is the friendly, no-math introduction to artificial intelligence. We'll build intuition for what AI is, how machines "learn," and where the technology shows up in everyday life. When you're ready for equations and architecture details, the <a href="ai.html">Complete</a> and <a href="ai-lecture-2023.html">Deep Dive</a> versions are waiting.</p>
+
+  <div class="key-insights">
+    <div class="insight-card">
+      <i class="fas fa-seedling"></i>
+      <h4>Start Simple</h4>
+      <p>Plain-language concepts, real-world examples</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-lightbulb"></i>
+      <h4>Build Intuition</h4>
+      <p>Understand the "why" before the "how"</p>
+    </div>
+    <div class="insight-card">
+      <i class="fas fa-stairs"></i>
+      <h4>Level Up Later</h4>
+      <p>Clear paths to deeper, technical material</p>
+    </div>
+  </div>
+</div>
+
+<h2 id="what-youll-learn">What You’ll Learn</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th>Question it answers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="#overview">Overview</a></td>
+      <td>What does “AI” actually mean?</td>
+    </tr>
+    <tr>
+      <td><a href="#how-machines-learn">How Machines Learn</a></td>
+      <td>How can a computer learn from examples?</td>
+    </tr>
+    <tr>
+      <td><a href="#ai-categories">AI Categories</a></td>
+      <td>Narrow AI vs. the AGI you hear about in the news</td>
+    </tr>
+    <tr>
+      <td><a href="#common-applications">Common Applications</a></td>
+      <td>Where is AI used today?</td>
+    </tr>
+    <tr>
+      <td><a href="#how-ai-models-are-built">How Models Are Built</a></td>
+      <td>The training process, step by step</td>
+    </tr>
+    <tr>
+      <td><a href="#key-challenges">Key Challenges</a></td>
+      <td>What can go wrong, and the ethics</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="overview">Overview</h2>
 
 <p>Artificial Intelligence (AI) refers to computer systems capable of performing tasks that typically require human intelligence, including visual perception, speech recognition, decision-making, and language translation. AI encompasses various approaches and techniques for creating intelligent systems.</p>
 
-<h2 id="core-concepts">Core Concepts</h2>
+<p>The simplest way to picture how the major ideas fit together:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    AI["Artificial Intelligence&lt;br/&gt;(machines doing 'smart' tasks)"] --&gt; ML["Machine Learning&lt;br/&gt;(learning from data)"]
+    ML --&gt; DL["Deep Learning&lt;br/&gt;(neural networks with many layers)"]
+    DL --&gt; GenAI["Generative AI&lt;br/&gt;(ChatGPT, image generators)"]
+    AI --&gt; Rules["Rule-based systems&lt;br/&gt;(hand-written logic)"]
+</code></pre>
+
+<p>Think of these as nested ideas: deep learning is a kind of machine learning, which is a kind of AI. The chatbots and image generators making headlines are mostly built on deep learning.</p>
+
+<h2 id="how-machines-learn">How Machines Learn</h2>
 
 <h3 id="machine-learning">Machine Learning</h3>
-<p>Machine Learning (ML) is a subset of AI where systems learn from data without explicit programming. Instead of following predetermined rules, ML algorithms identify patterns in data and make decisions based on these patterns.</p>
+<p>Machine Learning (ML) is a subset of AI where systems learn from data without explicit programming. Instead of a human writing down every rule, the system studies many examples and figures out the patterns on its own. Show it thousands of photos labeled “cat” or “dog,” and it learns the difference — without anyone defining what a whisker is.</p>
 
-<p><strong>Types of Machine Learning:</strong></p>
-<ul>
-  <li><strong>Supervised Learning</strong>: Learns from labeled training data</li>
-  <li><strong>Unsupervised Learning</strong>: Finds patterns in unlabeled data</li>
-  <li><strong>Reinforcement Learning</strong>: Learns through interaction and feedback</li>
-</ul>
+<p>The three main styles of machine learning differ in <em>what kind of data they learn from</em>:</p>
+
+<div class="ml-types-section">
+  <div class="ml-type-card supervised">
+    <h4><i class="fas fa-tags"></i> Supervised Learning</h4>
+    <p>Learns from <strong>labeled</strong> examples — data that comes with the right answers attached.</p>
+    <p><em>Like a student with an answer key.</em></p>
+    <p><strong>Examples:</strong> spam filters, photo tagging, price prediction.</p>
+  </div>
+  <div class="ml-type-card unsupervised">
+    <h4><i class="fas fa-object-group"></i> Unsupervised Learning</h4>
+    <p>Finds hidden structure in <strong>unlabeled</strong> data — no answers provided.</p>
+    <p><em>Like sorting a pile of photos into groups without being told the categories.</em></p>
+    <p><strong>Examples:</strong> customer segmentation, anomaly detection.</p>
+  </div>
+  <div class="ml-type-card reinforcement">
+    <h4><i class="fas fa-gamepad"></i> Reinforcement Learning</h4>
+    <p>Learns by <strong>trial and error</strong>, earning rewards for good actions.</p>
+    <p><em>Like training a dog with treats.</em></p>
+    <p><strong>Examples:</strong> game-playing AI, robotics, self-driving cars.</p>
+  </div>
+</div>
 
 <h3 id="deep-learning">Deep Learning</h3>
 <p>Deep Learning uses artificial neural networks with multiple layers to progressively extract higher-level features from raw input. It has revolutionized fields like computer vision and natural language processing.</p>
 
-<p><strong>Neural Network Components:</strong></p>
+<p>A neural network is loosely inspired by the brain: many simple units (“neurons”) connected in layers. Early layers spot simple things (edges, colors); later layers combine those into complex ideas (a face, a word, a melody).</p>
+
+<p><strong>Neural Network Components (the plain-English version):</strong></p>
 <ul>
-  <li><strong>Input Layer</strong>: Receives raw data</li>
-  <li><strong>Hidden Layers</strong>: Process and transform data</li>
-  <li><strong>Output Layer</strong>: Produces final predictions</li>
-  <li><strong>Activation Functions</strong>: Introduce non-linearity</li>
-  <li><strong>Weights and Biases</strong>: Learnable parameters</li>
+  <li><strong>Input Layer</strong>: Where the raw data comes in (the pixels of a photo, the words of a sentence)</li>
+  <li><strong>Hidden Layers</strong>: The “thinking” layers that progressively find patterns</li>
+  <li><strong>Output Layer</strong>: The final answer (e.g., “this is a cat, 97% sure”)</li>
+  <li><strong>Activation Functions</strong>: Tiny decision-makers that let the network learn curvy, complex patterns instead of just straight lines</li>
+  <li><strong>Weights and Biases</strong>: The dials the network tunes during training — these <em>are</em> what the model “learns”</li>
 </ul>
 
 <h2 id="ai-categories">AI Categories</h2>
 
-<h3 id="narrow-ai-weak-ai">Narrow AI (Weak AI)</h3>
-<p>Systems designed for specific tasks:</p>
-<ul>
-  <li>Image recognition systems (YOLO, ResNet, Vision Transformers)</li>
-  <li>Language translation services (Google Translate, DeepL)</li>
-  <li>Recommendation engines (Netflix, YouTube, TikTok algorithms)</li>
-  <li>Game-playing AI (AlphaGo, AlphaStar, OpenAI Five)</li>
-  <li>Virtual assistants (Siri, Alexa, Google Assistant)</li>
-  <li>Code completion tools (GitHub Copilot, Amazon CodeWhisperer)</li>
-  <li>Generative AI (ChatGPT, Claude, DALL-E, Midjourney)</li>
-</ul>
+<p>People often lump all AI together, but there’s a huge gap between today’s reality and the science-fiction vision. Here’s how researchers categorize it:</p>
 
-<h3 id="general-ai-strong-ai">General AI (Strong AI)</h3>
-<p>Hypothetical systems with human-level intelligence across all domains. Currently theoretical and not yet achieved.</p>
+<div class="ai-types-section">
+  <div class="ai-type-card narrow-ai">
+    <h3><i class="fas fa-bullseye"></i> Narrow AI (today's reality)</h3>
+    <p class="description">Systems designed for one specific task. Astonishingly good at that task — often better than humans — but unable to do anything else. <strong>Every AI you've ever used is narrow AI.</strong></p>
+    <ul>
+      <li>Image recognition (YOLO, ResNet, Vision Transformers)</li>
+      <li>Translation services (Google Translate, DeepL)</li>
+      <li>Recommendation engines (Netflix, YouTube, TikTok)</li>
+      <li>Game-playing AI (AlphaGo, AlphaStar, OpenAI Five)</li>
+      <li>Virtual assistants (Siri, Alexa, Google Assistant)</li>
+      <li>Code helpers (GitHub Copilot)</li>
+      <li>Generative AI (ChatGPT, Claude, DALL-E, Midjourney)</li>
+    </ul>
+  </div>
+  <div class="ai-type-card general-ai">
+    <h3><i class="fas fa-infinity"></i> General AI (still hypothetical)</h3>
+    <p class="description"><strong>AGI</strong> would match human flexibility across <em>all</em> domains — learning any task a person can. This does not exist yet. Rapid progress in large language models has intensified debate over how close we are, but there is no consensus.</p>
+    <p class="description"><strong>Superintelligence (ASI)</strong> — AI that surpasses humans at everything — is even further out and remains purely speculative.</p>
+  </div>
+</div>
 
-<h3 id="artificial-superintelligence-asi">Artificial Superintelligence (ASI)</h3>
-<p>Theoretical AI surpassing human intelligence in all aspects. Remains in the realm of speculation and research. Recent discussions around AGI timelines have intensified with rapid LLM progress, but consensus remains that true ASI is still theoretical.</p>
+<div class="tip-card">
+  <p><strong>Quick reality check:</strong> When the news says “AI,” it almost always means a <em>narrow</em> system that’s great at one thing. ChatGPT can write essays but can’t drive a car; a chess engine can crush a grandmaster but can’t hold a conversation.</p>
+</div>
 
 <h2 id="key-algorithms-and-techniques">Key Algorithms and Techniques</h2>
 
@@ -1560,35 +1973,76 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><strong>Hybrid Systems</strong>: Combine multiple approaches</li>
 </ul>
 
-<h2 id="training-process">Training Process</h2>
+<h2 id="how-ai-models-are-built">How AI Models Are Built</h2>
 
-<h3 id="data-preparation">Data Preparation</h3>
+<p>“Training” is how a model goes from knowing nothing to being useful. The core idea is simple: the model makes a guess, sees how wrong it was, and nudges its internal dials to do better next time — repeated millions of times.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A[Show example] --&gt; B[Model makes a guess]
+    B --&gt; C[Compare to the right answer]
+    C --&gt; D[Measure the mistake]
+    D --&gt; E[Adjust the dials a little]
+    E --&gt; A
+    C --&gt; F((Good enough?))
+    F --&gt;|Yes| G[Done — ready to use]
+</code></pre>
+
+<h3 id="step-1--prepare-the-data">Step 1 — Prepare the Data</h3>
 <ol>
-  <li><strong>Data Collection</strong>: Gather relevant datasets</li>
-  <li><strong>Data Cleaning</strong>: Handle missing values and outliers</li>
-  <li><strong>Feature Engineering</strong>: Create meaningful features</li>
-  <li><strong>Data Splitting</strong>: Separate training, validation, and test sets</li>
+  <li><strong>Collect</strong> relevant examples (the more, the better)</li>
+  <li><strong>Clean</strong> them — fix errors, remove junk, handle gaps</li>
+  <li><strong>Engineer features</strong> — highlight the parts that matter</li>
+  <li><strong>Split</strong> into training, validation, and test sets so you can fairly judge the result on data the model has never seen</li>
 </ol>
 
-<h3 id="model-training">Model Training</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Conceptual example
-</span><span class="n">model</span> <span class="o">=</span> <span class="nf">initialize_model</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
-        <span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">batch</span><span class="p">.</span><span class="n">inputs</span><span class="p">)</span>
-        <span class="n">loss</span> <span class="o">=</span> <span class="nf">calculate_loss</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">batch</span><span class="p">.</span><span class="n">targets</span><span class="p">)</span>
-        <span class="n">gradients</span> <span class="o">=</span> <span class="nf">calculate_gradients</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
-        <span class="n">model</span><span class="p">.</span><span class="nf">update_weights</span><span class="p">(</span><span class="n">gradients</span><span class="p">)</span>
-</code></pre></div></div>
+<h3 id="step-2--train-the-model">Step 2 — Train the Model</h3>
+<p>The conceptual loop, in pseudocode:</p>
 
-<h3 id="evaluation-metrics">Evaluation Metrics</h3>
-<ul>
-  <li><strong>Accuracy</strong>: Correct predictions / Total predictions</li>
-  <li><strong>Precision</strong>: True positives / (True positives + False positives)</li>
-  <li><strong>Recall</strong>: True positives / (True positives + False negatives)</li>
-  <li><strong>F1 Score</strong>: Harmonic mean of precision and recall</li>
-  <li><strong>AUC-ROC</strong>: Area under receiver operating characteristic curve</li>
-</ul>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Conceptual example — repeated many times
+</span><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">training_data</span><span class="p">:</span>
+    <span class="n">guess</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">batch</span><span class="p">.</span><span class="n">inputs</span><span class="p">)</span>        <span class="c1"># make a guess
+</span>    <span class="n">mistake</span> <span class="o">=</span> <span class="nf">compare</span><span class="p">(</span><span class="n">guess</span><span class="p">,</span> <span class="n">batch</span><span class="p">.</span><span class="n">answers</span><span class="p">)</span>     <span class="c1"># how wrong was it?
+</span>    <span class="n">model</span><span class="p">.</span><span class="nf">adjust_to_reduce</span><span class="p">(</span><span class="n">mistake</span><span class="p">)</span>             <span class="c1"># nudge the dials
+</span></code></pre></div></div>
+
+<p>That’s the whole secret. There’s no magic — just guess, measure, adjust, repeat.</p>
+
+<h3 id="step-3--measure-how-good-it-is">Step 3 — Measure How Good It Is</h3>
+<p>We don’t just ask “is it right?” — context matters. Common scorecards:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Plain-English meaning</th>
+      <th>When you care</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Accuracy</strong></td>
+      <td>Fraction of predictions that were correct</td>
+      <td>Balanced, everyday tasks</td>
+    </tr>
+    <tr>
+      <td><strong>Precision</strong></td>
+      <td>When it says “yes,” how often is it right?</td>
+      <td>Avoiding false alarms (e.g., spam filters)</td>
+    </tr>
+    <tr>
+      <td><strong>Recall</strong></td>
+      <td>Of all the real “yes” cases, how many did it catch?</td>
+      <td>Not missing things (e.g., disease screening)</td>
+    </tr>
+    <tr>
+      <td><strong>F1 Score</strong></td>
+      <td>A balance of precision and recall</td>
+      <td>When you need both</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>(There are fancier ones like AUC-ROC, but these four cover most of what you’ll hear about.)</p>
 
 <h2 id="key-challenges">Key Challenges</h2>
 
@@ -1691,6 +2145,18 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><a href="https://ai.google/education/">Google AI</a> - Free ML courses and resources</li>
   <li><a href="https://cookbook.openai.com/">OpenAI Cookbook</a> - Practical LLM examples</li>
 </ul>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-card">
+  <ul>
+    <li><strong>AI is an umbrella term.</strong> Machine learning is AI that learns from data; deep learning is ML using many-layered neural networks; generative AI (ChatGPT, image makers) is the headline-grabbing branch of deep learning.</li>
+    <li><strong>Learning = guess, measure, adjust, repeat.</strong> No magic — just a feedback loop run millions of times until the model is good enough.</li>
+    <li><strong>Three learning styles:</strong> supervised (with answer keys), unsupervised (find your own patterns), reinforcement (trial and error with rewards).</li>
+    <li><strong>Everything today is narrow AI</strong> — superhuman at one task, helpless at others. General AI (AGI) does not yet exist.</li>
+    <li><strong>Quality depends on data and honest evaluation</strong> — biased or messy data leads to biased, unreliable models.</li>
+  </ul>
+</div>
 
 <h2 id="next-steps">Next Steps</h2>
 

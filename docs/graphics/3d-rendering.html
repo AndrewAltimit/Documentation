@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
                                >
-                              AI Fundamentals
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                            <a href="/Documentation/docs/technology/ai.html"
                                >
-                              AI Simplified
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details open data-nav-section="creative-development">
+                    <details open data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                class="active">
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1460,34 +1776,35 @@ document.addEventListener('DOMContentLoaded', function() {
   <p class="lead">3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.</p>
 </div>
 
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-stream"></i><h4>Pipeline, Not Magic</h4><p>Every frame is a fixed sequence of stages: transform geometry, decide which pixels are covered, then shade them. Understanding the stages tells you where time goes.</p></div>
+  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Massively Parallel</h4><p>A GPU runs thousands of threads at once. Performance comes from feeding that parallelism evenly, not from clever serial tricks.</p></div>
+  <div class="insight-card"><i class="fas fa-balance-scale"></i><h4>Rasterize vs Trace</h4><p>Rasterization is fast and approximate; ray tracing is accurate and expensive. Modern engines blend both ("hybrid rendering").</p></div>
+  <div class="insight-card"><i class="fas fa-tachometer-alt"></i><h4>Budget Driven</h4><p>At 60 FPS you have ~16 ms per frame. Rendering is a constant negotiation between visual fidelity and that fixed time budget.</p></div>
+</div>
+
 <h2 id="the-rendering-pipeline">The Rendering Pipeline</h2>
 
 <h3 id="overview">Overview</h3>
 
-<p>The graphics pipeline processes geometry through a series of stages:</p>
+<p>Rendering answers two questions for every pixel: <em>what surface is visible here?</em> and <em>what color is that surface?</em> The graphics pipeline processes geometry through a fixed sequence of stages to answer them. Vertices flow in at the top, get transformed and assembled into triangles, are converted to candidate pixels (fragments), and finally shaded and composited into the framebuffer.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Application Stage (CPU)
-    │
-    ▼
-Geometry Processing (GPU)
-├── Vertex Shader
-├── Tessellation (optional)
-├── Geometry Shader (optional)
-└── Clipping &amp; Culling
-    │
-    ▼
-Rasterization
-    │
-    ▼
-Fragment/Pixel Processing
-├── Pixel Shader
-├── Depth Testing
-├── Stencil Testing
-└── Blending
-    │
-    ▼
-Framebuffer Output
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TD
+    A["Application Stage (CPU)&lt;br/&gt;scene setup, culling, draw calls"] --&gt; B["Vertex Shader&lt;br/&gt;transform vertices to clip space"]
+    B --&gt; C{"Optional&lt;br/&gt;geometry stages"}
+    C --&gt; D["Tessellation&lt;br/&gt;subdivide patches"]
+    C --&gt; E["Geometry Shader&lt;br/&gt;emit/modify primitives"]
+    D --&gt; F["Clipping &amp; Culling&lt;br/&gt;discard off-screen / backfaces"]
+    E --&gt; F
+    C --&gt; F
+    F --&gt; G["Rasterization&lt;br/&gt;triangles to fragments"]
+    G --&gt; H["Fragment / Pixel Shader&lt;br/&gt;compute color &amp; lighting"]
+    H --&gt; I["Depth &amp; Stencil Test"]
+    I --&gt; J["Blending"]
+    J --&gt; K["Framebuffer Output"]
+</code></pre>
+
+<p>The CPU-side <strong>application stage</strong> is where your engine lives: it decides what to draw, performs high-level culling, and issues draw calls. Everything below it runs on the GPU. The fixed-function stages (rasterization, depth test, blend) are configured but not programmed; the programmable stages (vertex, fragment, and optionally tessellation/geometry/compute) are where shader code runs.</p>
 
 <h3 id="coordinate-spaces">Coordinate Spaces</h3>
 
@@ -1565,6 +1882,67 @@ Framebuffer Output
     <span class="nb">gl_Position</span> <span class="o">=</span> <span class="n">projection</span> <span class="o">*</span> <span class="n">view</span> <span class="o">*</span> <span class="n">worldPos</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div></div>
+
+<h3 id="rasterization-vs-ray-tracing">Rasterization vs Ray Tracing</h3>
+
+<p>The two dominant paradigms for visibility determination take opposite approaches. <strong>Rasterization</strong> projects each triangle onto the screen and asks “which pixels does it cover?” — it iterates over geometry. <strong>Ray tracing</strong> shoots a ray through each pixel and asks “what does this ray hit?” — it iterates over pixels. Rasterization is the basis of real-time graphics because it maps perfectly onto GPU parallelism and avoids expensive scene-wide queries; ray tracing produces physically correct shadows, reflections, and global illumination but historically required offline render farms.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th>Rasterization</th>
+      <th>Ray Tracing</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Core question</td>
+      <td>Which pixels does this triangle cover?</td>
+      <td>What does this ray hit?</td>
+    </tr>
+    <tr>
+      <td>Iterates over</td>
+      <td>Geometry (triangles)</td>
+      <td>Pixels (rays)</td>
+    </tr>
+    <tr>
+      <td>Cost scaling</td>
+      <td>Linear in triangles + overdraw</td>
+      <td>Scales with rays × scene complexity (mitigated by BVH)</td>
+    </tr>
+    <tr>
+      <td>Shadows</td>
+      <td>Approximate (shadow maps)</td>
+      <td>Exact, soft from area lights</td>
+    </tr>
+    <tr>
+      <td>Reflections</td>
+      <td>Screen-space / probes (incomplete)</td>
+      <td>Accurate, off-screen reflections</td>
+    </tr>
+    <tr>
+      <td>Global illumination</td>
+      <td>Baked or screen-space approximations</td>
+      <td>Natural multi-bounce</td>
+    </tr>
+    <tr>
+      <td>Hardware</td>
+      <td>Universal, decades of optimization</td>
+      <td>RT cores (RTX, RDNA2+) needed for real-time</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>Primary visibility, real-time base</td>
+      <td>Shadows, reflections, GI in hybrid pipelines</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tip-card">
+  <h4 id="hybrid-rendering-is-the-norm">Hybrid Rendering Is the Norm</h4>
+  <p>Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for speed, then fire rays only for the effects where rasterization fails — shadows, reflections, and indirect light. This pays the ray-tracing cost only where it buys the most visual quality. UE5’s Lumen and ray-traced shadows are exactly this strategy.</p>
+</div>
 
 <h2 id="lighting-and-shading">Lighting and Shading</h2>
 
@@ -1872,23 +2250,23 @@ Split distances based on:
 
 <h3 id="parallelism-model">Parallelism Model</h3>
 
-<p>GPUs execute thousands of threads simultaneously:</p>
+<p>GPUs execute thousands of threads simultaneously. Hardware is organized as a hierarchy of compute units, and the software thread model mirrors it:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GPU
-├── Streaming Multiprocessors (SM)
-│   ├── CUDA Cores / Stream Processors
-│   ├── Shared Memory
-│   └── L1 Cache
-├── L2 Cache
-├── Memory Controllers
-└── Video Memory (VRAM)
+<pre><code class="language-mermaid">flowchart TD
+    GPU["GPU"] --&gt; SM["Streaming Multiprocessors (SM)"]
+    GPU --&gt; L2["L2 Cache"]
+    GPU --&gt; VRAM["Video Memory (VRAM)"]
+    SM --&gt; Cores["CUDA Cores / Stream Processors"]
+    SM --&gt; SMem["Shared Memory"]
+    SM --&gt; L1["L1 Cache"]
+    subgraph Thread Model
+      Grid["Grid (whole dispatch)"] --&gt; Block["Thread Block (shares memory)"]
+      Block --&gt; Warp["Warp / Wavefront (32 / 64 lock-step threads)"]
+      Warp --&gt; Thread["Thread (one lane)"]
+    end
+</code></pre>
 
-Thread Hierarchy:
-- Thread: Single execution unit
-- Warp/Wavefront: 32/64 threads executing together
-- Thread Block: Group of warps with shared memory
-- Grid: All thread blocks for a dispatch
-</code></pre></div></div>
+<p>Threads within a <strong>warp</strong> execute in lock-step (SIMT). When threads in a warp take different branches, the GPU runs <em>both</em> paths and masks the inactive lanes — this is <strong>warp divergence</strong>, the reason branchy shaders are slow. Keeping all 32/64 lanes doing the same work is the single most important shader-performance principle.</p>
 
 <h3 id="memory-hierarchy">Memory Hierarchy</h3>
 
@@ -2021,6 +2399,17 @@ Billboard: 2D impostor (very far)
 </ul>
 
 <hr />
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>The pipeline is fixed</h4><p>Vertices → triangles → fragments → framebuffer. Knowing which stage dominates a frame is the first step in optimizing it.</p></div>
+  <div class="takeaway-card"><h4>Rasterize first, trace selectively</h4><p>Rasterization wins on speed; ray tracing wins on accuracy. Hybrid pipelines rasterize visibility and trace only shadows, reflections, and GI.</p></div>
+  <div class="takeaway-card"><h4>PBR is the material standard</h4><p>Albedo, metallic, and roughness drive a physically grounded Cook-Torrance BRDF that behaves consistently under any lighting.</p></div>
+  <div class="takeaway-card"><h4>Draw calls and overdraw cost</h4><p>Batching, instancing, LODs, and culling exist to reduce CPU-side draw calls and wasted GPU shading.</p></div>
+  <div class="takeaway-card"><h4>Avoid warp divergence</h4><p>The GPU shades 32/64 threads in lock-step. Branchy shaders and uneven work waste lanes — keep work uniform.</p></div>
+  <div class="takeaway-card"><h4>TAA + upscaling are default</h4><p>Temporal accumulation (TAA) plus DLSS/FSR now deliver the best quality-per-millisecond for anti-aliasing.</p></div>
+</div>
 
 <h2 id="see-also">See Also</h2>
 <ul>

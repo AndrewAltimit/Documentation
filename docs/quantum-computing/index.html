@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = false;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
                                >
-                              AI Fundamentals
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                            <a href="/Documentation/docs/technology/ai.html"
                                >
-                              AI Simplified
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1451,7 +1767,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </header>
 
       <section class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+        <div class="hero-section" style="background: linear-gradient(135deg, #0f2027 0%, #2c5364 50%, #00c6ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computing</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Harness quantum mechanics for computation beyond classical limits</p>
 </div>
@@ -1488,53 +1804,14 @@ document.addEventListener('DOMContentLoaded', function() {
       <li><a href="#-research-topics" id="markdown-toc--research-topics">🔬 Research Topics</a></li>
     </ol>
   </li>
-  <li><a href="#quantum-computing-basics" id="markdown-toc-quantum-computing-basics">Quantum Computing Basics</a>    <ol>
-      <li><a href="#what-is-a-qubit" id="markdown-toc-what-is-a-qubit">What is a Qubit?</a></li>
-      <li><a href="#key-quantum-phenomena" id="markdown-toc-key-quantum-phenomena">Key Quantum Phenomena</a></li>
-      <li><a href="#quantum-gates" id="markdown-toc-quantum-gates">Quantum Gates</a></li>
-    </ol>
-  </li>
-  <li><a href="#classical-quantum-algorithms" id="markdown-toc-classical-quantum-algorithms">Classical Quantum Algorithms</a>    <ol>
-      <li><a href="#shors-algorithm" id="markdown-toc-shors-algorithm">Shor’s Algorithm</a></li>
-      <li><a href="#grovers-algorithm" id="markdown-toc-grovers-algorithm">Grover’s Algorithm</a></li>
-      <li><a href="#quantum-fourier-transform" id="markdown-toc-quantum-fourier-transform">Quantum Fourier Transform</a></li>
-    </ol>
-  </li>
-  <li><a href="#nisq-era-algorithms" id="markdown-toc-nisq-era-algorithms">NISQ Era Algorithms</a>    <ol>
-      <li><a href="#variational-quantum-eigensolver-vqe" id="markdown-toc-variational-quantum-eigensolver-vqe">Variational Quantum Eigensolver (VQE)</a></li>
-      <li><a href="#quantum-approximate-optimization-algorithm-qaoa" id="markdown-toc-quantum-approximate-optimization-algorithm-qaoa">Quantum Approximate Optimization Algorithm (QAOA)</a></li>
-      <li><a href="#quantum-machine-learning" id="markdown-toc-quantum-machine-learning">Quantum Machine Learning</a></li>
-    </ol>
-  </li>
-  <li><a href="#quantum-programming-frameworks" id="markdown-toc-quantum-programming-frameworks">Quantum Programming Frameworks</a>    <ol>
-      <li><a href="#ibm-qiskit" id="markdown-toc-ibm-qiskit">IBM Qiskit</a></li>
-      <li><a href="#google-cirq" id="markdown-toc-google-cirq">Google Cirq</a></li>
-      <li><a href="#microsoft-q" id="markdown-toc-microsoft-q">Microsoft Q#</a></li>
-    </ol>
-  </li>
-  <li><a href="#quantum-hardware-platforms" id="markdown-toc-quantum-hardware-platforms">Quantum Hardware Platforms</a>    <ol>
-      <li><a href="#superconducting-qubits" id="markdown-toc-superconducting-qubits">Superconducting Qubits</a></li>
-      <li><a href="#trapped-ions" id="markdown-toc-trapped-ions">Trapped Ions</a></li>
-      <li><a href="#photonic-quantum-computing" id="markdown-toc-photonic-quantum-computing">Photonic Quantum Computing</a></li>
-      <li><a href="#other-approaches" id="markdown-toc-other-approaches">Other Approaches</a></li>
-    </ol>
-  </li>
-  <li><a href="#cloud-quantum-computing" id="markdown-toc-cloud-quantum-computing">Cloud Quantum Computing</a>    <ol>
-      <li><a href="#ibm-quantum-network" id="markdown-toc-ibm-quantum-network">IBM Quantum Network</a></li>
-      <li><a href="#amazon-braket" id="markdown-toc-amazon-braket">Amazon Braket</a></li>
-      <li><a href="#azure-quantum" id="markdown-toc-azure-quantum">Azure Quantum</a></li>
-      <li><a href="#google-quantum-ai" id="markdown-toc-google-quantum-ai">Google Quantum AI</a></li>
-    </ol>
-  </li>
-  <li><a href="#quantum-error-correction" id="markdown-toc-quantum-error-correction">Quantum Error Correction</a>    <ol>
-      <li><a href="#types-of-quantum-errors" id="markdown-toc-types-of-quantum-errors">Types of Quantum Errors</a></li>
-      <li><a href="#error-correction-codes" id="markdown-toc-error-correction-codes">Error Correction Codes</a></li>
-      <li><a href="#fault-tolerant-computing" id="markdown-toc-fault-tolerant-computing">Fault-Tolerant Computing</a></li>
+  <li><a href="#core-concepts-at-a-glance" id="markdown-toc-core-concepts-at-a-glance">Core Concepts at a Glance</a>    <ol>
+      <li><a href="#quantum-vs-classical-speedups" id="markdown-toc-quantum-vs-classical-speedups">Quantum vs Classical Speedups</a></li>
+      <li><a href="#hello-quantum-a-bell-state" id="markdown-toc-hello-quantum-a-bell-state">Hello Quantum: a Bell State</a></li>
     </ol>
   </li>
   <li><a href="#applications-and-use-cases" id="markdown-toc-applications-and-use-cases">Applications and Use Cases</a>    <ol>
       <li><a href="#quantum-cryptography" id="markdown-toc-quantum-cryptography">Quantum Cryptography</a></li>
-      <li><a href="#quantum-machine-learning-1" id="markdown-toc-quantum-machine-learning-1">Quantum Machine Learning</a></li>
+      <li><a href="#quantum-machine-learning" id="markdown-toc-quantum-machine-learning">Quantum Machine Learning</a></li>
       <li><a href="#quantum-simulation" id="markdown-toc-quantum-simulation">Quantum Simulation</a></li>
       <li><a href="#optimization-problems" id="markdown-toc-optimization-problems">Optimization Problems</a></li>
     </ol>
@@ -1559,6 +1836,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <li><a href="#next-steps" id="markdown-toc-next-steps">Next Steps</a></li>
     </ol>
   </li>
+  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a>    <ol>
+      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+    </ol>
+  </li>
 </ol>
 
 <hr />
@@ -1567,20 +1848,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p>Understanding the relationships between quantum computing concepts helps navigate this complex field:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Quantum Mechanics ──────┐
-                        ├─→ Quantum Computing Basics ─→ Quantum Algorithms ─→ Applications
-Linear Algebra ─────────┘           │                          │
-                                    │                          ├─→ Cryptography
-                                    ↓                          ├─→ Optimization
-                              Quantum Gates                    ├─→ Simulation
-                                    │                          └─→ Machine Learning
-                                    ↓
-                         Quantum Circuits &amp; Programming
-                                    │
-                         ┌──────────┴──────────┐
-                         ↓                     ↓
-                   Quantum Hardware      Error Correction
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TD
+    QM[Quantum Mechanics] --&gt; Basics[Quantum Computing Basics]
+    LA[Linear Algebra] --&gt; Basics
+    Basics --&gt; Gates[Quantum Gates]
+    Gates --&gt; Circuits[Quantum Circuits &amp; Programming]
+    Basics --&gt; Algos[Quantum Algorithms]
+    Circuits --&gt; HW[Quantum Hardware]
+    Circuits --&gt; QEC[Error Correction]
+    Algos --&gt; Apps[Applications]
+    Apps --&gt; Crypto[Cryptography]
+    Apps --&gt; Opt[Optimization]
+    Apps --&gt; Sim[Simulation]
+    Apps --&gt; QML[Machine Learning]
+</code></pre>
 
 <h2 id="overview">Overview</h2>
 
@@ -1594,28 +1875,28 @@ Linear Algebra ─────────┘           │                     
 <ul>
   <li><a href="../technology/quantumcomputing.html"><strong>Introduction to Quantum Computing</strong></a> - Comprehensive introduction covering all aspects</li>
   <li><a href="../physics/quantum-mechanics.html"><strong>Quantum Mechanics Basics</strong></a> - Fundamental quantum principles</li>
-  <li><a href="#quantum-information-theory"><strong>Quantum Information Theory</strong></a> - How quantum mechanics enables computation</li>
+  <li><a href="../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits"><strong>Bits to Qubits</strong></a> - How quantum mechanics enables computation</li>
 </ul>
 
 <h3 id="quantum-algorithms">Quantum Algorithms</h3>
 <ul>
   <li><a href="../advanced/quantum-algorithms-research/"><strong>Advanced Quantum Algorithms Research</strong></a> - Rigorous theoretical foundations</li>
-  <li><a href="#classical-quantum-algorithms"><strong>Classical Quantum Algorithms</strong></a> - Shor’s, Grover’s, and foundational algorithms</li>
-  <li><a href="#nisq-era-algorithms"><strong>NISQ Era Algorithms</strong></a> - Variational algorithms for near-term devices</li>
+  <li><a href="../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations"><strong>Classical Quantum Algorithms</strong></a> - Shor’s, Grover’s, and foundational algorithms</li>
+  <li><a href="../technology/quantumcomputing.html#modern-quantum-algorithms-beyond-the-classics"><strong>Modern Quantum Algorithms</strong></a> - Phase estimation, HHL, quantum walks</li>
 </ul>
 
 <h3 id="quantum-programming">Quantum Programming</h3>
 <ul>
-  <li><a href="#quantum-programming-frameworks"><strong>Getting Started with Qiskit</strong></a> - IBM’s quantum development kit</li>
-  <li><a href="#quantum-circuit-design"><strong>Quantum Circuit Design</strong></a> - Building quantum algorithms</li>
-  <li><a href="#quantum-simulators"><strong>Quantum Simulators</strong></a> - Practice without quantum hardware</li>
+  <li><a href="#hello-quantum-a-bell-state"><strong>Getting Started with Qiskit</strong></a> - IBM’s quantum development kit</li>
+  <li><a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world"><strong>Quantum Gates &amp; Circuits</strong></a> - Building quantum algorithms</li>
+  <li><a href="#step-by-step-quick-start"><strong>Quick Start Below</strong></a> - Install a framework and run your first circuit</li>
 </ul>
 
 <h3 id="quantum-hardware">Quantum Hardware</h3>
 <ul>
-  <li><a href="#quantum-hardware-platforms"><strong>Quantum Computing Platforms</strong></a> - Superconducting, ion trap, and other implementations</li>
-  <li><a href="#cloud-quantum-computing"><strong>Cloud Quantum Services</strong></a> - Access quantum computers online</li>
-  <li><a href="#quantum-error-correction"><strong>Quantum Error Correction</strong></a> - Protecting quantum information</li>
+  <li><a href="../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware"><strong>Quantum Computing Platforms</strong></a> - Superconducting, ion trap, and other implementations</li>
+  <li><a href="#step-by-step-quick-start"><strong>Cloud Quantum Services</strong></a> - Access quantum computers online</li>
+  <li><a href="../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information"><strong>Quantum Error Correction</strong></a> - Protecting quantum information</li>
 </ul>
 
 <h3 id="applications">Applications</h3>
@@ -1636,8 +1917,8 @@ Linear Algebra ─────────┘           │                     
 <p><strong>Journey:</strong></p>
 <ol>
   <li>Start with <a href="../technology/quantumcomputing.html">Introduction to Quantum Computing</a> - Get the big picture</li>
-  <li>Learn about <a href="#what-is-a-qubit">qubits and superposition</a> - The quantum difference</li>
-  <li>Explore <a href="#classical-quantum-algorithms">quantum algorithms</a> - See what’s possible</li>
+  <li>Learn about <a href="../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits">qubits and superposition</a> - The quantum difference</li>
+  <li>Explore <a href="../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations">quantum algorithms</a> - See what’s possible</li>
   <li>Understand <a href="#applications-and-use-cases">applications</a> - Real-world impact</li>
   <li>Follow <a href="#communities">quantum computing news</a> - Stay informed</li>
 </ol>
@@ -1653,12 +1934,12 @@ Linear Algebra ─────────┘           │                     
 <p><strong>Journey:</strong></p>
 <ol>
   <li>Review <a href="../physics/quantum-mechanics.html">quantum mechanics basics</a> - Essential physics</li>
-  <li>Learn <a href="#quantum-gates">quantum gates and circuits</a> - Building blocks</li>
-  <li>Choose a framework: <a href="#ibm-qiskit">Qiskit</a>, <a href="#google-cirq">Cirq</a>, or <a href="#microsoft-q">Q#</a></li>
-  <li>Build your first <a href="#quantum-programming-frameworks">Bell state circuit</a></li>
-  <li>Implement <a href="#grovers-algorithm">Grover’s algorithm</a> - Classic quantum speedup</li>
-  <li>Try <a href="#nisq-era-algorithms">NISQ algorithms</a> (VQE, QAOA) - Near-term practical</li>
-  <li>Run on <a href="#cloud-quantum-computing">real quantum hardware</a> - Beyond simulation</li>
+  <li>Learn <a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world">quantum gates and circuits</a> - Building blocks</li>
+  <li>Choose a framework: Qiskit, Cirq, or Q# (see <a href="#step-by-step-quick-start">Quick Start</a>)</li>
+  <li>Build your first <a href="#hello-quantum-a-bell-state">Bell state circuit</a></li>
+  <li>Implement <a href="../technology/quantumcomputing.html#grovers-algorithm-searching-the-unsearchable">Grover’s algorithm</a> - Classic quantum speedup</li>
+  <li>Try NISQ algorithms (VQE, QAOA) - Near-term practical</li>
+  <li>Run on <a href="#step-by-step-quick-start">real quantum hardware</a> - Beyond simulation</li>
 </ol>
 
 <p><strong>Time Investment:</strong> 20-40 hours for proficiency</p>
@@ -1672,12 +1953,12 @@ Linear Algebra ─────────┘           │                     
 <p><strong>Journey:</strong></p>
 <ol>
   <li>Master <a href="../physics/quantum-mechanics.html">quantum mechanics</a> - Deep foundation</li>
-  <li>Study <a href="#quantum-information-theory">quantum information theory</a> - Formal framework</li>
-  <li>Analyze <a href="#classical-quantum-algorithms">classical quantum algorithms</a> - Shor’s, Grover’s, QFT</li>
+  <li>Study quantum information theory - Formal framework</li>
+  <li>Analyze <a href="../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations">classical quantum algorithms</a> - Shor’s, Grover’s, QFT</li>
   <li>Dive into <a href="../advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> - Rigorous theory</li>
-  <li>Explore <a href="#research-topics">quantum complexity theory</a> - Computational limits</li>
-  <li>Investigate <a href="#quantum-error-correction">error correction</a> - Fault tolerance</li>
-  <li>Contribute to current <a href="#research-topics">research areas</a> - Push boundaries</li>
+  <li>Explore <a href="../technology/quantumcomputing.html#the-deeper-theory-quantum-complexity-and-fundamental-limits">quantum complexity theory</a> - Computational limits</li>
+  <li>Investigate <a href="../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information">error correction</a> - Fault tolerance</li>
+  <li>Contribute to current research areas - Push boundaries</li>
 </ol>
 
 <p><strong>Time Investment:</strong> Ongoing research commitment</p>
@@ -1691,12 +1972,12 @@ Linear Algebra ─────────┘           │                     
 <p><strong>Journey:</strong></p>
 <ol>
   <li>Apply your <a href="../physics/quantum-mechanics.html">quantum mechanics</a> knowledge - You have a head start</li>
-  <li>Learn <a href="#quantum-information-theory">quantum information theory</a> - New perspective</li>
-  <li>Understand <a href="#quantum-gates">quantum gates</a> - Physics to computation</li>
-  <li>Study <a href="#quantum-hardware-platforms">quantum hardware platforms</a> - Physical implementations</li>
+  <li>Learn quantum information theory - New perspective</li>
+  <li>Understand <a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world">quantum gates</a> - Physics to computation</li>
+  <li>Study <a href="../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware">quantum hardware platforms</a> - Physical implementations</li>
   <li>Explore <a href="#quantum-simulation">quantum simulation</a> applications - Natural fit</li>
-  <li>Investigate <a href="#quantum-error-correction">error correction</a> - Physics of noise</li>
-  <li>Try <a href="#quantum-programming-frameworks">programming frameworks</a> - Hands-on practice</li>
+  <li>Investigate <a href="../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information">error correction</a> - Physics of noise</li>
+  <li>Try programming frameworks (see <a href="#step-by-step-quick-start">Quick Start</a>) - Hands-on practice</li>
 </ol>
 
 <p><strong>Time Investment:</strong> 10-20 hours to transition knowledge</p>
@@ -1770,246 +2051,123 @@ Linear Algebra ─────────┘           │                     
   <li>Quantum-classical hybrid algorithms</li>
 </ul>
 
-<h2 id="quantum-computing-basics">Quantum Computing Basics</h2>
+<h2 id="core-concepts-at-a-glance">Core Concepts at a Glance</h2>
 
-<h3 id="what-is-a-qubit">What is a Qubit?</h3>
+<p>This hub links out to the in-depth material. The table below is a fast orientation; for full
+explanations, worked math, and circuit examples see
+<a href="../technology/quantumcomputing.html">Introduction to Quantum Computing</a>.</p>
 
-<p>A quantum bit (qubit) is the fundamental unit of quantum information. Unlike classical bits that are either 0 or 1, qubits can exist in <strong>superposition</strong> - a combination of both states simultaneously:</p>
+<p>A single qubit lives in a superposition</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>|ψ⟩ = α|0⟩ + β|1⟩
-</code></pre></div></div>
+\[|\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \qquad |\alpha|^2 + |\beta|^2 = 1\]
+
+<p>and $n$ qubits span a $2^n$-dimensional state space — the root of quantum computing’s power.</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>One-line meaning</th>
+      <th>Where to go deep</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>Where α and β are complex numbers satisfying</td>
-      <td>α</td>
-      <td>² +</td>
-      <td>β</td>
-      <td>² = 1.</td>
+      <td>Superposition</td>
+      <td>A qubit is a weighted blend of $\lvert0\rangle$ and $\lvert1\rangle$ until measured</td>
+      <td><a href="../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits">Bits to Qubits</a></td>
+    </tr>
+    <tr>
+      <td>Entanglement</td>
+      <td>Correlated qubits whose joint state can’t be factored</td>
+      <td><a href="../technology/quantumcomputing.html#from-one-qubit-to-many-the-magic-of-entanglement">Entanglement</a></td>
+    </tr>
+    <tr>
+      <td>Quantum gates</td>
+      <td>Reversible unitary operations (H, X, CNOT, …)</td>
+      <td><a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world">Quantum Gates</a></td>
+    </tr>
+    <tr>
+      <td>Algorithms</td>
+      <td>Shor’s, Grover’s, QFT, VQE, QAOA</td>
+      <td><a href="../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations">Algorithms</a></td>
+    </tr>
+    <tr>
+      <td>Error correction</td>
+      <td>Surface codes turn noisy physical qubits into reliable logical ones</td>
+      <td><a href="../technology/quantumcomputing.html#quantum-error-correction-protecting-quantum-information">QEC</a></td>
+    </tr>
+    <tr>
+      <td>Hardware</td>
+      <td>Superconducting, trapped-ion, photonic, neutral-atom</td>
+      <td><a href="../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware">Building QCs</a></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="key-quantum-phenomena">Key Quantum Phenomena</h3>
+<h3 id="quantum-vs-classical-speedups">Quantum vs Classical Speedups</h3>
 
-<ol>
-  <li><strong>Superposition</strong>: Qubits exist in multiple states until measured</li>
-  <li><strong>Entanglement</strong>: Qubits can be correlated regardless of distance</li>
-  <li><strong>Interference</strong>: Quantum amplitudes can add or cancel</li>
-  <li><strong>Measurement</strong>: Observing a qubit collapses it to a definite state</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Algorithm</th>
+      <th>Problem</th>
+      <th>Classical</th>
+      <th>Quantum</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Grover’s</td>
+      <td>Unstructured search</td>
+      <td>$O(N)$</td>
+      <td>$O(\sqrt{N})$</td>
+      <td>Proven quadratic</td>
+    </tr>
+    <tr>
+      <td>Shor’s</td>
+      <td>Integer factoring</td>
+      <td>super-polynomial</td>
+      <td>polynomial</td>
+      <td>Needs fault tolerance</td>
+    </tr>
+    <tr>
+      <td>QFT / phase estimation</td>
+      <td>Period finding</td>
+      <td>exponential</td>
+      <td>polynomial</td>
+      <td>Core subroutine</td>
+    </tr>
+    <tr>
+      <td>VQE / QAOA</td>
+      <td>Chemistry, optimization</td>
+      <td>varies</td>
+      <td>heuristic</td>
+      <td>NISQ-era, hybrid</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="quantum-gates">Quantum Gates</h3>
+<h3 id="hello-quantum-a-bell-state">Hello Quantum: a Bell State</h3>
 
-<p>Quantum gates manipulate qubits, similar to logic gates in classical computing:</p>
+<p>The canonical first program: a Hadamard creates superposition, a CNOT entangles the pair.</p>
 
-<ul>
-  <li><strong>Pauli Gates</strong> (X, Y, Z): Single-qubit rotations</li>
-  <li><strong>Hadamard Gate</strong> (H): Creates superposition</li>
-  <li><strong>CNOT Gate</strong>: Creates entanglement between qubits</li>
-  <li><strong>Phase Gates</strong> (S, T): Add quantum phases</li>
-</ul>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">qiskit</span> <span class="kn">import</span> <span class="n">QuantumCircuit</span><span class="p">,</span> <span class="n">transpile</span>
+<span class="kn">from</span> <span class="n">qiskit_aer</span> <span class="kn">import</span> <span class="n">AerSimulator</span>
 
-<h2 id="classical-quantum-algorithms">Classical Quantum Algorithms</h2>
-
-<h3 id="shors-algorithm">Shor’s Algorithm</h3>
-<p>Factors large integers exponentially faster than known classical algorithms:</p>
-<ul>
-  <li><strong>Application</strong>: Breaking RSA encryption</li>
-  <li><strong>Speedup</strong>: Exponential (superpolynomial)</li>
-  <li><strong>Requirements</strong>: Thousands of logical qubits</li>
-</ul>
-
-<h3 id="grovers-algorithm">Grover’s Algorithm</h3>
-<p>Searches unsorted databases with quadratic speedup:</p>
-<ul>
-  <li><strong>Application</strong>: Database search, optimization</li>
-  <li><strong>Speedup</strong>: Quadratic (√N vs N)</li>
-  <li><strong>Requirements</strong>: Modest number of qubits</li>
-</ul>
-
-<h3 id="quantum-fourier-transform">Quantum Fourier Transform</h3>
-<p>The quantum analog of the discrete Fourier transform:</p>
-<ul>
-  <li><strong>Application</strong>: Period finding, phase estimation</li>
-  <li><strong>Speedup</strong>: Exponential for certain problems</li>
-  <li><strong>Requirements</strong>: Key component of many algorithms</li>
-</ul>
-
-<h2 id="nisq-era-algorithms">NISQ Era Algorithms</h2>
-
-<p>Current quantum computers are “Noisy Intermediate-Scale Quantum” (NISQ) devices. Algorithms designed for NISQ devices include:</p>
-
-<h3 id="variational-quantum-eigensolver-vqe">Variational Quantum Eigensolver (VQE)</h3>
-<ul>
-  <li>Finds ground states of molecules</li>
-  <li>Hybrid classical-quantum algorithm</li>
-  <li>Applications in quantum chemistry</li>
-</ul>
-
-<h3 id="quantum-approximate-optimization-algorithm-qaoa">Quantum Approximate Optimization Algorithm (QAOA)</h3>
-<ul>
-  <li>Solves combinatorial optimization problems</li>
-  <li>Parameterized quantum circuits</li>
-  <li>Potential near-term advantage</li>
-</ul>
-
-<h3 id="quantum-machine-learning">Quantum Machine Learning</h3>
-<ul>
-  <li>Quantum neural networks</li>
-  <li>Quantum kernel methods</li>
-  <li>Feature mapping to quantum states</li>
-</ul>
-
-<h2 id="quantum-programming-frameworks">Quantum Programming Frameworks</h2>
-
-<h3 id="ibm-qiskit">IBM Qiskit</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">qiskit</span> <span class="kn">import</span> <span class="n">QuantumCircuit</span><span class="p">,</span> <span class="n">execute</span><span class="p">,</span> <span class="n">Aer</span>
-
-<span class="c1"># Create a quantum circuit
-</span><span class="n">qc</span> <span class="o">=</span> <span class="nc">QuantumCircuit</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-<span class="n">qc</span><span class="p">.</span><span class="nf">h</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Hadamard gate
-</span><span class="n">qc</span><span class="p">.</span><span class="nf">cx</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># CNOT gate
+<span class="n">qc</span> <span class="o">=</span> <span class="nc">QuantumCircuit</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">qc</span><span class="p">.</span><span class="nf">h</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>           <span class="c1"># superposition on qubit 0
+</span><span class="n">qc</span><span class="p">.</span><span class="nf">cx</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>       <span class="c1"># entangle qubit 1 with qubit 0
 </span><span class="n">qc</span><span class="p">.</span><span class="nf">measure_all</span><span class="p">()</span>
 
-<span class="c1"># Run on simulator
-</span><span class="n">backend</span> <span class="o">=</span> <span class="n">Aer</span><span class="p">.</span><span class="nf">get_backend</span><span class="p">(</span><span class="sh">'</span><span class="s">qasm_simulator</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">result</span> <span class="o">=</span> <span class="nf">execute</span><span class="p">(</span><span class="n">qc</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">shots</span><span class="o">=</span><span class="mi">1000</span><span class="p">).</span><span class="nf">result</span><span class="p">()</span>
-</code></pre></div></div>
+<span class="n">result</span> <span class="o">=</span> <span class="nc">AerSimulator</span><span class="p">().</span><span class="nf">run</span><span class="p">(</span><span class="nf">transpile</span><span class="p">(</span><span class="n">qc</span><span class="p">,</span> <span class="nc">AerSimulator</span><span class="p">()),</span> <span class="n">shots</span><span class="o">=</span><span class="mi">1000</span><span class="p">).</span><span class="nf">result</span><span class="p">()</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="nf">get_counts</span><span class="p">())</span>   <span class="c1"># ~50% '00', ~50% '11'
+</span></code></pre></div></div>
 
-<h3 id="google-cirq">Google Cirq</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">cirq</span>
-
-<span class="c1"># Create qubits and circuit
-</span><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span> <span class="o">=</span> <span class="n">cirq</span><span class="p">.</span><span class="n">LineQubit</span><span class="p">.</span><span class="nf">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-<span class="n">circuit</span> <span class="o">=</span> <span class="n">cirq</span><span class="p">.</span><span class="nc">Circuit</span><span class="p">(</span>
-    <span class="n">cirq</span><span class="p">.</span><span class="nc">H</span><span class="p">(</span><span class="n">q0</span><span class="p">),</span>
-    <span class="n">cirq</span><span class="p">.</span><span class="nc">CNOT</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span><span class="p">),</span>
-    <span class="n">cirq</span><span class="p">.</span><span class="nf">measure</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="sh">'</span><span class="s">result</span><span class="sh">'</span><span class="p">)</span>
-<span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="microsoft-q">Microsoft Q#</h3>
-<pre><code class="language-qsharp">operation BellState() : (Result, Result) {
-    use (q0, q1) = (Qubit(), Qubit());
-    H(q0);
-    CNOT(q0, q1);
-    return (M(q0), M(q1));
-}
-</code></pre>
-
-<h2 id="quantum-hardware-platforms">Quantum Hardware Platforms</h2>
-
-<h3 id="superconducting-qubits">Superconducting Qubits</h3>
-<ul>
-  <li><strong>Leaders</strong>: IBM, Google, Rigetti</li>
-  <li><strong>Pros</strong>: Fast gates, scalable fabrication</li>
-  <li><strong>Cons</strong>: Requires extreme cooling (mK temperatures)</li>
-  <li><strong>Current Scale</strong>: 100-1000 qubits</li>
-</ul>
-
-<h3 id="trapped-ions">Trapped Ions</h3>
-<ul>
-  <li><strong>Leaders</strong>: IonQ, Honeywell, Alpine Quantum Technologies</li>
-  <li><strong>Pros</strong>: High fidelity, long coherence times</li>
-  <li><strong>Cons</strong>: Slower gates, scaling challenges</li>
-  <li><strong>Current Scale</strong>: 10-100 qubits</li>
-</ul>
-
-<h3 id="photonic-quantum-computing">Photonic Quantum Computing</h3>
-<ul>
-  <li><strong>Leaders</strong>: Xanadu, PsiQuantum</li>
-  <li><strong>Pros</strong>: Room temperature operation, networked</li>
-  <li><strong>Cons</strong>: Probabilistic gates, photon loss</li>
-  <li><strong>Applications</strong>: Sampling, communication</li>
-</ul>
-
-<h3 id="other-approaches">Other Approaches</h3>
-<ul>
-  <li><strong>Neutral Atoms</strong>: QuEra, Pasqal</li>
-  <li><strong>Topological Qubits</strong>: Microsoft</li>
-  <li><strong>Silicon Spin Qubits</strong>: Intel, SiQure</li>
-</ul>
-
-<h2 id="cloud-quantum-computing">Cloud Quantum Computing</h2>
-
-<p>Access quantum computers through cloud services:</p>
-
-<h3 id="ibm-quantum-network">IBM Quantum Network</h3>
-<ul>
-  <li>Free tier with 5-qubit devices</li>
-  <li>Premium access to 20+ qubit systems</li>
-  <li>Qiskit Runtime for optimized execution</li>
-</ul>
-
-<h3 id="amazon-braket">Amazon Braket</h3>
-<ul>
-  <li>Access to multiple quantum technologies</li>
-  <li>Integrated with AWS services</li>
-  <li>Pay-per-shot pricing model</li>
-</ul>
-
-<h3 id="azure-quantum">Azure Quantum</h3>
-<ul>
-  <li>Multiple hardware providers</li>
-  <li>Quantum development kit</li>
-  <li>Integration with classical HPC</li>
-</ul>
-
-<h3 id="google-quantum-ai">Google Quantum AI</h3>
-<ul>
-  <li>Research collaborations</li>
-  <li>Quantum supremacy experiments</li>
-  <li>Open-source Cirq framework</li>
-</ul>
-
-<h2 id="quantum-error-correction">Quantum Error Correction</h2>
-
-<p>Protecting quantum information from decoherence and errors:</p>
-
-<h3 id="types-of-quantum-errors">Types of Quantum Errors</h3>
-<ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Bit Flip</strong>:</td>
-          <td>0⟩ ↔</td>
-          <td>1⟩</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Phase Flip</strong>:</td>
-          <td>+⟩ ↔</td>
-          <td>-⟩</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>Depolarization</strong>: Random Pauli errors</li>
-  <li><strong>Amplitude Damping</strong>: Energy loss</li>
-</ul>
-
-<h3 id="error-correction-codes">Error Correction Codes</h3>
-<ul>
-  <li><strong>Shor’s 9-qubit code</strong>: First quantum error correction code</li>
-  <li><strong>Steane 7-qubit code</strong>: More efficient CSS code</li>
-  <li><strong>Surface codes</strong>: Leading approach for scalability</li>
-  <li><strong>Topological codes</strong>: Inherent error protection</li>
-</ul>
-
-<h3 id="fault-tolerant-computing">Fault-Tolerant Computing</h3>
-<ul>
-  <li>Threshold theorem: Arbitrary computation with sufficient error correction</li>
-  <li>Logical qubits from many physical qubits</li>
-  <li>Current overhead: ~1000:1 physical to logical</li>
-</ul>
+<p>The output state is the Bell state $|\Phi^+\rangle = \tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$ —
+measuring one qubit instantly determines the other. Equivalent Cirq and Q# versions and a
+full gate walkthrough are in the <a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world">detailed guide</a>.</p>
 
 <h2 id="applications-and-use-cases">Applications and Use Cases</h2>
 
@@ -2020,7 +2178,7 @@ Linear Algebra ─────────┘           │                     
   <li><strong>Quantum Digital Signatures</strong>: Unforgeable quantum signatures</li>
 </ul>
 
-<h3 id="quantum-machine-learning-1">Quantum Machine Learning</h3>
+<h3 id="quantum-machine-learning">Quantum Machine Learning</h3>
 <ul>
   <li><strong>Quantum Neural Networks</strong>: Parameterized quantum circuits</li>
   <li><strong>Quantum Support Vector Machines</strong>: Kernel methods in Hilbert space</li>
@@ -2184,7 +2342,7 @@ dotnet tool <span class="nb">install</span> <span class="nt">-g</span> Microsoft
   <li>Showed <strong>quantum correlation</strong> - both qubits always match!</li>
 </ul>
 
-<p>Learn more about these concepts in our <a href="#quantum-gates">quantum gates section</a>.</p>
+<p>Learn more about these concepts in the <a href="../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world">quantum gates section</a>.</p>
 
 <p><strong>4. Run on Real Quantum Hardware (1 hour)</strong></p>
 
@@ -2256,7 +2414,40 @@ dotnet tool <span class="nb">install</span> <span class="nt">-g</span> Microsoft
 
 <hr />
 
-<p>Ready to begin your quantum journey? Start with our <a href="../technology/quantumcomputing.html">Introduction to Quantum Computing</a> or dive into <a href="#quantum-programming-frameworks">hands-on programming</a>. The quantum future is being built today, and you can be part of it!</p>
+<p>Ready to begin your quantum journey? Start with our <a href="../technology/quantumcomputing.html">Introduction to Quantum Computing</a> or dive into <a href="#step-by-step-quick-start">hands-on programming</a>. The quantum future is being built today, and you can be part of it!</p>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-card">
+  <ul>
+    <li>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Qubits are not just faster bits.</strong> Superposition ($</td>
+            <td>\psi\rangle = \alpha</td>
+            <td>0\rangle + \beta</td>
+            <td>1\rangle$) and entanglement give access to a $2^n$-dimensional state space, but measurement collapses it — algorithms must steer probability toward the right answer via interference.</td>
+          </tr>
+        </tbody>
+      </table>
+    </li>
+    <li><strong>Speedups are problem-specific.</strong> Grover’s gives a quadratic edge for search; Shor’s threatens RSA but needs fault-tolerant hardware; VQE/QAOA are heuristic NISQ-era tools today.</li>
+    <li><strong>We are in the NISQ era.</strong> Real machines (IBM, Google Willow, IonQ) have hundreds to ~1000+ noisy qubits; surface-code error correction is the bridge to fault tolerance.</li>
+    <li><strong>You can start now.</strong> A free cloud account plus Qiskit lets you run a Bell state on real hardware in an afternoon.</li>
+  </ul>
+</div>
+
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+  <ul>
+    <li><a href="../technology/quantumcomputing.html">Introduction to Quantum Computing</a> - The full deep-dive (gates, algorithms, error correction, hardware)</li>
+    <li><a href="../physics/quantum-mechanics.html">Quantum Mechanics</a> - The physics underpinning qubits</li>
+    <li><a href="../advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> - Rigorous theory and complexity</li>
+    <li><a href="../ai-ml/">AI/ML Documentation</a> - Where quantum machine learning connects to classical ML</li>
+    <li><a href="../artificial-intelligence/">Artificial Intelligence Hub</a> - Quantum ML in context</li>
+  </ul>
+</div>
 
       </section>
     </div>

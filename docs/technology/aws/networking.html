@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
                                >
-                              AI Fundamentals
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                            <a href="/Documentation/docs/technology/ai.html"
                                >
-                              AI Simplified
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1526,17 +1842,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h3 id="multi-az-architecture">Multi-AZ Architecture</h3>
 
-<p>For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another.</p>
+<p>For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another. The diagram below shows a canonical three-tier VPC spanning two AZs, with traffic flowing inward from the internet to public, then private, then data subnets.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>VPC (10.0.0.0/16)
-├── Public Subnet AZ-A (10.0.1.0/24)    ├── Public Subnet AZ-B (10.0.2.0/24)
-│   ├── NAT Gateway                      │   ├── NAT Gateway
-│   └── Load Balancer                    │   └── Load Balancer
-├── Private Subnet AZ-A (10.0.10.0/24)  ├── Private Subnet AZ-B (10.0.20.0/24)
-│   └── Application Servers              │   └── Application Servers
-└── Data Subnet AZ-A (10.0.100.0/24)    └── Data Subnet AZ-B (10.0.200.0/24)
-    └── RDS Primary                          └── RDS Standby
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TB
+    IGW([Internet Gateway])
+    subgraph VPC["VPC 10.0.0.0/16"]
+        direction LR
+        subgraph AZA["Availability Zone A"]
+            PubA["Public 10.0.1.0/24&lt;br/&gt;ALB · NAT GW"]
+            PrivA["Private 10.0.10.0/24&lt;br/&gt;App Servers"]
+            DataA["Data 10.0.100.0/24&lt;br/&gt;RDS Primary"]
+            PubA --&gt; PrivA --&gt; DataA
+        end
+        subgraph AZB["Availability Zone B"]
+            PubB["Public 10.0.2.0/24&lt;br/&gt;ALB · NAT GW"]
+            PrivB["Private 10.0.20.0/24&lt;br/&gt;App Servers"]
+            DataB["Data 10.0.200.0/24&lt;br/&gt;RDS Standby"]
+            PubB --&gt; PrivB --&gt; DataB
+        end
+    end
+    IGW --&gt; PubA
+    IGW --&gt; PubB
+    DataA -. "synchronous replication" .- DataB
+</code></pre>
+
+<p>The public subnets hold internet-facing resources (load balancers, NAT gateways). Private subnets hold application servers that reach the internet only outbound via NAT. Data subnets isolate databases with no internet route at all.</p>
 
 <p><strong>Real-world example</strong>: An e-commerce application runs web servers in public subnets (accessible from the internet) and databases in private subnets (only accessible from web servers). If AZ-A experiences an outage, traffic automatically routes to AZ-B.</p>
 
@@ -1625,40 +1955,68 @@ aws apigateway create-usage-plan <span class="nt">--name</span> <span class="s2"
 aws apigateway create-authorizer <span class="nt">--rest-api-id</span> xxx <span class="se">\</span>
   <span class="nt">--name</span> <span class="s2">"JWTAuthorizer"</span> <span class="nt">--type</span> TOKEN <span class="se">\</span>
   <span class="nt">--authorizer-uri</span> <span class="s2">"arn:aws:lambda:region:account:function:authorizer"</span>
-<span class="nt">---</span>
+</code></pre></div></div>
 
-<span class="c">## CloudFront - Content Delivery Network</span>
+<hr />
 
-CloudFront is AWS<span class="s1">'s content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 400+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.
+<h2 id="cloudfront---content-delivery-network">CloudFront - Content Delivery Network</h2>
 
-### When to Use CloudFront
+<p>CloudFront is AWS’s content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 400+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.</p>
 
-- **Static assets** (images, CSS, JavaScript): Immediate 10x performance boost
-- **API responses** that do not change frequently: Reduce origin load
-- **Video streaming**: Adaptive bitrate based on user connection
-- **Global applications**: Consistent performance worldwide
+<h3 id="when-to-use-cloudfront">When to Use CloudFront</h3>
 
-**Real-world impact**: A news website serving images from S3 in US-East to users in Australia saw 2-second load times. After adding CloudFront, Australian users get 200ms load times from the Sydney edge location.
+<ul>
+  <li><strong>Static assets</strong> (images, CSS, JavaScript): Immediate 10x performance boost</li>
+  <li><strong>API responses</strong> that do not change frequently: Reduce origin load</li>
+  <li><strong>Video streaming</strong>: Adaptive bitrate based on user connection</li>
+  <li><strong>Global applications</strong>: Consistent performance worldwide</li>
+</ul>
 
-### CloudFront Origin Types
+<p><strong>Real-world impact</strong>: A news website serving images from S3 in US-East to users in Australia saw 2-second load times. After adding CloudFront, Australian users get 200ms load times from the Sydney edge location.</p>
 
-| Origin Type | Use Case | Configuration |
-|-------------|----------|---------------|
-| **S3 bucket** | Static websites, media files | Use Origin Access Control for security |
-| **Application Load Balancer** | Dynamic content from EC2/ECS | Forward headers for personalization |
-| **Custom origin** | Any HTTP server | Your on-premises or other cloud servers |
-| **Lambda@Edge** | Serverless at the edge | Customize requests/responses globally |
+<h3 id="cloudfront-origin-types">CloudFront Origin Types</h3>
 
-### Setting Up CloudFront
+<table>
+  <thead>
+    <tr>
+      <th>Origin Type</th>
+      <th>Use Case</th>
+      <th>Configuration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>S3 bucket</strong></td>
+      <td>Static websites, media files</td>
+      <td>Use Origin Access Control for security</td>
+    </tr>
+    <tr>
+      <td><strong>Application Load Balancer</strong></td>
+      <td>Dynamic content from EC2/ECS</td>
+      <td>Forward headers for personalization</td>
+    </tr>
+    <tr>
+      <td><strong>Custom origin</strong></td>
+      <td>Any HTTP server</td>
+      <td>Your on-premises or other cloud servers</td>
+    </tr>
+    <tr>
+      <td><strong>Lambda@Edge</strong></td>
+      <td>Serverless at the edge</td>
+      <td>Customize requests/responses globally</td>
+    </tr>
+  </tbody>
+</table>
 
-**Basic setup for S3 static website**:
+<h3 id="setting-up-cloudfront">Setting Up CloudFront</h3>
 
-```bash
-# Create a CloudFront distribution with S3 origin
-aws cloudfront create-distribution \
-  --origin-domain-name my-bucket.s3.amazonaws.com \
-  --default-root-object index.html
-</span></code></pre></div></div>
+<p><strong>Basic setup for S3 static website</strong>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a CloudFront distribution with S3 origin</span>
+aws cloudfront create-distribution <span class="se">\</span>
+  <span class="nt">--origin-domain-name</span> my-bucket.s3.amazonaws.com <span class="se">\</span>
+  <span class="nt">--default-root-object</span> index.html
+</code></pre></div></div>
 
 <p><strong>Cache settings to consider</strong>:</p>
 <ul>
@@ -1737,6 +2095,52 @@ aws elbv2 create-target-group <span class="nt">--name</span> my-targets <span cl
   <span class="nt">--protocol</span> HTTP <span class="nt">--port</span> 80 <span class="nt">--vpc-id</span> vpc-xxx <span class="se">\</span>
   <span class="nt">--health-check-path</span> /health <span class="nt">--health-check-interval-seconds</span> 30
 </code></pre></div></div>
+
+<h3 id="end-to-end-request-flow">End-to-End Request Flow</h3>
+
+<p>A typical request for a global web application touches several networking layers before reaching your servers:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    User([User]) --&gt; CF[CloudFront Edge]
+    CF --&gt;|cache miss| ALB[Application Load Balancer]
+    ALB --&gt; SG{Security Group}
+    SG --&gt; EC2A[App Server AZ-A]
+    SG --&gt; EC2B[App Server AZ-B]
+    CF --&gt;|cache hit| User
+</code></pre>
+
+<p>Cached responses return directly from the nearest edge location. Cache misses route to the origin load balancer, which checks the security group and distributes traffic to healthy targets across AZs.</p>
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Single NAT Gateway:</strong> Placing one NAT Gateway for all AZs creates a single point of failure and incurs cross-AZ data transfer charges. Deploy one per AZ.</li>
+    <li><strong>Overly broad security groups:</strong> <code>0.0.0.0/0</code> on port 22 (SSH) exposes instances to the entire internet. Scope inbound rules to known CIDRs or use Session Manager instead.</li>
+    <li><strong>Overlapping CIDR blocks:</strong> VPCs you intend to peer (or connect to on-premises) must not overlap. Plan address space before creation.</li>
+    <li><strong>Forgetting CloudFront invalidation costs:</strong> Frequent <code>/*</code> invalidations add up. Use versioned object names (<code>app.v2.js</code>) so the CDN caches forever.</li>
+  </ul>
+</div>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>VPC = Network Isolation</h4>
+    <p>Public subnets for internet-facing resources, private for app tiers, data subnets with no internet route for databases.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Multi-AZ by Default</h4>
+    <p>Spread subnets and NAT gateways across at least two AZs so a single data center failure does not take you offline.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>ALB for HTTP, NLB for Speed</h4>
+    <p>Use Application Load Balancers for path/host routing; reach for Network Load Balancers only when you need ultra-low latency or static IPs.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>CloudFront Cuts Latency</h4>
+    <p>Serve static assets from edge locations and force origin access through Origin Access Control to keep S3 buckets private.</p>
+  </div>
+</div>
 
 <hr />
 

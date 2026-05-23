@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
-                               class="active">
-                              AI Fundamentals
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                               >
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
-                               >
-                              AI Simplified
+                            <a href="/Documentation/docs/technology/ai.html"
+                               class="active">
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1638,6 +1954,15 @@ document.addEventListener('DOMContentLoaded', function() {
   <li><strong>Momentum and Acceleration</strong>: Making optimization faster and more stable</li>
 </ul>
 
+<p>At the heart of training is a simple update rule: nudge each parameter $\theta$ a small step in the
+direction that most reduces the loss $\mathcal{L}$, scaled by the learning rate $\eta$:</p>
+
+\[\theta_{t+1} = \theta_t - \eta\,\nabla_\theta \mathcal{L}(\theta_t)\]
+
+<p>Stochastic gradient descent (SGD) estimates $\nabla_\theta \mathcal{L}$ from a small mini-batch
+rather than the full dataset, trading a noisier gradient for vastly faster iterations. Optimizers
+like Adam adapt $\eta$ per parameter using running estimates of the gradient’s mean and variance.</p>
+
 <div class="code-reference">
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py">machine_learning_foundations.py</a>
 </div>
@@ -1824,7 +2149,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <div class="advanced-note">
   <i class="fas fa-graduation-cap"></i>
-  <p><strong>Ready for the math?</strong> Dive into the <a href="/docs/advanced/ai-mathematics/#gaussian-processes">formal treatment of GPs</a> including prior/posterior distributions and marginal likelihood optimization.</p>
+  <p><strong>Ready for the math?</strong> Dive into the <a href="/docs/advanced/ai-mathematics/">formal treatment of GPs</a> including prior/posterior distributions and marginal likelihood optimization.</p>
 </div>
 
 <div class="code-reference">
@@ -1865,7 +2190,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <div class="advanced-note">
   <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the technical details?</strong> Learn about <a href="/docs/advanced/ai-mathematics/#variational-inference">ELBO derivation, mean-field approximation, and normalizing flows</a> in our advanced section.</p>
+  <p><strong>Want the technical details?</strong> Learn about <a href="/docs/advanced/ai-mathematics/">ELBO derivation, mean-field approximation, and normalizing flows</a> in our advanced section.</p>
 </div>
 
 <div class="code-reference">
@@ -2524,10 +2849,20 @@ Processing</text>
 <p><strong>Score-based diffusion models use continuous-time stochastic differential equations:</strong></p>
 
 <ul>
-  <li><strong>Forward SDE</strong>: dx = f(x,t)dt + g(t)dw gradually adds noise</li>
-  <li><strong>Reverse SDE</strong>: dx = [f(x,t) - g²(t)∇ₓlog p_t(x)]dt + g(t)dw̄</li>
-  <li><strong>Score Matching</strong>: Learn ∇ₓlog p_t(x) via denoising</li>
-  <li><strong>Variance Preserving</strong>: σ(t) = σ_min(σ_max/σ_min)^t</li>
+  <li><strong>Forward SDE</strong> gradually adds noise:</li>
+</ul>
+
+\[d\mathbf{x} = f(\mathbf{x}, t)\,dt + g(t)\,d\mathbf{w}\]
+
+<ul>
+  <li><strong>Reverse SDE</strong> runs the process backward to generate samples:</li>
+</ul>
+
+\[d\mathbf{x} = \left[f(\mathbf{x}, t) - g(t)^2 \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right]dt + g(t)\,d\bar{\mathbf{w}}\]
+
+<ul>
+  <li><strong>Score Matching</strong>: learn the score $\nabla_{\mathbf{x}} \log p_t(\mathbf{x})$ via denoising</li>
+  <li><strong>Variance schedule</strong>: $\sigma(t) = \sigma_{\min}\left(\sigma_{\max}/\sigma_{\min}\right)^{t}$</li>
 </ul>
 
 <p><strong>Key advantages:</strong></p>
@@ -2563,40 +2898,20 @@ Processing</text>
 <p><strong>Denoising Diffusion Probabilistic Models (DDPM) use discrete timesteps:</strong></p>
 
 <ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Forward Process</strong>: q(x_t</td>
-          <td>x_0) = N(x_t; √ᾱ_t x_0, (1-ᾱ_t)I)</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Reverse Process</strong>: p_θ(x_{t-1}</td>
-          <td>x_t) learned via neural network</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Training Objective</strong>: E_t,ε[</td>
-          <td> </td>
-          <td>ε - ε_θ(x_t, t)</td>
-          <td> </td>
-          <td>²]</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>Variance Schedule</strong>: β_t controls noise level at each step</li>
+  <li><strong>Forward process</strong> (closed form at any step $t$):</li>
+</ul>
+
+\[q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{\bar\alpha_t}\,\mathbf{x}_0,\, (1-\bar\alpha_t)\mathbf{I}\right)\]
+
+<ul>
+  <li><strong>Reverse process</strong>: $p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t)$ learned via a neural network</li>
+  <li><strong>Training objective</strong> (predict the added noise $\varepsilon$):</li>
+</ul>
+
+\[\mathcal{L}_{\text{simple}} = \mathbb{E}_{t,\,\mathbf{x}_0,\,\varepsilon}\left[\,\left\lVert \varepsilon - \varepsilon_\theta(\mathbf{x}_t, t)\right\rVert^2\,\right]\]
+
+<ul>
+  <li><strong>Variance schedule</strong>: $\beta_t$ controls the noise level added at each step; $\bar\alpha_t = \prod_{s=1}^{t}(1-\beta_s)$</li>
 </ul>
 
 <p><strong>Key innovations:</strong></p>
@@ -2815,109 +3130,140 @@ Processing</text>
         <span class="c1"># Decode to image space
 </span>        <span class="n">images</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">decode_latents</span><span class="p">(</span><span class="n">latents</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">images</span>
+</code></pre></div></div>
 
-<span class="c1">### Key Diffusion Model Architectures
-</span>
-<span class="c1">#### Denoising Diffusion Probabilistic Models (DDPMs)
-</span><span class="n">The</span> <span class="n">foundational</span> <span class="n">architecture</span> <span class="n">that</span> <span class="n">established</span> <span class="n">the</span> <span class="n">diffusion</span> <span class="n">framework</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Uses</span> <span class="n">a</span> <span class="n">Markov</span> <span class="n">chain</span> <span class="n">of</span> <span class="n">diffusion</span> <span class="n">steps</span>
-<span class="o">-</span> <span class="n">Trains</span> <span class="n">a</span> <span class="n">neural</span> <span class="n">network</span> <span class="n">to</span> <span class="n">predict</span> <span class="n">noise</span> <span class="n">at</span> <span class="n">each</span> <span class="n">timestep</span>
-<span class="o">-</span> <span class="n">Achieves</span> <span class="n">high</span> <span class="n">sample</span> <span class="n">quality</span> <span class="n">but</span> <span class="n">requires</span> <span class="n">many</span> <span class="n">denoising</span> <span class="n">steps</span>
+<h3 id="key-diffusion-model-architectures">Key Diffusion Model Architectures</h3>
 
-<span class="c1">#### Denoising Diffusion Implicit Models (DDIMs)
-</span><span class="n">An</span> <span class="n">improvement</span> <span class="n">over</span> <span class="n">DDPMs</span> <span class="n">that</span> <span class="n">enables</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Deterministic</span> <span class="n">sampling</span>
-<span class="o">-</span> <span class="n">Fewer</span> <span class="n">denoising</span> <span class="n">steps</span> <span class="k">for</span> <span class="n">faster</span> <span class="n">generation</span>
-<span class="o">-</span> <span class="n">Interpolation</span> <span class="n">between</span> <span class="n">samples</span>
+<h4 id="denoising-diffusion-probabilistic-models-ddpms">Denoising Diffusion Probabilistic Models (DDPMs)</h4>
+<p>The foundational architecture that established the diffusion framework:</p>
+<ul>
+  <li>Uses a Markov chain of diffusion steps</li>
+  <li>Trains a neural network to predict noise at each timestep</li>
+  <li>Achieves high sample quality but requires many denoising steps</li>
+</ul>
 
-<span class="c1">#### Latent Diffusion Models (LDMs)
-</span><span class="n">Operates</span> <span class="ow">in</span> <span class="n">a</span> <span class="n">compressed</span> <span class="n">latent</span> <span class="n">space</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Significantly</span> <span class="n">reduces</span> <span class="n">computational</span> <span class="n">requirements</span>
-<span class="o">-</span> <span class="n">Powers</span> <span class="n">Stable</span> <span class="n">Diffusion</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">models</span>
-<span class="o">-</span> <span class="n">Enables</span> <span class="n">high</span><span class="o">-</span><span class="n">resolution</span> <span class="n">image</span> <span class="n">generation</span> <span class="n">on</span> <span class="n">consumer</span> <span class="n">hardware</span>
+<h4 id="denoising-diffusion-implicit-models-ddims">Denoising Diffusion Implicit Models (DDIMs)</h4>
+<p>An improvement over DDPMs that enables:</p>
+<ul>
+  <li>Deterministic sampling</li>
+  <li>Fewer denoising steps for faster generation</li>
+  <li>Interpolation between samples</li>
+</ul>
 
-<span class="c1">#### Score-Based Generative Models
-</span><span class="n">Alternative</span> <span class="n">formulation</span> <span class="n">using</span> <span class="n">score</span> <span class="n">matching</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Learns</span> <span class="n">the</span> <span class="n">gradient</span> <span class="n">of</span> <span class="n">the</span> <span class="n">data</span> <span class="n">distribution</span>
-<span class="o">-</span> <span class="n">Provides</span> <span class="n">theoretical</span> <span class="n">connections</span> <span class="n">to</span> <span class="n">other</span> <span class="n">generative</span> <span class="n">models</span>
-<span class="o">-</span> <span class="n">Enables</span> <span class="n">continuous</span><span class="o">-</span><span class="n">time</span> <span class="n">diffusion</span> <span class="n">processes</span>
+<h4 id="latent-diffusion-models-ldms">Latent Diffusion Models (LDMs)</h4>
+<p>Operates in a compressed latent space:</p>
+<ul>
+  <li>Significantly reduces computational requirements</li>
+  <li>Powers Stable Diffusion and similar models</li>
+  <li>Enables high-resolution image generation on consumer hardware</li>
+</ul>
 
-<span class="c1">### Real-World Impact: Applications of Diffusion Models
-</span>
-<span class="n">What</span> <span class="n">started</span> <span class="k">as</span> <span class="n">a</span> <span class="n">theoretical</span> <span class="n">curiosity</span> <span class="n">has</span> <span class="n">become</span> <span class="n">one</span> <span class="n">of</span> <span class="n">the</span> <span class="n">most</span> <span class="n">versatile</span> <span class="n">tools</span> <span class="ow">in</span> <span class="n">AI</span><span class="p">.</span> <span class="n">Diffusion</span> <span class="n">models</span> <span class="n">aren</span><span class="sh">'</span><span class="s">t just creating pretty pictures—they</span><span class="sh">'</span><span class="n">re</span> <span class="n">solving</span> <span class="n">real</span> <span class="n">problems</span> <span class="n">across</span> <span class="n">diverse</span> <span class="n">fields</span><span class="p">.</span>
+<h4 id="score-based-generative-models">Score-Based Generative Models</h4>
+<p>Alternative formulation using score matching:</p>
+<ul>
+  <li>Learns the gradient of the data distribution</li>
+  <li>Provides theoretical connections to other generative models</li>
+  <li>Enables continuous-time diffusion processes</li>
+</ul>
 
-<span class="c1">#### Image Generation
-</span><span class="o">-</span> <span class="o">**</span><span class="n">Text</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">Image</span><span class="o">**</span><span class="p">:</span> <span class="n">DALL</span><span class="o">-</span><span class="n">E</span> <span class="mi">2</span><span class="p">,</span> <span class="n">Stable</span> <span class="n">Diffusion</span><span class="p">,</span> <span class="n">Midjourney</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Image</span> <span class="n">Editing</span><span class="o">**</span><span class="p">:</span> <span class="n">Inpainting</span><span class="p">,</span> <span class="n">outpainting</span><span class="p">,</span> <span class="n">style</span> <span class="n">transfer</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Super</span><span class="o">-</span><span class="n">Resolution</span><span class="o">**</span><span class="p">:</span> <span class="n">Enhancing</span> <span class="n">image</span> <span class="n">quality</span> <span class="ow">and</span> <span class="n">resolution</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Medical</span> <span class="n">Imaging</span><span class="o">**</span><span class="p">:</span> <span class="n">Generating</span> <span class="n">synthetic</span> <span class="n">medical</span> <span class="n">data</span><span class="p">,</span> <span class="n">denoising</span> <span class="n">scans</span>
+<h3 id="real-world-impact-applications-of-diffusion-models">Real-World Impact: Applications of Diffusion Models</h3>
 
-<span class="c1">#### Beyond Images (State-of-the-Art)
-</span><span class="o">-</span> <span class="o">**</span><span class="n">Audio</span> <span class="n">Generation</span><span class="o">**</span><span class="p">:</span> <span class="n">MusicGen</span><span class="p">,</span> <span class="n">AudioCraft</span><span class="p">,</span> <span class="n">Stable</span> <span class="n">Audio</span><span class="p">,</span> <span class="n">Suno</span> <span class="n">AI</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Video</span> <span class="n">Generation</span><span class="o">**</span><span class="p">:</span> <span class="n">Runway</span> <span class="n">Gen</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">Pika</span> <span class="n">Labs</span><span class="p">,</span> <span class="n">Stable</span> <span class="n">Video</span> <span class="n">Diffusion</span><span class="p">,</span> <span class="n">OpenAI</span> <span class="nc">Sora </span><span class="p">(</span><span class="n">preview</span><span class="p">)</span>
-<span class="o">-</span> <span class="o">**</span><span class="mi">3</span><span class="n">D</span> <span class="n">Generation</span><span class="o">**</span><span class="p">:</span> <span class="n">DreamGaussian</span><span class="p">,</span> <span class="n">Wonder3D</span><span class="p">,</span> <span class="n">Instant3D</span><span class="p">,</span> <span class="n">TripoSR</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Molecular</span> <span class="n">Design</span><span class="o">**</span><span class="p">:</span> <span class="n">RFDiffusion</span><span class="p">,</span> <span class="n">AlphaFold</span> <span class="mi">3</span><span class="p">,</span> <span class="n">MoleculeGPT</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Text</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="mi">3</span><span class="n">D</span><span class="o">**</span><span class="p">:</span> <span class="n">DreamFusion</span><span class="p">,</span> <span class="n">Magic3D</span><span class="p">,</span> <span class="n">Point</span><span class="o">-</span><span class="n">E</span><span class="p">,</span> <span class="n">Shap</span><span class="o">-</span><span class="n">E</span>
+<p>What started as a theoretical curiosity has become one of the most versatile tools in AI. Diffusion models aren’t just creating pretty pictures—they’re solving real problems across diverse fields.</p>
 
-<span class="c1">### Advantages of Diffusion Models
-</span>
-<span class="mf">1.</span> <span class="o">**</span><span class="n">Sample</span> <span class="n">Quality</span><span class="o">**</span><span class="p">:</span> <span class="n">Often</span> <span class="n">superior</span> <span class="n">to</span> <span class="n">GANs</span> <span class="ow">in</span> <span class="n">terms</span> <span class="n">of</span> <span class="n">fidelity</span> <span class="ow">and</span> <span class="n">diversity</span>
-<span class="mf">2.</span> <span class="o">**</span><span class="n">Training</span> <span class="n">Stability</span><span class="o">**</span><span class="p">:</span> <span class="n">More</span> <span class="n">stable</span> <span class="n">training</span> <span class="n">compared</span> <span class="n">to</span> <span class="n">GANs</span>
-<span class="mf">3.</span> <span class="o">**</span><span class="n">Mode</span> <span class="n">Coverage</span><span class="o">**</span><span class="p">:</span> <span class="n">Better</span> <span class="n">at</span> <span class="n">capturing</span> <span class="n">the</span> <span class="n">full</span> <span class="n">data</span> <span class="n">distribution</span>
-<span class="mf">4.</span> <span class="o">**</span><span class="n">Controllability</span><span class="o">**</span><span class="p">:</span> <span class="n">Easy</span> <span class="n">to</span> <span class="n">incorporate</span> <span class="n">conditioning</span> <span class="n">information</span>
+<h4 id="image-generation">Image Generation</h4>
+<ul>
+  <li><strong>Text-to-Image</strong>: DALL-E 2, Stable Diffusion, Midjourney</li>
+  <li><strong>Image Editing</strong>: Inpainting, outpainting, style transfer</li>
+  <li><strong>Super-Resolution</strong>: Enhancing image quality and resolution</li>
+  <li><strong>Medical Imaging</strong>: Generating synthetic medical data, denoising scans</li>
+</ul>
 
-<span class="c1">### Challenges and Limitations
-</span>
-<span class="mf">1.</span> <span class="o">**</span><span class="n">Computational</span> <span class="n">Cost</span><span class="o">**</span><span class="p">:</span> <span class="n">Requires</span> <span class="n">many</span> <span class="n">denoising</span> <span class="n">steps</span> <span class="k">for</span> <span class="n">generation</span>
-<span class="mf">2.</span> <span class="o">**</span><span class="n">Memory</span> <span class="n">Requirements</span><span class="o">**</span><span class="p">:</span> <span class="n">High</span><span class="o">-</span><span class="n">resolution</span> <span class="n">generation</span> <span class="n">needs</span> <span class="n">significant</span> <span class="n">resources</span>
-<span class="mf">3.</span> <span class="o">**</span><span class="n">Speed</span><span class="o">**</span><span class="p">:</span> <span class="n">Slower</span> <span class="n">than</span> <span class="n">GANs</span> <span class="k">for</span> <span class="n">real</span><span class="o">-</span><span class="n">time</span> <span class="n">applications</span>
-<span class="mf">4.</span> <span class="o">**</span><span class="n">Data</span> <span class="n">Requirements</span><span class="o">**</span><span class="p">:</span> <span class="n">Needs</span> <span class="n">large</span> <span class="n">datasets</span> <span class="k">for</span> <span class="n">training</span>
+<h4 id="beyond-images-state-of-the-art">Beyond Images (State-of-the-Art)</h4>
+<ul>
+  <li><strong>Audio Generation</strong>: MusicGen, AudioCraft, Stable Audio, Suno AI</li>
+  <li><strong>Video Generation</strong>: Runway Gen-2, Pika Labs, Stable Video Diffusion, OpenAI Sora (preview)</li>
+  <li><strong>3D Generation</strong>: DreamGaussian, Wonder3D, Instant3D, TripoSR</li>
+  <li><strong>Molecular Design</strong>: RFDiffusion, AlphaFold 3, MoleculeGPT</li>
+  <li><strong>Text-to-3D</strong>: DreamFusion, Magic3D, Point-E, Shap-E</li>
+</ul>
 
-<span class="c1">### Recent Advances
-</span>
-<span class="c1">#### Classifier-Free Guidance
-</span><span class="n">Improves</span> <span class="n">sample</span> <span class="n">quality</span> <span class="n">by</span> <span class="n">combining</span> <span class="n">conditional</span> <span class="ow">and</span> <span class="n">unconditional</span> <span class="n">models</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Enables</span> <span class="n">better</span> <span class="n">adherence</span> <span class="n">to</span> <span class="n">text</span> <span class="n">prompts</span>
-<span class="o">-</span> <span class="n">Adjustable</span> <span class="n">guidance</span> <span class="n">scale</span> <span class="k">for</span> <span class="n">quality</span> <span class="n">vs</span> <span class="n">diversity</span> <span class="n">trade</span><span class="o">-</span><span class="n">off</span>
+<h3 id="advantages-of-diffusion-models">Advantages of Diffusion Models</h3>
 
-<span class="c1">#### Consistency Models
-</span><span class="n">New</span> <span class="n">approach</span> <span class="n">that</span> <span class="n">enables</span> <span class="n">single</span><span class="o">-</span><span class="n">step</span> <span class="n">generation</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Drastically</span> <span class="n">reduces</span> <span class="n">inference</span> <span class="n">time</span>
-<span class="o">-</span> <span class="n">Maintains</span> <span class="n">competitive</span> <span class="n">sample</span> <span class="n">quality</span>
-<span class="o">-</span> <span class="n">Promising</span> <span class="k">for</span> <span class="n">real</span><span class="o">-</span><span class="n">time</span> <span class="n">applications</span>
+<ol>
+  <li><strong>Sample Quality</strong>: Often superior to GANs in terms of fidelity and diversity</li>
+  <li><strong>Training Stability</strong>: More stable training compared to GANs</li>
+  <li><strong>Mode Coverage</strong>: Better at capturing the full data distribution</li>
+  <li><strong>Controllability</strong>: Easy to incorporate conditioning information</li>
+</ol>
 
-<span class="c1">#### Cross-Attention Mechanisms
-</span><span class="n">Enables</span> <span class="n">better</span> <span class="n">text</span><span class="o">-</span><span class="n">image</span> <span class="n">alignment</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">Improved</span> <span class="n">prompt</span> <span class="n">following</span>
-<span class="o">-</span> <span class="n">Fine</span><span class="o">-</span><span class="n">grained</span> <span class="n">control</span> <span class="n">over</span> <span class="n">generation</span>
-<span class="o">-</span> <span class="n">Used</span> <span class="ow">in</span> <span class="n">most</span> <span class="n">modern</span> <span class="n">text</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">image</span> <span class="n">models</span>
+<h3 id="challenges-and-limitations">Challenges and Limitations</h3>
 
-<span class="c1">## The Cutting Edge: Where AI Research is Heading
-</span>
-<span class="n">As</span> <span class="n">AI</span> <span class="n">systems</span> <span class="n">become</span> <span class="n">more</span> <span class="n">powerful</span><span class="p">,</span> <span class="n">researchers</span> <span class="n">are</span> <span class="n">discovering</span> <span class="n">surprising</span> <span class="n">patterns</span> <span class="ow">and</span> <span class="n">pushing</span> <span class="n">into</span> <span class="n">uncharted</span> <span class="n">territory</span><span class="p">.</span> <span class="n">Some</span> <span class="n">of</span> <span class="n">these</span> <span class="n">findings</span> <span class="n">challenge</span> <span class="n">our</span> <span class="n">intuitions</span> <span class="n">about</span> <span class="n">intelligence</span> <span class="ow">and</span> <span class="n">learning</span><span class="p">.</span> <span class="n">Let</span><span class="sh">'</span><span class="s">s explore what</span><span class="sh">'</span><span class="n">s</span> <span class="n">happening</span> <span class="n">at</span> <span class="n">the</span> <span class="n">frontier</span> <span class="n">of</span> <span class="n">AI</span> <span class="n">research</span><span class="p">.</span>
+<ol>
+  <li><strong>Computational Cost</strong>: Requires many denoising steps for generation</li>
+  <li><strong>Memory Requirements</strong>: High-resolution generation needs significant resources</li>
+  <li><strong>Speed</strong>: Slower than GANs for real-time applications</li>
+  <li><strong>Data Requirements</strong>: Needs large datasets for training</li>
+</ol>
 
-<span class="c1">### The Science of Scale: Large Language Model Scaling Laws
-</span>
-<span class="o">**</span><span class="n">Empirical</span> <span class="n">scaling</span> <span class="n">laws</span> <span class="n">guide</span> <span class="n">optimal</span> <span class="n">model</span> <span class="ow">and</span> <span class="n">data</span> <span class="n">allocation</span><span class="p">:</span><span class="o">**</span>
+<h3 id="recent-advances">Recent Advances</h3>
 
-<span class="o">-</span> <span class="o">**</span><span class="n">Chinchilla</span> <span class="n">Law</span><span class="o">**</span><span class="p">:</span> <span class="n">N_opt</span> <span class="err">∝</span> <span class="n">C</span><span class="o">^</span><span class="p">(</span><span class="n">β</span><span class="o">/</span><span class="p">(</span><span class="n">α</span><span class="o">+</span><span class="n">β</span><span class="p">)),</span> <span class="n">D_opt</span> <span class="err">∝</span> <span class="n">C</span><span class="o">^</span><span class="p">(</span><span class="n">α</span><span class="o">/</span><span class="p">(</span><span class="n">α</span><span class="o">+</span><span class="n">β</span><span class="p">))</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Loss</span> <span class="n">Prediction</span><span class="o">**</span><span class="p">:</span> <span class="n">L</span> <span class="o">=</span> <span class="n">E</span> <span class="o">+</span> <span class="n">A</span><span class="o">/</span><span class="n">N</span><span class="o">^</span><span class="n">α</span> <span class="o">+</span> <span class="n">B</span><span class="o">/</span><span class="n">D</span><span class="o">^</span><span class="n">β</span> 
-<span class="o">-</span> <span class="o">**</span><span class="n">Optimal</span> <span class="n">Ratio</span><span class="o">**</span><span class="p">:</span> <span class="o">~</span><span class="mi">20</span> <span class="n">tokens</span> <span class="n">per</span> <span class="nf">parameter </span><span class="p">(</span><span class="n">being</span> <span class="n">challenged</span> <span class="n">by</span> <span class="n">models</span> <span class="n">like</span> <span class="n">Llama</span> <span class="mi">3</span><span class="p">)</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Compute</span><span class="o">-</span><span class="n">Optimal</span><span class="o">**</span><span class="p">:</span> <span class="n">Balance</span> <span class="n">model</span> <span class="n">size</span> <span class="ow">and</span> <span class="n">training</span> <span class="n">data</span>
-<span class="o">-</span> <span class="o">**</span><span class="n">Note</span><span class="o">**</span><span class="p">:</span> <span class="n">Llama</span> <span class="mi">3</span> <span class="n">trained</span> <span class="n">on</span> <span class="mi">15</span><span class="n">T</span> <span class="nf">tokens </span><span class="p">(</span><span class="mi">100</span><span class="n">x</span> <span class="n">parameters</span><span class="p">),</span> <span class="n">suggesting</span> <span class="n">benefits</span> <span class="n">beyond</span> <span class="n">Chinchilla</span> <span class="n">optimal</span>
+<h4 id="classifier-free-guidance">Classifier-Free Guidance</h4>
+<p>Improves sample quality by combining conditional and unconditional models:</p>
+<ul>
+  <li>Enables better adherence to text prompts</li>
+  <li>Adjustable guidance scale for quality vs diversity trade-off</li>
+</ul>
 
-<span class="o">**</span><span class="n">Key</span> <span class="n">findings</span><span class="p">:</span><span class="o">**</span>
-<span class="o">-</span> <span class="n">Most</span> <span class="n">models</span> <span class="n">are</span> <span class="n">significantly</span> <span class="n">undertrained</span>
-<span class="o">-</span> <span class="n">Data</span> <span class="n">quality</span> <span class="n">matters</span> <span class="n">more</span> <span class="n">at</span> <span class="n">scale</span>
-<span class="o">-</span> <span class="n">Emergence</span> <span class="n">happens</span> <span class="n">at</span> <span class="n">predictable</span> <span class="n">scales</span>
-<span class="o">-</span> <span class="n">Grokking</span> <span class="ow">and</span> <span class="n">phase</span> <span class="n">transitions</span>
+<h4 id="consistency-models">Consistency Models</h4>
+<p>New approach that enables single-step generation:</p>
+<ul>
+  <li>Drastically reduces inference time</li>
+  <li>Maintains competitive sample quality</li>
+  <li>Promising for real-time applications</li>
+</ul>
 
-<span class="o">&lt;</span><span class="n">div</span> <span class="n">class</span><span class="o">=</span><span class="sh">"</span><span class="s">code-reference</span><span class="sh">"</span><span class="o">&gt;</span>
-<span class="o">&lt;</span><span class="n">i</span> <span class="n">class</span><span class="o">=</span><span class="sh">"</span><span class="s">fas fa-code</span><span class="sh">"</span><span class="o">&gt;&lt;/</span><span class="n">i</span><span class="o">&gt;</span> <span class="n">Full</span> <span class="n">implementation</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">a</span> <span class="n">href</span><span class="o">=</span><span class="sh">"</span><span class="s">https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L14</span><span class="sh">"</span><span class="o">&gt;</span><span class="n">advanced_ai_research</span><span class="p">.</span><span class="n">py</span><span class="c1">#ScalingLaws&lt;/a&gt;
-</span><span class="o">&lt;/</span><span class="n">div</span><span class="o">&gt;</span>
+<h4 id="cross-attention-mechanisms">Cross-Attention Mechanisms</h4>
+<p>Enables better text-image alignment:</p>
+<ul>
+  <li>Improved prompt following</li>
+  <li>Fine-grained control over generation</li>
+  <li>Used in most modern text-to-image models</li>
+</ul>
 
-<span class="sb">``</span><span class="err">`</span><span class="n">python</span>
-<span class="c1"># Example usage:
+<h2 id="the-cutting-edge-where-ai-research-is-heading">The Cutting Edge: Where AI Research is Heading</h2>
+
+<p>As AI systems become more powerful, researchers are discovering surprising patterns and pushing into uncharted territory. Some of these findings challenge our intuitions about intelligence and learning. Let’s explore what’s happening at the frontier of AI research.</p>
+
+<h3 id="the-science-of-scale-large-language-model-scaling-laws">The Science of Scale: Large Language Model Scaling Laws</h3>
+
+<p><strong>Empirical scaling laws guide optimal model and data allocation:</strong></p>
+
+<ul>
+  <li><strong>Loss prediction</strong> as a function of parameters $N$ and data $D$:</li>
+</ul>
+
+\[L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}\]
+
+<p>where $E$ is the irreducible loss and $A, B, \alpha, \beta$ are fit empirically.</p>
+<ul>
+  <li><strong>Chinchilla compute-optimal allocation</strong> for a budget $C$: $N_{\text{opt}} \propto C^{\,\beta/(\alpha+\beta)}$, $D_{\text{opt}} \propto C^{\,\alpha/(\alpha+\beta)}$</li>
+  <li><strong>Optimal ratio</strong>: ~20 tokens per parameter (now challenged — Llama 3 trained on 15T tokens, far past Chinchilla-optimal, for better inference-time efficiency)</li>
+  <li><strong>Compute-optimal</strong>: balance model size against training data rather than just scaling parameters</li>
+</ul>
+
+<p><strong>Key findings:</strong></p>
+<ul>
+  <li>Most models are significantly undertrained</li>
+  <li>Data quality matters more at scale</li>
+  <li>Emergence happens at predictable scales</li>
+  <li>Grokking and phase transitions</li>
+</ul>
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L14">advanced_ai_research.py#ScalingLaws</a>
+</div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
 </span><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">ScalingLaws</span>
 
 <span class="c1"># Compute optimal allocation
@@ -3319,6 +3665,18 @@ Processing</text>
   <li><strong>Code Generation</strong>: GitHub Copilot X, Amazon CodeWhisperer, Cursor, Codeium</li>
   <li><strong>Open Source LLMs</strong>: Llama 3, Mistral, Phi-3, OpenHermes, WizardCoder</li>
 </ol>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Learning is optimization.</strong> Training reduces to following the gradient downhill: $\theta_{t+1} = \theta_t - \eta\nabla_\theta\mathcal{L}$ — everything else is architecture and data.</li>
+    <li><strong>Depth builds abstraction.</strong> Deep networks learn hierarchical features; the transformer’s self-attention made long-range, parallel modeling practical and now dominates language and vision.</li>
+    <li><strong>Generative models reverse a known process.</strong> Diffusion models learn to denoise via $\mathcal{L} = \mathbb{E}[\lVert\varepsilon - \varepsilon_\theta(\mathbf{x}_t,t)\rVert^2]$, turning random noise into structured images.</li>
+    <li><strong>Scale is predictable — to a point.</strong> Loss follows power laws in parameters and data ($L = E + A/N^\alpha + B/D^\beta$), but data quality and compute-optimal allocation matter as much as raw size.</li>
+    <li><strong>Capability and responsibility scale together.</strong> Fairness, interpretability, privacy, and safety are core engineering requirements, not optional add-ons.</li>
+  </ul>
+</div>
 
 <h2 id="connecting-to-other-technologies">Connecting to Other Technologies</h2>
 

@@ -8,17 +8,17 @@
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Git Fundamentals">
+<meta property="og:title" content="Git Crash Course">
 <meta property="og:description" content="Technology and Physics notes">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git-crash-course.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Git Fundamentals">
+<meta name="twitter:title" content="Git Crash Course">
 <meta name="twitter:description" content="Technology and Physics notes">
 
-<title>Git Fundamentals | Andrews Notebook</title>
+<title>Git Crash Course | Andrews Notebook</title>
 
 
   <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details open data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                class="active">
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
                                >
-                              AI Fundamentals
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                            <a href="/Documentation/docs/technology/ai.html"
                                >
-                              AI Simplified
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1452,401 +1768,339 @@ document.addEventListener('DOMContentLoaded', function() {
 
       <section class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Essential version control concepts for modern software development</p>
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Crash Course</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From zero to your first pull request — the fastest on-ramp to version control</p>
 </div>
 
-<h2 id="overview">Overview</h2>
+<div class="intro-card">
+  <p class="lead-text">This is the <strong>learning path</strong> for people new to Git. It follows a single story — create a repo, make commits, branch, push, and open a pull request — in the order you actually do them, with just enough explanation to keep moving. When you want depth, syntax, or strategy, follow the cross-links to the companion pages.</p>
+</div>
 
-<p>Git is a distributed version control system designed for non-linear development workflows and efficient handling of large projects. Its architecture enables multiple developers to work on the same codebase simultaneously while maintaining a complete history of all modifications. Git serves as the foundation for platforms including GitHub, GitLab, and Bitbucket.</p>
+<div class="tip-card">
+  <h4>How the four Git pages fit together</h4>
+  <ul>
+    <li><strong>This page (Crash Course)</strong> — a guided first walkthrough; read it top to bottom.</li>
+    <li><a href="git.html">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — the alphabetical lookup cheat sheet for every command.</li>
+    <li><a href="branching.html">Branching Strategies</a> — team workflows: Git Flow, GitHub Flow, trunk-based.</li>
+  </ul>
+</div>
 
-<h2 id="core-concepts">Core Concepts</h2>
+<h2 id="why-version-control">Why version control?</h2>
 
-<h3 id="repository">Repository</h3>
-<p>A Git repository is a database containing all project files and the complete revision history. Repositories can be local (on a developer’s machine) or remote (on a server).</p>
+<p>Before Git, people emailed <code class="language-plaintext highlighter-rouge">report_final_v2_REALLY_final.docx</code> around. Version control replaces that chaos with a single source of truth that remembers <strong>every</strong> change, <strong>who</strong> made it, and <strong>why</strong> — and lets many people work in parallel without overwriting each other.</p>
 
-<h3 id="working-directory">Working Directory</h3>
-<p>The working directory contains the actual files that developers modify. It represents the current state of the project on the local filesystem.</p>
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-history"></i>
+    <h4>Full History</h4>
+    <p>Every saved version is recoverable forever</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-users"></i>
+    <h4>Collaboration</h4>
+    <p>Many people edit the same project safely</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-flask"></i>
+    <h4>Safe Experiments</h4>
+    <p>Try ideas in a branch; throw it away if it fails</p>
+  </div>
+</div>
 
-<h3 id="staging-area-index">Staging Area (Index)</h3>
-<p>The staging area is an intermediate layer between the working directory and repository. Files must be explicitly added to the staging area before being committed to the repository.</p>
+<h2 id="the-mental-model-three-areas">The mental model: three areas</h2>
 
-<h3 id="commit">Commit</h3>
-<p>A commit represents a snapshot of the project at a specific point in time. Each commit contains:</p>
-<ul>
-  <li>A unique SHA-1 hash identifier</li>
-  <li>Author information</li>
-  <li>Timestamp</li>
-  <li>Commit message</li>
-  <li>Pointer to parent commit(s)</li>
-  <li>Reference to a tree object representing the project state</li>
-</ul>
+<p>Almost every Git command moves your work between three places. Internalize this picture and the commands stop feeling random.</p>
 
-<h2 id="basic-commands">Basic Commands</h2>
-
-<h3 id="repository-initialization">Repository Initialization</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git init                    <span class="c"># Initialize a new repository</span>
-git clone &lt;repository-url&gt;  <span class="c"># Clone an existing repository</span>
-</code></pre></div></div>
-
-<h3 id="file-operations">File Operations</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status                  <span class="c"># Display working directory status</span>
-git add &lt;file&gt;             <span class="c"># Stage specific file</span>
-git add <span class="nb">.</span>                  <span class="c"># Stage all changes</span>
-git commit <span class="nt">-m</span> <span class="s2">"&lt;message&gt;"</span>  <span class="c"># Create a commit with staged changes</span>
-</code></pre></div></div>
-
-<h3 id="history-and-inspection">History and Inspection</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log                    <span class="c"># View commit history</span>
-git log <span class="nt">--oneline</span>         <span class="c"># Condensed commit history</span>
-git diff                  <span class="c"># Show unstaged changes</span>
-git diff <span class="nt">--staged</span>         <span class="c"># Show staged changes</span>
-</code></pre></div></div>
-
-<h3 id="remote-operations">Remote Operations</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote add origin &lt;url&gt;  <span class="c"># Add remote repository</span>
-git push origin &lt;branch&gt;     <span class="c"># Push commits to remote</span>
-git pull origin &lt;branch&gt;     <span class="c"># Fetch and merge remote changes</span>
-git fetch origin            <span class="c"># Fetch remote changes without merging</span>
-</code></pre></div></div>
-
-<h2 id="workflow-patterns">Workflow Patterns</h2>
-
-<h3 id="standard-git-operations-sequence">Standard Git Operations Sequence</h3>
-<p>The Git version control workflow consists of four primary operations:</p>
-<ul>
-  <li><strong>Modification</strong>: Changes to working directory files</li>
-  <li><strong>Staging</strong>: Addition of changes to the index via <code class="language-plaintext highlighter-rouge">git add</code></li>
-  <li><strong>Committing</strong>: Creation of immutable snapshots via <code class="language-plaintext highlighter-rouge">git commit</code></li>
-  <li><strong>Synchronization</strong>: Remote repository updates via <code class="language-plaintext highlighter-rouge">git push</code></li>
-</ul>
-
-<h3 id="feature-branch-operations">Feature Branch Operations</h3>
-<ul>
-  <li><strong>Branch Creation</strong>: <code class="language-plaintext highlighter-rouge">git checkout -b feature-name</code></li>
-  <li><strong>Change Management</strong>: Modifications followed by staging and committing</li>
-  <li><strong>Remote Synchronization</strong>: <code class="language-plaintext highlighter-rouge">git push origin feature-name</code></li>
-  <li><strong>Integration</strong>: Pull request submission and merge after review</li>
-</ul>
-
-<h3 id="git-flow">Git Flow</h3>
-<p>A branching model designed around project releases:</p>
-<ul>
-  <li><strong>main/master</strong>: Production-ready code</li>
-  <li><strong>develop</strong>: Integration branch for features</li>
-  <li><strong>feature/</strong>: Individual feature branches</li>
-  <li><strong>release/</strong>: Preparation for production release</li>
-  <li><strong>hotfix/</strong>: Emergency fixes for production</li>
-</ul>
-
-<h3 id="github-flow">GitHub Flow</h3>
-<p>A workflow optimized for continuous deployment environments:</p>
-<ol>
-  <li>Create branch from main</li>
-  <li>Add commits</li>
-  <li>Open pull request</li>
-  <li>Discuss and review</li>
-  <li>Deploy for testing</li>
-  <li>Merge to main</li>
-</ol>
-
-<h2 id="file-states">File States</h2>
-
-<p>Git tracks files in three states:</p>
-
-<p><strong>Modified</strong>: File has been changed but not staged
-<strong>Staged</strong>: File marked for inclusion in next commit<br />
-<strong>Committed</strong>: File safely stored in local repository</p>
-
-<h2 id="configuration">Configuration</h2>
-
-<h3 id="user-configuration">User Configuration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
-git config <span class="nt">--global</span> user.email <span class="s2">"email@example.com"</span>
-</code></pre></div></div>
-
-<h3 id="editor-configuration">Editor Configuration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> core.editor <span class="s2">"vim"</span>
-</code></pre></div></div>
-
-<h3 id="view-configuration">View Configuration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--list</span>          <span class="c"># Show all settings</span>
-git config user.name       <span class="c"># Show specific setting</span>
-</code></pre></div></div>
-
-<h2 id="common-operations">Common Operations</h2>
-
-<h3 id="undoing-changes">Undoing Changes</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout <span class="nt">--</span> &lt;file&gt;     <span class="c"># Discard working directory changes</span>
-git reset HEAD &lt;file&gt;      <span class="c"># Unstage file</span>
-git reset <span class="nt">--soft</span> HEAD~1    <span class="c"># Undo last commit, keep changes</span>
-git reset <span class="nt">--hard</span> HEAD~1    <span class="c"># Undo last commit, discard changes</span>
-</code></pre></div></div>
-
-<h3 id="branching">Branching</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git branch                 <span class="c"># List branches</span>
-git branch &lt;name&gt;         <span class="c"># Create branch</span>
-git checkout &lt;branch&gt;     <span class="c"># Switch branches</span>
-git checkout <span class="nt">-b</span> &lt;branch&gt;  <span class="c"># Create and switch branch</span>
-git merge &lt;branch&gt;        <span class="c"># Merge branch into current</span>
-git branch <span class="nt">-d</span> &lt;branch&gt;    <span class="c"># Delete branch</span>
-</code></pre></div></div>
-
-<h3 id="stashing">Stashing</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git stash                 <span class="c"># Save uncommitted changes</span>
-git stash pop            <span class="c"># Apply and remove latest stash</span>
-git stash list           <span class="c"># List all stashes</span>
-git stash apply          <span class="c"># Apply stash without removing</span>
-</code></pre></div></div>
-
-<h2 id="standards-and-conventions">Standards and Conventions</h2>
-
-<h3 id="commit-message-specification">Commit Message Specification</h3>
-<ul>
-  <li><strong>Mood</strong>: Imperative (“Add feature” not “Added feature”)</li>
-  <li><strong>Subject Line</strong>: Maximum 50 characters</li>
-  <li><strong>Format</strong>: Blank line between subject and body</li>
-  <li><strong>Body</strong>: Maximum 72 characters per line, documenting rationale</li>
-</ul>
-
-<h4 id="conventional-commits-2023-2024-standard">Conventional Commits (2023-2024 Standard)</h4>
-<p>Many projects now follow the Conventional Commits specification:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;type&gt;[optional scope]: &lt;description&gt;
-
-[optional body]
-
-[optional footer(s)]
-</code></pre></div></div>
-
-<p>Types:</p>
-<ul>
-  <li><strong>feat</strong>: New feature</li>
-  <li><strong>fix</strong>: Bug fix</li>
-  <li><strong>docs</strong>: Documentation changes</li>
-  <li><strong>style</strong>: Code style changes (formatting, semicolons, etc.)</li>
-  <li><strong>refactor</strong>: Code refactoring</li>
-  <li><strong>test</strong>: Test additions or modifications</li>
-  <li><strong>chore</strong>: Maintenance tasks</li>
-</ul>
-
-<p>Example:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>feat(auth): add OAuth2 integration
-
-Implemented Google and GitHub OAuth2 providers with
-proper token refresh and error handling.
-
-Closes #123
-</code></pre></div></div>
-
-<h3 id="commit-granularity">Commit Granularity</h3>
-<ul>
-  <li><strong>Atomic Commits</strong>: Single logical change per commit</li>
-  <li><strong>Build Integrity</strong>: All commits must maintain build stability</li>
-  <li><strong>Documentation</strong>: Each commit requires descriptive message</li>
-</ul>
-
-<h3 id="branch-naming-convention">Branch Naming Convention</h3>
-<ul>
-  <li><strong>Format</strong>: <code class="language-plaintext highlighter-rouge">&lt;type&gt;/&lt;description&gt;</code></li>
-  <li><strong>Standard Prefixes</strong>: feature/, bugfix/, hotfix/, release/</li>
-  <li><strong>Separator</strong>: Hyphen for word separation</li>
-</ul>
-
-<h2 id="gitignore">.gitignore</h2>
-
-<p>The <code class="language-plaintext highlighter-rouge">.gitignore</code> file specifies which files Git should ignore:</p>
-
-<pre><code class="language-gitignore"># Compiled files
-*.class
-*.o
-*.pyc
-
-# Directories
-build/
-node_modules/
-.venv/
-
-# IDE files
-.idea/
-.vscode/
-*.swp
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Environment files
-.env
-.env.local
+<pre><code class="language-mermaid">flowchart LR
+    WD["Working Directory&lt;br/&gt;(files you edit)"] --&gt;|git add| STAGE["Staging Area&lt;br/&gt;(what goes in next commit)"]
+    STAGE --&gt;|git commit| REPO["Local Repository&lt;br/&gt;(.git history)"]
+    REPO --&gt;|git push| REMOTE["Remote&lt;br/&gt;(GitHub / GitLab)"]
+    REMOTE --&gt;|git pull / fetch| REPO
+    REPO --&gt;|git checkout| WD
 </code></pre>
 
-<h2 id="advanced-git-features">Advanced Git Features</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>What it holds</th>
+      <th>You change it with</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Working Directory</td>
+      <td>The actual files on disk you are editing</td>
+      <td>Your editor</td>
+    </tr>
+    <tr>
+      <td>Staging Area (Index)</td>
+      <td>The exact snapshot you are about to commit</td>
+      <td><code class="language-plaintext highlighter-rouge">git add</code></td>
+    </tr>
+    <tr>
+      <td>Local Repository</td>
+      <td>The committed history on your machine</td>
+      <td><code class="language-plaintext highlighter-rouge">git commit</code></td>
+    </tr>
+    <tr>
+      <td>Remote</td>
+      <td>The shared copy others pull from</td>
+      <td><code class="language-plaintext highlighter-rouge">git push</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="git-worktree">Git Worktree</h3>
-<p>Manage multiple working trees attached to the same repository:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a new worktree for a hotfix</span>
-git worktree add ../hotfix-branch hotfix/critical-bug
+<h2 id="step-1--one-time-setup">Step 1 — One-time setup</h2>
 
-<span class="c"># List all worktrees</span>
-git worktree list
+<p>Tell Git who you are (this stamps every commit) and pick sensible defaults.</p>
 
-<span class="c"># Remove worktree</span>
-git worktree remove ../hotfix-branch
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
+git config <span class="nt">--global</span> user.email <span class="s2">"you@example.com"</span>
+git config <span class="nt">--global</span> init.defaultBranch main   <span class="c"># name the first branch "main"</span>
+git config <span class="nt">--global</span> pull.rebase <span class="nb">false</span>          <span class="c"># default merge behavior on pull</span>
 </code></pre></div></div>
 
-<h3 id="partial-clone-and-sparse-checkout">Partial Clone and Sparse Checkout</h3>
-<p>Work with large repositories more efficiently:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clone with limited history</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>blob:none <span class="nt">--sparse</span> &lt;url&gt;
+<p>Check it worked:</p>
 
-<span class="c"># Enable sparse checkout</span>
-git sparse-checkout init <span class="nt">--cone</span>
-
-<span class="c"># Add directories to checkout</span>
-git sparse-checkout <span class="nb">set </span>src/frontend docs
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--list</span>
 </code></pre></div></div>
 
-<h3 id="git-maintenance-git-231">Git Maintenance (Git 2.31+)</h3>
-<p>Automatic repository optimization:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable automatic maintenance</span>
-git maintenance start
+<h2 id="step-2--start-a-repository">Step 2 — Start a repository</h2>
 
-<span class="c"># Run maintenance tasks manually</span>
-git maintenance run <span class="nt">--auto</span>
+<p>You either <strong>create</strong> a new one or <strong>clone</strong> an existing project.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Option A: brand-new project in the current folder</span>
+git init
+
+<span class="c"># Option B: copy an existing project from a remote</span>
+git clone https://github.com/owner/repo.git
 </code></pre></div></div>
 
-<h2 id="security-best-practices">Security Best Practices</h2>
+<p><code class="language-plaintext highlighter-rouge">git init</code> creates a hidden <code class="language-plaintext highlighter-rouge">.git/</code> directory — that folder <em>is</em> your repository (the history database). Delete it and you delete the version control, not the files.</p>
 
-<h3 id="signing-commits">Signing Commits</h3>
-<p>Ensure commit authenticity with GPG or SSH signatures:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Configure GPG signing</span>
-git config <span class="nt">--global</span> user.signingkey YOUR_GPG_KEY_ID
-git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>
+<h2 id="step-3--the-core-loop-edit--add--commit">Step 3 — The core loop: edit → add → commit</h2>
 
-<span class="c"># Sign a specific commit</span>
-git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Signed commit"</span>
+<p>This is the cycle you will repeat thousands of times.</p>
 
-<span class="c"># Verify signatures</span>
-git log <span class="nt">--show-signature</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. See what changed</span>
+git status
+
+<span class="c"># 2. Stage the changes you want to save together</span>
+git add file1.py file2.py
+git add <span class="nb">.</span>              <span class="c"># stage everything that changed</span>
+
+<span class="c"># 3. Save a snapshot with a message explaining WHY</span>
+git commit <span class="nt">-m</span> <span class="s2">"Add login form validation"</span>
 </code></pre></div></div>
 
-<h3 id="ssh-key-authentication-recommended">SSH Key Authentication (Recommended)</h3>
-<p>GitHub deprecated password authentication. Use SSH keys:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate ED25519 key (recommended)</span>
-ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"your_email@example.com"</span>
+<div class="tip-card">
+  <h4>What makes a good commit?</h4>
+  <p>One logical change per commit, with a message written in the imperative mood ("Add", "Fix", "Remove" — not "Added"/"Fixing"). Keep the first line under ~50 characters. Future-you reading <code>git log</code> will thank present-you.</p>
+</div>
 
-<span class="c"># Add to SSH agent</span>
-<span class="nb">eval</span> <span class="s2">"</span><span class="si">$(</span>ssh-agent <span class="nt">-s</span><span class="si">)</span><span class="s2">"</span>
-ssh-add ~/.ssh/id_ed25519
+<p>Inspect your history any time:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span>    <span class="c"># compact, visual history</span>
+git diff                     <span class="c"># changes you have NOT staged yet</span>
+git diff <span class="nt">--staged</span>            <span class="c"># changes that ARE staged for next commit</span>
 </code></pre></div></div>
 
-<h2 id="git-with-ai-tools-2023-2024">Git with AI Tools (2023-2024)</h2>
+<h2 id="step-4--branching-work-without-breaking-things">Step 4 — Branching: work without breaking things</h2>
 
-<h3 id="github-copilot-integration">GitHub Copilot Integration</h3>
-<ul>
-  <li>AI-powered code suggestions in your editor</li>
-  <li>Context-aware commit message generation</li>
-  <li>Automated PR descriptions</li>
-</ul>
+<p>A branch is a cheap, movable pointer to a commit. Create one per feature or fix so <code class="language-plaintext highlighter-rouge">main</code> always stays stable.</p>
 
-<h3 id="gitlab-ai-features">GitLab AI Features</h3>
-<ul>
-  <li>Code suggestions</li>
-  <li>Vulnerability explanation</li>
-  <li>Code review summaries</li>
-</ul>
-
-<h2 id="performance-tips">Performance Tips</h2>
-
-<h3 id="large-file-storage-lfs">Large File Storage (LFS)</h3>
-<p>Handle large binary files efficiently:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Track large files</span>
-git lfs track <span class="s2">"*.psd"</span>
-git lfs track <span class="s2">"*.zip"</span>
-
-<span class="c"># View tracked patterns</span>
-git lfs track
-
-<span class="c"># Clone with LFS files</span>
-git lfs clone &lt;repository&gt;
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch <span class="nt">-c</span> feature/login   <span class="c"># create and switch to a new branch (Git 2.23+)</span>
+<span class="c"># ...edit, add, commit as usual...</span>
+git switch main               <span class="c"># jump back to main</span>
+git switch feature/login      <span class="c"># and back to your work</span>
 </code></pre></div></div>
 
-<h3 id="optimizing-repository-performance">Optimizing Repository Performance</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Optimize repository</span>
-git gc <span class="nt">--aggressive</span> <span class="nt">--prune</span><span class="o">=</span>now
+<pre><code class="language-mermaid">gitGraph
+    commit id: "init"
+    commit id: "homepage"
+    branch feature/login
+    checkout feature/login
+    commit id: "add form"
+    commit id: "validate"
+    checkout main
+    commit id: "fix typo"
+    merge feature/login
+    commit id: "release"
+</code></pre>
 
-<span class="c"># Repack objects</span>
-git repack <span class="nt">-a</span> <span class="nt">-d</span> <span class="nt">--depth</span><span class="o">=</span>250 <span class="nt">--window</span><span class="o">=</span>250
+<blockquote>
+  <p><code class="language-plaintext highlighter-rouge">git switch</code> and <code class="language-plaintext highlighter-rouge">git restore</code> (Git 2.23+) are the modern, clearer replacements for the overloaded <code class="language-plaintext highlighter-rouge">git checkout</code>. You will still see <code class="language-plaintext highlighter-rouge">checkout</code> everywhere — it does both jobs.</p>
+</blockquote>
 
-<span class="c"># Clean unnecessary files</span>
-git clean <span class="nt">-fd</span>
+<h2 id="step-5--share-your-work-push-and-pull">Step 5 — Share your work: push and pull</h2>
+
+<p><code class="language-plaintext highlighter-rouge">origin</code> is the conventional name for your main remote. The first push sets up tracking with <code class="language-plaintext highlighter-rouge">-u</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Push your branch to the remote for the first time</span>
+git push <span class="nt">-u</span> origin feature/login
+
+<span class="c"># Later pushes on the same branch are just:</span>
+git push
+
+<span class="c"># Bring down changes others have pushed</span>
+git pull
 </code></pre></div></div>
 
-<h2 id="integration-with-modern-development">Integration with Modern Development</h2>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant You as Your machine
+    participant GH as GitHub (remote)
+    participant Team as Teammate
+    You-&gt;&gt;You: edit + git commit
+    You-&gt;&gt;GH: git push
+    GH-&gt;&gt;Team: git pull
+    Team-&gt;&gt;GH: their commits (git push)
+    GH-&gt;&gt;You: git pull (get teammate's work)
+</code></pre>
 
-<h3 id="cicd-integration">CI/CD Integration</h3>
-<p>Git hooks for automated workflows:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Pre-push hook example</span>
-<span class="c">#!/bin/sh</span>
-<span class="c"># .git/hooks/pre-push</span>
-npm <span class="nb">test</span> <span class="o">&amp;&amp;</span> npm run lint
+<h2 id="step-6--open-a-pull-request">Step 6 — Open a pull request</h2>
+
+<p>A pull request (PR) — called a merge request on GitLab — proposes merging your branch into <code class="language-plaintext highlighter-rouge">main</code>. It is where review, automated tests, and discussion happen before code lands.</p>
+
+<ol>
+  <li>Push your branch (Step 5).</li>
+  <li>On GitHub/GitLab, open a PR from your branch into <code class="language-plaintext highlighter-rouge">main</code>.</li>
+  <li>Teammates review; CI runs tests automatically.</li>
+  <li>After approval, <strong>merge</strong> — your work is now in <code class="language-plaintext highlighter-rouge">main</code>.</li>
+  <li>Delete the branch; pull <code class="language-plaintext highlighter-rouge">main</code> locally to stay current.</li>
+</ol>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Using the GitHub CLI from the terminal</span>
+gh <span class="nb">pr </span>create <span class="nt">--fill</span>
+gh <span class="nb">pr </span>status
 </code></pre></div></div>
 
-<h3 id="monorepo-management">Monorepo Management</h3>
-<p>Tools for managing large codebases:</p>
-<ul>
-  <li><strong>Nx</strong>: Powerful monorepo build system</li>
-  <li><strong>Lerna</strong>: JavaScript monorepo tool</li>
-  <li><strong>Bazel</strong>: Google’s build tool</li>
-  <li><strong>Rush</strong>: Microsoft’s monorepo manager</li>
-</ul>
+<p>See <a href="branching.html">Branching Strategies</a> for how teams structure this at scale.</p>
 
-<h2 id="error-recovery-procedures">Error Recovery Procedures</h2>
+<h2 id="the-12-commands-that-cover-90-of-daily-work">The 12 commands that cover 90% of daily work</h2>
 
-<h3 id="commit-recovery">Commit Recovery</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Find lost commits</span>
-git reflog
+<div class="command-grid">
+  <div class="command-card"><code>git status</code><p>What changed, what's staged</p></div>
+  <div class="command-card"><code>git add &lt;file&gt;</code><p>Stage changes</p></div>
+  <div class="command-card"><code>git commit -m "msg"</code><p>Save a snapshot</p></div>
+  <div class="command-card"><code>git log --oneline</code><p>View history</p></div>
+  <div class="command-card"><code>git diff</code><p>See unstaged changes</p></div>
+  <div class="command-card"><code>git switch -c &lt;br&gt;</code><p>New branch</p></div>
+  <div class="command-card"><code>git switch &lt;br&gt;</code><p>Change branch</p></div>
+  <div class="command-card"><code>git merge &lt;br&gt;</code><p>Combine branches</p></div>
+  <div class="command-card"><code>git pull</code><p>Get remote changes</p></div>
+  <div class="command-card"><code>git push</code><p>Send your commits</p></div>
+  <div class="command-card"><code>git stash</code><p>Shelve work temporarily</p></div>
+  <div class="command-card"><code>git restore &lt;file&gt;</code><p>Discard local edits</p></div>
+</div>
 
-<span class="c"># Restore lost commit</span>
-git checkout <span class="nt">-b</span> recovery-branch &lt;commit-hash&gt;
+<h2 id="oh-no--fixing-common-mistakes">“Oh no” — fixing common mistakes</h2>
+
+<p>Everyone breaks something early on. These get you out of the most common holes safely.</p>
+
+<div class="challenge-cards">
+  <div class="challenge-card">
+    <h4>I committed too early / wrong message</h4>
+    <pre><code>git commit --amend -m "Better message"</code></pre>
+    <p>Rewrites the last commit. Don't amend commits you have already pushed and shared.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I want to undo the last commit but keep the code</h4>
+    <pre><code>git reset --soft HEAD~1</code></pre>
+    <p>Removes the commit, leaves the changes staged so you can recommit.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I need to drop everything since the last commit</h4>
+    <pre><code>git restore .</code></pre>
+    <p>Discards uncommitted edits. This is destructive — make sure you mean it.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I'm mid-task and need to switch branches</h4>
+    <pre><code>git stash
+git switch other-branch
+# later:
+git stash pop</code></pre>
+    <p>Shelves your work-in-progress and brings it back later.</p>
+  </div>
+  <div class="challenge-card">
+    <h4>I think I lost a commit</h4>
+    <pre><code>git reflog</code></pre>
+    <p>Shows where HEAD has been; almost nothing is ever truly gone. Check out the hash to recover it.</p>
+  </div>
+</div>
+
+<h2 id="handling-merge-conflicts-the-calm-version">Handling merge conflicts (the calm version)</h2>
+
+<p>A conflict just means two branches changed the same lines. Git pauses and asks you to choose.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge feature/login
+<span class="c"># CONFLICT in app.py</span>
 </code></pre></div></div>
 
-<h3 id="fixing-commit-mistakes">Fixing Commit Mistakes</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Change last commit message</span>
-git commit <span class="nt">--amend</span> <span class="nt">-m</span> <span class="s2">"New message"</span>
+<p>Open the file; Git marks the clash:</p>
 
-<span class="c"># Add forgotten files to last commit</span>
-git add forgotten-file.txt
-git commit <span class="nt">--amend</span> <span class="nt">--no-edit</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+greeting = "Hello"
+=======
+greeting = "Hi there"
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/login
 </code></pre></div></div>
 
-<h3 id="resolving-merge-conflicts">Resolving Merge Conflicts</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use mergetool</span>
-git mergetool
+<p>Edit the file to the version you want, delete the <code class="language-plaintext highlighter-rouge">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>/<code class="language-plaintext highlighter-rouge">=======</code>/<code class="language-plaintext highlighter-rouge">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> markers, then:</p>
 
-<span class="c"># Accept theirs/ours for specific files</span>
-git checkout <span class="nt">--theirs</span> path/to/file
-git checkout <span class="nt">--ours</span> path/to/file
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git add app.py
+git commit          <span class="c"># completes the merge</span>
 </code></pre></div></div>
 
-<h2 id="related-git-documentation">Related Git Documentation</h2>
+<p>If it goes sideways, <code class="language-plaintext highlighter-rouge">git merge --abort</code> returns you to safety.</p>
 
-<ul>
-  <li><a href="git.html">Git Version Control</a> - Deep dive into Git internals and architecture</li>
-  <li><a href="git-reference.html">Git Command Reference</a> - Comprehensive command syntax and examples</li>
-  <li><a href="branching.html">Branching Strategies</a> - Git Flow, GitHub Flow, and team workflows</li>
-  <li><a href="ci-cd.html">CI/CD Pipelines</a> - Continuous integration with Git</li>
-</ul>
+<h2 id="where-to-go-next">Where to go next</h2>
+
+<div class="command-grid">
+  <div class="step-card">
+    <h4>Understand the machinery</h4>
+    <p>Read <a href="git.html">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</p>
+  </div>
+  <div class="step-card">
+    <h4>Look up a command</h4>
+    <p>Keep <a href="git-reference.html">Git Command Reference</a> open as your cheat sheet for rebase, cherry-pick, bisect, and more.</p>
+  </div>
+  <div class="step-card">
+    <h4>Work on a team</h4>
+    <p>Pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd.html">CI/CD</a>.</p>
+  </div>
+</div>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Three areas:</strong> working directory → staging (<code>add</code>) → repository (<code>commit</code>) → remote (<code>push</code>).</li>
+    <li><strong>The core loop is edit → <code>add</code> → <code>commit</code>,</strong> repeated endlessly with clear messages.</li>
+    <li><strong>Branch for every change</strong> so <code>main</code> stays stable; merge via pull requests.</li>
+    <li><strong>Almost nothing is unrecoverable</strong> — <code>git reflog</code> and <code>git reset</code> are your safety net.</li>
+    <li><strong>A dozen commands</strong> cover the vast majority of daily work; learn the rest as you need them.</li>
+  </ul>
+</div>
+
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git.html">Git Version Control</a> — architecture and internals deep dive</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — complete command cheat sheet</li>
+    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, trunk-based development</li>
+    <li><a href="ci-cd.html">CI/CD</a> — automate testing and deployment from your commits</li>
+  </ul>
+</div>
 
 <h2 id="references">References</h2>
 
 <ul>
+  <li><a href="https://git-scm.com/book">Pro Git Book</a> — free, comprehensive, beginner-friendly</li>
+  <li><a href="https://skills.github.com/">GitHub Skills</a> — interactive hands-on exercises</li>
   <li><a href="https://git-scm.com/doc">Official Git Documentation</a></li>
-  <li><a href="https://git-scm.com/book">Pro Git Book</a> - Free comprehensive guide</li>
-  <li><a href="https://git-scm.com/docs">Git Reference Manual</a></li>
-  <li><a href="https://skills.github.com/">GitHub Skills</a> - Git practice environment</li>
-  <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a> - Commit message standard</li>
-  <li><a href="https://nvie.com/posts/a-successful-git-branching-model/">Git Flow</a> - Original Git Flow model</li>
+  <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a> — a popular commit message convention</li>
 </ul>
 
       </section>

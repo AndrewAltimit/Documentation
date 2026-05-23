@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.querySelector('.sidebar.sticky');
       const overlay = document.querySelector('.sidebar-overlay');
       const toggle = document.querySelector('.nav-toggle');
-      
+
       if (window.innerWidth > 1023) {
         if (sidebar) sidebar.classList.remove('active');
         if (overlay) overlay.classList.remove('active');
@@ -518,6 +518,281 @@ document.addEventListener('DOMContentLoaded', function() {
         if (toggle) toggle.style.display = 'block';
       }
     }, 250);
+  });
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #fbfcfd;
+    z-index: 90;
+    font-size: 0.8125rem;
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.2rem 0.5rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.25rem;
+    font-size: 0.78rem;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.06);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    color: #b0b8c0;
+    text-decoration: none;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
+  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = false;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
   });
 });
 </script>
@@ -534,9 +809,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <nav class="nav__list">
       
         
-          <h3 class="nav__title">Navigation</h3>
+          <h3 class="nav__title">Start Here</h3>
           
             <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
               
                 <li>
                     <a href="/Documentation/docs/topic-map.html"
@@ -566,6 +865,109 @@ document.addEventListener('DOMContentLoaded', function() {
                        >
                       <span class="nav__sub-title">Technology Overview</span>
                     </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
                   </li>
                 
               
@@ -683,102 +1085,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="kubernetes">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/kubernetes/"
-                             >
-                            Kubernetes
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
-                               >
-                              Workloads & Storage
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
-                               >
-                              Operations
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
-                               >
-                              Advanced Topics
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="docker">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/technology/docker/"
-                             >
-                            Docker
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
-                               >
-                              Fundamentals
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/storage-security.html"
-                               >
-                              Storage & Security
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
-                               >
-                              Dockerfiles & CI/CD
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/docker/advanced.html"
-                               >
-                              Advanced Patterns
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
                     <details  data-nav-section="version-control">
                       <summary>
                         
@@ -793,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/technology/git-crash-course.html"
                                >
-                              Git Fundamentals
+                              Git Crash Course
                             </a>
                           </li>
                         
@@ -861,12 +1167,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="infrastructure">
+                    <details  data-nav-section="networking-security">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking.html"
                              >
-                            Infrastructure
+                            Networking & Security
                           </a>
                         
                       </summary>
@@ -880,9 +1186,36 @@ document.addEventListener('DOMContentLoaded', function() {
                           </li>
                         
                           <li>
+                            <a href="/Documentation/docs/technology/cybersecurity.html"
+                               >
+                              Cybersecurity
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design.html"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
                             <a href="/Documentation/docs/technology/database-crash-course.html"
                                >
-                              Database Fundamentals
+                              Database Crash Course
                             </a>
                           </li>
                         
@@ -890,13 +1223,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="/Documentation/docs/technology/database-design.html"
                                >
                               Database Design
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/cybersecurity.html"
-                               >
-                              Cybersecurity
                             </a>
                           </li>
                         
@@ -921,86 +1247,23 @@ document.addEventListener('DOMContentLoaded', function() {
                       <ul class="nav__subitems">
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai.html"
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
                                >
-                              AI Fundamentals
+                              AI Fundamentals (Simplified)
                             </a>
                           </li>
                         
                           <li>
-                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                            <a href="/Documentation/docs/technology/ai.html"
                                >
-                              AI Simplified
+                              Artificial Intelligence
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/technology/ai-lecture-2023.html"
                                >
-                              AI Lecture 2023
-                            </a>
-                          </li>
-                        
-                      </ul>
-                    </details>
-                  </li>
-                
-              
-                <li>
-                    <a href="/Documentation/docs/technology/unreal.html"
-                       >
-                      <span class="nav__sub-title">Unreal Engine</span>
-                    </a>
-                  </li>
-                
-              
-            </ul>
-          
-        
-          <h3 class="nav__title">Specialized Topics</h3>
-          
-            <ul class="nav__items">
-              
-                
-                  
-                  
-                  <li class="nav__item--collapsible">
-                    <details  data-nav-section="computing">
-                      <summary>
-                        
-                          <a href="/Documentation/docs/distributed-systems/index.html"
-                             >
-                            Computing
-                          </a>
-                        
-                      </summary>
-                      <ul class="nav__subitems">
-                        
-                          <li>
-                            <a href="/Documentation/docs/distributed-systems/index.html"
-                               >
-                              Distributed Systems
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/technology/quantumcomputing.html"
-                               >
-                              Quantum Computing
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/quantum-computing/index.html"
-                               >
-                              Quantum Computing Hub
-                            </a>
-                          </li>
-                        
-                          <li>
-                            <a href="/Documentation/docs/artificial-intelligence/index.html"
-                               >
-                              AI Hub
+                              AI Deep Dive (Lecture)
                             </a>
                           </li>
                         
@@ -1013,16 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="creative-development">
+                    <details  data-nav-section="game-real-time">
                       <summary>
                         
-                          <a href="/Documentation/docs/gamedev/index.html"
+                          <a href="/Documentation/docs/technology/unreal.html"
                              >
-                            Creative Development
+                            Game & Real-Time
                           </a>
                         
                       </summary>
                       <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
                         
                           <li>
                             <a href="/Documentation/docs/gamedev/index.html"
@@ -1034,14 +1304,21 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/graphics/3d-rendering.html"
                                >
-                              3D Graphics
+                              3D Graphics & Rendering
                             </a>
                           </li>
                         
                           <li>
                             <a href="/Documentation/docs/vr-ar/index.html"
                                >
-                              VR/AR Development
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
                             </a>
                           </li>
                         
@@ -1050,18 +1327,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   </li>
                 
               
-                <li>
-                    <a href="/Documentation/docs/optimization/index.html"
-                       >
-                      <span class="nav__sub-title">Performance Optimization</span>
-                    </a>
-                  </li>
-                
-              
             </ul>
           
         
-          <h3 class="nav__title">AI/ML - Generative AI</h3>
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
           
             <ul class="nav__items">
               
@@ -1098,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
                                >
-                              Base Models
+                              Base Models Comparison
                             </a>
                           </li>
                         
@@ -1146,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <li>
                             <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
                                >
-                              ComfyUI
+                              ComfyUI Guide
                             </a>
                           </li>
                         
@@ -1290,12 +1559,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="advanced-topics">
+                    <details  data-nav-section="advanced-computational">
                       <summary>
                         
                           <a href="/Documentation/docs/physics/condensed-matter.html"
                              >
-                            Advanced Topics
+                            Advanced & Computational
                           </a>
                         
                       </summary>
@@ -1330,7 +1599,54 @@ document.addEventListener('DOMContentLoaded', function() {
             </ul>
           
         
-          <h3 class="nav__title">Advanced Topics</h3>
+          <h3 class="nav__title">Specialized Hubs</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/distributed-systems/index.html"
+                       >
+                      <span class="nav__sub-title">Distributed Systems</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/optimization/index.html"
+                       >
+                      <span class="nav__sub-title">Performance Optimization</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
           
             <ul class="nav__items">
               
@@ -1458,6 +1774,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p><strong>Prerequisites</strong>: Linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals.</p>
 
+<div class="intro-card">
+  <p class="lead-text">Quantum computing is often mis-described as "trying all answers in parallel." The truth is subtler and more interesting: a quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one. Quantum <em>advantage</em> comes entirely from <strong>interference</strong> — arranging unitary operations so that the amplitudes of wrong answers cancel while the amplitude of the right answer reinforces. Every algorithm below, from Shor's factoring to Grover's search, is a recipe for engineering that constructive interference.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-wave-square"></i><h4>Interference, not parallelism</h4><p>Superposition is cheap; extracting a useful answer requires amplitudes to interfere so wrong outcomes cancel. That is the real source of speedup.</p></div>
+  <div class="insight-card"><i class="fas fa-key"></i><h4>Exponential vs quadratic</h4><p>Shor gives an exponential speedup for factoring (a structured problem); Grover gives only a quadratic one for unstructured search — and that quadratic bound is provably optimal.</p></div>
+  <div class="insight-card"><i class="fas fa-shield-virus"></i><h4>Error correction is mandatory</h4><p>Physical qubits decohere. Fault tolerance via surface/stabilizer codes — below a threshold error rate — is what makes scalable quantum computing possible at all.</p></div>
+  <div class="insight-card"><i class="fas fa-microchip"></i><h4>NISQ is the present</h4><p>Today's noisy, intermediate-scale devices run variational hybrids (VQE, QAOA) that lean on a classical optimizer to tolerate hardware imperfection.</p></div>
+</div>
+
+<h3 id="map-of-the-algorithmic-landscape">Map of the Algorithmic Landscape</h3>
+
+<p>Quantum algorithms cluster by the mathematical structure they exploit. The hidden-subgroup family (period finding) powers Shor; amplitude amplification powers Grover and its descendants; and a third family encodes problems into Hamiltonians for adiabatic or variational solution.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    QM["Quantum computation model&lt;br/&gt;unitaries + measurement"] --&gt; HSP["Hidden Subgroup Problem&lt;br/&gt;(QFT-based)"]
+    QM --&gt; AA["Amplitude Amplification"]
+    QM --&gt; HAM["Hamiltonian encoding"]
+    HSP --&gt; SHOR["Shor's factoring&lt;br/&gt;(exponential speedup)"]
+    AA --&gt; GROVER["Grover search&lt;br/&gt;(quadratic speedup)"]
+    HAM --&gt; VQE["VQE / QAOA&lt;br/&gt;(NISQ, variational)"]
+    HAM --&gt; ADIA["Adiabatic / annealing"]
+    SHOR --&gt; FT["Fault tolerance&lt;br/&gt;(surface &amp; stabilizer codes)"]
+    GROVER --&gt; FT
+</code></pre>
+
 <h2 id="table-of-contents">Table of Contents</h2>
 <ul>
   <li><a href="#quantum-computation-model">Quantum Computation Model</a></li>
@@ -1529,7 +1872,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p><strong>Universal Gate Sets</strong>:</p>
 
-<p><strong>Theorem</strong>: {H, T, CNOT} forms universal gate set where:</p>
+<div class="theory-card">
+  <h4 id="theorem-universality">Theorem (Universality)</h4>
+  <p>The set ${H, T, \text{CNOT}}$ is <strong>universal</strong>: any $n$-qubit unitary can be approximated to arbitrary precision by a circuit drawn from this finite gate set. Universality is what lets a fixed hardware gate set run any quantum program.</p>
+</div>
+
+<p>The set ${H, T, \text{CNOT}}$ is universal, where:</p>
 <ul>
   <li>Hadamard: $H = \frac{1}{\sqrt{2}}\begin{pmatrix}1 &amp; 1\1 &amp; -1\end{pmatrix}$</li>
   <li>T-gate: $T = \begin{pmatrix}1 &amp; 0\0 &amp; e^{i\pi/4}\end{pmatrix}$</li>
@@ -1654,6 +2002,16 @@ document.addEventListener('DOMContentLoaded', function() {
   </tbody>
 </table>
 
+<p><strong>Intuition</strong>: Grover’s iteration is a geometric rotation. Start with an equal superposition; the oracle flips the sign of the target state (a reflection), and the diffusion operator reflects about the average amplitude. Each oracle+diffusion pair rotates the state vector by $2\theta$ toward the solution subspace. After $\approx \frac{\pi}{4}\sqrt{N}$ rotations the state nearly coincides with the solution — overshoot it and the amplitude rotates back down.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Uniform superposition&lt;br/&gt;H&amp;#8855;n on |0&amp;#8319;&amp;#10217;"] --&gt; B["Oracle U_f&lt;br/&gt;phase-flip solution"]
+    B --&gt; C["Diffusion D&lt;br/&gt;reflect about mean"]
+    C --&gt; D{"~&amp;#8730;N&lt;br/&gt;iterations done?"}
+    D -- no --&gt; B
+    D -- yes --&gt; E["Measure &amp;rArr; solution w.h.p."]
+</code></pre>
+
 <p><strong>Algorithm</strong>:</p>
 <ol>
   <li>
@@ -1711,9 +2069,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <p><strong>Optimality</strong>:</p>
 
-<p><strong>Theorem (BBBV)</strong>: Any quantum algorithm needs Ω(√N) queries to search unstructured database.</p>
+<div class="postulate-card">
+  <h4 id="theorem-bennettbernsteinbrassardvazirani">Theorem (Bennett–Bernstein–Brassard–Vazirani)</h4>
+  <p>Any quantum algorithm needs $\Omega(\sqrt{N})$ oracle queries to search an unstructured database of $N$ items. Grover’s $O(\sqrt{N})$ is therefore <strong>optimal</strong> — no quantum algorithm can do better on a truly unstructured problem.</p>
+</div>
 
-<p><strong>Proof</strong>: Use adversary method with hybrid argument.</p>
+<p>This is a crucial reality check: the dramatic exponential speedups (Shor) require <em>structure</em> to exploit. For genuinely structureless search, quantum offers only a quadratic edge.</p>
+
+<p><strong>Proof idea</strong>: The hybrid/adversary method shows that a single query can change the algorithm’s state by only $O(1/\sqrt{N})$ in amplitude, so $\Omega(\sqrt{N})$ queries are required to concentrate amplitude on the marked item.</p>
 
 <h3 id="quantum-fourier-transform">Quantum Fourier Transform</h3>
 
@@ -1947,7 +2310,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <h3 id="fault-tolerant-computation">Fault-Tolerant Computation</h3>
 
-<p><strong>Threshold Theorem</strong>: If physical error rate p &lt; pₜₕ, arbitrarily long quantum computation possible with polylogarithmic overhead.</p>
+<div class="principle-card">
+  <h4 id="threshold-theorem">Threshold Theorem</h4>
+  <p>If the physical per-gate error rate $p$ is below a constant threshold $p_{\text{th}}$, then arbitrarily long quantum computations can be performed reliably with only <strong>polylogarithmic</strong> overhead in the number of qubits and gates. This is the theoretical guarantee that scalable, fault-tolerant quantum computing is possible — the entire field of quantum error correction exists to push hardware below $p_{\text{th}}$.</p>
+</div>
+
+<p>In short: if physical error rate $p &lt; p_{\text{th}}$, arbitrarily long quantum computation is possible with polylogarithmic overhead.</p>
 
 <p><strong>Proof Idea</strong>:</p>
 <ol>
@@ -2187,13 +2555,38 @@ Given (A, As + e) where e is small error, find s.</p>
 
 <p><em>Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our <a href="../../quantum-computing/">main quantum computing documentation</a>.</em></p>
 
-<h2 id="related-advanced-topics">Related Advanced Topics</h2>
+<h2 id="key-takeaways">Key Takeaways</h2>
 
-<ul>
-  <li><a href="../ai-mathematics/">AI Mathematics</a> - Quantum machine learning foundations</li>
-  <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> - Distributed quantum computing</li>
-  <li><a href="../monorepo/">Monorepo Strategies</a> - Managing quantum software projects</li>
-</ul>
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>Speedups come from interference</h4><p>Quantum advantage is engineered interference, not brute-force parallelism. Wrong-answer amplitudes must cancel.</p></div>
+  <div class="takeaway-card"><h4>Structure determines the gain</h4><p>Shor is exponential because factoring hides periodic structure; Grover is only quadratic — and provably optimal — because search has none.</p></div>
+  <div class="takeaway-card"><h4>QFT is the workhorse</h4><p>The $O(n^2)$ quantum Fourier transform underlies phase estimation, period finding, and HHL.</p></div>
+  <div class="takeaway-card"><h4>Fault tolerance is achievable</h4><p>The threshold theorem guarantees scalable computation below $p_{\text{th}}$; surface codes are the leading practical route.</p></div>
+  <div class="takeaway-card"><h4>NISQ relies on hybrids</h4><p>VQE and QAOA offload optimization to a classical loop, but barren plateaus and noise limit current reach.</p></div>
+  <div class="takeaway-card"><h4>BQP sits between BPP and PSPACE</h4><p>Quantum is believed strictly more powerful than classical randomized computation, but not omnipotent.</p></div>
+</div>
+
+<h2 id="see-also">See Also</h2>
+
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <p><strong>Related Advanced Topics</strong></p>
+  <ul>
+    <li><a href="../ai-mathematics/">AI Mathematics</a> — Kernel theory underlying quantum machine learning</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Quantum Byzantine agreement and distributed quantum computing</li>
+    <li><a href="../monorepo/">Monorepo Strategies</a> — Managing quantum software projects</li>
+  </ul>
+
+  <p><strong>Foundations &amp; Applied</strong></p>
+  <ul>
+    <li><a href="../../physics/quantum-mechanics.html">Quantum Mechanics</a> — Wave functions, operators, and measurement</li>
+    <li><a href="../../physics/quantum-field-theory.html">Quantum Field Theory</a> — Deeper theoretical framework</li>
+    <li><a href="../../quantum-computing/">Quantum Computing Hub</a> — Programming with Qiskit and Cirq</li>
+    <li><a href="../../technology/quantumcomputing.html">Quantum Computing (Technology)</a> — Practical introduction</li>
+    <li><a href="../../reference/">Mathematical Reference</a> — Linear algebra and complexity quick reference</li>
+  </ul>
+</div>
 
       </section>
     </div>
