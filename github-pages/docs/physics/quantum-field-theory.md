@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Quantum Field Theory
+description: How quantum mechanics and special relativity combine into fields whose excitations are particles — gauge symmetry, QED and QCD, the Standard Model, and renormalization.
 hide_title: true
 toc: true
 toc_sticky: true
@@ -230,6 +231,8 @@ $$D^{\mu\nu}_F(k) = \frac{-ig^{\mu\nu}}{k^2 + i\varepsilon}$$
 
 ## The Standard Model
 
+The Standard Model is the crowning achievement of QFT: a single Lagrangian, built from the gauge principle plus the Higgs mechanism, that accounts for every confirmed elementary particle and three of the four known forces. It is organized around the gauge group $SU(3)_C \times SU(2)_L \times U(1)_Y$ — one factor for each force — acting on a fixed roster of matter fields. The pieces below are the entire known particle content of the universe (gravity excepted).
+
 ### Particle Content
 
 **Quarks (spin-½):**
@@ -458,6 +461,11 @@ $$\Gamma[\phi_c] = W[J] - \int d^4x \, J(x)\phi_c(x)$$
 Where $\phi_c = \delta W/\delta J$ is the classical field.
 
 ## Spontaneous Symmetry Breaking
+
+<div class="principle-card">
+  <h4>The pencil that has to fall: where mass comes from</h4>
+  <p>A pencil balanced on its tip is perfectly symmetric — no direction is special. But that balanced state is unstable; the pencil <em>must</em> topple, and the moment it does, it picks one direction and the symmetry is hidden. The laws stayed symmetric; the <em>state</em> did not. This is spontaneous symmetry breaking, and it is how particles get mass in the Standard Model. The Higgs field sits in a potential shaped like a Mexican hat (or a wine bottle's punt): the symmetric point at the center is a local <em>maximum</em>, so the field rolls down into the circular trough and acquires a nonzero vacuum value $v$ everywhere in space. Particles that interact with this pervasive background field are slowed — they behave as if they have mass — while the photon, which does not couple to it, stays massless and travels at $c$.</p>
+</div>
 
 ### Mexican Hat Potential
 

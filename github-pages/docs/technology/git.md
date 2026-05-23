@@ -65,31 +65,16 @@ Version control solves fundamental problems in software development:
 
 ### Object Model
 
-Git implements a content-addressable filesystem with four fundamental object types:
+At its core, Git is a content-addressable filesystem: a simple key-value store where the *key* is the SHA hash of the content and the *value* is the content itself. Everything else — branches, tags, history — is built from just four object types layered on top of that store.
 
-**Blob Objects**
-- Store file contents without metadata
-- Identified by SHA-1 hash of content
-- Immutable once created
-- Shared across identical files
+| Object | Represents | Points to | Key properties |
+|--------|------------|-----------|----------------|
+| **Blob** | File contents | Nothing | Raw bytes only, no filename or metadata; identical files share one blob |
+| **Tree** | A directory | Blobs and other trees | Stores names and file modes — gives blobs their structure |
+| **Commit** | A snapshot in time | One tree + parent commit(s) | Adds author, committer, timestamp, and message |
+| **Tag** | A named, signable pointer | Any object (usually a commit) | Annotated tags carry a tagger, message, and optional GPG/SSH signature |
 
-**Tree Objects**
-- Represent directory structures
-- Contain references to blobs and other trees
-- Store file modes and names
-- Form hierarchical structure
-
-**Commit Objects**
-- Point to tree object (snapshot)
-- Reference parent commit(s)
-- Include author, committer, timestamp
-- Store commit message
-
-**Tag Objects**
-- Annotated tags with metadata
-- Point to any Git object
-- Include tagger information
-- Cryptographically signable
+The objects nest predictably: a **commit** names one **tree** (the whole project at that moment) plus its parent commit(s); each **tree** lists **blobs** (file contents) and sub-trees. Because every object is keyed by the hash of its content, two things follow for free — identical content is stored once (deduplication), and altering any byte changes the hash all the way up the chain (tamper-evidence).
 
 These objects compose into a graph: each **commit** points to one **tree** (the project snapshot) and to its **parent** commit(s). Trees point to **blobs** (file contents) and nested trees. Following parent links backward traces the full history as a directed acyclic graph (DAG).
 

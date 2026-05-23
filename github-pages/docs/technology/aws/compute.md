@@ -494,6 +494,96 @@ for line in s3_object['Body'].iter_lines():
     process_line(line)  # Process one line at a time
 ```
 
+---
+
+## Auto Scaling: Capacity That Tracks Demand
+
+A single EC2 instance forces an uncomfortable choice: size it for peak traffic and waste money during quiet hours, or size it for average load and fall over during spikes. **EC2 Auto Scaling** removes the choice by adding and removing instances automatically based on demand.
+
+The mechanism has three parts working together:
+
+| Component | Role |
+|-----------|------|
+| **Launch Template** | The blueprint for new instances (AMI, instance type, security groups, user data) |
+| **Auto Scaling Group (ASG)** | Maintains a desired count of instances across multiple AZs, replacing any that fail health checks |
+| **Scaling Policy** | The rule that changes the desired count (for example, "keep average CPU near 50%") |
+
+The most robust everyday choice is a **target tracking** policy: you name a metric and a target value, and AWS adds or removes capacity to hold it there.
+
+```bash
+# Maintain 2-10 instances, scaling to keep average CPU around 50%
+aws autoscaling put-scaling-policy \
+  --auto-scaling-group-name my-asg \
+  --policy-name cpu-target-tracking \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-configuration '{
+    "PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageCPUUtilization"},
+    "TargetValue": 50.0
+  }'
+```
+
+<div class="tip-card">
+  <h4>Pair Auto Scaling with a load balancer</h4>
+  <p>An ASG decides <em>how many</em> instances run; a load balancer decides <em>how traffic reaches them</em>. Register the ASG with an Application Load Balancer's target group and enable ELB health checks so the group replaces instances the balancer reports as unhealthy — not just ones that fail the basic EC2 system check.</p>
+</div>
+
+**Scaling policy types at a glance:**
+
+| Policy type | How it decides | Best for |
+|-------------|----------------|----------|
+| **Target tracking** | Holds a metric at a target value | Most workloads — the sensible default |
+| **Step scaling** | Adds/removes capacity in tiers as a metric breaches thresholds | Fine-grained control over large, bursty changes |
+| **Scheduled** | Changes capacity at set times | Predictable patterns (business hours, batch windows) |
+| **Predictive** | ML forecasts demand and pre-scales | Recurring daily/weekly cycles with long warm-up times |
+
+---
+
+## Containers on AWS: ECS and Fargate
+
+Many teams package applications as containers (see [Docker](../docker/)) rather than managing whole servers. AWS offers two main ways to run them.
+
+**Amazon ECS (Elastic Container Service)** is AWS's native container orchestrator. You define a **task definition** (which container images to run, with how much CPU and memory), and ECS schedules those tasks onto compute capacity.
+
+That capacity comes in two **launch types**:
+
+| Launch type | You manage | AWS manages | Best for |
+|-------------|-----------|-------------|----------|
+| **EC2 launch type** | The EC2 instances in the cluster | Container scheduling | Fine control over the host, GPU/specialized instances, steady high utilization |
+| **Fargate** | Nothing below the container | Servers, patching, scaling of the underlying host | Most workloads — no servers to manage, pay per task |
+
+**Fargate** is serverless compute for containers: you specify CPU and memory per task and AWS runs it without any EC2 instances for you to patch or scale. It is to containers what Lambda is to functions — zero host management, pay only for what runs.
+
+```json
+// A minimal Fargate task definition (excerpt)
+{
+  "family": "web-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [{
+    "name": "web",
+    "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/web-app:latest",
+    "portMappings": [{ "containerPort": 80 }]
+  }]
+}
+```
+
+### Choosing Among the Compute Options
+
+By now you have four ways to run code on AWS. This table ties them together:
+
+| Option | Unit of deployment | Server management | Reach for it when |
+|--------|--------------------|-------------------|-------------------|
+| **EC2** | A virtual machine | You manage the OS | You need full host control or are migrating existing apps |
+| **ECS on EC2** | A container | You manage the cluster hosts | You run containers and want control over the underlying instances |
+| **Fargate** | A container | None | You run containers and want zero host management |
+| **Lambda** | A function | None | Event-driven, short, bursty work that should cost nothing when idle |
+
+<div class="notice--info">
+  <p>For full Kubernetes instead of ECS, AWS offers <strong>EKS</strong> (Elastic Kubernetes Service) — also available with a Fargate data plane. See the <a href="../kubernetes/">Kubernetes guide</a> for orchestration concepts that apply across EKS, ECS, and self-managed clusters.</p>
+</div>
+
 ## Key Takeaways
 
 <div class="takeaway-grid">
@@ -512,6 +602,10 @@ for line in s3_object['Body'].iter_lines():
   <div class="takeaway-card">
     <h4>Mind Lambda's Limits</h4>
     <p>Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Fargate for Containers Without Servers</h4>
+    <p>Run containers on ECS (or EKS) with Fargate to skip host patching and scaling entirely — choose the EC2 launch type only when you need control over the underlying instances.</p>
   </div>
 </div>
 

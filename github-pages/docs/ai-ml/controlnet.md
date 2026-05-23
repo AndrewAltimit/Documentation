@@ -107,221 +107,69 @@ Suppose you have a reference photo of someone standing with arms crossed, and yo
 
 The result is a knight standing with arms crossed. Ending control at 80% (`end_percent: 0.8`) lets the final steps add armor detail the skeleton never specified. If the pose drifts, raise strength toward 1.0; if the armor looks stiff or traced, lower strength or pull `end_percent` down to 0.6.
 
-## ControlNet Types
+## ControlNet Types in Depth
+
+Each control type pairs a **preprocessor** (which extracts a specific structure from your reference) with a **ControlNet model** (which conditions on that structure). The sections below group them by what they capture. You rarely need more than one or two.
 
 ### Pose Control
 
-#### OpenPose
-Detects human body keypoints and skeleton structure.
+Pose controls extract a human skeleton from a reference and transfer it to your generated subject — the workhorse for character work.
 
-```yaml
-Purpose: Human pose transfer
-Keypoints: 18-25 body points
-Includes: Body, hands, face
-Best for: Character consistency, pose reference
-```
+| Preprocessor | What it captures | Notes |
+|--------------|------------------|-------|
+| OpenPose | 18-25 body keypoints; optional hands and face | The original standard; variants are `openpose_body`, `openpose_full`, `openpose_hand`, `openpose_face` |
+| DWPose | Whole-body skeleton including detailed hands/face | More accurate than OpenPose with better occlusion handling; the current recommended default |
+| Animal OpenPose | Quadruped skeletons | For animals rather than humans |
 
-**Preprocessor Options**:
-- `openpose_full`: Body + hands + face
-- `openpose_body`: Body only
-- `openpose_hand`: Hands focus
-- `openpose_face`: Face landmarks
+Pose is keypoint-based, so it constrains *posture* but not silhouette or clothing — leave those to the prompt. If hands come out malformed, prefer a `full`/DWPose variant so the hand keypoints are detected and conditioned.
 
-**Example Workflow**:
-```python
-[Reference Image] → [OpenPose Preprocessor] → [Pose Skeleton]
-                                                    ↓
-"A warrior in armor" → [ControlNet OpenPose] → [Posed Character]
-```
+### Edge and Line Control
 
-#### DWPose
-More accurate pose estimation with better occlusion handling.
+Edge controls preserve outlines and structure. They differ mainly in how *literal* the lines are — hard binary edges versus soft, artistic ones.
 
-```yaml
-Advantages: Better accuracy, stable tracking
-Keypoints: More detailed skeleton  
-Performance: Slower but more reliable
-Use case: Complex poses, partial visibility
-New: Whole-body estimation including hands/face
-```
+| Preprocessor | Edge style | Best for |
+|--------------|-----------|----------|
+| Canny | Hard binary edges from a classic algorithm | Architecture, products, anything with clean outlines |
+| SoftEdge (HED / PiDiNet) | Soft, natural edges | Organic subjects, artistic restyles where hard lines look traced |
+| MLSD | Straight lines only | Buildings, interiors, technical drawings |
+| Lineart / Anime Lineart | Clean extracted line art | Coloring/restyling line drawings, manga |
+| Scribble | Tolerant of rough, sketchy input | Turning a quick doodle into finished art |
 
-#### RTMPose
-Real-time pose estimation with good accuracy.
-
-```yaml
-Speed: Fastest option available
-Accuracy: Good balance
-Use case: Real-time applications
-Platforms: Mobile-friendly
-```
-
-### Edge Detection
-
-#### Canny Edge
-Classic edge detection algorithm for clean line extraction.
-
-```yaml
-Purpose: Preserve shapes and outlines
-Parameters: Low/High threshold
-Output: Binary edge map
-Best for: Architecture, objects, clean lines
-```
-
-**Parameter Guide**:
-```python
-{
-    "low_threshold": 100,   # Lower = more edges
-    "high_threshold": 200,  # Higher = fewer edges
-}
-```
-
-#### MLSD (M-LSD)
-Detects straight lines and geometric structures.
-
-```yaml
-Purpose: Architectural elements
-Specialty: Straight line detection
-Best for: Buildings, interiors, technical drawings
-```
-
-#### SoftEdge (HED/PIDI)
-Preserves more subtle edge information.
-
-```yaml
-Methods: HED, PIDI, PidiNet
-Purpose: Artistic edge preservation  
-Quality: Softer, more natural edges
-Best for: Organic subjects, artistic styles
-```
+Canny exposes low/high thresholds: a lower **low threshold** keeps more (fainter) edges, a higher **high threshold** keeps only the strongest. The practical rule is to pick by how literal you want the structure — Canny for "trace this exactly," SoftEdge for "follow these shapes loosely," Scribble for "use this as a hint."
 
 ### Depth Control
 
-#### MiDaS
-Monocular depth estimation for general scenes.
+Depth controls capture the 3D layout of a scene as a grayscale map (near = bright, far = dark), constraining spatial arrangement without locking exact outlines. This makes depth the most forgiving general-purpose control.
 
-```yaml
-Versions: MiDaS v2.1, v3.0
-Resolution: Multiple model sizes
-Output: Relative depth map
-Best for: General depth control
-```
+| Preprocessor | Type | Notes |
+|--------------|------|-------|
+| Depth Anything (v1/v2) | Relative depth | Current default — fast, robust, trained on a very large dataset; good for batch and video |
+| MiDaS | Relative depth | The long-standing baseline; still fine for general use |
+| ZoeDepth | Metric depth | Estimates actual distances; better for realistic outdoor scenes |
+| LeReS | Relative depth | Higher quality on complex scenes, slower |
 
-#### Zoe Depth
-More accurate depth estimation with metric depth.
+Start with **Depth Anything**. Depth pairs especially well with a second control (e.g. OpenPose) because it adds spatial grounding without fighting the pose.
 
-```yaml
-Accuracy: Superior to MiDaS
-Type: Metric depth (actual distances)
-Training: NYU Depth v2, KITTI
-Best for: Realistic depth, outdoor scenes
-```
+### Semantic and Surface Control
 
-#### LeReS
-Learning to Recover 3D Scene Shape.
+These conditions describe *what* occupies each region or *how surfaces face*, rather than edges or skeletons.
 
-```yaml
-Quality: High quality depth
-Features: Handles complex scenes
-Speed: Slower than MiDaS
-Best for: Complex compositions
-```
+| Preprocessor | Captures | Best for |
+|--------------|----------|----------|
+| Segmentation (ADE20K) | A color-coded map of 150+ object classes | Laying out scenes ("sky here, building there") |
+| Normal map | Surface orientation as RGB-encoded normals | Lighting/relief consistency on products and sculptures |
 
-#### Depth Anything
-The current default for most workflows — fast, robust monocular depth trained on a very large dataset.
+With segmentation you can hand-paint the control map directly: each class has a fixed color (sky, building, tree, person, ground, etc.), so painting blocks of those colors dictates where each kind of object appears.
 
-```yaml
-Quality: State-of-the-art relative depth
-Versions: Depth Anything v1, v2
-Speed: Fast, suitable for batch/video
-Best for: General-purpose depth control (recommended starting point)
-```
+### Utility Controls
 
-### Semantic Control
+A few controls solve specific production problems rather than transferring structure from a reference:
 
-#### Segmentation
-Uses semantic segmentation maps for region-based control.
-
-```yaml
-Models: ADE20K, COCO, custom
-Classes: 150+ object categories
-Control: Per-region styling
-Best for: Scene composition
-```
-
-**Color Mapping Example**:
-```python
-segmentation_colors = {
-    "sky": [134, 193, 249],
-    "building": [128, 128, 128],
-    "tree": [0, 128, 0],
-    "person": [255, 0, 0],
-    "ground": [139, 69, 19]
-}
-```
-
-#### Normal Maps
-Surface normal information for 3D-aware generation.
-
-```yaml
-Purpose: 3D surface orientation
-Format: RGB encoded normals
-Use case: 3D consistency, lighting
-Best for: Products, sculptures
-```
-
-### Line Art Control
-
-#### Anime Line Art
-Extracts clean lines suitable for anime/manga style.
-
-```yaml
-Purpose: Anime/manga line extraction
-Cleanliness: Very clean lines
-Style: Manga-appropriate
-Best for: Anime characters, manga
-```
-
-#### Scribble
-Converts rough sketches to control inputs.
-
-```yaml
-Modes: Scribble, Fake Scribble
-Input: Hand-drawn sketches
-Tolerance: High noise tolerance
-Best for: Quick ideation
-```
-
-### Special Controls
-
-#### Shuffle
-Rearranges image content while preserving style.
-
-```yaml
-Purpose: Style transfer with layout change
-Method: Spatial shuffling
-Randomness: Controllable
-Best for: Creative variations
-```
-
-#### Tile
-Enables tiled/seamless generation and upscaling.
-
-```yaml
-Purpose: Seamless textures, upscaling
-Method: Overlapping tiles
-Quality: Maintains consistency
-Best for: Patterns, super-resolution
-```
-
-#### Inpaint
-Specialized control for masked region generation.
-
-```yaml
-Input: Image + Mask
-Control: Only masked areas
-Blending: Seamless integration
-Best for: Object removal, editing
-```
+| Control | Purpose |
+|---------|---------|
+| Tile | Adds coherent detail during upscaling and enables seamless tiled generation — the backbone of high-res "Ultimate SD Upscale" workflows |
+| Inpaint | Restricts generation to a masked region for clean object removal or editing |
+| Shuffle | Reshuffles content spatially while preserving style — for creative variations |
 
 ## Installation and Setup
 
@@ -345,53 +193,59 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 ### Required Components
 
-```yaml
-Core:
-- ComfyUI-ControlNet-Aux (preprocessors)
-- ControlNet models (specific to base model)
-- Base diffusion model (SD 1.5, SDXL, etc.)
+You need three things to run ControlNet, plus optional extras:
 
-Optional:
-- Custom preprocessors
-- Additional ControlNet models
-```
+- **Preprocessor nodes** — `comfyui_controlnet_aux` provides the OpenPose, Canny, Depth, and other extractors.
+- **ControlNet model(s)** — one per control type, matched to your base-model family.
+- **A base diffusion model** — your SD 1.5, SDXL, or FLUX checkpoint.
+
+Optionally, add custom preprocessors or additional ControlNet models as your workflows grow.
 
 ## Basic Workflows
 
-### Simple ControlNet Workflow
+### The Single-ControlNet Graph
 
-```python
-# ComfyUI nodes
-[Load Image] → [ControlNet Preprocessor] → Control Image
-                                               ↓
-[Load ControlNet] → [Apply ControlNet] ← [Positive Prompt]
-                            ↓
-                    [KSampler] → [VAE Decode] → [Save]
+A ControlNet workflow extends the standard text-to-image graph by inserting one node between the text conditioning and the sampler. The control map flows in alongside the prompt:
+
+```mermaid
+flowchart LR
+    LI["LoadImage<br/>(reference)"] --> Pre["Preprocessor<br/>(pose / canny / depth)"]
+    Pre --> Apply["Apply ControlNet"]
+    Pos["CLIPTextEncode<br/>(positive)"] --> Apply
+    CN["Load ControlNet model"] --> Apply
+    Apply -->|conditioning| KS["KSampler"]
+    KS --> VD["VAE Decode"] --> SI["SaveImage"]
 ```
 
-### Multi-ControlNet Setup
+Everything before `Apply ControlNet` is the new branch; everything after is the ordinary sampler-to-image path. **Preview the preprocessor output** before sampling — most pose, edge, and depth failures are visible in the control map itself.
 
-```python
-# Stack multiple ControlNets
-[OpenPose Control] → [Apply ControlNet 1]
-                            ↓
-[Depth Control] → [Apply ControlNet 2]
-                            ↓
-                    [KSampler]
+### Stacking Two Controls
+
+To combine controls (for example, a pose plus its scene depth), chain the `Apply ControlNet` nodes — the conditioning flows through each in turn:
+
+```mermaid
+flowchart LR
+    P1["OpenPose map"] --> A1["Apply ControlNet<br/>(pose, strength 0.9)"]
+    Pos["Positive conditioning"] --> A1
+    A1 --> A2["Apply ControlNet<br/>(depth, strength 0.5)"]
+    P2["Depth map"] --> A2
+    A2 --> KS["KSampler"]
 ```
 
-### ControlNet Parameters
+Keep the *secondary* control weaker than the primary so they cooperate rather than fight. Two is plenty; three or more usually conflict.
 
-```python
-{
-    "strength": 1.0,        # 0-2, control influence
-    "start_percent": 0.0,   # When to start applying
-    "end_percent": 1.0,     # When to stop applying
-    "control_mode": "balanced", # balanced/prompt/control
-}
-```
+### The Parameters That Matter
 
-The two most useful dials beyond `strength` are `start_percent` and `end_percent`. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. `end_percent: 0.7`) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.
+Every `Apply ControlNet` node exposes the same handful of dials:
+
+| Parameter | Range | What it does |
+|-----------|-------|--------------|
+| `strength` | 0-2 (use ~0.6-1.0) | How hard the control map pushes the result toward its structure |
+| `start_percent` | 0.0-1.0 | Fraction of sampling at which control begins (usually 0.0) |
+| `end_percent` | 0.0-1.0 | Fraction at which control stops (lower it to free up late detail) |
+| `control_mode` | balanced / prompt / control | Whether to favor the prompt or the control map when they disagree |
+
+The two most useful beyond `strength` are `start_percent` and `end_percent`. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. `end_percent: 0.7`) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.
 
 <div class="tip-card" markdown="1">
 **Common pitfalls**
@@ -405,126 +259,59 @@ The two most useful dials beyond `strength` are `start_percent` and `end_percent
 
 ## Advanced Techniques
 
-### Strength Scheduling
+### Combining Controls Deliberately
 
-Vary ControlNet influence during generation:
+Two controls work best when each owns a different job. Give the *primary* control (the one carrying your main intent) full strength and the *secondary* one a supporting weight:
 
-```python
-# Reduce control over time for more creativity
-strength_schedule = {
-    0: 1.0,    # Full control at start
-    0.5: 0.7,  # Reduce midway  
-    0.8: 0.3,  # Minimal at end
-}
+| Combination | Roles | Suggested strengths |
+|-------------|-------|---------------------|
+| Pose + Depth | Pose owns posture; depth grounds spatial layout | OpenPose ~0.9, Depth ~0.5 |
+| Canny + Segmentation | Edges own outlines; segmentation owns region content | Canny ~0.8, Seg ~0.6 |
+| Depth + SoftEdge | Depth owns 3D layout; soft edges add gentle shape | Depth ~0.7, SoftEdge ~0.4 |
 
-# Advanced scheduling with curves
-def cosine_schedule(step, total_steps):
-    progress = step / total_steps
-    return 0.5 * (1 + math.cos(math.pi * progress))
-```
+If a stacked result looks muddy, lower the secondary control before touching the primary one.
 
-### Multiple Control Combinations
+### Strength Scheduling with `end_percent`
 
-#### Pose + Depth
-```python
-# Character in specific pose with depth
-controls = [
-    {"type": "openpose", "strength": 1.0},
-    {"type": "depth", "strength": 0.5}
-]
-```
-
-#### Edge + Segmentation
-```python
-# Precise shapes with semantic regions
-controls = [
-    {"type": "canny", "strength": 0.8},
-    {"type": "segmentation", "strength": 0.6}
-]
-```
+You do not need per-step strength curves — the built-in `start_percent`/`end_percent` window is the practical version of scheduling. Holding control through the first ~70% of steps locks composition, then releasing it lets the model add detail freely. Reach for an early `end_percent` (0.5-0.7) whenever a result looks traced or stiff.
 
 ### Control Mode Selection
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| Balanced | Equal weight to prompt and control | General use |
-| Prompt | Prioritize text prompt | Creative freedom |
-| Control | Prioritize ControlNet | Exact matching |
+When the prompt and the control map disagree, `control_mode` decides who wins:
 
-### Resolution Considerations
+| Mode | Behavior | Use case |
+|------|----------|----------|
+| Balanced | Weighs prompt and control roughly equally | General use (default) |
+| Prompt (My prompt is more important) | Lets the prompt override structure when they conflict | Creative freedom, looser adherence |
+| Control (ControlNet is more important) | Enforces the structure even against the prompt | Exact composition matching |
 
-```python
-# ControlNet resolution tips
-if base_model == "SD1.5":
-    control_res = 512
-elif base_model == "SDXL":
-    control_res = 1024
-    
-# Preprocess to match
-control_image = resize_image(input_image, control_res)
-```
+### Resolution Matching
+
+Always preprocess at your base model's native resolution — **512 for SD 1.5, 1024 for SDXL/FLUX** — so the control map aligns with the latent grid. A mismatch shifts the structure relative to the image and is one of the most common causes of "the pose is slightly off."
 
 ## Preprocessing Best Practices
 
-### Image Preparation
+The control map is only as good as the preprocessor that made it. Two habits prevent most problems: **preview every control map** before sampling, and **match the preprocessor to the input**, not just to the control type you want.
 
-```python
-def prepare_control_image(image, control_type):
-    # Ensure correct resolution
-    image = resize_to_model_resolution(image)
-    
-    # Enhance contrast for edge detection
-    if control_type in ["canny", "mlsd"]:
-        image = enhance_contrast(image)
-    
-    # Denoise for cleaner extraction
-    if control_type == "openpose":
-        image = denoise(image)
-    
-    return image
-```
+| Input quality | Recommended choice |
+|---------------|--------------------|
+| Clean photo | Standard preprocessor for the type (Canny, OpenPose, Depth Anything) |
+| Noisy or low-light | Robust variants — DWPose for pose, ZoeDepth/LeReS for depth |
+| Artistic / painterly | Soft variants — SoftEdge (HED/PiDiNet) instead of Canny |
+| Technical drawing | Precise variants — MLSD for straight lines |
 
-### Preprocessor Selection
-
-| Input Quality | Recommended Preprocessor |
-|--------------|-------------------------|
-| Clean photo | Standard preprocessor |
-| Noisy image | Robust variants (DW, LeReS+) |
-| Artistic | Soft variants (HED, PIDI) |
-| Technical | Precise variants (MLSD) |
-
-### Custom Preprocessing
-
-```python
-# Create custom control maps
-import cv2
-import numpy as np
-
-def custom_edge_detection(image):
-    # Combine multiple edge detectors
-    canny = cv2.Canny(image, 50, 150)
-    laplacian = cv2.Laplacian(image, cv2.CV_64F)
-    
-    # Weighted combination
-    combined = 0.7 * canny + 0.3 * np.abs(laplacian)
-    return combined.astype(np.uint8)
-```
+You can also **author or edit a control map by hand**. Because the ControlNet only sees the map (not your reference), you can clean up a misdetected pose skeleton, paint a segmentation layout directly, or composite two maps together before sampling — often faster than rerolling preprocessor settings.
 
 ## Model Compatibility
 
-### Recent Developments
+A ControlNet is built for one base-model family and only works there. Support and maturity vary widely across families:
 
-#### New Control Types
-- **QR Code Control**: Generate scannable QR codes in artistic styles
-- **Illumination Control**: Precise lighting direction control
-- **Recolor**: Change colors while preserving structure
-- **Blur Control**: Depth-of-field and focus control
-
-#### Model Support
 - **SD 1.5 ControlNet**: The most mature ecosystem — every control type, heavily optimized
 - **SDXL ControlNet**: Full support at higher resolution and quality
 - **SD3 ControlNet**: Available (Canny, Depth, and others released by Stability AI)
-- **FLUX Support**: Available — multiple options now ship, including **ControlNet Union** (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs
+- **FLUX**: Available — multiple options now ship, including **ControlNet Union** (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs
+
+Beyond the structural controls, the ecosystem has added more specialized conditions over time — for example **Recolor** (change colors while preserving structure), **Brightness/Illumination** (steer lighting), and **QR/pattern** controls that hide scannable codes or shapes inside artistic images. Availability differs by base model; the structural types above are the universally supported core.
 
 ### ControlNet Versions
 
@@ -557,157 +344,53 @@ A common pattern is to combine them: ControlNet for *where* (structure), IP-Adap
 
 ### T2I-Adapter
 
-Alternative to ControlNet with different characteristics:
+T2I-Adapter is a lighter alternative that conditions on the same kinds of maps (pose, edge, depth) but with a much smaller model. It trades a little precision for speed and low VRAM:
 
-```yaml
-Advantages:
-- Smaller model size (~80MB vs ~1.4GB)
-- Faster inference
-- Multiple adapters combinable
-- Lower VRAM usage
-- Better for real-time applications
+- **Advantages:** tiny model (~80 MB vs ~1.4 GB), faster inference, lower VRAM, several adapters combine cleanly — good for real-time and batch.
+- **Trade-offs:** sometimes less precise than ControlNet, fewer available types, and may need more prompt help to lock the result.
 
-Disadvantages:
-- Sometimes less precise
-- Fewer available types
-- May require more prompt engineering
-```
+Reach for T2I-Adapter when throughput or memory matters more than pixel-exact structure.
 
 ### IP-Adapter Integration
 
-Combine ControlNet with IP-Adapter:
-```python
-[ControlNet Depth] + [IP-Adapter Style] = Precise structure with reference style
-```
+IP-Adapter and ControlNet condition on different things, so they layer naturally: ControlNet from a **depth map** fixes the 3D structure, while IP-Adapter from a **reference image** supplies the style and palette. The result is precise composition wearing the look of your reference — neither alone achieves both.
 
 ## Common Workflows
 
-### Character Consistency
+A few recurring jobs and the control setup each calls for:
 
-```python
-# Maintain character across poses
-workflow = {
-    "reference_image": "character_reference.png",
-    "preprocessor": "openpose_full",
-    "prompt_template": "character_name, {pose_description}",
-    "strength": 0.9,
-    "seed": "fixed_for_consistency"
-}
-```
+| Goal | Reference | Preprocessor | Strength | Prompt handles |
+|------|-----------|--------------|----------|----------------|
+| Character in a chosen pose | Pose photo | OpenPose / DWPose | ~0.9 | Outfit, style, setting |
+| Render from a floor plan / line drawing | Technical drawing | MLSD (straight lines) | ~1.0 | Materials, lighting, mood |
+| Restyle a photo, keep composition | The photo | Depth (+ SoftEdge) | Depth ~0.7, SoftEdge ~0.5 | The new style |
+| Sketch to finished art | Rough sketch | Scribble | ~0.7 | Subject details, finish |
 
-### Architecture Visualization
-
-```python
-# Technical drawing to render
-workflow = {
-    "line_drawing": "floor_plan.png",
-    "preprocessor": "mlsd",
-    "prompt": "modern house interior, photorealistic",
-    "control_strength": 1.0,
-    "cfg_scale": 7.5
-}
-```
-
-### Style Transfer with Structure
-
-```python
-# Preserve composition, change style
-workflow = {
-    "content_image": "photo.jpg",
-    "preprocessors": ["depth", "softedge"],
-    "style_prompt": "oil painting in the style of van gogh",
-    "control_balance": {
-        "depth": 0.7,
-        "softedge": 0.5
-    }
-}
-```
+For **character consistency across many images**, fix the seed and pair a character LoRA (subject) with a pose ControlNet (posture) — the LoRA keeps the identity stable while the control map varies the pose.
 
 ## Troubleshooting
 
-### Common Issues
+Most ControlNet problems trace back to a bad control map or too-aggressive strength. Diagnose by previewing the map first, then adjust strength and the control window:
 
-#### Preprocessor Not Detecting Features
-```python
-# Solutions
-- Increase image contrast
-- Try different preprocessor variant
-- Adjust detection thresholds
-- Use manual annotation tools
-```
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Preprocessor misses the subject (no skeleton/edges) | Low contrast, wrong preprocessor, low-res input | Raise contrast, switch to a robust variant (DWPose, SoftEdge), or hand-edit the map |
+| Result looks traced or stiff | Strength too high, control runs too late | Lower `strength` toward 0.6, pull `end_percent` to ~0.7, optionally raise CFG |
+| Harsh artifacts along edges | Canny on a soft/organic subject | Use SoftEdge instead, or lightly blur the control map |
+| Structure is slightly misaligned | Control map resolution ≠ model resolution | Preprocess at 512 (SD 1.5) or 1024 (SDXL/FLUX) |
+| Control silently does nothing / corrupts output | ControlNet built for a different base family | Use a ControlNet matching your checkpoint's family |
 
-#### Over-controlling Generation
-```python
-# Reduce control influence
-{
-    "strength": 0.6,  # Lower from 1.0
-    "end_percent": 0.8,  # Stop control early
-    "cfg_scale": 9,  # Increase prompt importance
-}
-```
+### Performance and VRAM
 
-#### Artifacts at Edges
-```python
-# Edge artifact mitigation
-- Use softedge instead of canny
-- Blur control map slightly
-- Reduce control strength at boundaries
-- Enable "soft" control mode
-```
-
-### Performance Optimization
-
-```python
-# Memory-efficient ControlNet
-{
-    "low_vram_mode": true,
-    "preprocessor_device": "cpu",
-    "control_net_device": "cuda",
-    "offload_when_unused": true
-}
-```
+ControlNet adds a second pass over the encoder, so it costs memory and time. To keep it light: run the **preprocessor on CPU** (it is a one-time analysis pass and rarely the bottleneck), keep the **ControlNet model on GPU**, enable your tool's **low-VRAM / offload** mode so unused models leave VRAM, and prefer **T2I-Adapter** when you need many controls cheaply.
 
 ## Creative Applications
 
-### Hybrid Controls
+ControlNet's value compounds once you stop treating the control map as fixed:
 
-```python
-# Combine photo and sketch
-photo_depth = extract_depth(photo)
-sketch_lines = process_sketch(drawing)
-combined_control = blend_controls(photo_depth, sketch_lines, alpha=0.5)
-```
-
-### Temporal Consistency
-
-For animations:
-```python
-# Frame-to-frame consistency
-previous_control = None
-for frame in video_frames:
-    current_control = extract_pose(frame)
-    if previous_control:
-        # Smooth between frames
-        current_control = interpolate_controls(
-            previous_control, current_control, 0.3
-        )
-    generate_frame(current_control)
-    previous_control = current_control
-```
-
-### Interactive Control
-
-```python
-# Real-time adjustment
-class InteractiveControl:
-    def update_strength(self, value):
-        self.control_strength = value
-        self.regenerate()
-    
-    def switch_preprocessor(self, new_type):
-        self.control_map = preprocess(self.input, new_type)
-        self.regenerate()
-```
+- **Hybrid maps.** Because the model only sees the map, you can composite two sources — e.g. take depth from a photo and edges from a separate sketch, blend them, and feed the combination — to borrow structure from multiple references at once.
+- **Restyle while preserving layout.** Run Depth (and optionally SoftEdge) on a photo, then prompt for a completely different style ("oil painting in the style of Van Gogh"). The scene's geometry survives while the look changes entirely.
+- **Animation consistency.** For video, extract a control map per frame and blend each frame's map slightly toward the previous one, so the conditioning evolves smoothly instead of jumping — a simple but effective way to reduce flicker. See [Output Formats](output-formats.html) and [Advanced Techniques](advanced-techniques.html) for full temporal workflows.
 
 ## Best Practices
 
@@ -727,27 +410,16 @@ class InteractiveControl:
 - Expecting perfect results immediately
 - Overstacking controls (3+ is rarely helpful)
 
-## Future Developments
+## Where ControlNet Is Heading
 
-### Emerging ControlNet Technologies
+A few directions are already shipping or clearly underway, rather than speculative:
 
-1. **3D-Aware Control**: Full 3D scene understanding with depth and normals
-2. **Video ControlNet**: Temporal consistency across frames
-3. **Semantic Editing**: Natural language region control
-4. **Adaptive Control**: AI-driven strength adjustment
-5. **Neural Controls**: Learned control patterns from examples
-6. **Diffusion Illusions**: Optical illusion generation
-7. **Multi-Subject Control**: Individual control over multiple subjects
-8. **Mesh Control**: Direct 3D mesh conditioning
+- **Union models** that fold many control types into one file (SDXL and FLUX) are becoming the norm, replacing the old one-file-per-type sprawl.
+- **Better, faster preprocessors** — Depth Anything for depth and DWPose for pose are recent examples — keep raising control-map quality, which matters more than new control types.
+- **Temporal/video control** is maturing alongside video diffusion, addressing the frame-to-frame flicker that frame-by-frame ControlNet causes.
+- **Optical-illusion and pattern controls** (hidden text, QR codes, spiral illusions) show how creatively the conditioning map can be repurposed.
 
-### Integration Trends
-
-- **Real-time Preview**: See control effects instantly
-- **Mobile Optimization**: On-device control processing
-- **Cloud Preprocessing**: Offload heavy computation
-- **AI Control Generation**: Generate control maps from prompts
-- **Cross-Model Support**: Universal control formats
-- **Community Controls**: User-created control types
+The durable takeaway: invest in understanding the preprocessor-plus-model split and strength tuning, since those skills carry over to whatever control types arrive next.
 
 ## Conclusion
 
@@ -760,7 +432,7 @@ The key to mastery is experimentation: try different preprocessors, adjust stren
 <div class="takeaway-card" markdown="1">
 - **ControlNet adds spatial control** to diffusion by injecting a structural "control map" (pose, edge, depth, segmentation) into every denoising step.
 - **The preprocessor matters as much as the model** — choose it to match your input (OpenPose for figures, Canny for edges, Depth for 3D structure).
-- **Strength is a dial, not a switch.** Rarely use 100%; tune it (and consider strength scheduling) so structure guides without overriding the prompt.
+- **Strength is a dial, not a switch.** Rarely use 100%; tune `strength` and pull `end_percent` back so structure guides the layout without overriding the prompt's detail.
 - **Combine deliberately:** ControlNet for structure + IP-Adapter for style + a LoRA for subject — but stacking 3+ ControlNets rarely helps.
 - **Match versions and resolution.** Use ControlNets built for your base family (SD1.5/SDXL/FLUX) and align control resolution with generation resolution.
 </div>

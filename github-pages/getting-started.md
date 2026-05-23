@@ -125,7 +125,7 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
 4. **Troubleshooting Sections**: Common issues are addressed proactively
 
 ### Staying Updated
-- **Highlights**: The [documentation index](docs/index.html#highlights) flags the areas that go deepest
+- **Highlights**: The [documentation index](docs/index.html#where-this-site-goes-deep) flags the areas that go deepest
 - **Versioned guidance**: Where a tool's behavior is version-specific, the guide calls out the version
 - **Technology evolution**: Major-version guides include migration notes and current best practices
 - **Living document**: AI/ML, Kubernetes, and quantum sections are revised as the field moves

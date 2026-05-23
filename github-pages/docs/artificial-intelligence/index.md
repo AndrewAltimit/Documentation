@@ -14,23 +14,23 @@ hide_title: true
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Welcome to our comprehensive AI documentation hub. Whether you're beginning your journey in artificial intelligence or diving into advanced research topics, you'll find resources tailored to your level.</p>
-  
+  <p class="lead-text">This hub is the front door to every AI topic on the site. It connects four depths of theory &mdash; from a plain-English intro to graduate-level proofs &mdash; with the hands-on generative-AI guides. Pick the depth that fits, then branch into practice.</p>
+
   <div class="key-insights">
     <div class="insight-card">
-      <i class="fas fa-graduation-cap"></i>
-      <h4>Documentation Hub</h4>
-      <p>Comprehensive AI resources and guides</p>
+      <i class="fas fa-layer-group"></i>
+      <h4>Four Depth Levels</h4>
+      <p>Simplified → Complete → Deep Dive → Mathematics. Climb only as far as you need.</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-tools"></i>
-      <h4>Practical Tools</h4>
-      <p>Hands-on guides for real-world applications</p>
+      <h4>Theory Meets Practice</h4>
+      <p>Every concept links to a hands-on generative-AI guide you can run today.</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-rocket"></i>
-      <h4>Cutting Edge</h4>
-      <p>Latest research and advanced techniques</p>
+      <h4>Current Research</h4>
+      <p>Foundation models, multimodal systems, and alignment &mdash; the 2025&ndash;2026 frontier.</p>
     </div>
   </div>
 </div>
@@ -52,21 +52,28 @@ flowchart TD
     Deep --> QML["Quantum ML →<br/>Quantum Computing Hub"]
 ```
 
-## Quick Navigation
+## Start Here
 
-### Start Here
-- **New to AI?** → [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(No math required)*
-- **Ready for Technical Details?** → [AI Fundamentals - Complete](../technology/ai.html)
-- **Research & Implementation** → [AI Deep Dive - Advanced](../technology/ai-lecture-2023.html)
-- **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics/)
+Four entry points, ordered by depth. Each builds on the one before, but you can stop at whatever level meets your goal.
+
+<div class="command-grid">
+  <a href="../technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> 1. Simplified</h4><p>How AI works, in plain English. No math required.</p></a>
+  <a href="../technology/ai.html" class="nav-card"><h4><i class="fas fa-brain"></i> 2. Complete</h4><p>The full technical overview, with equations and architectures.</p></a>
+  <a href="../technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> 3. Deep Dive</h4><p>Transformers, large language models, and research directions.</p></a>
+  <a href="../advanced/ai-mathematics/" class="nav-card"><h4><i class="fas fa-square-root-alt"></i> 4. Mathematics</h4><p>Statistical learning theory and proofs &mdash; graduate level.</p></a>
+</div>
 
 ### Practical AI/ML Tools
-Our comprehensive [AI/ML Documentation](../ai-ml/) covers:
-- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html)
-- [ComfyUI Guide](../ai-ml/comfyui-guide.html)
-- [LoRA Training](../ai-ml/lora-training.html)
-- [Model Types & Architecture](../ai-ml/model-types.html)
-- [Advanced Techniques](../ai-ml/advanced-techniques.html)
+
+Ready to build? The hands-on [AI/ML Documentation](../ai-ml/) covers generative AI end to end:
+
+<div class="command-grid">
+  <a href="../ai-ml/stable-diffusion-fundamentals.html" class="nav-card"><h4><i class="fas fa-image"></i> Stable Diffusion</h4><p>Core diffusion concepts and image generation.</p></a>
+  <a href="../ai-ml/comfyui-guide.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> ComfyUI</h4><p>Node-based visual workflow creation.</p></a>
+  <a href="../ai-ml/lora-training.html" class="nav-card"><h4><i class="fas fa-sliders-h"></i> LoRA Training</h4><p>Fine-tune your own models efficiently.</p></a>
+  <a href="../ai-ml/model-types.html" class="nav-card"><h4><i class="fas fa-layer-group"></i> Model Types</h4><p>LoRAs, embeddings, VAEs, and checkpoints.</p></a>
+  <a href="../ai-ml/advanced-techniques.html" class="nav-card"><h4><i class="fas fa-magic"></i> Advanced Techniques</h4><p>Production-grade professional workflows.</p></a>
+</div>
 
 ## Core AI Domains
 

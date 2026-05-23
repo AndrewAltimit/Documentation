@@ -122,8 +122,15 @@ git switch -                         # Switch to previous branch
 ```bash
 git merge <branch-name>              # Merge branch into current
 git merge --no-ff <branch-name>      # Force merge commit
+git merge --squash <branch-name>     # Combine all branch work into one staged change
 git merge --abort                    # Abort conflicted merge
 ```
+
+| Style | Result | Good for |
+|-------|--------|----------|
+| Fast-forward (default when possible) | No merge commit; branch pointer just advances | Tidy linear history |
+| `--no-ff` | Always records a merge commit | Preserving that a feature was a discrete unit |
+| `--squash` | Flattens the branch into one new commit you commit yourself | A single clean commit per feature on `main` |
 
 ## Remote Operations
 
@@ -146,6 +153,11 @@ git push                             # Upload local changes
 git push <remote> <branch>           # Push specific branch
 git push -u origin <branch>          # Set upstream and push
 ```
+
+<div class="tip-card">
+  <h4>fetch vs pull</h4>
+  <p><code>git fetch</code> downloads remote changes but leaves your working branch untouched — you inspect, then merge or rebase deliberately. <code>git pull</code> is just <code>fetch</code> + <code>merge</code> (or <code>fetch</code> + <code>rebase</code> with <code>--rebase</code>) in one step. When in doubt, <code>fetch</code> first and look before you integrate.</p>
+</div>
 
 ## Undoing Changes
 
@@ -171,6 +183,18 @@ git revert <commit>                  # Create new commit undoing changes
 git revert --no-commit <commit>      # Revert without committing
 git revert -m 1 <merge-commit>       # Revert a merge commit
 ```
+
+The three `reset` modes differ only in how far back they roll the changes — choose by what you want to keep:
+
+| Mode | Moves branch | Staging area | Working files | Use when |
+|------|:------------:|:------------:|:-------------:|----------|
+| `--soft` | yes | kept | kept | Re-commit differently (e.g. squash, reword) |
+| `--mixed` (default) | yes | reset | kept | Unstage and rework before committing |
+| `--hard` | yes | reset | **discarded** | Throw the work away entirely |
+
+<div class="notice--warning">
+  <p><strong><code>reset</code> vs <code>revert</code>.</strong> <code>reset</code> rewrites history by moving the branch pointer — safe on local, unpushed commits only. To undo something already pushed and shared, use <code>git revert</code>, which records a <em>new</em> commit that cancels the old one and leaves history intact.</p>
+</div>
 
 ## Stashing
 
@@ -261,12 +285,16 @@ git push
 
 ## Best Practices
 
-1. **Commit Messages**: Use clear, descriptive messages in imperative mood
-2. **Atomic Commits**: Each commit should represent one logical change
-3. **Branch Naming**: Use descriptive names (feature/, bugfix/, hotfix/)
-4. **Regular Commits**: Commit frequently but meaningfully
-5. **Pull Before Push**: Always sync with remote before pushing
-6. **Review Before Commit**: Use `git diff --staged` before committing
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Write messages in the imperative mood</strong> ("Add", "Fix", "Remove") with a concise first line under ~50 characters.</li>
+    <li><strong>Keep commits atomic</strong> — one logical change each, so they can be reviewed, reverted, or cherry-picked independently.</li>
+    <li><strong>Name branches descriptively</strong> with a type prefix (<code>feature/</code>, <code>bugfix/</code>, <code>hotfix/</code>).</li>
+    <li><strong>Sync before you push</strong> — <code>git pull --rebase</code> keeps history linear and avoids surprise conflicts.</li>
+    <li><strong>Review before you commit</strong> with <code>git diff --staged</code>, and stage selectively with <code>git add -p</code>.</li>
+    <li><strong>Prefer <code>--force-with-lease</code> over <code>--force</code></strong> so you never clobber a teammate's pushed work.</li>
+  </ul>
+</div>
 
 ## Advanced Features (2023-2024)
 

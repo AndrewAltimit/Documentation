@@ -139,27 +139,16 @@ def a_star(start, goal, graph):
 
 ### Hierarchical Pathfinding
 
-For large worlds:
+Searching a single huge graph node-by-node is too slow for open worlds. Hierarchical pathfinding searches a coarse graph first, then refines only the part of the path the agent is about to walk:
 
-```
-Level 3: Region graph (countries/zones)
-    │
-Level 2: Cluster graph (neighborhoods)
-    │
-Level 1: NavMesh polygons (rooms)
-    │
-Level 0: Detailed path (within polygon)
-
-Search: Top-down refinement
-1. Find path through regions
-2. Refine through clusters
-3. Detailed path in NavMesh
+```mermaid
+flowchart TD
+    L3["Region graph<br/>(zones)"] --> L2["Cluster graph<br/>(neighborhoods)"]
+    L2 --> L1["NavMesh polygons<br/>(rooms)"]
+    L1 --> L0["Detailed path<br/>(within polygon)"]
 ```
 
-**Benefits:**
-- O(log n) instead of O(n) searches
-- Memory-efficient for huge worlds
-- Natural for streaming worlds
+The agent plans a route through regions, refines it through clusters, and only computes the fine path for the immediate stretch. This keeps searches small even on massive maps, uses far less memory than one flat graph, and fits naturally with streaming worlds where distant regions aren't loaded yet.
 
 ### Path Smoothing
 
@@ -261,52 +250,47 @@ stateDiagram-v2
 
 ### Hierarchical FSMs (HFSM)
 
-Nested states reduce complexity:
+Plain FSMs suffer **state explosion**: every new behavior risks new transitions to every existing state. HFSMs tame this by nesting states — a high-level state (e.g. *Combat*) contains its own sub-machine, and transitions can be defined once at the parent level instead of duplicated on every child.
 
+```mermaid
+flowchart TD
+    Root --> Combat
+    Root --> NonCombat["Non-Combat"]
+    Combat --> Melee
+    Combat --> Ranged
+    Melee --> M1["Approach → Attack → Retreat"]
+    Ranged --> R1["Find Cover → Aim → Fire"]
+    NonCombat --> N1["Patrol / Idle"]
 ```
-[Combat]
-├── [Melee]
-│   ├── [Approach]
-│   ├── [Attack]
-│   └── [Retreat]
-└── [Ranged]
-    ├── [Find Cover]
-    ├── [Aim]
-    └── [Fire]
 
-[Non-Combat]
-├── [Patrol]
-└── [Idle]
-```
+A single "enemy lost" transition on *Combat* now pulls the agent out of any combat sub-state at once — no need to wire it to Approach, Attack, Aim, and Fire individually.
 
 ### Behavior Trees
 
-Modern industry standard:
+The modern industry standard. A tree of nodes is "ticked" every frame; each node returns **Success**, **Failure**, or **Running**, and its parent reacts to that result. The power comes from a small node vocabulary:
 
-**Node Types:**
-- **Composite**: Sequence, Selector, Parallel
-- **Decorator**: Inverter, Repeater, Succeeder
-- **Leaf**: Action, Condition
+| Category | Nodes | Role |
+|----------|-------|------|
+| Composite | Sequence, Selector, Parallel | Combine children — Sequence needs all to succeed, Selector tries until one does |
+| Decorator | Inverter, Repeater, Succeeder, Cooldown | Wrap a child to modify its result or timing |
+| Leaf | Action, Condition | Do the actual work or test the world |
 
-**Example Tree:**
+The tree reads as prioritized behavior — a Selector tries each branch in order until one succeeds:
 
+```mermaid
+flowchart TD
+    Sel["Selector<br/>(first to succeed wins)"] --> Atk["Sequence: Attack"]
+    Sel --> Flee["Sequence: Flee"]
+    Sel --> Pat["Action: Patrol"]
+    Atk --> A1{"Enemy visible?"}
+    Atk --> A2{"Has ammo?"}
+    Atk --> A3["Shoot enemy"]
+    Flee --> F1{"Enemy visible?"}
+    Flee --> F2{"Low health?"}
+    Flee --> F3["Flee"]
 ```
-Selector (try until success)
-├── Sequence (all must succeed)
-│   ├── [Condition] Is Enemy Visible?
-│   ├── [Condition] Has Ammo?
-│   └── [Action] Shoot Enemy
-├── Sequence
-│   ├── [Condition] Is Enemy Visible?
-│   ├── [Condition] Is Low Health?
-│   └── [Action] Flee
-└── [Action] Patrol
-```
 
-**Execution:**
-- Tick tree every frame
-- Return: Success, Failure, or Running
-- Parent nodes respond to child results
+Because each branch is self-contained, behavior trees scale to complex agents far more gracefully than FSMs: adding a behavior is adding a branch, not rewiring a web of transitions.
 
 ### Utility AI
 
@@ -347,7 +331,7 @@ def evaluate_utility(agent, action):
 
 ### Goal-Oriented Action Planning (GOAP)
 
-AI plans sequences of actions:
+Where behavior trees and FSMs are *authored*, GOAP lets the agent **plan**. You define a goal and a library of actions, each with preconditions and effects; the planner searches (typically A* over world states) for the cheapest action sequence that reaches the goal. Designers add actions, not transitions — the agent figures out how to chain them.
 
 ```
 World State: {has_weapon: false, enemy_dead: false, in_cover: false}
@@ -375,20 +359,15 @@ Planner finds: pickup_weapon → attack
 
 ### Influence Maps
 
-Spatial reasoning for AI:
+An influence map turns spatial reasoning into a grid lookup. Each cell accumulates a value from nearby entities, falling off with distance, so the map summarizes "who controls where." For a cell $c$:
 
-```
-For each cell in grid:
-    influence = 0
-    for each entity:
-        distance = dist(cell, entity)
-        influence += entity.strength / (1 + distance * decay)
+$$I(c) = \sum_{e \in \text{entities}} \frac{\text{strength}(e)}{1 + \text{decay}\cdot \text{dist}(c, e)}$$
 
-Uses:
-- Find safe areas (low enemy influence)
-- Identify strategic positions
-- Territory control visualization
-```
+Computed once per update (often at coarse resolution), the resulting field answers tactical questions cheaply:
+
+- **Safe areas** — cells where enemy influence is low.
+- **Frontlines and choke points** — where friendly and enemy influence balance.
+- **Strategic positions** — local maxima of friendly control, or flanking routes through low-influence gaps.
 
 ### Cover System
 

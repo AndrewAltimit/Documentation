@@ -95,44 +95,34 @@ SD 1.5 remains the most popular and widely supported model due to its balance of
 
 ### Technical Specifications
 
-```yaml
-Architecture: U-Net with attention
-Parameters: 859M
-Training Resolution: 512×512
-VAE: KL-f8 autoencoder
-Text Encoder: CLIP ViT-L/14
-Max Tokens: 77
-Precision: FP16/FP32
-File Size: ~2GB (pruned)
-```
+| Property | Value |
+|----------|-------|
+| Architecture | U-Net with cross-attention |
+| Parameters | ~860M |
+| Training resolution | 512×512 |
+| Text encoder | CLIP ViT-L/14 (77 tokens) |
+| VAE | KL-f8 autoencoder |
+| File size | ~2 GB (pruned, fp16) |
 
-### Strengths
+### Strengths and Weaknesses
 
-- **Massive ecosystem**: Thousands of LoRAs, embeddings, and tools
-- **Low requirements**: Runs on 4GB VRAM GPUs
-- **Fast generation**: 20-50 steps typical
-- **Highly optimized**: Years of community optimization
-- **Versatile**: Works well for most content types
-
-### Weaknesses
-
-- **Lower resolution**: Native 512×512
-- **Text rendering**: Poor text generation
-- **Anatomy**: Struggles with hands/complex poses
-- **Modern concepts**: Limited understanding of recent topics
+| Strengths | Weaknesses |
+|-----------|------------|
+| Massive ecosystem of LoRAs, embeddings, tools | Low native resolution (512×512) |
+| Runs on 4 GB VRAM; fast (20-50 steps) | Poor text rendering |
+| Years of community optimization | Struggles with hands and complex poses |
+| Versatile across most content types | Limited grasp of recent/modern concepts |
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "512x512",
-    "steps": 20-30,
-    "cfg_scale": 7-9,
-    "sampler": "euler_a",
-    "clip_skip": 1-2,
-    "vae": "vae-ft-mse-840000"
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 512×512 |
+| Steps | 20-30 |
+| CFG scale | 7-9 |
+| Sampler | `euler_a` or `dpmpp_2m` |
+| CLIP skip | 1-2 (2 for anime checkpoints) |
+| VAE | `vae-ft-mse-840000` |
 
 ### Use Cases
 
@@ -151,48 +141,37 @@ SD 2.x improved upon 1.5 with better training data and higher resolution, but fa
 
 ### Technical Specifications
 
-```yaml
-Architecture: Improved U-Net
-Parameters: 865M (2.0), 865M (2.1)
-Training Resolution: 768×768
-VAE: Improved KL-f8
-Text Encoder: OpenCLIP ViT-H/14
-Max Tokens: 77
-File Size: ~2.5GB
-```
+| Property | Value |
+|----------|-------|
+| Architecture | Improved U-Net |
+| Parameters | ~865M |
+| Training resolution | 768×768 |
+| Text encoder | OpenCLIP ViT-H/14 (77 tokens) |
+| VAE | Improved KL-f8 |
+| File size | ~2.5 GB |
 
-### Key Differences from 1.5
+### What Changed from 1.5
 
-- **Different CLIP model**: OpenCLIP vs CLIP
-- **Cleaner dataset**: NSFW content filtered
-- **Higher resolution**: 768×768 native
-- **Better architecture**: Improved attention
+SD 2.x swapped CLIP for **OpenCLIP**, trained on a cleaner (NSFW-filtered) dataset, and raised native resolution to 768×768 with improved attention. The result was *technically* better but *aesthetically* divisive — the filtered data and new encoder changed the default "look," and because it broke compatibility with SD 1.5 add-ons, the community largely skipped it.
 
-### Strengths
+### Strengths and Weaknesses
 
-- **Better quality**: Improved detail and coherence
-- **Higher resolution**: Native 768×768
-- **Cleaner outputs**: Less prone to artifacts
-- **Better concepts**: Improved understanding
-
-### Weaknesses
-
-- **Limited adoption**: Fewer LoRAs and tools
-- **Different aesthetic**: Less "artistic" by default
-- **Compatibility**: Not backward compatible with SD 1.5
-- **Prompt differences**: Requires different prompting style
+| Strengths | Weaknesses |
+|-----------|------------|
+| Higher resolution (768×768), cleaner output | Sparse ecosystem — few LoRAs/tools |
+| Improved detail and coherence | Different, less "artistic" default aesthetic |
+| Better concept understanding | Not compatible with SD 1.5 add-ons |
+| Fewer artifacts | Requires a different prompting style |
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "768x768",
-    "steps": 25-35,
-    "cfg_scale": 6-8,
-    "sampler": "dpm++_2m",
-    "negative_prompt": "Essential for good results"
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 768×768 |
+| Steps | 25-35 |
+| CFG scale | 6-8 |
+| Sampler | `dpmpp_2m` |
+| Negative prompt | Essential for good results |
 
 ## SDXL (Stable Diffusion XL)
 
@@ -202,66 +181,51 @@ SDXL represents a major leap in quality and resolution, introducing a two-stage 
 
 ### Technical Specifications
 
-```yaml
-Architecture: Enlarged U-Net + Refiner
-Parameters: 3.5B (base) + 3.5B (refiner)
-Training Resolution: 1024×1024
-VAE: SDXL VAE
-Text Encoders: CLIP ViT-L + OpenCLIP ViT-G
-Max Tokens: 77 × 2
-Conditioning: Size + Crop conditioning
-File Size: ~6.5GB (base only)
-```
+| Property | Value |
+|----------|-------|
+| Architecture | Enlarged U-Net (+ optional Refiner) |
+| Parameters | ~3.5B base (+ ~3.5B refiner) |
+| Training resolution | 1024×1024 |
+| Text encoders | CLIP ViT-L + OpenCLIP ViT-G (77 tokens each) |
+| Conditioning | Size + crop conditioning |
+| VAE | SDXL VAE (improved color accuracy) |
+| File size | ~6.5 GB (base only) |
 
-### Unique Features
+### What Makes SDXL Different
 
-1. **Two-stage pipeline**:
-   ```
-   Base Model (0.8 denoising) → Refiner Model (0.2 denoising)
-   ```
+- **Dual text encoders.** Two CLIP models read the prompt together, improving composition and prompt comprehension over the single encoder in SD 1.5/2.x.
+- **Optional two-stage pipeline.** A base model handles the bulk of denoising and an optional **refiner** finishes the last ~20% to sharpen detail. In practice many users skip the refiner — modern fine-tunes look excellent base-only.
+- **Conditioning augmentation.** The model is told the target resolution and crop, which reduces the cropping/zoom artifacts common in earlier models.
 
-2. **Dual text encoders**: Combines two CLIP models
-3. **Conditioning augmentation**: Resolution and crop parameters
-4. **Improved VAE**: Better color accuracy
+### Strengths and Weaknesses
 
-### Strengths
-
-- **Superior quality**: Photorealistic capabilities
-- **High resolution**: Native 1024×1024+
-- **Better text**: Improved text rendering
-- **Fine details**: Excellent micro-details
-- **Versatility**: Works across all styles
-
-### Weaknesses
-
-- **Resource intensive**: 8GB+ VRAM minimum
-- **Slower generation**: 40-50% slower than SD 1.5
-- **Complex pipeline**: Two models for best results
-- **Large size**: ~13GB for full pipeline
+| Strengths | Weaknesses |
+|-----------|------------|
+| Photorealistic quality, excellent micro-detail | Needs 8 GB+ VRAM |
+| Native 1024×1024+, strong composition | 40-50% slower than SD 1.5 |
+| Improved (if imperfect) text rendering | Best quality wants the two-model pipeline |
+| Works across all styles; deepest modern ecosystem | ~13 GB for the full base + refiner |
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "1024x1024",
-    "base_steps": 25-35,
-    "refiner_steps": 10-15,
-    "cfg_scale": 5-7,
-    "sampler": "dpm++_2m_sde",
-    "refiner_switch": 0.8,
-    "negative_prompt": "Critical for quality"
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 1024×1024 |
+| Base steps | 25-35 |
+| Refiner steps | 10-15 (if used) |
+| CFG scale | 5-7 |
+| Sampler | `dpmpp_2m_sde` (Karras) |
+| Refiner switch | ~0.8 |
+| Negative prompt | Critical for quality |
 
-### SDXL Workflow
+### SDXL Refiner Workflow
 
-```python
-# ComfyUI workflow
-Base Model → KSampler (end_at_step: 20)
-                ↓
-         Latent Output
-                ↓
-Refiner Model → KSampler (start_at_step: 20)
+The two-stage handoff is a single latent passed between two samplers — the base stops early and the refiner finishes:
+
+```mermaid
+flowchart LR
+    Base["Base model<br/>KSampler (end at ~80%)"] -->|latent| Ref["Refiner model<br/>KSampler (start at ~80%)"]
+    Ref --> Dec["VAE Decode"] --> Img["Final image"]
 ```
 
 ## Pony Diffusion
@@ -272,66 +236,47 @@ Pony Diffusion is a specialized SDXL fine-tune focused on anime, furry, and cart
 
 ### Technical Specifications
 
-```yaml
-Base: SDXL architecture
-Specialization: Anime/Furry/Cartoon
-Training Data: Curated booru datasets
-Special Tokens: Quality tags system
-Resolution: 1024×1024
-File Size: ~6.5GB
-```
+| Property | Value |
+|----------|-------|
+| Base | SDXL architecture (a fine-tune) |
+| Specialization | Anime / furry / cartoon |
+| Training data | Curated booru datasets |
+| Prompt system | `score_*` quality tags + danbooru tags |
+| Resolution | 1024×1024 |
+| File size | ~6.5 GB |
 
-### Unique Features
+### What Makes Pony Different
 
-1. **Score-based prompting**:
-   ```
-   "score_9, score_8_up, score_7_up, [your prompt]"
-   ```
+Pony's defining quirk is **score-based prompting**: it learned a quality ladder (`score_9`, `score_8_up`, ...) that you prepend to steer toward higher-rated output. Combined with deep **danbooru-style tagging** and broad **character knowledge**, this makes it the go-to for anime/cartoon fan art — at the cost of an unusual prompt style and a strong content bias.
 
-2. **Style tags**: Extensive style control
-3. **Character knowledge**: Recognizes many characters
-4. **Booru tags**: Uses danbooru-style tagging
+### Strengths and Weaknesses
 
-### Strengths
-
-- **Anime excellence**: Best-in-class for anime
-- **Style consistency**: Maintains style well
-- **Character accuracy**: Great for fan art
-- **Tag system**: Intuitive for booru users
-- **Active community**: Regular updates
-
-### Weaknesses
-
-- **Specialized**: Not ideal for photorealism
-- **Learning curve**: Unique prompting style
-- **Content bias**: Optimized for specific content
-- **NSFW tendency**: Requires careful prompting
+| Strengths | Weaknesses |
+|-----------|------------|
+| Best-in-class for anime/stylized art | Not suited to photorealism |
+| Strong style consistency and character recall | Unusual `score_*` prompting to learn |
+| Intuitive for booru-tag users | Heavily biased toward its training content |
+| Active community, frequent fine-tunes | Tends toward NSFW without careful prompting |
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "1024x1024",
-    "steps": 25-30,
-    "cfg_scale": 6-8,
-    "sampler": "euler_a",
-    "clip_skip": 2,  # Important for anime
-    "prompt_prefix": "score_9, score_8_up, score_7_up, masterpiece"
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 1024×1024 |
+| Steps | 25-30 |
+| CFG scale | 6-8 |
+| Sampler | `euler_a` |
+| CLIP skip | 2 (important for anime) |
+| Prompt prefix | `score_9, score_8_up, score_7_up` |
 
 ### Prompting Guide
 
-```
-# Good Pony prompt structure
-score_9, score_8_up, masterpiece, best quality,
-1girl, [character_name], [outfit], [pose], [expression],
-[background], [lighting], [style_tags]
+A workable Pony prompt structure:
 
-# Negative prompt
-score_6, score_5, score_4, worst quality, low quality,
-bad anatomy, bad hands
-```
+- **Positive:** `score_9, score_8_up, masterpiece, best quality, 1girl, [character], [outfit], [pose], [expression], [background], [lighting], [style tags]`
+- **Negative:** `score_6, score_5, score_4, worst quality, low quality, bad anatomy, bad hands`
+
+The leading `score_*` tags act as the quality dial; the rest follows ordinary danbooru tagging.
 
 ### A Note on Illustrious and NoobAI
 
@@ -351,49 +296,39 @@ SD3 marks the lineage's shift from U-Net to a Multimodal Diffusion Transformer (
 
 ### Technical Specifications
 
-```yaml
-Architecture: MM-DiT (Multimodal Diffusion Transformer)
-Parameters: 2B (Medium), 8B (Large)
-Text Encoders: CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL
-Max Tokens: 77 + 77 + 256
-Training: Rectified Flow (like FLUX)
-Resolution: 1024×1024 base, up to 2048×2048
-File Size: ~6GB (Medium), ~18GB (Large)
-```
+| Property | Value |
+|----------|-------|
+| Architecture | MM-DiT (Multimodal Diffusion Transformer) |
+| Parameters | 2B (Medium), 8B (Large) |
+| Text encoders | CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL (77 + 77 + 256 tokens) |
+| Training | Rectified flow (like FLUX) |
+| Resolution | 1024×1024 base, up to 2048×2048 |
+| File size | ~6 GB (Medium), ~18 GB (Large) |
 
-### Unique Features
+### What Makes SD3 Different
 
-1. **Triple Text Encoding**: Most comprehensive text understanding
-2. **Improved Architecture**: Better than SDXL, competitive with FLUX
-3. **Flexible Resolution**: Better handling of various aspect ratios
-4. **Better Text Rendering**: Can generate readable text in images
+SD3's headline is **triple text encoding** — two CLIP encoders for visual concepts plus a large **T5** encoder for natural-language understanding. That combination drives its two real advantages over SDXL: notably **stronger prompt adherence** and the ability to **render legible text** in images. Because it uses rectified flow rather than DDPM, it follows prompts harder at a lower CFG.
 
-### Strengths
+### Strengths and Weaknesses
 
-- **Prompt Adherence**: Best-in-class prompt following
-- **Text Generation**: Can render words and letters accurately
-- **Efficiency**: Medium model runs well on 10GB VRAM
-- **Quality**: Comparable to FLUX at lower resource cost
-- **Flexibility**: Works with standard diffusion workflows
+| Strengths | Weaknesses |
+|-----------|------------|
+| Best-in-class prompt following | More restrictive licensing than SD 1.5/SDXL |
+| Can render readable words and letters | Smaller ecosystem, fewer fine-tunes |
+| Medium runs well on ~10 GB VRAM | Triple encoder adds setup complexity |
+| FLUX-class quality at lower cost; standard workflows | Large variant is resource-heavy |
 
-### Weaknesses
-
-- **Licensing**: More restrictive than SD1.5/SDXL
-- **Ecosystem**: Newer, fewer fine-tunes available
-- **Complexity**: Triple encoder adds complexity
-- **Size**: Large model requires significant resources
+> **Use SD3.5, not the original SD3 Medium.** The 3.5 Large/Medium refresh fixed much of the launch-day anatomy and licensing criticism and is the practical choice in this family today.
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "1024x1024",
-    "steps": 28,  # Recommended by Stability
-    "cfg_scale": 5,  # Lower than traditional
-    "sampler": "dpmpp_2m",
-    "shift": 3.0,  # Important SD3 parameter
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 1024×1024 |
+| Steps | 28 (Stability's recommendation) |
+| CFG scale | ~5 (lower than U-Net models) |
+| Sampler | `dpmpp_2m` |
+| Shift | ~3.0 (important SD3 flow parameter) |
 
 ## FLUX
 
@@ -403,74 +338,63 @@ FLUX represents the current state-of-the-art in open diffusion models, with revo
 
 ### Technical Specifications
 
-```yaml
-Architecture: Transformer-based (DiT)
-Parameters: 12B
-Training: Flow matching
-Resolution: 1024×1024 - 2048×2048
-Text Encoder: T5 XXL + CLIP
-Max Tokens: 256
-Guidance: Separate guidance model
-File Size: ~24GB (FP16)
-```
+| Property | Value |
+|----------|-------|
+| Architecture | Transformer-based (DiT), flow matching |
+| Parameters | ~12B |
+| Text encoders | T5-XXL + CLIP (256 tokens) |
+| Guidance | Distilled guidance (no traditional CFG) |
+| Resolution | 1024×1024 to 2048×2048 |
+| File size | ~24 GB (fp16); ~12 GB (fp8) |
 
 ### Model Variants
 
-1. **FLUX.1-dev**: Full quality development version
-2. **FLUX.1-schnell**: Distilled 4-step generation (German for "fast")
-3. **FLUX.1-pro**: API-only premium version with best quality
-4. **FLUX-fp8**: Quantized for lower VRAM (12GB viable)
-5. **FLUX-gguf**: Further quantized versions (Q4, Q5, Q8)
+Choosing the right FLUX build is mostly a quality-vs-VRAM trade:
 
-### Revolutionary Features
+| Variant | What it is | When to use |
+|---------|-----------|-------------|
+| FLUX.1-dev | Full-quality open-weights model | Default for local high-quality work |
+| FLUX.1-schnell | Distilled, 1-4 step generation | Fast iteration and previews |
+| FLUX.1-pro | API-only premium tier | Best quality without local hardware |
+| FLUX fp8 | Quantized weights | Fits ~12 GB cards with little quality loss |
+| FLUX GGUF (Q4-Q8) | Further quantized | Squeezing onto smaller VRAM budgets |
 
-1. **No CFG needed**: Uses guidance model instead
-   ```python
-   cfg = 1.0  # Always 1.0 for FLUX
-   guidance = 3.5  # Separate parameter
-   ```
+### What Makes FLUX Different
 
-2. **Better text understanding**: T5 encoder
-3. **Improved composition**: Better spatial awareness
-4. **Consistent anatomy**: Rarely fails on hands
+- **No traditional CFG.** FLUX bakes guidance into the model, so `cfg` is held at **1.0** and a separate `guidance` value (~3.5) controls prompt strength. Setting CFG above 1.0 breaks FLUX output — a common first-time mistake.
+- **T5 text understanding.** Like SD3, the T5 encoder handles long natural-language prompts far better than CLIP.
+- **Coherence and anatomy.** FLUX rarely botches hands and holds spatial/physical consistency better than prior open models, and it renders legible text.
 
-### Strengths
+### Strengths and Weaknesses
 
-- **Unmatched quality**: Best available quality
-- **Text rendering**: Can generate readable text
-- **Prompt adherence**: Follows complex prompts
-- **Consistency**: Reliable anatomy/physics
-- **Modern knowledge**: Trained on recent data
-
-### Weaknesses
-
-- **Resource heavy**: 12GB+ VRAM minimum
-- **Slower**: 2-3x slower than SDXL
-- **Large size**: 24GB+ for full precision
-- **New ecosystem**: Fewer LoRAs initially
-- **Different workflow**: Requires adjustment
+| Strengths | Weaknesses |
+|-----------|------------|
+| State-of-the-art open-model quality | 12 GB+ VRAM minimum |
+| Readable text, strong prompt adherence | 2-3x slower than SDXL |
+| Reliable anatomy and physics | ~24 GB at full precision |
+| Trained on recent data | Newer (if now-mature) ecosystem; different workflow |
 
 ### Optimal Settings
 
-```python
-{
-    "resolution": "1024x1024",
-    "steps": 20-25,
-    "cfg": 1.0,  # CRITICAL: Must be 1.0
-    "guidance": 3.5,
-    "sampler": "euler",
-    "scheduler": "simple",
-    "model": "flux-fp8.safetensors"  # For lower VRAM
-}
-```
+| Setting | Value |
+|---------|-------|
+| Resolution | 1024×1024 |
+| Steps | 20-25 (1-4 for schnell) |
+| CFG | **1.0** (must not change) |
+| Guidance | ~3.5 (via FluxGuidance node) |
+| Sampler / scheduler | `euler` / `simple` |
+| Model | `flux-fp8` for lower-VRAM cards |
 
-### FLUX Workflow Example
+### FLUX Workflow
 
-```python
-# ComfyUI FLUX workflow
-[FLUX Checkpoint] → [CLIP Encode] → [FLUX Guidance]
-                                           ↓
-                        [KSampler: cfg=1.0] → [VAE Decode]
+FLUX inserts a **FluxGuidance** node before sampling and keeps CFG pinned at 1.0:
+
+```mermaid
+flowchart LR
+    Ckpt["FLUX checkpoint"] --> Enc["CLIP/T5 Encode"]
+    Enc --> FG["FluxGuidance (~3.5)"]
+    FG --> KS["KSampler (cfg = 1.0)"]
+    KS --> Dec["VAE Decode"] --> Img["Final image"]
 ```
 
 ## Model Selection Guide
@@ -528,29 +452,15 @@ File Size: ~24GB (FP16)
 
 ## Migration Guide
 
+Moving up the lineage means changing both *how you prompt* and *which settings apply*.
+
 ### From SD 1.5 to SDXL
 
-```python
-# SD 1.5 prompt
-"masterpiece, best quality, 1girl, sitting, park bench"
-
-# SDXL prompt (more natural)
-"A young woman sitting on a park bench in a sunny day, 
-professional photography, shallow depth of field"
-```
+The biggest shift is from terse tags to natural description. An SD 1.5 prompt like `masterpiece, best quality, 1girl, sitting, park bench` becomes, for SDXL, something closer to a sentence: *"a young woman sitting on a park bench on a sunny day, professional photography, shallow depth of field."* SDXL's dual encoders reward this; quality-spam tags help much less than they did on SD 1.5.
 
 ### From SDXL to FLUX
 
-```python
-# SDXL settings
-cfg_scale = 7.5
-steps = 30
-
-# FLUX settings
-cfg = 1.0  # MUST be 1.0
-guidance = 3.5
-steps = 25
-```
+The trap here is **settings, not prompts**. SDXL uses `cfg_scale ≈ 7.5` at ~30 steps. FLUX must run at **`cfg = 1.0`** with a separate `guidance ≈ 3.5` at ~25 steps — leaving CFG at an SDXL-style value will wreck FLUX output. Prompts can stay natural-language, which FLUX's T5 encoder handles well.
 
 ### Prompting Differences
 

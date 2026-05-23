@@ -43,19 +43,15 @@ This guide is for users already comfortable with prompting, samplers, and basic 
 
 ## Latent Space Techniques
 
-### Latent Space Interpolation
+The latent is just a tensor, so you can do math on it directly — blend two latents, walk between them, or composite regions — before or between sampling passes. This unlocks transitions and compositions that prompting alone cannot reach.
 
-Smoothly transition between different concepts or images:
+### Latent Interpolation
 
-```python
-def latent_interpolation(latent_a, latent_b, steps=10):
-    interpolated = []
-    for i in range(steps):
-        alpha = i / (steps - 1)
-        interpolated_latent = (1 - alpha) * latent_a + alpha * latent_b
-        interpolated.append(interpolated_latent)
-    return interpolated
-```
+The simplest move is **linear interpolation**: blend two latents with a weight $\alpha$ that sweeps from 0 to 1, sampling each blend to produce a frame. Stepping $\alpha$ across a range gives a morph sequence between two images or concepts:
+
+$$\mathbf{x}_\alpha = (1-\alpha)\,\mathbf{x}_a + \alpha\,\mathbf{x}_b, \qquad \alpha \in [0, 1]$$
+
+Linear blends are easy but flawed — see SLERP next.
 
 ### Spherical Linear Interpolation (SLERP)
 
@@ -101,445 +97,145 @@ flowchart LR
 
 ### Latent Composition
 
-Combine multiple latents with masks:
-
-```python
-def masked_latent_composite(latents, masks):
-    """Combine multiple latents using masks"""
-    result = torch.zeros_like(latents[0])
-    for latent, mask in zip(latents, masks):
-        # Resize mask to latent dimensions
-        mask_resized = F.interpolate(mask, size=latent.shape[-2:])
-        result += latent * mask_resized
-    return result
-```
+Instead of blending two latents globally, you can **composite by region** using masks: keep latent A where mask A is white, latent B where mask B is white, and so on. This stitches separately-generated content into one frame at the latent level, which blends more cleanly than pasting pixels because the VAE decode harmonizes the seams. It is the latent-space cousin of regional prompting below.
 
 ## Regional Prompting
 
+A single prompt applies everywhere, which is why "a robot on the left, a forest on the right" so often bleeds the two together. **Regional prompting** fixes this by routing different prompts to different image regions, each with its own mask and weight.
+
 ### Attention Masking
 
-Control where specific prompts apply:
+The most common approach masks the **cross-attention** so each prompt only influences its region. You define a region as a (prompt, mask, weight) triple — for example a `detailed robot` prompt bound to the left half and a `lush forest` prompt bound to the right — and the sampler keeps each prompt's influence inside its mask. ComfyUI offers this through nodes like *Conditioning (Set Area)* / *Set Mask*; A1111/Forge through the Regional Prompter extension.
 
-```python
-# Regional prompt structure
-regions = [
-    {
-        "prompt": "detailed robot",
-        "mask": left_half_mask,
-        "weight": 1.2
-    },
-    {
-        "prompt": "lush forest",
-        "mask": right_half_mask,
-        "weight": 1.0
-    }
-]
-```
+### GLIGEN: Box-Grounded Placement
 
-### GLIGEN Integration
+Where masks define *areas*, **GLIGEN** (Grounded Language-to-Image Generation) places phrases inside **bounding boxes** — "put `a red car` in this box" — giving object-level layout control without hand-painting masks. It is the cleaner choice when you know *where* each object goes but not its exact silhouette.
 
-Grounded Language-to-Image Generation:
+### Composable and Scheduled Prompts
 
-```python
-# Bounding box control
-gligen_inputs = {
-    "boxes": [[0.1, 0.1, 0.4, 0.4]],  # [x, y, w, h]
-    "phrases": ["red car"],
-    "strengths": [0.8]
-}
-```
+Two prompt-level techniques complement masking:
 
-### Prompt Weighting Techniques
-
-#### Alternating Prompts
-```python
-# Switch prompts during generation
-prompt_schedule = {
-    0: "a cat sitting",
-    10: "[a cat sitting|a dog sitting]",  # Alternate
-    20: "a dog sitting"
-}
-```
-
-#### Composable Diffusion
-```python
-# AND operation
-"a cat AND a dog"  # Both must appear
-
-# Weight distribution
-"(cat:1.2) and (dog:0.8)"  # Cat emphasized
-```
+- **Composable diffusion** combines independent concepts with `AND`, denoising each separately and merging — `a cat AND a dog` makes both more likely to appear (and survive) than `a cat and a dog`. Per-term weights (`(cat:1.2) AND (dog:0.8)`) bias the balance.
+- **Prompt scheduling** swaps the prompt partway through sampling, e.g. `[a cat|a dog]` alternates each step, or `[cat:dog:0.4]` switches from cat to dog at 40% — useful for hybrids and gradual morphs.
 
 ## Advanced Sampling Methods
 
-### Classifier-Free Guidance Rescale
+Beyond picking a sampler and step count, several refinements address specific failure modes — oversaturation at high CFG, the distribution of noise across steps, and getting more quality from the same step budget. Most are exposed as toggles in your tool rather than something you implement.
 
-Reduce oversaturation at high CFG values:
+| Technique | Problem it solves | What it does |
+|-----------|-------------------|--------------|
+| CFG rescale | Washed-out, oversaturated images at high CFG | Rescales the guided prediction back toward the conditional prediction's statistics, so high CFG follows the prompt without blowing out contrast |
+| Dynamic thresholding | Color/clipping artifacts at high guidance | Clamps extreme latent values per-step using a high percentile instead of a hard limit, preventing the "burnt" look |
+| Karras schedule | Wasted steps on low-information ranges | Distributes noise levels (sigmas) so more steps land where they matter; reaches quality in fewer steps |
+| EDM-style stochasticity | Over-smooth, lifeless detail | Injects a controlled bit of noise mid-sampling (the `s_churn` knob) to recover texture |
+| Restart sampling | Detail plateaus on long runs | Periodically re-adds noise and re-denoises, escaping the smoothing that long deterministic runs cause |
 
-```python
-def cfg_rescale(noise_pred_conditional, noise_pred_unconditional, 
-                guidance_scale, rescale_factor=0.7):
-    """Rescale CFG to prevent oversaturation"""
-    # Standard CFG
-    noise_pred = noise_pred_unconditional + guidance_scale * \
-                 (noise_pred_conditional - noise_pred_unconditional)
-    
-    # Rescale
-    std_pos = noise_pred_conditional.std()
-    std_cfg = noise_pred.std()
-    
-    rescale_factor = rescale_factor * (std_pos / std_cfg)
-    return noise_pred * rescale_factor
-```
+### Karras Scheduling, Briefly
 
-### Dynamic Thresholding
+The most useful of these in everyday work is the **Karras** noise schedule (offered alongside `normal`/`simple`/`exponential`). It places the sampling sigmas along a curve
 
-Prevent color artifacts:
+$$\sigma_i = \left(\sigma_{\max}^{1/\rho} + \frac{i}{n-1}\big(\sigma_{\min}^{1/\rho} - \sigma_{\max}^{1/\rho}\big)\right)^{\rho}$$
 
-```python
-def dynamic_thresholding(x, percentile=99.5):
-    """Apply dynamic thresholding to prevent artifacts"""
-    s = torch.quantile(
-        x.abs().reshape(x.shape[0], -1), 
-        percentile / 100, 
-        dim=1
-    )
-    s = torch.maximum(s, torch.ones_like(s))
-    return torch.clamp(x / s.view(-1, 1, 1, 1), -1, 1) * s.view(-1, 1, 1, 1)
-```
+with $\rho \approx 7$, which concentrates steps in the perceptually important mid-noise range. Pairing `dpmpp_2m` with `karras` is a strong default for SD/SDXL; FLUX prefers `simple`.
 
-### Karras Noise Schedule
+### High CFG Without the Burn
 
-Optimized noise scheduling:
-
-```python
-def karras_schedule(n, sigma_min=0.002, sigma_max=80, rho=7):
-    """Generate Karras noise schedule"""
-    ramp = torch.linspace(0, 1, n)
-    min_inv_rho = sigma_min ** (1 / rho)
-    max_inv_rho = sigma_max ** (1 / rho)
-    sigmas = (max_inv_rho + ramp * (min_inv_rho - max_inv_rho)) ** rho
-    return sigmas
-```
-
-### EDM Sampling
-
-Elucidated Diffusion Models approach:
-
-```python
-def edm_sampler(x, model, sigmas, s_churn=0, s_noise=1):
-    """EDM sampling with stochasticity control"""
-    for i, (sigma, sigma_next) in enumerate(zip(sigmas[:-1], sigmas[1:])):
-        # Add noise for stochasticity
-        if s_churn > 0:
-            gamma = min(s_churn / n, np.sqrt(2) - 1)
-            eps = torch.randn_like(x) * s_noise
-            sigma_hat = sigma * (1 + gamma)
-            x = x + eps * (sigma_hat - sigma)
-        
-        # Denoise
-        x = denoise_step(x, model, sigma_hat, sigma_next)
-    return x
-```
-
-### Restart Sampling
-
-Improve quality with strategic restarts:
-
-```python
-# Restart sampling workflow
-steps = 50
-restart_points = [20, 35]
-
-for i in range(steps):
-    if i in restart_points:
-        # Add controlled noise and continue
-        latents = latents + torch.randn_like(latents) * 0.1
-    
-    latents = sampler_step(latents, i)
-```
+If you need strong prompt adherence (high CFG) but get oversaturated results, enable **CFG rescale** (sometimes "CFG rescale φ", ~0.7) rather than just lowering CFG. It keeps the prompt-following strength while pulling the output's statistics back toward natural contrast.
 
 ## Multi-Stage Workflows
 
+The strongest images rarely come from one pass. Multi-stage pipelines generate a solid base, then add resolution and detail in controlled increments — each pass at a lower denoise so it refines rather than redraws.
+
 ### Progressive Upscaling
 
-```python
-# 4x upscale pipeline
-stages = [
-    {"size": 512, "denoise": 1.0},    # Base generation
-    {"size": 768, "denoise": 0.6},    # First upscale
-    {"size": 1024, "denoise": 0.4},   # Second upscale
-    {"size": 2048, "denoise": 0.3},   # Final upscale
-]
+Rather than jumping straight to 4K (which causes repetition and OOM), climb in stages, dropping the denoise strength as you go so each pass adds detail without changing the composition:
 
-for stage in stages:
-    if stage["size"] > 512:
-        latent = upscale_latent(latent, stage["size"])
-    
-    latent = generate(latent, denoise=stage["denoise"])
+| Stage | Resolution | Denoise | Purpose |
+|-------|-----------|---------|---------|
+| Base | 1024 (native) | 1.0 | Establish composition |
+| Upscale 1 | ~1.5x | ~0.5 | Add structure, fix coherence |
+| Upscale 2 | ~2x | ~0.35 | Sharpen detail |
+| Final | target | ~0.25 | Polish without redrawing |
+
+The "Ultimate SD Upscale" and tiled-diffusion workflows automate this, optionally with a Tile ControlNet to keep tiles coherent.
+
+### Detail Enhancement (Face/Region Fixing)
+
+A second common pattern detects a region (commonly faces, via the Impact Pack's detectors), crops and re-generates just that region at higher effective resolution, then composites it back. This is why workflows like ADetailer/FaceDetailer dramatically improve faces and hands without re-rolling the whole image:
+
+```mermaid
+flowchart LR
+    Base["Base generation"] --> Det["Detect region<br/>(face / hands)"]
+    Det --> Crop["Crop + upscale region"]
+    Crop --> Reg["Re-generate at low denoise"]
+    Reg --> Comp["Composite back"]
+    Base --> Comp
+    Comp --> Out["Final image"]
 ```
 
-### Detail Enhancement Pipeline
+### Style Mixing
 
-```python
-# ComfyUI workflow
-[Base Generation] → [Face Detector] → [Face Enhancement]
-        ↓                                    ↓
-   [Background]     →    [Composite]    ←  [Enhanced Face]
-        ↓
-   [Final Output]
-```
-
-### Style Mixing Workflow
-
-```python
-# Multi-model style mixing
-models = ["photorealistic.ckpt", "artistic.ckpt", "anime.ckpt"]
-weights = [0.5, 0.3, 0.2]
-
-# Generate with each model
-latents = []
-for model in models:
-    latent = generate_with_model(prompt, model)
-    latents.append(latent)
-
-# Weighted combination
-final_latent = sum(l * w for l, w in zip(latents, weights))
-```
+To blend the character of several models, generate the same seed/prompt with each and combine — either by **merging the models** beforehand (a fixed blend) or by **prompt-traveling** between checkpoints. A simpler, more controllable alternative is one base model plus stacked style LoRAs at reduced strengths, which avoids the unpredictability of latent averaging across different model distributions.
 
 ## Optimization Techniques
 
-### Attention Optimization
+When you push resolution, batch size, or step count, you eventually hit compute or VRAM limits. Two categories of optimization help — making attention cheaper, and trading time for memory.
 
-#### Flash Attention 2
-```python
-# Enable flash attention 2 for speed
-config = {
-    "use_flash_attention_2": True,
-    "attention_slice_size": "auto",
-    "attention_processor": "flash_attn",
-    "enable_math": False,  # Disable for pure Flash Attention
-    "enable_mem_efficient": True
-}
+### Speed: Cheaper Attention
 
-# With torch.compile for additional speedup
-model = torch.compile(model, mode="reduce-overhead")
-```
+Attention is the dominant cost in diffusion. The practical levers:
 
-#### Token Merging (ToMe)
-```python
-def token_merging(tokens, merge_ratio=0.5):
-    """Merge similar tokens to reduce computation"""
-    # Calculate similarity matrix
-    similarity = torch.matmul(tokens, tokens.transpose(-1, -2))
-    
-    # Find most similar pairs
-    _, indices = similarity.topk(int(len(tokens) * merge_ratio))
-    
-    # Merge tokens
-    merged = average_similar_tokens(tokens, indices)
-    return merged
-```
+| Technique | Effect | How to use it |
+|-----------|--------|---------------|
+| Flash Attention / SDPA | Fused, memory-efficient attention kernels | On by default in recent PyTorch/diffusers; just keep your stack current |
+| `torch.compile` | Fuses ops into optimized kernels | One-line wrapper; large speedup after a warm-up compile |
+| Token Merging (ToMe) | Merges redundant tokens before attention | A ratio knob (~0.5); trades a little fidelity for speed |
+| xFormers | Memory-efficient attention (older stacks) | Mostly superseded by built-in SDPA/Flash Attention |
 
-### Memory Optimization
+### Memory: Trade Time for VRAM
 
-#### Gradient Checkpointing
-```python
-# Trade compute for memory
-model.enable_gradient_checkpointing()
+When you are VRAM-bound rather than time-bound:
 
-# Custom checkpointing
-def checkpoint_forward(module, x):
-    return torch.utils.checkpoint.checkpoint(
-        module, x, use_reentrant=False
-    )
-```
+- **Tiled VAE / tiled diffusion** decode (or generate) the image in overlapping tiles, so peak memory scales with tile size, not full resolution — the standard fix for high-res OOM.
+- **Sequential CPU offload** keeps idle components (text encoder, VAE) in system RAM and streams them to GPU on demand. Slower, but lets large models fit small cards.
+- **Quantization (fp8, GGUF)** shrinks the model's footprint with minor quality cost — the difference between FLUX fitting in 12 GB or not.
+- **Gradient checkpointing** matters only when *training* (e.g. LoRAs): it recomputes activations instead of storing them.
 
-#### Sequential Generation
-```python
-# Generate in tiles for large images
-def tiled_generation(size, tile_size=512, overlap=64):
-    tiles = []
-    for y in range(0, size[0], tile_size - overlap):
-        for x in range(0, size[1], tile_size - overlap):
-            tile = generate_tile(x, y, tile_size)
-            tiles.append((x, y, tile))
-    
-    return blend_tiles(tiles, size, overlap)
-```
+## Advanced Prompt Engineering
 
-## Prompt Engineering Advanced
+At the expert level, prompting becomes less about stacking adjectives and more about *structure and iteration*:
 
-### Semantic Prompt Optimization
+- **Build, don't dump.** Lead with subject, then composition, then style, then lighting. Newer models (FLUX, SD3) reward natural sentences; older CLIP-based ones reward ordered tags. Quality-spam ("masterpiece, 4k, trending on ArtStation") helps SD 1.5 far more than it helps FLUX.
+- **Iterate one axis at a time.** Fix the seed, change a single clause, and compare. This isolates what each phrase actually does — the manual version of the "optimize toward a target" idea, and far more reliable than changing several things at once.
+- **Push concepts into regions or weights** when a flat prompt won't separate two subjects — use the regional prompting and composable-diffusion techniques above instead of longer prose.
+- **Let a VLM draft the prompt.** A vision-language model can caption a reference image into a detailed starting prompt you then refine — a practical substitute for hand-tuning from scratch.
 
-```python
-def optimize_prompt(base_prompt, target_features):
-    """Iteratively optimize prompt for target features"""
-    current_prompt = base_prompt
-    
-    for iteration in range(10):
-        # Generate with current prompt
-        features = extract_features(generate(current_prompt))
-        
-        # Calculate feature difference
-        diff = target_features - features
-        
-        # Update prompt based on difference
-        current_prompt = update_prompt(current_prompt, diff)
-        
-        if convergence_reached(diff):
-            break
-    
-    return current_prompt
-```
+## Picking and Tuning Samplers
 
-### Prompt Expansion
+Two ideas explain most sampler behavior:
 
-```python
-def expand_prompt(simple_prompt):
-    """Expand simple prompt with quality modifiers"""
-    quality_tags = [
-        "highly detailed", "4k", "professional",
-        "award winning", "trending on artstation"
-    ]
-    
-    style_hints = analyze_intended_style(simple_prompt)
-    
-    expanded = f"{simple_prompt}, {', '.join(quality_tags)}"
-    if style_hints:
-        expanded += f", {style_hints}"
-    
-    return expanded
-```
-
-## Custom Sampling Algorithms
-
-### Ancestral Sampling with Temperature
-
-```python
-def ancestral_sample_with_temp(noise_pred, sigma, temperature=1.0):
-    """Ancestral sampling with temperature control"""
-    # Add noise with temperature scaling
-    noise = torch.randn_like(noise_pred) * temperature
-    
-    # Ancestral update
-    sigma_down = (sigma**2 - sigma_next**2) ** 0.5
-    x_next = x + sigma_down * (noise_pred + noise)
-    
-    return x_next
-```
-
-### Importance Sampling
-
-```python
-def importance_sampling(latents, condition, num_samples=5):
-    """Generate multiple samples and select best"""
-    samples = []
-    scores = []
-    
-    for _ in range(num_samples):
-        sample = generate_sample(latents, condition)
-        score = evaluate_quality(sample, condition)
-        samples.append(sample)
-        scores.append(score)
-    
-    # Return best sample
-    best_idx = torch.argmax(torch.tensor(scores))
-    return samples[best_idx]
-```
+- **Ancestral samplers** (the `_a` family, e.g. `euler_a`) inject fresh noise each step, so they keep exploring and never fully converge — great for creative variety, worse for reproducibility. Non-ancestral samplers (`euler`, `dpmpp_2m`) converge to a stable image as steps increase.
+- **Best-of-N selection** is the simplest quality boost: generate several seeds and keep the best. Automated pickers score candidates with an aesthetic or CLIP model, but for most work, eyeballing a batch of 4-8 is enough and avoids baking a scorer's bias into your output.
 
 ## Advanced ControlNet Techniques
 
-### Multi-Scale Control
+Two patterns extend basic ControlNet (covered fully in the [ControlNet guide](controlnet.html)):
 
-```python
-# Apply control at different resolutions
-control_scales = [
-    {"resolution": 256, "strength": 0.3},
-    {"resolution": 512, "strength": 0.6},
-    {"resolution": 1024, "strength": 1.0},
-]
+- **Control windowing.** Apply structure strongly early (when composition is set) and release it before the final steps via `end_percent`, so late steps add detail the control map never specified. This is the practical form of "multi-scale" control and prevents the traced look.
+- **Temporal control for video.** Extracting a control map per frame causes flicker because each map is computed independently. Blending each frame's map slightly toward the previous frame's smooths the conditioning over time, reducing jitter — a cheap consistency win before reaching for dedicated video models.
 
-for scale in control_scales:
-    control_resized = resize(control_image, scale["resolution"])
-    apply_control(control_resized, scale["strength"])
-```
+## Few-Step Generation: How the Speedups Work
 
-### Temporal ControlNet
+Standard diffusion needs 20-50 steps because each step makes a small, careful move along a curved path from noise to image. The techniques below all attack that step count — and you mostly *consume* them (as an LCM-LoRA, a Turbo/Lightning checkpoint, or a FLUX-schnell model) rather than implement them. Knowing what each does explains their trade-offs:
 
-For video consistency:
+| Method | Idea | Steps | Trade-off |
+|--------|------|-------|-----------|
+| Consistency distillation (LCM, TCD) | Train a student to jump directly toward the clean image from any point on the path | 4-8 | Slight softness; LCM ships as a portable LoRA |
+| Adversarial distillation (ADD → SDXL-Turbo) | Add a GAN-style discriminator so few-step outputs look real, not blurry | 1-4 | Less diversity; can over-sharpen |
+| Latent Adversarial (LADD → SD3-Turbo) | ADD applied in latent space for higher-res efficiency | 1-4 | Same family of trade-offs |
+| Rectified flow (FLUX, SD3) | Train near-straight paths that an ODE solver can traverse in few steps | 20-28 (1-4 distilled) | Architectural, not bolt-on |
 
-```python
-def temporal_controlnet(frames, control_strength_decay=0.95):
-    """Apply control with temporal decay"""
-    previous_control = None
-    controlled_frames = []
-    
-    for i, frame in enumerate(frames):
-        if previous_control is not None:
-            # Blend with previous frame's control
-            current_control = blend_controls(
-                extract_control(frame),
-                previous_control,
-                alpha=control_strength_decay
-            )
-        else:
-            current_control = extract_control(frame)
-        
-        controlled_frame = generate_with_control(
-            frame, current_control
-        )
-        controlled_frames.append(controlled_frame)
-        previous_control = current_control
-    
-    return controlled_frames
-```
-
-## Experimental Techniques
-
-### Consistency Distillation
-
-Latest approach for few-step generation:
-
-```python
-# Consistency distillation (LCM/TCD style)
-def consistency_distillation(teacher_model, student_model, x, t):
-    """Train student for consistency"""
-    # Teacher prediction
-    with torch.no_grad():
-        teacher_v = teacher_model(x, t)
-        x_pred = predict_x0(x, teacher_v, t)
-    
-    # Student should match at adjacent timesteps
-    t_next = get_adjacent_timestep(t)
-    student_v = student_model(x, t_next)
-    
-    # Consistency loss
-    loss = F.mse_loss(student_v, teacher_v)
-    return loss
-```
-
-### Adversarial Diffusion Distillation (ADD)
-
-```python
-# GAN-based acceleration
-def add_training(generator, discriminator, real_images):
-    """Adversarial Diffusion Distillation"""
-    # Generate with few steps
-    fake_images = generator(noise, steps=4)
-    
-    # Discriminator loss
-    d_real = discriminator(real_images)
-    d_fake = discriminator(fake_images.detach())
-    d_loss = gan_loss(d_real, d_fake)
-    
-    # Generator loss with perceptual component
-    g_adv = discriminator(fake_images)
-    g_loss = gan_loss(g_adv, real=True) + \
-             perceptual_loss(fake_images, real_images)
-    
-    return g_loss, d_loss
-```
+**Consistency models** ask the network to map *any* noisy point on a trajectory to the same endpoint, so a handful of big steps replace many small ones. **Adversarial distillation** instead pits the few-step generator against a discriminator, which is why SDXL-Turbo produces a usable image in a single step. Both are *distillations* of a slow teacher model — you trade a little diversity and fidelity for a large speedup.
 
 ### Flow Matching
 
@@ -558,202 +254,25 @@ def flow_matching_loss(model, x0, x1, t):
     # Target velocity
     target_v = x1 - x0
     
-    # Model prediction
-    pred_v = model(xt, t)
-    
-    # Matching loss
-    return F.mse_loss(pred_v, target_v)
-
-# Sampling with flow
-def sample_flow(model, x0, steps=50):
-    """ODE sampling for rectified flows"""
-    dt = 1.0 / steps
-    xt = x0
-    
-    for i in range(steps):
-        t = i * dt
-        v = model(xt, t)
-        xt = xt + v * dt
-    
-    return xt
+    # Predicted velocity vs. target; the loss is a simple MSE
+    return F.mse_loss(model(xt, t), target_v)
 ```
 
-### Neural Codec Integration
+Sampling then just integrates that velocity field as an ODE — start at noise and step forward with $\mathbf{x}_{t+\Delta t} = \mathbf{x}_t + \mathbf{v}_\theta(\mathbf{x}_t, t)\,\Delta t$. Because the learned paths are nearly straight, a coarse step size still lands on a good image.
 
-```python
-# Compress latents with neural codec
-encoded = neural_codec.encode(latent)  # Ultra-compressed
-transmitted = send_over_network(encoded)
-decoded = neural_codec.decode(transmitted)
-final_image = vae.decode(decoded)
-```
+## Automating and Scaling Workflows
 
-## Workflow Automation
+Once a workflow works, the next step is running it at scale and reproducibly. ComfyUI's API (export as *Save (API Format)*) is the backbone here — see the [ComfyUI guide](comfyui-guide.html) for the request format. The patterns worth knowing:
 
-### Batch Processing Pipeline
+- **Parameter sweeps / batch.** Load the exported workflow JSON, programmatically patch the fields you want to vary (prompt, seed, CFG, LoRA strength), and submit each variant. Recording the patched values alongside each output turns generation into a reproducible experiment.
+- **A/B comparison.** Sweep one parameter across a fixed seed set and lay the grid out side by side. Changing exactly one axis at a time is what makes the comparison meaningful — the same discipline that applies to manual tuning.
+- **Real-time loops.** For interactive use, the cost lives in two places: model load and text encoding. Load the model once, cache encodings for repeated prompts, and use a few-step model (LCM/Turbo, CFG ≈ 1-1.5) so each generation is a handful of steps. That combination is what makes live preview and art-stream overlays feel responsive.
+- **Profiling before optimizing.** Track wall-clock time and peak VRAM per run before reaching for optimizations, so you tune the actual bottleneck rather than a guessed one.
 
-```python
-class BatchPipeline:
-    def __init__(self, base_workflow):
-        self.workflow = base_workflow
-        self.results = []
-    
-    def process_batch(self, inputs, variations):
-        for input_data in inputs:
-            for variation in variations:
-                # Apply variation
-                modified_workflow = self.apply_variation(
-                    self.workflow, variation
-                )
-                
-                # Generate
-                result = execute_workflow(
-                    modified_workflow, input_data
-                )
-                
-                self.results.append({
-                    "input": input_data,
-                    "variation": variation,
-                    "output": result
-                })
-    
-    def apply_variation(self, workflow, variation):
-        # Modify workflow parameters
-        return modified_workflow
-```
+## Two More Techniques Worth Knowing
 
-### A/B Testing Framework
-
-```python
-def ab_test_parameters(base_config, test_params, num_samples=10):
-    """Test different parameter combinations"""
-    results = {}
-    
-    for param_name, param_values in test_params.items():
-        param_results = []
-        
-        for value in param_values:
-            # Update config
-            test_config = base_config.copy()
-            test_config[param_name] = value
-            
-            # Generate samples
-            samples = generate_samples(test_config, num_samples)
-            
-            # Evaluate quality
-            quality_score = evaluate_batch(samples)
-            param_results.append((value, quality_score))
-        
-        results[param_name] = param_results
-    
-    return results
-```
-
-### Real-Time Generation Pipeline
-
-```python
-class RealTimeGenerator:
-    """Optimized for <100ms generation"""
-    
-    def __init__(self, model_path):
-        # Load optimized model
-        self.model = load_lcm_model(model_path)
-        self.model = torch.compile(self.model)
-        
-        # Pre-allocate tensors
-        self.noise = torch.randn(1, 4, 64, 64).cuda()
-        self.text_cache = {}
-    
-    @torch.inference_mode()
-    def generate(self, prompt, seed=None):
-        # Cache text encoding
-        if prompt not in self.text_cache:
-            self.text_cache[prompt] = encode_prompt(prompt)
-        
-        # Fast generation
-        if seed:
-            torch.manual_seed(seed)
-        
-        # 4-step LCM generation
-        latents = self.noise.clone()
-        for t in [999, 749, 499, 249]:
-            latents = self.model(
-                latents, t, 
-                self.text_cache[prompt],
-                guidance_scale=1.5
-            )
-        
-        return decode_latents(latents)
-```
-
-## Performance Monitoring
-
-### Generation Metrics
-
-```python
-class GenerationProfiler:
-    def __init__(self):
-        self.metrics = defaultdict(list)
-    
-    def profile_generation(self, workflow):
-        with torch.profiler.profile() as prof:
-            output = execute_workflow(workflow)
-        
-        # Extract metrics
-        self.metrics["total_time"].append(prof.total_time)
-        self.metrics["memory_used"].append(torch.cuda.max_memory_allocated())
-        self.metrics["quality_score"].append(assess_quality(output))
-        
-        return output
-    
-    def get_report(self):
-        return {
-            metric: {
-                "mean": np.mean(values),
-                "std": np.std(values),
-                "min": np.min(values),
-                "max": np.max(values)
-            }
-            for metric, values in self.metrics.items()
-        }
-```
-
-## Cutting-Edge Techniques
-
-### Differential Diffusion
-
-Selective region control:
-```python
-def differential_diffusion(x, mask, strength_map):
-    """Apply different denoising strengths by region"""
-    # Decompose into regions
-    regions = segment_by_mask(x, mask)
-    
-    # Apply different schedules
-    for region, strength in zip(regions, strength_map):
-        region_schedule = modify_schedule(base_schedule, strength)
-        regions[i] = denoise_region(region, region_schedule)
-    
-    return combine_regions(regions)
-```
-
-### Self-Attention Guidance (SAG)
-
-```python
-def self_attention_guidance(model, x, t, scale=0.5):
-    """Enhance details using self-attention maps"""
-    # Get attention maps
-    _, attns = model(x, t, return_attention=True)
-    
-    # Blur attention for guidance
-    blurred = gaussian_blur(attns, sigma=1.0)
-    
-    # Guided prediction
-    pred = model(x, t)
-    guided = pred + scale * (attns - blurred)
-    
-    return guided
-```
+- **Differential diffusion** generalizes inpainting from a binary mask to a *continuous* strength map: instead of "regenerate here, freeze there," you specify *how much* to change each pixel. This gives feathered, seamless edits — strong changes in the center of a region fading to none at its edges — without the hard seams a binary mask leaves.
+- **Self-Attention Guidance (SAG)** sharpens detail by blurring the regions the model is *already* attending to and guiding generation away from that blurred version, effectively telling the model to add detail where it matters. It is a CFG-like quality nudge that needs no extra prompt and is exposed as a node/toggle in most tools.
 
 ## Best Practices
 
@@ -778,15 +297,9 @@ def self_attention_guidance(model, x, t, scale=0.5):
 
 ## Conclusion
 
-Advanced techniques open up new possibilities in AI image generation, from precise control over the generation process to optimization for specific use cases. The landscape in 2024 has shifted toward real-time generation, consistency models, and flow-based approaches that challenge traditional diffusion paradigms.
+These techniques fall into three buckets: **control** (latent interpolation, regional prompting, ControlNet windowing) for results prompts can't reach; **speed** (consistency and adversarial distillation, flow matching) that has collapsed 30+ steps toward single-digit counts; and **scale** (tiling, offloading, quantization, automation) that lets a workflow run bigger and run repeatably.
 
-Key trends shaping the future:
-- **Real-time Generation**: Sub-100ms image creation becoming standard
-- **Unified Architectures**: Models handling multiple modalities seamlessly  
-- **Adaptive Computation**: Dynamic resource allocation based on complexity
-- **Neural Compression**: Extreme model compression without quality loss
-
-The key to mastering these techniques is understanding the underlying principles and experimenting with different combinations. As the field evolves rapidly, staying updated with the latest research and community developments will help you leverage new techniques as they emerge. Remember that the most impressive results often come from creative combinations of multiple techniques rather than relying on any single advanced method.
+You rarely implement the underlying math — you consume it as an LCM-LoRA, a Turbo checkpoint, a node, or a toggle. The leverage comes from understanding *what each one does* so you can combine the right few and tune one variable at a time. The most impressive results almost always come from a deliberate stack of techniques, not a single advanced trick.
 
 ## Key Takeaways
 

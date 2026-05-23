@@ -34,47 +34,73 @@ hide_title: true
 
 A good branching strategy minimizes the complexity of managing multiple long-lived branches. It promotes collaboration and continuous integration by encouraging developers to merge changes into the mainline frequently — which means fewer merge conflicts and faster feedback on new features and bug fixes. The four strategies below trade simplicity for control in different ways; the rest of this page works through each, then offers a decision matrix.
 
-## Trunk-Based Branching Strategies
-Trunk-based branching is a software development approach where all developers work together on a single branch, called the "trunk" or "mainline". The primary goal of this approach is to maintain a clean, stable codebase, enabling fast integration and continuous delivery. 
+## Trunk-Based Development
 
-### Benefits of Trunk-Based Development
+In trunk-based development, everyone integrates into a single shared branch — the *trunk* (usually `main`) — at least once a day. Work still happens on branches, but they live for hours, not weeks: a developer cuts a tiny branch from the latest `main`, opens a pull request, and merges back the same day. The bet is that many small, frequent integrations are far cheaper than a few large, painful ones.
 
-- **Faster integration:** Frequent merges help to avoid large, complicated merges and reduce the risk of conflicts.
-- **Improved collaboration:** Developers work on a single branch, fostering better communication and teamwork.
-- **Reduced technical debt:** Short-lived branches and regular merges minimize code drift and keep the codebase clean.
-- **Easier deployment:** A stable mainline enables continuous integration and deployment, reducing the time it takes to release new features.
-- **Simplified process:** The focus on a single branch simplifies the branching strategy and makes it easier to manage.
+```mermaid
+gitGraph
+    commit
+    branch task/a
+    checkout task/a
+    commit
+    checkout main
+    merge task/a
+    branch task/b
+    checkout task/b
+    commit
+    checkout main
+    merge task/b
+    commit
+    branch task/c
+    checkout task/c
+    commit
+    checkout main
+    merge task/c
+```
 
-### Trunk-Based Branching Workflow
+<div class="tip-card">
+  <h4>Why it works</h4>
+  <p>The single biggest source of merge pain is <em>divergence over time</em>. By keeping branches short-lived and merging into one trunk continuously, you keep every developer working against nearly the same code — so conflicts are small and frequent rather than large and rare. It is the default model at Google, Meta, and most high-velocity CI teams.</p>
+</div>
 
-1. **Sync with the mainline:** Update your local mainline branch with the latest changes from the remote repository.
-2. **Create a short-lived feature branch:** Start a new branch for each task, based on the updated mainline. Keep branch names descriptive and concise.
-3. **Implement changes:** Develop the feature or fix the bug in the feature branch.
-4. **Commit frequently:** Commit your changes regularly to the feature branch. Use clear, informative commit messages.
-5. **Sync and test:** Merge the latest changes from the mainline into your feature branch, resolve any conflicts, and run tests.
-6. **Code review:** Submit a pull request for the feature branch. Review the changes with teammates to ensure code quality.
-7. **Merge and delete:** Once the pull request is approved, merge the feature branch into the mainline and delete the feature branch.
+### The Workflow
 
-### Best Practices
+1. **Sync** — pull the latest `main` before starting (`git pull --rebase origin main`).
+2. **Branch small** — cut a short-lived branch for one task: `git switch -c task/cart-totals`.
+3. **Build and commit** — make focused commits with clear messages.
+4. **Re-sync often** — rebase onto `main` regularly so you never drift far.
+5. **Review** — open a pull request; let CI run the test suite automatically.
+6. **Merge and delete** — once green and approved, merge into `main` and delete the branch the same day.
 
-- **Commit often:** Frequent commits help to minimize merge conflicts and simplify the integration process.
-- **Write good commit messages:** Clear, descriptive commit messages make it easier to understand the history of changes.
-- **Automate testing and build processes:** Use continuous integration tools to automate testing and ensure that the mainline remains stable.
-- **Keep branches short-lived:** Limit the lifespan of feature branches to a few days or less to minimize code drift.
-- **Enforce a consistent code style:** Use linting tools and code formatters to maintain consistency across the codebase.
+<div class="pros-cons-grid">
+  <div class="pros-section">
+    <h4>What it buys you</h4>
+    <div class="pro-item">Tiny, low-risk merges — conflicts stay small</div>
+    <div class="pro-item">A continuously releasable mainline</div>
+    <div class="pro-item">Fast feedback; less code drift and technical debt</div>
+    <div class="pro-item">A simple model with no long-lived branches to track</div>
+  </div>
+  <div class="cons-section">
+    <h4>What it demands</h4>
+    <div class="con-item">A strong, fast automated test suite — the trunk must stay green</div>
+    <div class="con-item">Discipline: commit often, branches measured in hours</div>
+    <div class="con-item">Feature flags to hide work-in-progress behind a switch</div>
+    <div class="con-item">Good communication so parallel work does not collide</div>
+  </div>
+</div>
 
-By adopting best practices like frequent commits, short-lived branches, and automated testing, teams can minimize technical debt, reduce merge conflicts, and simplify the development process. This strategy enables faster deployments and continuous delivery, ultimately leading to a more efficient and productive development team.
-
-### Common Pitfalls and Solutions
-
-- **Long-lived branches:** Prolonged branches can lead to significant code drift and difficult merges. Keep branches short-lived to avoid this issue.
-- **Infrequent commits:** Committing changes infrequently can lead to larger, more complex merges. Encourage frequent commits to simplify the integration process.
-- **Lack of automated testing:** Failing to implement automated tests can result in an unstable mainline. Use continuous integration tools to catch issues early on.
-- **Poor communication:** Communication is crucial in trunk-based development. Encourage collaboration through regular meetings, code reviews, and shared documentation.
+<div class="notice--warning">
+  <p><strong>The failure mode is the long-lived branch.</strong> The moment a branch lives for weeks, you forfeit every benefit above and re-create merge hell. If a feature is too big to land in a day, hide the unfinished parts behind a <a href="#feature-flags-with-branching">feature flag</a> and keep merging the pieces.</p>
+</div>
 
 ## Git Flow
 
-Git Flow is a branching model designed by Vincent Driessen that provides a robust framework for managing larger projects. It uses multiple branches for different purposes and defines strict rules for how branches interact.
+Git Flow, designed by Vincent Driessen in 2010, sits at the opposite end of the spectrum from trunk-based development. Instead of one mainline, it maintains two permanent branches and three kinds of temporary ones, each with strict rules for where it branches from and merges back to. That structure buys explicit control over versioned releases — at the cost of significant overhead.
+
+<div class="notice--info">
+  <p><strong>Read this before adopting Git Flow.</strong> Even its author now recommends a simpler model for teams shipping continuously: "if your team is doing continuous delivery of software, I suggest to adopt a much simpler workflow." Git Flow earns its complexity only when you genuinely ship discrete, versioned releases (think installable products, firmware, or multiple supported versions in the field) — not for a web app or SaaS that deploys many times a day.</p>
+</div>
 
 ### Branch Types in Git Flow
 
@@ -107,16 +133,17 @@ gitGraph
     merge hotfix/1.0.1
 ```
 
-**Permanent Branches:**
-- `master/main`: Production-ready code
-- `develop`: Integration branch for features
-
-**Temporary Branches:**
-- `feature/*`: New features
-- `release/*`: Prepare for production release
-- `hotfix/*`: Emergency fixes for production
+| Branch | Lifetime | Branches from | Merges into | Purpose |
+|--------|----------|---------------|-------------|---------|
+| `main` | Permanent | — | — | Tagged, production-ready releases only |
+| `develop` | Permanent | `main` | — | Integration line for completed features |
+| `feature/*` | Temporary | `develop` | `develop` | One new feature each |
+| `release/*` | Temporary | `develop` | `main` + `develop` | Stabilize and version a release |
+| `hotfix/*` | Temporary | `main` | `main` + `develop` | Emergency fix to production |
 
 ### Git Flow Commands
+
+The [`git-flow`](https://github.com/nvie/gitflow) helper wraps the underlying branch/merge/tag steps into higher-level commands (install it separately; it is not part of core Git):
 
 ```bash
 # Initialize Git Flow
@@ -155,7 +182,9 @@ git flow hotfix finish fix-critical-bug
 
 ## GitHub Flow
 
-GitHub Flow is a simplified alternative to Git Flow, designed for teams that deploy regularly. It has only one permanent branch and uses feature branches for all changes.
+GitHub Flow is the popular middle ground: simpler than Git Flow, slightly more structured than pure trunk-based. There is exactly one permanent branch — `main`, which is always deployable — and every change goes through a short-lived feature branch and a pull request. It is the default for most web apps, SaaS products, and small-to-medium teams that deploy frequently.
+
+The one rule that matters: **`main` is always deployable.** Anything merged should be safe to ship immediately.
 
 ### GitHub Flow Workflow
 

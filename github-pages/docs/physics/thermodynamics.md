@@ -107,29 +107,34 @@ The four laws were discovered out of order — the First and Second came first i
 
 ## Thermodynamic Processes
 
-<details>
-<summary><b>Interactive P-V Diagram: Thermodynamic Processes</b></summary>
-<br>
+Starting from one initial state, the four idealized processes each travel to a different end state by holding a single variable fixed. The diagram below shows the four "exit routes" and the constraint each one imposes.
 
 ```mermaid
 graph TD
-    subgraph "P-V Diagram"
-        A[Initial State<br/>P₁, V₁, T₁] -->|Isothermal<br/>T = constant| B[State 2<br/>P₂, V₂, T₁]
-        A -->|Adiabatic<br/>Q = 0| C[State 3<br/>P₃, V₃, T₂]
-        A -->|Isobaric<br/>P = constant| D[State 4<br/>P₁, V₄, T₃]
-        A -->|Isochoric<br/>V = constant| E[State 5<br/>P₅, V₁, T₄]
-    end
-    
-    F[Legend] --> G[Isothermal: PV = constant]
-    F --> H[Adiabatic: PVᵞ = constant]
-    F --> I[Isobaric: P = constant]
-    F --> J[Isochoric: V = constant]
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#ccf,stroke:#333,stroke-width:2px
+    A["Initial state<br/>P1, V1, T1"] -->|"Isothermal: T fixed"| B["State 2<br/>lower P, larger V, same T1"]
+    A -->|"Adiabatic: Q = 0"| C["State 3<br/>lower P and T, larger V"]
+    A -->|"Isobaric: P fixed"| D["State 4<br/>same P, larger V, higher T"]
+    A -->|"Isochoric: V fixed"| E["State 5<br/>lower P and T, same V1"]
+
+    A:::start
+    B:::iso
+    C:::adi
+    D:::isob
+    E:::isoc
+
+    classDef start fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef iso fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
+    classDef adi fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    classDef isob fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px;
+    classDef isoc fill:#fce4ec,stroke:#ad1457,stroke-width:1px;
 ```
 
-</details>
+| Process | Constraint | Curve on a $P$-$V$ diagram |
+|---------|------------|----------------------------|
+| Isothermal | $T$ constant | $PV = \text{const}$ (hyperbola) |
+| Adiabatic | $Q = 0$ | $PV^{\gamma} = \text{const}$ (steeper hyperbola) |
+| Isobaric | $P$ constant | horizontal line |
+| Isochoric | $V$ constant | vertical line |
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://phet.colorado.edu/en/simulation/gas-properties"> Interactive: <b><i>Gas Properties Simulation</i></b></a></p>
 
@@ -477,6 +482,13 @@ Console output shows:
 - Crystal growth
 - Heat treatment of materials
 
+## Advanced Topics: A Graduate Reference
+
+<div class="tip-card">
+  <h4>How to read the rest of this page</h4>
+  <p>Everything above is the working core of classical thermodynamics. The sections that follow are a denser, graduate-level reference: the formal Legendre-transform structure, critical phenomena and the renormalization group, the statistical-mechanical foundations, and modern research directions (stochastic, quantum, and information thermodynamics). They are formula-forward by design — for the microscopic story behind the statistical sections, see <a href="statistical-mechanics.html">Statistical Mechanics</a>, which develops ensembles and the partition function in full.</p>
+</div>
+
 ## Legendre Transformations and Thermodynamic Potentials
 
 ### Mathematical Framework
@@ -518,51 +530,64 @@ $$
 
 ### Maxwell Relations Extended
 
-From the exactness of differentials:
+Each potential is an exact differential, so its mixed second partials are equal. Reading off the equality for every potential gives the full set of Maxwell relations — note the sign flips, which track whether the conjugate pair appears with a $+$ or $-$ in the differential.
 
-| Potential | Variables | Maxwell Relations |
-|-----------|-----------|------------------|
-| U | S,V,N | (∂T/∂V)_{S,N} = -(∂P/∂S)_{V,N} |
-| H | S,P,N | (∂T/∂P)_{S,N} = (∂V/∂S)_{P,N} |
-| F | T,V,N | (∂S/∂V)_{T,N} = (∂P/∂T)_{V,N} |
-| G | T,P,N | (∂S/∂P)_{T,N} = -(∂V/∂T)_{P,N} |
+| Potential | Natural variables | Maxwell relation |
+|-----------|-------------------|------------------|
+| $U$ | $S, V, N$ | $\left(\dfrac{\partial T}{\partial V}\right)_{S,N} = -\left(\dfrac{\partial P}{\partial S}\right)_{V,N}$ |
+| $H$ | $S, P, N$ | $\left(\dfrac{\partial T}{\partial P}\right)_{S,N} = \left(\dfrac{\partial V}{\partial S}\right)_{P,N}$ |
+| $F$ | $T, V, N$ | $\left(\dfrac{\partial S}{\partial V}\right)_{T,N} = \left(\dfrac{\partial P}{\partial T}\right)_{V,N}$ |
+| $G$ | $T, P, N$ | $\left(\dfrac{\partial S}{\partial P}\right)_{T,N} = -\left(\dfrac{\partial V}{\partial T}\right)_{P,N}$ |
 
-### Thermodynamic Square
+### The Thermodynamic Square
 
+A classic mnemonic packs all four potentials and their natural variables into a single square. Each potential sits between its two natural variables, and the Maxwell relations are read off the corners.
+
+```mermaid
+graph LR
+    U["U (S, V)"] --- H["H (S, P)"]
+    F["F (T, V)"] --- G["G (T, P)"]
+    U --- F
+    H --- G
+    U:::pot
+    H:::pot
+    F:::pot
+    G:::pot
+    classDef pot fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
 ```
-    U -------- H
-    |          |
-    |          |
-    F -------- G
-```
 
-Diagonal relationships:
-- U + G = H + F = TS + μN
+The two diagonals of the square satisfy
+
+$$U + G = H + F = TS + \mu N,$$
+
+which is just the Euler relation re-expressed through the four potentials.
 
 ## Critical Phenomena and Phase Transitions
 
 ### Critical Exponents
 
-Near the critical point (T_c), thermodynamic quantities follow power laws:
+Approaching a continuous (second-order) phase transition, thermodynamic quantities diverge or vanish as power laws in the reduced temperature $t = (T - T_c)/T_c$. The exponents are remarkably *universal*: wildly different systems sharing the same dimensionality and symmetry collapse onto the same set of values.
 
-| Quantity | Definition | Exponent |
-|----------|------------|----------|
-| Specific heat | C ∼ |t|^{-α} | α |
-| Order parameter | m ∼ |t|^β | β |
-| Susceptibility | χ ∼ |t|^{-γ} | γ |
-| Correlation length | ξ ∼ |t|^{-ν} | ν |
-| Critical isotherm | m ∼ H^{1/δ} | δ |
-| Correlation function | G(r) ∼ r^{-(d-2+η)} | η |
-
-Where t = (T - T_c)/T_c is the reduced temperature.
+| Quantity | Power law | Exponent |
+|----------|-----------|----------|
+| Specific heat | $C \sim \lvert t \rvert^{-\alpha}$ | $\alpha$ |
+| Order parameter | $m \sim \lvert t \rvert^{\beta}$ | $\beta$ |
+| Susceptibility | $\chi \sim \lvert t \rvert^{-\gamma}$ | $\gamma$ |
+| Correlation length | $\xi \sim \lvert t \rvert^{-\nu}$ | $\nu$ |
+| Critical isotherm | $m \sim H^{1/\delta}$ | $\delta$ |
+| Correlation function | $G(r) \sim r^{-(d-2+\eta)}$ | $\eta$ |
 
 ### Scaling Relations
 
-**Rushbrooke:** α + 2β + γ = 2
-**Griffiths:** α + β(1 + δ) = 2
-**Widom:** γ = β(δ - 1)
-**Fisher:** γ = ν(2 - η)
-**Josephson:** dν = 2 - α (hyperscaling)
+The six exponents are not independent — scaling theory links them through equalities that hold across all universality classes:
+
+$$\begin{aligned}
+&\text{Rushbrooke:} && \alpha + 2\beta + \gamma = 2 \\
+&\text{Griffiths:} && \alpha + \beta(1 + \delta) = 2 \\
+&\text{Widom:} && \gamma = \beta(\delta - 1) \\
+&\text{Fisher:} && \gamma = \nu(2 - \eta) \\
+&\text{Josephson (hyperscaling):} && d\nu = 2 - \alpha
+\end{aligned}$$
 
 ### Landau Theory
 
@@ -875,9 +900,9 @@ def build_phase_classifier():
 
 **Negative temperature systems:** Population inversion
 
-**Black hole thermodynamics:** 
-- Bekenstein-Hawking entropy: S = k_B A/(4l_P²)
-- Hawking temperature: T = ℏc³/(8πGMk_B)
+**Black hole thermodynamics:** A black hole behaves as a thermal object — it carries entropy proportional to its horizon *area* (not its volume) and radiates at a temperature inversely proportional to its mass:
+
+$$S_{BH} = \frac{k_B A}{4 \ell_P^2}, \qquad T_H = \frac{\hbar c^3}{8\pi G M k_B}.$$
 
 ### Biological Systems
 
@@ -935,9 +960,9 @@ $$
 ### Stability Conditions
 
 **Thermodynamic stability requires:**
-1. C_V > 0 (thermal stability)
-2. κ_T > 0 (mechanical stability)
-3. (∂μ/∂N)_{T,V} > 0 (diffusive stability)
+1. $C_V > 0$ (thermal stability — adding heat raises temperature)
+2. $\kappa_T > 0$ (mechanical stability — compressing raises pressure)
+3. $(\partial \mu / \partial N)_{T,V} > 0$ (diffusive stability)
 
 **Convexity of thermodynamic potentials:**
 - S(U,V,N) is concave

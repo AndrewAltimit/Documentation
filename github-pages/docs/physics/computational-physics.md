@@ -68,8 +68,8 @@ Many physical systems involve equations that cannot be solved analytically:
 import numpy as np
 import matplotlib.pyplot as plt
 
-def projectile_with_drag(v0, angle, dt=0.01):
-    """Simulate projectile motion with quadratic air resistance"""
+def projectile_with_drag(v0, angle, dt=0.01, drag=True):
+    """Simulate projectile motion with optional quadratic air resistance"""
     # Constants
     g = 9.81  # gravity (m/s^2)
     rho = 1.225  # air density (kg/m^3)
@@ -86,13 +86,13 @@ def projectile_with_drag(v0, angle, dt=0.01):
     trajectory = [(x, y)]
     
     while y >= 0:
-        # Calculate drag force
+        # Calculate drag force (zero if drag disabled)
         v = np.sqrt(vx**2 + vy**2)
-        Fd = 0.5 * rho * Cd * A * v**2
+        Fd = 0.5 * rho * Cd * A * v**2 if drag else 0.0
         
         # Update velocities
-        ax = -(Fd/m) * (vx/v)
-        ay = -g - (Fd/m) * (vy/v)
+        ax = -(Fd/m) * (vx/v) if v > 0 else 0.0
+        ay = -g - ((Fd/m) * (vy/v) if v > 0 else 0.0)
         
         vx += ax * dt
         vy += ay * dt
@@ -106,10 +106,11 @@ def projectile_with_drag(v0, angle, dt=0.01):
     return np.array(trajectory)
 
 # Compare with and without air resistance
-trajectory_drag = projectile_with_drag(50, 45)
-trajectory_no_drag = projectile_with_drag(50, 45)  # Modify to remove drag
+trajectory_drag = projectile_with_drag(50, 45, drag=True)
+trajectory_no_drag = projectile_with_drag(50, 45, drag=False)
 
 plt.plot(trajectory_drag[:, 0], trajectory_drag[:, 1], label='With air resistance')
+plt.plot(trajectory_no_drag[:, 0], trajectory_no_drag[:, 1], '--', label='Vacuum (no drag)')
 plt.xlabel('Distance (m)')
 plt.ylabel('Height (m)')
 plt.legend()
@@ -122,6 +123,18 @@ plt.show()
 ## Fundamental Numerical Methods
 
 ### Numerical Integration
+
+Numerical integration (quadrature) replaces an integral with a weighted sum of function values. The methods differ in how fast the error shrinks as you add sample points — captured by the **order of convergence**. Higher order means fewer evaluations for the same accuracy, which matters enormously when each evaluation is expensive.
+
+| Method | Idea | Error scaling | Best for |
+|--------|------|---------------|----------|
+| Midpoint / rectangle | flat-top strips | $O(h^2)$ | quick estimates |
+| Trapezoidal | straight-line tops | $O(h^2)$ | smooth 1D functions |
+| Simpson's rule | parabolic tops | $O(h^4)$ | smooth 1D functions, cheap accuracy |
+| Gaussian quadrature | optimal node placement | spectral (very fast) | smooth integrands, few points |
+| Monte Carlo | random sampling | $O(N^{-1/2})$ | high dimensions |
+
+Note the punchline of the last row: Monte Carlo's error falls only as $N^{-1/2}$ regardless of dimension, while grid methods like Simpson's degrade as $O(h^4) = O(N^{-4/d})$ in $d$ dimensions. So in low dimensions deterministic rules win easily, but above $d \approx 4$–$8$ Monte Carlo becomes the only practical choice — the reason it dominates statistical and quantum many-body physics.
 
 #### Riemann Sums to Sophisticated Quadrature
 
@@ -207,7 +220,11 @@ def derivative_schemes(f, x, h=1e-5):
 
 ### Ordinary Differential Equations (ODEs)
 
+Most of physics is differential equations: Newton's laws, Maxwell's equations, the Schrödinger equation. Solving them numerically means stepping the state forward in small increments and accepting some error per step. The art is choosing a scheme that is *accurate* (small error per step), *stable* (errors don't blow up over many steps), and *cheap* (few function evaluations).
+
 #### The Runge-Kutta Family
+
+The workhorse explicit method is **fourth-order Runge-Kutta (RK4)**. Rather than using the slope only at the start of a step (as the crude Euler method does), it samples the derivative at four points across the step and takes a weighted average, cancelling error terms up to fourth order. The result: error per step of $O(h^5)$ and global error $O(h^4)$ — halving the step size cuts the error roughly sixteen-fold, for only four derivative evaluations.
 
 ```python
 def rk4_step(f, t, y, dt):
@@ -386,6 +403,13 @@ def solve_poisson_spectral(f, L=2*np.pi, N=64):
 
 ## Monte Carlo Methods
 
+Monte Carlo methods trade exactness for scalability: instead of evaluating a sum or integral over every point in a vast space, they *sample* it randomly and average. The estimate's error falls as $1/\sqrt{N}$ no matter how many dimensions the space has — the property that makes Monte Carlo indispensable for statistical mechanics (summing over $2^N$ spin configurations), quantum field theory (path integrals), and Bayesian inference. The trade-off is statistical noise: to halve the error you must quadruple the samples.
+
+<div class="insight-card">
+  <h4>The curse — and blessing — of dimensionality</h4>
+  <p>A grid with 100 points per axis needs $100^d$ evaluations in $d$ dimensions: hopeless beyond a handful of axes. Monte Carlo sidesteps this entirely — its $1/\sqrt{N}$ error is <em>independent of dimension</em>. This is why simulating $10^{23}$-particle systems is even thinkable.</p>
+</div>
+
 ### Basic Monte Carlo Principles
 
 Monte Carlo methods use random sampling to solve problems that might be deterministic in principle:
@@ -428,6 +452,8 @@ class MonteCarloSampler:
 ```
 
 ### Markov Chain Monte Carlo (MCMC)
+
+Plain Monte Carlo needs you to draw samples directly from the target distribution — easy for a uniform square, impossible for the Boltzmann distribution $e^{-\beta E}$ over $10^{23}$ interacting particles. **MCMC** solves this by constructing a random walk whose *stationary distribution* is the target: take many small, correlated steps, and the chain spends time in each state in proportion to its probability. The **Metropolis-Hastings** rule makes this concrete — propose a move, then accept it with probability $\min(1, p_{\text{new}}/p_{\text{old}})$. Moves to more probable states are always accepted; moves to less probable ones are accepted just often enough to sample the tails correctly, never requiring the (usually intractable) normalization constant.
 
 ```python
 class MetropolisHastings:
