@@ -449,8 +449,8 @@ git rebase <base-branch>
 git rebase -i <base-commit>
 # Commands: pick, reword, edit, squash, fixup, drop
 
-# Preserve merge commits
-git rebase --preserve-merges <base>
+# Preserve merge commits (--preserve-merges is deprecated)
+git rebase --rebase-merges <base>
 
 # Autosquash fixup commits
 git rebase -i --autosquash

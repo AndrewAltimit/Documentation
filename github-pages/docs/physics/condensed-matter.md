@@ -37,6 +37,11 @@ hide_title: true
   </div>
 </div>
 
+<div class="principle-card">
+  <h4>The big idea: more is different</h4>
+  <p>You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new <strong>emergent</strong> phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the <em>organization</em>. The recurring strategy on this page is to start from the periodic arrangement of atoms (the crystal lattice), see how it reshapes the allowed electron energies (band theory), and then watch genuinely new states of matter emerge when interactions and topology take over.</p>
+</div>
+
 ## Crystal Structure
 
 <div class="crystal-section">

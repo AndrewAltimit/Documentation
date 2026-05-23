@@ -39,7 +39,7 @@ hide_title: true
 
 ## Advantages of Unreal Engine 5 over Unreal Engine 4
 
-Unreal Engine 5, released in 2022 and continuously updated, represents a quantum leap in real-time rendering technology. Building on UE4's solid foundation, UE5 introduces game-changing features that eliminate many traditional technical constraints, allowing creators to focus on artistry and design rather than optimization. Let's explore the revolutionary improvements that make UE5 the most advanced real-time 3D creation tool available.
+Unreal Engine 5, released in 2022 and updated on a roughly quarterly cadence, builds on UE4's architecture while removing several long-standing technical ceilings. The headline shift is that two tasks artists used to spend most of their time on — authoring LODs for geometry and baking lightmaps for static lighting — are now handled automatically by Nanite and Lumen. The table below summarizes where UE5 departs from UE4; each feature is detailed in the sections that follow.
 
 | Area | Unreal Engine 4 | Unreal Engine 5 |
 |------|-----------------|-----------------|
@@ -252,7 +252,12 @@ Material Instances are variations of a base material, allowing you to create mul
 
 ## Lighting
 
-Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as **Directional Lights**, **Point Lights**, **Spot Lights**, and **Sky Lights**.
+Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as **Directional Lights**, **Point Lights**, **Spot Lights**, and **Sky Lights**. Each describes *where* light comes from; how that light bounces and fills a scene is handled by the global illumination system.
+
+<div class="tip-card" markdown="1">
+#### Lumen Changes the Lighting Workflow
+In UE4, indirect light from these sources was typically *baked* into lightmaps — accurate, but static and slow to iterate on. With Lumen enabled (the UE5 default), the same lights produce real-time bounce lighting and reflections that update instantly as you move objects or change the time of day. The practical consequence: you place lights and immediately see the final result, with no bake step. Baked lighting still exists for fixed scenes or low-end hardware where the runtime cost of Lumen is too high.
+</div>
 
 ### Directional Lights
 

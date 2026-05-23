@@ -13,7 +13,26 @@ toc_icon: "cogs"
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master CloudWatch monitoring, CloudFormation IaC, architecture patterns, cost optimization, and production troubleshooting.</p>
 </div>
 
-This comprehensive guide covers CloudWatch monitoring, CloudFormation infrastructure as code, architecture patterns, cost optimization, and troubleshooting. Learn how to build, operate, and optimize production AWS environments.
+Building an application is one problem; *operating* it reliably and affordably is another. This guide covers the operational side of AWS — how you watch a system, codify it, scale it, pay for it, and fix it when it breaks. It is long and reference-oriented; use the table of contents to jump to what you need rather than reading top to bottom.
+
+<div class="key-insights">
+  <div class="insight-card">
+    <h4>Observe</h4>
+    <p>CloudWatch metrics, logs, and alarms so you find out about problems before your users do.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Codify</h4>
+    <p>CloudFormation and CDK turn console clicks into reviewable, repeatable infrastructure.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Architect</h4>
+    <p>Six patterns from static sites to multi-region, plus case studies from companies running at scale.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Optimize & Fix</h4>
+    <p>Cost controls that prevent bill shock and a troubleshooting playbook for the four failure categories.</p>
+  </div>
+</div>
 
 ### Monitoring and Management: Your Cloud Operations Center
 
@@ -2257,7 +2276,7 @@ Start small, think big, and build amazing things. The cloud is your platform for
 - [Compute Services](compute.html) - EC2 and Lambda deployment
 - [Storage Services](storage.html) - S3 and EBS management
 - [Database Services](databases.html) - RDS and DynamoDB
-- [Networking](../networking.html) - VPC and load balancers
+- [Networking & Content Delivery](networking.html) - VPC, load balancers, and CloudFront
 - [Security](security.html) - Security automation and compliance
 - [Terraform](../terraform/) - Alternative IaC approach
 - [Docker](../docker/) - Containerization for deployments

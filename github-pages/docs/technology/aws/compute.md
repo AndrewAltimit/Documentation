@@ -209,12 +209,15 @@ You can't improve what you don't measure. CloudWatch monitors everything.
 ### Your First Cloud Architecture
 
 Congratulations! You've built a real cloud architecture:
-```
-Internet → EC2 (Web Server) → RDS (Database)
-    ↓
-S3 (Static Assets) → CloudFront (CDN)
-    ↓
-CloudWatch (Monitoring Everything)
+
+```mermaid
+flowchart TB
+    Internet([Internet]) --> EC2["EC2<br/>Web Server"]
+    EC2 --> RDS[("RDS<br/>Database")]
+    S3["S3<br/>Static Assets"] --> CF["CloudFront<br/>CDN"]
+    CF --> Internet
+    CW["CloudWatch"] -. "monitors" .-> EC2
+    CW -. "monitors" .-> RDS
 ```
 
 ### Next Steps After the Crash Course
@@ -519,7 +522,7 @@ for line in s3_object['Body'].iter_lines():
 - [AWS Hub](./) - Overview of all AWS documentation
 - [Storage Services](storage.html) - S3 and EBS for your data
 - [Database Services](databases.html) - RDS and DynamoDB
-- [Networking](../networking.html) - VPC and load balancers
+- [Networking & Content Delivery](networking.html) - VPC, load balancers, and CloudFront
 - [Security](security.html) - IAM and security best practices
 - [Infrastructure & Operations](infrastructure.html) - CloudFormation, monitoring, and cost optimization
 - [Kubernetes on AWS](../kubernetes/) - Container orchestration with EKS

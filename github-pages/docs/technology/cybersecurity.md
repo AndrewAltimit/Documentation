@@ -71,33 +71,29 @@ But wait—if the same password always produces the same hash, couldn't attacker
 To defeat rainbow tables, we add "salt"—random data mixed with your password before hashing. Now even if two users have the same password, their hashes are different:
 
 ```python
-import secrets
-import hashlib
+import bcrypt
 
 def secure_password_storage(password):
-    import bcrypt
-    
     # CRITICAL: Never use SHA256 for password hashing - it's too fast!
-    # Use bcrypt, scrypt, or Argon2 instead
-    
-    # Generate salt and hash password with bcrypt
-    # Cost factor 12 is a good default (adjust based on your security needs)
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12))
-    
-    # bcrypt includes the salt in the hash, so no need to store separately
-    return hashed
+    # Use bcrypt, scrypt, or Argon2 instead.
+    #
+    # bcrypt generates a fresh random salt each call and embeds it in the
+    # output, so identical passwords still produce different hashes — and
+    # there is no separate salt to store. Cost factor 12 is a good default;
+    # raise it as hardware gets faster.
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=12))
 
-# For verification:
 def verify_password(password, hashed):
+    # Re-derives the hash using the salt embedded in `hashed`, in constant time
     return bcrypt.checkpw(password.encode('utf-8'), hashed)
 
 # Even identical passwords get different hashes
 pwd = "CommonPassword123"
-salt1, hash1 = secure_password_storage(pwd)
-salt2, hash2 = secure_password_storage(pwd)
-print(f"Same password, different hashes:")
-print(f"Hash 1: {hash1[:32]}...")
-print(f"Hash 2: {hash2[:32]}...")
+hash1 = secure_password_storage(pwd)
+hash2 = secure_password_storage(pwd)
+print("Same password, different hashes:")
+print(f"Hash 1: {hash1.decode()}")
+print(f"Hash 2: {hash2.decode()}")  # differs from hash1, yet both verify
 ```
 
 But modern attackers have GPUs that can compute billions of hashes per second. This is why security experts now recommend specialized password hashing functions like **bcrypt**, **scrypt**, or **Argon2** that are intentionally slow and memory-intensive, making brute-force attacks impractical.

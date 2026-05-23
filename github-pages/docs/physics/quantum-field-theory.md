@@ -172,6 +172,11 @@ Where:
 
 ## Gauge Theories
 
+<div class="principle-card">
+  <h4>The deepest idea in modern physics: forces from symmetry</h4>
+  <p>A free electron's phase is unobservable — multiply its field by $e^{i\alpha}$ everywhere and nothing measurable changes (a <em>global</em> symmetry). Now demand something stronger: that we be free to choose that phase <em>independently at every point in spacetime</em> (a <em>local</em>, or gauge, symmetry). The ordinary derivative ruins this, because comparing the field at neighboring points now mixes in the arbitrary phase choices. To repair it we are <strong>forced</strong> to introduce a new field that "connects" the phases from point to point — and that field turns out to be precisely the photon. The electromagnetic force is not added by hand; it is the unavoidable consequence of insisting on local phase freedom. Repeat the argument with larger symmetry groups and you generate the $W$/$Z$ bosons ($SU(2)$) and the gluons ($SU(3)$). This single principle organizes the entire Standard Model.</p>
+</div>
+
 ### Gauge Invariance
 
 Local symmetries lead to gauge fields:

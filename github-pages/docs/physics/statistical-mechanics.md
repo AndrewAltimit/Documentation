@@ -155,6 +155,11 @@ hide_title: true
   </div>
 </div>
 
+<div class="principle-card">
+  <h4>Why counting microstates yields thermodynamics</h4>
+  <p>Imagine flipping 100 coins. Every specific sequence is equally likely, yet you almost always see close to 50 heads — simply because there are astronomically more ways to arrange "about half heads" than "all heads." A gas of $10^{23}$ particles takes this to the extreme: the overwhelming majority of microstates look macroscopically identical (uniform density, a single temperature), so the system is found in that macrostate with near-certainty. <strong>Entropy</strong> $S = k_B \ln \Omega$ is just the logarithm of how many microstates wear a given macroscopic face, and the Second Law becomes a near-tautology — systems drift toward macrostates that more microstates correspond to. This is the bridge: thermodynamics is what statistics looks like when the numbers are enormous. The challenge is computational, and the tool that makes it tractable is the <em>partition function</em>, introduced next through the various ensembles.</p>
+</div>
+
 ### Statistical Ensembles
 
 <div class="ensemble-container">

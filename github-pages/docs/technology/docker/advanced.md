@@ -506,58 +506,41 @@ Now that we've seen how WebAssembly can function as a container runtime, let's e
 
 ### Advantages of WASM Containers
 
-#### 1. **Startup Performance**
-```python
-# Performance comparison
-startup_times = {
-    "docker_container": 1.2,      # seconds
-    "firecracker_vm": 0.125,      # seconds
-    "wasm_module": 0.001          # seconds (1ms)
-}
+WebAssembly's appeal as a runtime comes down to three properties: it starts almost instantly, it isolates by *capability* rather than by kernel namespace, and its modules are tiny. The figures below are representative order-of-magnitude comparisons (exact numbers vary by workload and host); treat them as relative, not absolute.
 
-memory_overhead = {
-    "docker_container": 50,       # MB
-    "firecracker_vm": 150,        # MB
-    "wasm_module": 1              # MB
-}
-```
+#### Startup time and footprint
 
-#### 2. **Security Model**
+| Metric | Docker container | Firecracker microVM | WASM module |
+|--------|------------------|---------------------|-------------|
+| Cold start | ~1 s | ~125 ms | ~1 ms |
+| Memory overhead | ~50 MB | ~150 MB | ~1-5 MB |
+| Disk footprint | 100 MB - 1 GB | 100 MB - 1 GB | 1-10 MB |
+| CPU overhead | 5-10% | 5-15% | under 1% |
 
-WASM provides strong isolation through:
+The sub-millisecond cold start is the headline number: it makes WASM attractive for serverless and edge workloads where a traditional container's ~1 second startup dominates request latency.
+
+#### Capability-based security
+
+A container restricts a process *after* it has full access to a shared kernel — you drop capabilities and add seccomp profiles to claw privileges back. WebAssembly inverts this: a module starts with **no** access to the host and can only touch resources its host explicitly hands it (a pre-opened directory, a socket, a clock). There is no ambient authority to escape from.
 
 ```rust
-// Capability-based security model
+// A WASI module can only open files under a directory the host pre-opened.
+// Without that grant, path_open simply fails — the module never had access.
 use wasi::{Errno, Fd};
 
-// WASM modules must be explicitly granted capabilities
-fn open_file(path: &str) -> Result<Fd, Errno> {
-    // Only works if file access capability was granted
-    unsafe { wasi::path_open(
-        3,  // Directory file descriptor
-        0,  // Dirflags
-        path,
-        0,  // Open flags
-        0,  // Rights base
-        0,  // Rights inheriting
-        0,  // Fd flags
-    ) }
+fn open_under_preopened(dir_fd: Fd, path: &str) -> Result<Fd, Errno> {
+    unsafe {
+        wasi::path_open(
+            dir_fd, // a directory FD the host chose to expose
+            0,      // dirflags
+            path,
+            0,      // open flags
+            0,      // rights base
+            0,      // rights inheriting
+            0,      // fd flags
+        )
+    }
 }
-```
-
-#### 3. **Resource Efficiency**
-
-```yaml
-# Resource comparison
-traditional_container:
-  cpu_overhead: "5-10%"
-  memory_overhead: "50-200MB"
-  disk_footprint: "100MB-1GB"
-  
-wasm_container:
-  cpu_overhead: "<1%"
-  memory_overhead: "1-5MB"
-  disk_footprint: "1-10MB"
 ```
 
 These advantages make WebAssembly particularly attractive for modern cloud-native applications. But how do we manage WebAssembly containers at scale? The answer lies in integrating with existing orchestration platforms.
@@ -658,29 +641,20 @@ class ContainerMigrationStrategy:
 
 To make informed decisions about migration, it's essential to understand the real-world performance characteristics of WebAssembly containers compared to traditional Docker containers.
 
-### Performance Benchmarks
+### Performance Characteristics
 
-```python
-# Real-world performance comparison
-import matplotlib.pyplot as plt
+The table below sketches how the two runtimes compare across a few common workload shapes. Startup and memory are reported in the same units across rows so the trend is visible; per-request latency is roughly comparable once warm, which is the key takeaway — **WASM's win is in cold start and footprint, not steady-state throughput.**
 
-benchmarks = {
-    "HTTP Request Handler": {
-        "docker": {"startup": 1200, "request": 0.5, "memory": 50},
-        "wasm": {"startup": 1, "request": 0.6, "memory": 2}
-    },
-    "Image Processing": {
-        "docker": {"startup": 1500, "request": 10, "memory": 200},
-        "wasm": {"startup": 2, "request": 12, "memory": 20}
-    },
-    "API Gateway": {
-        "docker": {"startup": 1000, "request": 0.2, "memory": 100},
-        "wasm": {"startup": 0.5, "request": 0.25, "memory": 5}
-    }
-}
-```
+| Workload | Runtime | Cold start | Per-request latency | Memory |
+|----------|---------|-----------|---------------------|--------|
+| HTTP request handler | Docker | ~1200 ms | ~0.5 ms | ~50 MB |
+| HTTP request handler | WASM | ~1 ms | ~0.6 ms | ~2 MB |
+| Image processing | Docker | ~1500 ms | ~10 ms | ~200 MB |
+| Image processing | WASM | ~2 ms | ~12 ms | ~20 MB |
+| API gateway | Docker | ~1000 ms | ~0.2 ms | ~100 MB |
+| API gateway | WASM | ~0.5 ms | ~0.25 ms | ~5 MB |
 
-These benchmarks demonstrate WebAssembly's strengths in startup time and memory efficiency. As the technology matures, we can expect even more improvements. Let's look at what's on the horizon.
+Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services. As the technology matures, we can expect even more improvements. Let's look at what's on the horizon.
 
 ### Future Developments
 
@@ -715,41 +689,20 @@ pub mod app {
 }
 ```
 
-## Bringing It All Together
+## Putting It Into Practice
 
-This comprehensive journey through Docker and container technology has taken us from fundamental concepts to advanced production patterns. We've explored:
+The patterns on this page — sidecars, distroless images, multi-stage builds, and WASM runtimes — all serve the same goals: smaller attack surface, faster delivery, and predictable behavior at scale. Which ones matter most depends on your role.
 
-### What We've Covered
-
-1. **Why Docker Matters**: Understanding the real problems Docker solves - from "it works on my machine" to efficient resource utilization
-
-2. **Practical Examples**: Real-world Docker usage patterns and commands
-
-3. **Deep Technical Knowledge**: 
-   - Container vs VM architecture
-   - Docker's internal architecture (OCI runtime, containerd, CNI)
-   - Storage options (volumes, bind mounts, tmpfs)
-   - Networking drivers (bridge, host, overlay, macvlan)
-   - Security best practices and hardening techniques
-
-4. **Production Readiness**:
-   - Performance optimization strategies
-   - Docker Swarm orchestration
-   - CI/CD integration patterns
-   - Real-world case studies and design patterns
-
-5. **The Future**: WebAssembly as a next-generation container runtime
-
-### Key Takeaways for Different Audiences
+### Where to Focus by Role
 
 <div class="takeaway-grid">
   <div class="takeaway-card">
-    <h4><i class="fas fa-book"></i> Getting Started</h4>
+    <h4><i class="fas fa-book"></i> Newcomers</h4>
     <ul>
-      <li>Start with the crash course - get hands-on immediately</li>
-      <li>Master the basic commands before diving deep</li>
-      <li>Use Docker Compose for multi-container apps</li>
-      <li>Always follow security best practices from day one</li>
+      <li>Solidify the basics in <a href="fundamentals.html">Fundamentals</a> before adopting these patterns</li>
+      <li>Reach for Docker Compose before any orchestrator</li>
+      <li>Adopt the sidecar pattern only once a single container is too limiting</li>
+      <li>Follow security best practices from day one, not as a retrofit</li>
     </ul>
   </div>
   
@@ -784,61 +737,22 @@ This comprehensive journey through Docker and container technology has taken us 
   </div>
 </div>
 
-### Your Next Steps
+### The Modern Toolchain
 
-1. **Practice**: Build and deploy a real application using Docker
-2. **Experiment**: Try different networking modes and storage options
-3. **Secure**: Implement security scanning in your workflow
-4. **Scale**: Deploy a multi-node Swarm cluster or explore Kubernetes
-5. **Innovate**: Experiment with WebAssembly for suitable workloads
+The ecosystem around Docker has matured well beyond the original CLI and daemon. The tools below are worth knowing because they change how you build, scan, and run images day to day.
 
-### The Container Ecosystem Evolution
+| Area | Tool | What it gives you |
+|------|------|-------------------|
+| Supply chain | Docker Scout | Vulnerability scanning and SBOM generation |
+| Supply chain | Build attestations | SLSA provenance baked into the image |
+| Build | BuildKit | The default builder: parallel stages, cache mounts, secrets |
+| Build | Docker Build Cloud | Remote, shared builders for faster CI |
+| Runtime | containerd | The OCI runtime Docker and Kubernetes share |
+| Dev loop | Compose Watch | Auto-sync source into running containers |
 
-The container landscape continues to evolve rapidly:
+**Drop-in alternatives** are also worth tracking. **Podman** runs daemonless, rootless containers with a Docker-compatible CLI; **Colima**, **Rancher Desktop**, and **OrbStack** are lighter Docker Desktop replacements for macOS. WASM runtimes (via `runwasi`/`crun`) sit at the other end of the spectrum for ultra-light, sandboxed workloads.
 
-- **Today**: Docker dominates with mature tooling and vast ecosystem
-- **Emerging**: WebAssembly offers new possibilities for lightweight, secure containers
-- **Future**: Hybrid approaches combining traditional containers and WASM
-
-### Docker Updates
-
-**Docker Desktop Enhancements**:
-- **Docker Scout**: Built-in vulnerability scanning and SBOM generation
-- **Docker Build Cloud**: Remote builders for faster CI/CD
-- **Docker Extensions**: Ecosystem of third-party tools
-- **Compose Watch**: Automatic sync for development
-
-**Container Runtime Evolution**:
-- **containerd 2.0**: Improved performance and features
-- **BuildKit**: Default builder with enhanced caching
-- **Docker Init**: AI-powered Dockerfile generation
-- **Attestations**: Supply chain security with SLSA
-
-**Alternative Runtimes**:
-- **Podman**: Daemonless, rootless containers
-- **Colima**: Lightweight Docker Desktop alternative for Mac
-- **Rancher Desktop**: Kubernetes-focused container management
-- **OrbStack**: Fast, lightweight Docker Desktop alternative
-
-Remember, containerization is not just about technology - it's about enabling:
-- Faster development cycles
-- More reliable deployments
-- Better resource utilization
-- Improved team collaboration
-- Greater application portability
-
-### Final Thoughts
-
-Docker has fundamentally changed how we build, ship, and run applications. Whether you're containerizing a simple web app or architecting a complex microservices platform, the principles remain constant: consistency, isolation, and portability.
-
-As you continue your Docker journey:
-- Stay curious about new developments
-- Share knowledge with your team
-- Contribute to the community
-- Always consider security and performance
-- Choose the right tool for each job
-
-The future of application deployment is containerized, and you're now equipped with the knowledge to be part of that future.
+The durable principles do not change with the tooling: build for **consistency, isolation, and portability**, and choose the lightest runtime that meets your isolation needs.
 
 ## Related Docker Documentation
 
@@ -847,11 +761,6 @@ The future of application deployment is containerized, and you're now equipped w
 - [Terraform](../terraform/) - Infrastructure as code for container deployments
 - [CI/CD Pipelines](../ci-cd.html) - Docker in continuous integration workflows
 - [AWS](../aws/) - ECS, EKS, and cloud container services
-
-<div class="cta-section">
-  <h3><i class="fas fa-rocket"></i> Ready to Start?</h3>
-  <p>Begin with a simple <code>docker run hello-world</code> and build from there. The container revolution awaits!</p>
-</div>
 
 ---
 

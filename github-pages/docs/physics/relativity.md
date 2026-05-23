@@ -43,6 +43,11 @@ hide_title: true
   <p>Special relativity, published in 1905, deals with objects moving at constant velocities and introduces revolutionary concepts about space and time.</p>
 </div>
 
+<div class="principle-card">
+  <h4>The puzzle that forced the revolution</h4>
+  <p>By the late 1800s, Maxwell's equations predicted a definite speed of light, $c$. But a speed relative to <em>what</em>? Every other wave — sound, water ripples — travels relative to a medium, and adding velocities was obvious: throw a ball forward on a moving train and the ground sees it go faster. Yet the Michelson–Morley experiment found light <em>always</em> travels at $c$, no matter how fast you chase it. Einstein's leap was to take this literally: if everyone measures the same light speed, then the things we assumed were absolute — the rate clocks tick and the length of rulers — must instead bend. Space and time give way so that $c$ can stay fixed. Everything that follows (time dilation, length contraction, $E=mc^2$) is the logical price of that one stubborn fact.</p>
+</div>
+
 <div class="postulates-section">
   <h3><i class="fas fa-gavel"></i> Postulates of Special Relativity</h3>
   
@@ -570,6 +575,18 @@ $$u = \frac{v + w}{1 + vw/c^2}$$
 
 This ensures that no velocity exceeds the speed of light.
 
+<div class="example-card">
+  <h4>Worked Example: chasing a light beam</h4>
+  <p>Suppose a spaceship moves at $v = 0.9c$ relative to Earth and fires a probe forward at $w = 0.9c$ relative to the ship. Classically you would expect $1.8c$ — faster than light. Relativity gives instead:</p>
+  $$u = \frac{0.9c + 0.9c}{1 + (0.9)(0.9)} = \frac{1.8c}{1.81} \approx 0.994c$$
+  <p>The probe still travels below $c$. And if the ship instead fired a <em>light</em> beam ($w = c$), the formula returns exactly $c$ no matter the ship's speed — the second postulate, falling out of the algebra. Speeds combine so that $c$ is an unreachable ceiling, not a wall you can edge past by stacking velocities.</p>
+</div>
+
+<div class="tip-card">
+  <h4>What time dilation and length contraction actually mean</h4>
+  <p>These are not optical illusions or measurement errors — the effects are <em>real and symmetric</em>. Each observer genuinely sees the <strong>other's</strong> clock running slow and ruler shrunk. There is no contradiction because "now" itself is frame-dependent (the relativity of simultaneity): two observers don't agree on which distant events happen at the same time, so they slice spacetime differently. The single quantity everyone <em>does</em> agree on is the invariant interval $ds^2$ — distances and durations are just its shadows cast at different angles.</p>
+</div>
+
 ### Mass-Energy Equivalence
 
 Einstein's most famous equation:
@@ -908,6 +925,11 @@ The event horizon of a black hole:
 
 $$r_s = \frac{2GM}{c^2}$$
 
+<div class="tip-card">
+  <h4>Reading the Schwarzschild metric</h4>
+  <p>Every term in that intimidating line element has a physical job. The factor $(1 - 2GM/rc^2)$ multiplying $dt^2$ is the <strong>gravitational time dilation</strong>: clocks deep in the well tick slower, and at $r = r_s$ it hits zero — time appears to freeze at the horizon as seen from far away. The same factor <em>inverted</em> in front of $dr^2$ stretches radial distances near the mass. Far from the mass ($r \gg r_s$) both factors approach 1 and the metric smoothly becomes flat Minkowski spacetime, recovering special relativity. For the Sun, $r_s \approx 3$ km; for Earth, about 9 mm — which is why we never notice these effects unless mass is crushed into a tiny volume.</p>
+</div>
+
 ### Gravitational Time Dilation
 
 Clocks run slower in stronger gravitational fields:
@@ -976,6 +998,19 @@ A ladder moving at high speed appears contracted and fits in a smaller garage. R
 
 ### Grandfather Paradox
 Time travel could allow changing the past. Resolution: Various theoretical solutions including self-consistent timelines or parallel universes.
+
+### Common Misconceptions
+
+<div class="principle-card">
+  <h4>Pitfalls to avoid</h4>
+  <ul>
+    <li><strong>"Nothing can move faster than light."</strong> More precisely: no <em>information, energy, or massive object</em> can. Pure geometry can — the gap between two separating galaxies grows faster than $c$ in expanding spacetime, and a laser spot swept across the Moon can outrun light, because neither carries a signal.</li>
+    <li><strong>"Mass increases with speed."</strong> An older convention; modern usage keeps the <em>rest mass</em> $m$ invariant and puts the speed dependence in momentum $p = \gamma m v$ and energy $E = \gamma m c^2$. Saying mass grows is a needless source of confusion.</li>
+    <li><strong>"The twin paradox is a real paradox."</strong> It isn't. The situation is not symmetric: only the traveling twin changes frames (accelerates to turn around), so only the traveling twin ages less. The asymmetry resolves it cleanly.</li>
+    <li><strong>"Time dilation means the moving clock is broken."</strong> No clock malfunctions. Identical, perfect clocks simply measure different elapsed proper times along different worldlines through spacetime — like two roads of different length between the same cities.</li>
+    <li><strong>"$E=mc^2$ only applies to nuclear bombs."</strong> It applies to everything. A charged battery, a compressed spring, and a hot cup of coffee all weigh fractionally more than their de-energized counterparts; the effect is just immeasurably tiny outside nuclear and particle processes.</li>
+  </ul>
+</div>
 
 ## Mathematical Tools
 

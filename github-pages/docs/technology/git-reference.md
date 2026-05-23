@@ -9,11 +9,18 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive command syntax and examples for version control</p>
 </div>
 
-Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This comprehensive reference covers essential Git commands, workflows, and the latest features introduced in 2023-2024.
+<div class="intro-card">
+  <p class="lead-text">This page is the <strong>lookup reference</strong>: the commands you reach for daily, the flags that are easy to forget, and the recovery moves you need exactly once — under pressure. It is organized by task (initialize, stage, branch, sync, undo, recover) so you can jump straight to the operation in front of you rather than read top to bottom.</p>
+</div>
 
 <div class="tip-card">
   <h4>This is the lookup page</h4>
-  <p>Treat this as a <strong>command cheat sheet</strong> — scan or search for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git.html">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
+  <p>Treat this as a <strong>command cheat sheet</strong> — scan or use your browser's find (Ctrl/Cmd-F) for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git.html">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
+</div>
+
+<div class="tip-card">
+  <h4>Two habits that prevent most lost work</h4>
+  <p>Before any history-rewriting command (<code>reset --hard</code>, <code>rebase</code>, <code>commit --amend</code> on shared work), remember: (1) <code>git reflog</code> records where <code>HEAD</code> has been, so almost nothing is truly gone — you can usually <code>git reset --hard HEAD@{n}</code> back to safety; (2) when collaborating, prefer <code>git push --force-with-lease</code> over <code>--force</code>, so you never silently clobber a teammate's pushed commits.</p>
 </div>
 
 ## Repository Initialization
@@ -365,12 +372,15 @@ git reset --hard HEAD~n
 git checkout <new-branch>
 ```
 
-**Large File Issues**
+**Large File Issues** (purge a big/sensitive file from all history)
 ```bash
-git filter-branch --tree-filter 'rm -f <large-file>' HEAD
-# Or use modern alternative
+# Preferred: git-filter-repo (fast, safe; install via pip/package manager)
 git filter-repo --path <large-file> --invert-paths
+
+# Legacy fallback only — git filter-branch is deprecated and error-prone
+git filter-branch --tree-filter 'rm -f <large-file>' HEAD
 ```
+> Rewriting history changes every downstream commit hash. Coordinate with collaborators and force-push afterward; everyone else must re-clone or hard-reset.
 
 **Corrupted Repository**
 ```bash
@@ -430,14 +440,15 @@ pre-commit run --all-files          # Run on all files
 
 ### Removing Sensitive Data
 ```bash
-# Remove file from all commits
+# Preferred: git-filter-repo (the tool Git itself now recommends)
+git filter-repo --path <sensitive-file> --invert-paths
+
+# Legacy fallback (filter-branch is deprecated):
 git filter-branch --force --index-filter \
   'git rm --cached --ignore-unmatch <file>' \
   --prune-empty --tag-name-filter cat -- --all
-
-# Modern alternative using git-filter-repo
-git filter-repo --path <sensitive-file> --invert-paths
 ```
+> A leaked secret in history must be treated as compromised even after removal — rotate the credential, then purge it from history.
 
 ### Secret Scanning
 ```bash
