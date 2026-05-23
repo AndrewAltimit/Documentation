@@ -48,6 +48,16 @@ jobs:
           mkdir -p github-pages/assets/css
           cp -r assets/css/* github-pages/assets/css/ || true
 
+      # Lint display-math rendering. Catches unicode-hack equations (e.g.
+      # `iℏ ∂ψ/∂t`) and ASCII-art matrices (`|0 1|`) that should be LaTeX --
+      # a class of regression neither the Jekyll build nor html-proofer detects.
+      # Stdlib-only, so it runs in a bare ruby image with no bundle install.
+      - name: Lint math rendering
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" -w /repo \
+            ruby:3.2-slim ruby scripts/lint_math.rb
+
       # Build + link-check in one multi-arch ruby container (avoids the
       # amd64-only jekyll/jekyll image, which segfaults on arm64 runners).
       # The Jekyll build catches Liquid/front-matter errors; html-proofer

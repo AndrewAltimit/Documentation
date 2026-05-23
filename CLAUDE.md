@@ -101,11 +101,24 @@ HTTPS-enforcement). Note: the site's `advanced/` pages use directory-style
 permalinks (`/docs/advanced/foo/`), so links to them must be `../foo/`, and links
 out of them need an extra `../`.
 
+### Math Rendering Lint
+
+Display equations are math-heavy and easy to regress (a unicode `iℏ ∂ψ/∂t` or an
+ASCII-art `|0 1|` matrix renders wrong under MathJax but breaks neither the build
+nor html-proofer). `scripts/lint_math.rb` guards against this — it flags non-ASCII
+characters and pipe-matrices inside `$$ ... $$` (text-mode `\text{…}` accents are
+allowed). It's stdlib-only and runs as a step in `pr-validation.yml`:
+
+```bash
+ruby scripts/lint_math.rb   # exits non-zero if any display-math problem is found
+```
+
 ## GitHub Actions Integration
 
 Two workflows, both on self-hosted runners:
 
-- **`pr-validation.yml`** — on PRs: builds the site and runs html-proofer link
+- **`pr-validation.yml`** — on PRs: lints display-math rendering
+  (`scripts/lint_math.rb`), builds the site, and runs html-proofer link
   validation against the rendered `_site`. No AI/agent code review runs in this
   pipeline.
 - **`jekyll.yml`** — on push to `main`/`update-docs`: builds the site and deploys
