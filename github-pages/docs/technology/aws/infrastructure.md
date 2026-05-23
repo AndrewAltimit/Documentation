@@ -1382,6 +1382,15 @@ resource "aws_quicksight_data_source" "cost_data" {
   type = "ATHENA"
 }
 ```
+
+Cost categories and Spot Fleet management can be automated in Python with boto3:
+
+```python
+class CostCategoryManager:
+    def __init__(self):
+        self.ce_client = boto3.client('ce')
+
+    def create_cost_categories(self, tag_schema):
         for key in tag_schema.keys():
             self.ce_client.create_cost_category_definition(
                 Name=f'CostCategory-{key}',
@@ -1507,7 +1516,7 @@ A startup's infrastructure journey:
 
 ### Advanced Patterns That Save Your Sanity
 
-```hcl
+```python
 from aws_cdk import (
     core as cdk,
     aws_ec2 as ec2,

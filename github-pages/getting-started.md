@@ -1,11 +1,16 @@
 ---
 layout: docs
 title: Getting Started
+hide_title: true
+toc: true
 ---
 
-# Getting Started Guide
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Getting Started</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">How this notebook is organized and the fastest way to find what you need.</p>
+</div>
 
-Welcome to Andrew's technical documentation! This guide will help you navigate the extensive knowledge base and find the information you need efficiently.
+Welcome to Andrew's technical documentation. This guide explains how the knowledge base is structured and gives you role-based entry points so you can dive straight into what matters to you.
 
 ## Documentation Structure
 
@@ -50,8 +55,8 @@ Quick-access resources:
 ### Content Organization
 - **Depth Levels**: Content ranges from beginner-friendly to research-level
 - **Cross-References**: Related topics are linked throughout for easy navigation
-- **Code Examples**: Practical implementations with copy-paste ready snippets
-- **Recent Updates**: Look for "2024 Updates" tags for the latest content
+- **Code Examples**: Practical implementations with copy-paste-ready snippets (hover any code block for a Copy button)
+- **Cross-References**: Each page ends with a "See Also" block linking related topics
 
 ### Learning Paths
 Depending on your goals:
@@ -63,34 +68,47 @@ Depending on your goals:
 
 ## Quick Start by Role
 
-### 👨‍💻 Software Developers
-**Essential Pages**:
-- [Git Command Reference](docs/technology/git-reference.html) - Comprehensive Git guide with 2024 updates
-- [Docker Essentials](docs/technology/docker-essentials.html) - Container operations and best practices
-- [Kubernetes Guide](docs/technology/kubernetes/) - Production-ready orchestration patterns
-- [CI/CD Pipelines](docs/technology/ci-cd.html) - Automation and deployment strategies
+Pick the path that matches what you do. Each card lists the highest-value pages to start with.
 
-### 🧪 DevOps Engineers
-**Infrastructure Focus**:
-- [Terraform](docs/technology/terraform/) - Infrastructure as Code with multi-cloud examples
-- [AWS Services](docs/technology/aws/) - Comprehensive cloud platform guide
-- [Networking](docs/technology/networking.html) - Modern network architecture
-- [Distributed Systems](docs/distributed-systems/index.html) - Scalability and fault tolerance
-
-### 🎨 AI/ML Practitioners
-**Creative AI Tools**:
-- [Stable Diffusion Fundamentals](docs/ai-ml/stable-diffusion-fundamentals.html) - Understanding diffusion models
-- [ComfyUI Guide](docs/ai-ml/comfyui-guide.html) - Visual workflow creation
-- [LoRA Training](docs/ai-ml/lora-training.html) - Custom model fine-tuning
-- [Model Comparison](docs/ai-ml/base-models-comparison.html) - Choose the right model
-- [Advanced Techniques](docs/ai-ml/advanced-techniques.html) - Professional workflows
-
-### 🔬 Physics & Research
-**Theoretical Foundations**:
-- [Quantum Mechanics](docs/physics/quantum-mechanics.html) - Wave functions to entanglement
-- [Quantum Computing](docs/technology/quantumcomputing.html) - From qubits to algorithms
-- [Advanced Mathematics](docs/advanced/ai-mathematics/) - Graduate-level theory
-- [Research Papers](docs/advanced/index.html) - Latest academic content
+<div class="command-grid">
+  <div class="nav-card">
+    <h4><i class="fas fa-laptop-code"></i> Software Developers</h4>
+    <ul>
+      <li><a href="docs/technology/git-reference.html">Git Command Reference</a></li>
+      <li><a href="docs/technology/docker-essentials.html">Docker Essentials</a></li>
+      <li><a href="docs/technology/kubernetes/">Kubernetes Guide</a></li>
+      <li><a href="docs/technology/ci-cd.html">CI/CD Pipelines</a></li>
+    </ul>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-cloud"></i> DevOps Engineers</h4>
+    <ul>
+      <li><a href="docs/technology/terraform/">Terraform (multi-cloud IaC)</a></li>
+      <li><a href="docs/technology/aws/">AWS Services</a></li>
+      <li><a href="docs/technology/networking.html">Networking</a></li>
+      <li><a href="docs/distributed-systems/index.html">Distributed Systems</a></li>
+    </ul>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-palette"></i> AI / ML Practitioners</h4>
+    <ul>
+      <li><a href="docs/ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></li>
+      <li><a href="docs/ai-ml/comfyui-guide.html">ComfyUI Guide</a></li>
+      <li><a href="docs/ai-ml/lora-training.html">LoRA Training</a></li>
+      <li><a href="docs/ai-ml/base-models-comparison.html">Model Comparison</a></li>
+      <li><a href="docs/ai-ml/advanced-techniques.html">Advanced Techniques</a></li>
+    </ul>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-microscope"></i> Physics & Research</h4>
+    <ul>
+      <li><a href="docs/physics/quantum-mechanics.html">Quantum Mechanics</a></li>
+      <li><a href="docs/technology/quantumcomputing.html">Quantum Computing</a></li>
+      <li><a href="docs/advanced/ai-mathematics/">Advanced Mathematics</a></li>
+      <li><a href="docs/advanced/index.html">Research Hub</a></li>
+    </ul>
+  </div>
+</div>
 
 ## Tips for Maximum Value
 

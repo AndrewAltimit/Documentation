@@ -107,6 +107,24 @@ resource "aws_dynamodb_table" "locks" {
 
 **Important:** Create the S3 bucket and DynamoDB table before configuring the backend. You cannot use Terraform to create its own state storage (chicken-and-egg problem).
 
+The diagram below shows why remote state with locking is essential for teams: the lock table serializes concurrent `apply` runs so two engineers can never corrupt the state file at the same time.
+
+```mermaid
+sequenceDiagram
+    participant A as Engineer A
+    participant B as Engineer B
+    participant L as DynamoDB Lock
+    participant S as S3 State
+    A->>L: acquire lock
+    L-->>A: granted
+    B->>L: acquire lock
+    L-->>B: denied (held by A)
+    A->>S: read state, apply, write state
+    A->>L: release lock
+    B->>L: acquire lock
+    L-->>B: granted
+```
+
 ---
 
 ## Common State Operations
@@ -377,4 +395,61 @@ module "vpc" {
 - You want to benefit from community best practices
 
 The [Terraform Registry](https://registry.terraform.io/) has thousands of modules for common infrastructure patterns.
+
+### How Modules Compose
+
+A root module wires together child modules, passing outputs from one as inputs to another. The diagram shows a typical environment composing reusable network, compute, and database modules:
+
+```mermaid
+flowchart TB
+    Root["Root Module<br/>(environments/prod)"]
+    Root --> Net["module.network<br/>VPC, subnets"]
+    Root --> Comp["module.compute<br/>EC2, ASG"]
+    Root --> DB["module.database<br/>RDS"]
+    Net -->|"vpc_id, subnet_ids (outputs)"| Comp
+    Net -->|"subnet_ids (outputs)"| DB
+```
+
+Each module is a self-contained directory of `.tf` files with its own variables (inputs) and outputs. The same network module can be reused across dev, staging, and prod with different variable values.
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Committing state to git:</strong> <code>terraform.tfstate</code> contains secrets in plaintext and causes merge conflicts. Always use a remote backend and add it to <code>.gitignore</code>.</li>
+    <li><strong>No state locking:</strong> Without a lock table, two concurrent applies can corrupt state. Always pair the S3 backend with a DynamoDB lock table.</li>
+    <li><strong>Editing state by hand:</strong> Use <code>terraform state mv/rm/import</code> rather than editing the JSON. Manual edits are easy to get wrong and hard to undo.</li>
+    <li><strong>Over-modularizing early:</strong> Premature abstraction makes simple changes painful. Extract a module only once you genuinely reuse the pattern.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>State Is the Source of Truth</h4>
+    <p>Terraform compares your config against state to compute a minimal change set. Protect it like production data.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Remote State for Teams</h4>
+    <p>Store state in S3/GCS/Azure Blob with locking so collaborators never overwrite each other.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Modules = Reusable Patterns</h4>
+    <p>Package infrastructure into modules with clear inputs and outputs, then compose them per environment.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Manipulate State Safely</h4>
+    <p>Use <code>terraform state</code> subcommands and <code>import</code> rather than hand-editing the JSON file.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Core Concepts](core-concepts.html) - HCL, providers, and the plan/apply workflow
+- [Enterprise Patterns](patterns.html) - Multi-region, compliance, and testing at scale
+- [Advanced Topics](advanced.html) - Meta-programming and Policy as Code
+- [AWS Cloud Services](../aws/) - The infrastructure Terraform commonly provisions
+- [Kubernetes](../kubernetes/) - Provision clusters and deploy with Terraform
 

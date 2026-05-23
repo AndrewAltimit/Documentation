@@ -35,6 +35,11 @@ hide_title: true
   </div>
 </div>
 
+<div class="tip-card">
+  <h4>Which Git page do you want?</h4>
+  <p>This page is the <strong>architecture and internals deep dive</strong> — the object model, the commit DAG, and how Git works under the hood. If you instead want to <em>get started</em>, read the <a href="git-crash-course.html">Git Crash Course</a>; to <em>look up a command</em>, the <a href="git-reference.html">Git Command Reference</a>; for <em>team workflow</em>, <a href="branching.html">Branching Strategies</a>.</p>
+</div>
+
 ## What is Git?
 
 Git is a **distributed version control system** created by Linus Torvalds in 2005 for Linux kernel development. Unlike centralized systems (SVN, Perforce), Git:
@@ -85,6 +90,22 @@ Git implements a content-addressable filesystem with four fundamental object typ
 - Point to any Git object
 - Include tagger information
 - Cryptographically signable
+
+These objects compose into a graph: each **commit** points to one **tree** (the project snapshot) and to its **parent** commit(s). Trees point to **blobs** (file contents) and nested trees. Following parent links backward traces the full history as a directed acyclic graph (DAG).
+
+```mermaid
+flowchart RL
+    C2["commit C2<br/>(parent: C1)"] --> C1["commit C1<br/>(root)"]
+    C2 --> T2["tree /"]
+    C1 --> T1["tree /"]
+    T2 --> Bsrc["tree src/"]
+    T2 --> Breadme["blob README"]
+    Bsrc --> Bmain["blob main.py"]
+    T1 --> Breadme
+    HEAD["HEAD → main"] --> C2
+```
+
+Because objects are addressed by the hash of their content, identical files anywhere in history share a single blob, and any tampering changes the hash — giving Git both deduplication and cryptographic integrity.
 
 ### Storage Model
 

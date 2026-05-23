@@ -191,6 +191,15 @@ At its heart, machine learning is about finding patterns in data. Statistical le
 - **Stochastic Methods**: How to learn from large datasets efficiently
 - **Momentum and Acceleration**: Making optimization faster and more stable
 
+At the heart of training is a simple update rule: nudge each parameter $\theta$ a small step in the
+direction that most reduces the loss $\mathcal{L}$, scaled by the learning rate $\eta$:
+
+$$\theta_{t+1} = \theta_t - \eta\,\nabla_\theta \mathcal{L}(\theta_t)$$
+
+Stochastic gradient descent (SGD) estimates $\nabla_\theta \mathcal{L}$ from a small mini-batch
+rather than the full dataset, trading a noisier gradient for vastly faster iterations. Optimizers
+like Adam adapt $\eta$ per parameter using running estimates of the gradient's mean and variance.
+
 <div class="code-reference">
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py">machine_learning_foundations.py</a>
 </div>
@@ -1050,10 +1059,16 @@ Remember those AI-generated images that look impossibly real? They're created us
 
 **Score-based diffusion models use continuous-time stochastic differential equations:**
 
-- **Forward SDE**: dx = f(x,t)dt + g(t)dw gradually adds noise
-- **Reverse SDE**: dx = [f(x,t) - g²(t)∇ₓlog p_t(x)]dt + g(t)dw̄ 
-- **Score Matching**: Learn ∇ₓlog p_t(x) via denoising
-- **Variance Preserving**: σ(t) = σ_min(σ_max/σ_min)^t
+- **Forward SDE** gradually adds noise:
+
+$$d\mathbf{x} = f(\mathbf{x}, t)\,dt + g(t)\,d\mathbf{w}$$
+
+- **Reverse SDE** runs the process backward to generate samples:
+
+$$d\mathbf{x} = \left[f(\mathbf{x}, t) - g(t)^2 \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right]dt + g(t)\,d\bar{\mathbf{w}}$$
+
+- **Score Matching**: learn the score $\nabla_{\mathbf{x}} \log p_t(\mathbf{x})$ via denoising
+- **Variance schedule**: $\sigma(t) = \sigma_{\min}\left(\sigma_{\max}/\sigma_{\min}\right)^{t}$
 
 **Key advantages:**
 - Continuous time formulation enables flexible sampling
@@ -1086,10 +1101,16 @@ While score-based models work in continuous time, researchers found that discret
 
 **Denoising Diffusion Probabilistic Models (DDPM) use discrete timesteps:**
 
-- **Forward Process**: q(x_t|x_0) = N(x_t; √ᾱ_t x_0, (1-ᾱ_t)I)
-- **Reverse Process**: p_θ(x_{t-1}|x_t) learned via neural network
-- **Training Objective**: E_t,ε[||ε - ε_θ(x_t, t)||²]
-- **Variance Schedule**: β_t controls noise level at each step
+- **Forward process** (closed form at any step $t$):
+
+$$q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{\bar\alpha_t}\,\mathbf{x}_0,\, (1-\bar\alpha_t)\mathbf{I}\right)$$
+
+- **Reverse process**: $p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t)$ learned via a neural network
+- **Training objective** (predict the added noise $\varepsilon$):
+
+$$\mathcal{L}_{\text{simple}} = \mathbb{E}_{t,\,\mathbf{x}_0,\,\varepsilon}\left[\,\left\lVert \varepsilon - \varepsilon_\theta(\mathbf{x}_t, t)\right\rVert^2\,\right]$$
+
+- **Variance schedule**: $\beta_t$ controls the noise level added at each step; $\bar\alpha_t = \prod_{s=1}^{t}(1-\beta_s)$
 
 **Key innovations:**
 - Simplified loss function (predict noise instead of data)
@@ -1307,6 +1328,7 @@ class LatentDiffusionModel(nn.Module):
         # Decode to image space
         images = self.decode_latents(latents)
         return images
+```
 
 ### Key Diffusion Model Architectures
 
@@ -1392,11 +1414,14 @@ As AI systems become more powerful, researchers are discovering surprising patte
 
 **Empirical scaling laws guide optimal model and data allocation:**
 
-- **Chinchilla Law**: N_opt ∝ C^(β/(α+β)), D_opt ∝ C^(α/(α+β))
-- **Loss Prediction**: L = E + A/N^α + B/D^β 
-- **Optimal Ratio**: ~20 tokens per parameter (being challenged by models like Llama 3)
-- **Compute-Optimal**: Balance model size and training data
-- **Note**: Llama 3 trained on 15T tokens (100x parameters), suggesting benefits beyond Chinchilla optimal
+- **Loss prediction** as a function of parameters $N$ and data $D$:
+
+$$L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}$$
+
+  where $E$ is the irreducible loss and $A, B, \alpha, \beta$ are fit empirically.
+- **Chinchilla compute-optimal allocation** for a budget $C$: $N_{\text{opt}} \propto C^{\,\beta/(\alpha+\beta)}$, $D_{\text{opt}} \propto C^{\,\alpha/(\alpha+\beta)}$
+- **Optimal ratio**: ~20 tokens per parameter (now challenged — Llama 3 trained on 15T tokens, far past Chinchilla-optimal, for better inference-time efficiency)
+- **Compute-optimal**: balance model size against training data rather than just scaling parameters
 
 **Key findings:**
 - Most models are significantly undertrained
@@ -1752,6 +1777,16 @@ Ready to build something? Here are the tools and frameworks that researchers and
 5. **Interpretability**: TransformerLens, Anthropic's Constitutional AI, OpenAI's Neuron Explanations
 6. **Code Generation**: GitHub Copilot X, Amazon CodeWhisperer, Cursor, Codeium
 7. **Open Source LLMs**: Llama 3, Mistral, Phi-3, OpenHermes, WizardCoder
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Learning is optimization.** Training reduces to following the gradient downhill: $\theta_{t+1} = \theta_t - \eta\nabla_\theta\mathcal{L}$ — everything else is architecture and data.
+- **Depth builds abstraction.** Deep networks learn hierarchical features; the transformer's self-attention made long-range, parallel modeling practical and now dominates language and vision.
+- **Generative models reverse a known process.** Diffusion models learn to denoise via $\mathcal{L} = \mathbb{E}[\lVert\varepsilon - \varepsilon_\theta(\mathbf{x}_t,t)\rVert^2]$, turning random noise into structured images.
+- **Scale is predictable — to a point.** Loss follows power laws in parameters and data ($L = E + A/N^\alpha + B/D^\beta$), but data quality and compute-optimal allocation matter as much as raw size.
+- **Capability and responsibility scale together.** Fairness, interpretability, privacy, and safety are core engineering requirements, not optional add-ons.
+</div>
 
 ## Connecting to Other Technologies
 

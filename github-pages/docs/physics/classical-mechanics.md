@@ -37,6 +37,29 @@ toc_icon: "cog"
 - [Chaos and Complexity](#chaos-theory-and-nonlinear-dynamics)
 - [Connections to Modern Physics](#the-living-edge-of-classical-mechanics)
 
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-rocket"></i>
+    <h4>Force changes motion</h4>
+    <p>Newton's $F = ma$ — objects keep their velocity unless a net force acts.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-recycle"></i>
+    <h4>Symmetry conserves quantities</h4>
+    <p>Energy, momentum, and angular momentum are conserved because of underlying symmetries (Noether).</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-route"></i>
+    <h4>Nature minimizes action</h4>
+    <p>The Lagrangian view: a system follows the path that extremizes $S = \int L\,dt$.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-random"></i>
+    <h4>Determinism has limits</h4>
+    <p>Nonlinear systems can be chaotic — perfectly deterministic yet practically unpredictable.</p>
+  </div>
+</div>
+
 ---
 
 ## The Foundation: Newton's Revolution
@@ -1369,6 +1392,35 @@ Classical mechanics is both an endpoint and a beginning. It's complete in itself
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/sympy/sympy"> Library: <b><i>SymPy - Symbolic Mathematics in Python</i></b></a></p>
 
 ---
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Three formulations, one physics</h4>
+    <p>Newtonian, Lagrangian, and Hamiltonian mechanics are equivalent — but each makes different problems easy and reveals different structure.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Conservation laws come from symmetry</h4>
+    <p>Noether's theorem ties time-translation to energy, space-translation to momentum, and rotation to angular momentum.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Phase space is the natural arena</h4>
+    <p>Hamiltonian dynamics lives in $(q,p)$ phase space, where the geometry (symplectic structure) is preserved by the flow.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Action is fundamental</h4>
+    <p>The principle of least action underlies all of physics and is the bridge to quantum mechanics via the path integral.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Determinism is not predictability</h4>
+    <p>Chaotic systems obey exact laws yet diverge exponentially, limiting long-term prediction (the butterfly effect).</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>It is a limiting case</h4>
+    <p>Classical mechanics emerges from quantum mechanics ($\hbar \to 0$) and relativity ($v \ll c$); know where it breaks down.</p>
+  </div>
+</div>
 
 ## See Also
 

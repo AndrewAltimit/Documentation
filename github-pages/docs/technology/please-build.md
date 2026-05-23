@@ -17,6 +17,27 @@ hide_title: true
 
 Please Build is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This comprehensive guide covers everything from basic setup to advanced features.
 
+<div class="tip-card">
+  <h4>When does a tool like Please earn its keep?</h4>
+  <p>For a single-language app, your language's native tool (<code>go build</code>, <code>npm</code>, <code>cargo</code>) is simpler. Please shines in <strong>polyglot monorepos</strong> where you need one consistent, cached, parallel build across many languages — and where reproducibility and incremental rebuilds across a large dependency graph actually matter.</p>
+</div>
+
+### How Please thinks: the build graph
+
+Every target declares its inputs and dependencies in a `BUILD` file. Please assembles these into a directed graph, then builds only what changed — running independent branches in parallel and reusing cached results for everything else.
+
+```mermaid
+flowchart BT
+    UTILS["//common:utils"] --> LIB["//src:lib"]
+    LIB --> APP["//src:app (binary)"]
+    LIB --> TEST["//src:lib_test"]
+    REQ["//third_party/python:requests"] --> APP
+    style APP fill:#4facfe,color:#fff
+    style TEST fill:#00c9a7,color:#fff
+```
+
+Change `utils` and Please rebuilds `lib`, `app`, and `lib_test`; change only the test, and just the test reruns.
+
 ## Key Features
 
 - **Language Agnostic**: Supports Go, Python, Java, C++, JavaScript, Rust, and more out of the box
@@ -588,6 +609,18 @@ A: Use `--debug` and `--show_all_output` flags, or check `plz-out/log/`
 
 For more FAQs, see the [official FAQ](https://please.build/faq.html).
 
+## Key Takeaways
+
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Please targets polyglot monorepos</strong> — one build system across Go, Python, Java, C++, and more, with a gentler learning curve than Bazel.</li>
+    <li><strong>The build graph drives everything:</strong> declare inputs and deps in <code>BUILD</code> files, and Please rebuilds only what changed.</li>
+    <li><strong>Content-addressed caching plus parallelism</strong> deliver fast, incremental builds; remote caching and execution scale this across a team.</li>
+    <li><strong>Hermetic builds</strong> make results reproducible — the same inputs always produce the same outputs.</li>
+    <li><strong>Use native tooling for single-language projects;</strong> reach for Please when scale, polyglot needs, or reproducibility justify it.</li>
+  </ul>
+</div>
+
 ## Resources
 
 - [Official Documentation](https://please.build/)
@@ -596,3 +629,13 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 - [Please Community Discussions](https://github.com/thought-machine/please/discussions)
 - [Build Language Reference](https://please.build/language.html)
 - [Please FAQ](https://please.build/faq.html) - Common questions and answers
+
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="ci-cd.html">CI/CD</a> — wire Please builds into automated pipelines</li>
+    <li><a href="git.html">Git Version Control</a> — monorepo strategies and large-repo tooling</li>
+    <li><a href="docker/">Docker</a> — package Please build artifacts into container images</li>
+    <li><a href="kubernetes/">Kubernetes</a> — deploy the services Please builds</li>
+  </ul>
+</div>

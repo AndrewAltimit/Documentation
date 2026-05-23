@@ -23,6 +23,21 @@ Let's start with something familiar: what happens when you type a URL and press 
 
 First, your browser needs to find the server. It sends a DNS query to translate the domain name into an IP address. This query itself is a network packet that must navigate through routers, switches, and servers to reach its destination. Along the way, it encounters the same challenges that all network traffic faces: congestion, routing decisions, and potential delays.
 
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant D as DNS Resolver
+    participant S as Web Server
+    B->>D: DNS query: example.com?
+    D-->>B: 93.184.216.34
+    B->>S: TCP SYN (open connection)
+    S-->>B: SYN-ACK
+    B->>S: ACK + TLS handshake
+    B->>S: HTTP GET /
+    S-->>B: 200 OK + HTML
+    Note over B,S: Each arrow is one or more packets routed hop-by-hop
+```
+
 ## Understanding Network Performance
 
 Before diving into protocols and layers, let's understand what makes networks fast or slow. When network engineers talk about performance, they're often dealing with queues—just like lines at a coffee shop.
@@ -462,6 +477,23 @@ While OSI provides a conceptual framework, the internet actually runs on the sim
 4. **Link Layer**: Physical transmission and local delivery (OSI layers 1-2)
 
 This streamlined model reflects how protocols are actually implemented and is what you'll encounter in practice.
+
+As data moves down the sending stack, each layer wraps it in its own header (encapsulation); the receiver peels each header off in reverse:
+
+```mermaid
+flowchart TD
+    APP["Application — HTTP data"] --> T["Transport — + TCP/UDP header (port)"]
+    T --> I["Internet — + IP header (addresses)"]
+    I --> L["Link — + frame header/trailer (MAC)"]
+    L --> WIRE(["bits on the wire"])
+```
+
+| TCP/IP layer | Adds | Example protocols | Addressing |
+|--------------|------|-------------------|------------|
+| Application | Application data | HTTP, DNS, TLS | URLs, hostnames |
+| Transport | Ports, reliability | TCP, UDP, QUIC | Port numbers |
+| Internet | Routing | IP, ICMP | IP addresses |
+| Link | Local framing | Ethernet, Wi-Fi | MAC addresses |
 
 ## IP Addressing: The Internet's Phone Book
 

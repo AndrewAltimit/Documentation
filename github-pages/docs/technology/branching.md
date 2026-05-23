@@ -16,6 +16,20 @@ hide_title: true
 
 Branching strategies are fundamental to modern software development workflows. This guide covers the most widely adopted approaches, their implementation details, and guidance on selecting the right strategy for your project.
 
+<div class="tip-card">
+  <h4>Where this fits among the Git pages</h4>
+  <p>This page is about <strong>team workflow</strong> — how a group structures branches and releases. For the <em>mechanics</em> of branching commands, see the <a href="git-reference.html">Git Command Reference</a>; for a first walkthrough, the <a href="git-crash-course.html">Git Crash Course</a>; for how branches work internally, <a href="git.html">Git Version Control</a>.</p>
+</div>
+
+### At a glance
+
+| Strategy | Long-lived branches | Release model | Complexity | Best fit |
+|----------|--------------------|--------------|------------|----------|
+| Trunk-based | `main` only | Continuous | Low | High-velocity teams, strong CI |
+| GitHub Flow | `main` only | Continuous / frequent | Low | Web apps, SaaS, small–mid teams |
+| GitLab Flow | `main` + env branches | Per-environment | Medium | Teams needing staging/prod gates |
+| Git Flow | `main` + `develop` | Scheduled, versioned | High | Versioned/enterprise software |
+
 ## Overview
 
 A branching strategy is designed to minimize the complexity of managing multiple long-lived branches. It promotes a culture of collaboration and continuous integration by encouraging developers to commit their changes frequently to the mainline. This results in fewer merge conflicts and enables rapid feedback on new features or bug fixes.
@@ -64,16 +78,33 @@ Git Flow is a branching model designed by Vincent Driessen that provides a robus
 
 ### Branch Types in Git Flow
 
-```
-master (main)     ──●────────●────────●──────────────>
-                    │        │        │
-hotfix             │        │    ●───●
-                    │        │   /    
-release            │    ●───●───●
-                    │   /        
-develop      ──●───●───●────●────●────●────●──────>
-                │       \    \    /    /
-feature        │        ●────●  ●────●
+```mermaid
+gitGraph
+    commit
+    branch develop
+    checkout develop
+    commit
+    branch feature/login
+    checkout feature/login
+    commit
+    commit
+    checkout develop
+    merge feature/login
+    branch release/1.0
+    checkout release/1.0
+    commit tag: "rc"
+    checkout main
+    merge release/1.0 tag: "v1.0"
+    checkout develop
+    merge release/1.0
+    checkout main
+    branch hotfix/1.0.1
+    checkout hotfix/1.0.1
+    commit
+    checkout main
+    merge hotfix/1.0.1 tag: "v1.0.1"
+    checkout develop
+    merge hotfix/1.0.1
 ```
 
 **Permanent Branches:**
@@ -128,10 +159,20 @@ GitHub Flow is a simplified alternative to Git Flow, designed for teams that dep
 
 ### GitHub Flow Workflow
 
-```
-main     ──●────●────●────●────●────●──────>
-            \    /    \    /    \    /
-feature      ●──●      ●──●      ●──●
+```mermaid
+gitGraph
+    commit
+    branch feature/a
+    checkout feature/a
+    commit
+    checkout main
+    merge feature/a
+    branch feature/b
+    checkout feature/b
+    commit
+    checkout main
+    merge feature/b
+    commit
 ```
 
 ### Steps in GitHub Flow
@@ -176,12 +217,13 @@ GitLab Flow combines aspects of Git Flow and GitHub Flow with the concept of env
 
 ### Environment Branches
 
-```
-main       ──●────●────●────●────●────●──────>
-              \    \    \    \    \    \
-staging        ●────●────●────●────●────●──────>
-                \        \         \
-production       ●────────●─────────●──────>
+Changes flow in one direction ("upstream first") — merged into `main`, then promoted into each environment branch as it passes its gate:
+
+```mermaid
+flowchart LR
+    F["feature branch"] -->|merge request| MAIN["main"]
+    MAIN -->|deploy + verify| STG["staging"]
+    STG -->|promote when green| PROD["production"]
 ```
 
 ### GitLab Flow Principles
@@ -451,6 +493,7 @@ repos:
 
 Example GitHub Actions workflow:
 
+{% raw %}
 ```yaml
 name: Branch Protection
 on:
@@ -469,10 +512,23 @@ jobs:
             exit 1
           fi
 ```
+{% endraw %}
 
 ## Conclusion
 
 Choosing the right branching strategy depends on your team's needs, project requirements, and deployment practices. Start simple and add complexity only when needed. Remember that the best strategy is one that your team can follow consistently.
+
+## Key Takeaways
+
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Default to simple:</strong> trunk-based or GitHub Flow with one long-lived branch suits most teams; add structure only when a real need appears.</li>
+    <li><strong>Git Flow adds power and overhead:</strong> reserve its <code>develop</code>/<code>release</code>/<code>hotfix</code> branches for versioned or enterprise software with scheduled releases.</li>
+    <li><strong>Short-lived branches</strong> and frequent integration are the single biggest lever against merge conflicts.</li>
+    <li><strong>Enforce the workflow with automation</strong> — branch protection rules, naming checks, and required CI status checks beat documentation alone.</li>
+    <li><strong>Feature flags decouple deploy from release,</strong> enabling continuous delivery even with incomplete features.</li>
+  </ul>
+</div>
 
 ## Related Git Documentation
 

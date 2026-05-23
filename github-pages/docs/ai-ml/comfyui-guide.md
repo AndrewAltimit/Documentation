@@ -174,6 +174,23 @@ This is the simplest working workflow. Every other workflow builds from this fou
 
 Connect them: Checkpoint outputs go to relevant inputs. Text encoders feed positive/negative conditioning to KSampler. EmptyLatentImage feeds latent_image. KSampler output goes to VAEDecode, which feeds SaveImage.
 
+As a node graph, the data flows like this:
+
+```mermaid
+flowchart LR
+    CKPT["CheckpointLoaderSimple"] -->|MODEL| KS["KSampler"]
+    CKPT -->|CLIP| PT["CLIPTextEncode<br/>(positive)"]
+    CKPT -->|CLIP| NT["CLIPTextEncode<br/>(negative)"]
+    CKPT -->|VAE| VD["VAEDecode"]
+    PT -->|CONDITIONING| KS
+    NT -->|CONDITIONING| KS
+    EL["EmptyLatentImage"] -->|LATENT| KS
+    KS -->|LATENT| VD
+    VD -->|IMAGE| SI["SaveImage"]
+```
+
+Notice how the three checkpoint outputs (MODEL, CLIP, VAE) fan out to different nodes — this is the fundamental skeleton every ComfyUI workflow extends.
+
 ### Adding a LoRA
 
 Insert a LoraLoader between CheckpointLoaderSimple and KSampler:
@@ -369,6 +386,16 @@ ComfyUI provides unmatched control over AI image generation through its visual n
 - **Sharing** - JSON workflows capture complete setups
 
 Start with the basic text-to-image workflow, then add complexity as you need it. Each new technique builds on what you have already learned.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Everything is a node.** Data flows left to right; a checkpoint's MODEL/CLIP/VAE outputs fan out to the sampler, text encoders, and decoder.
+- **The minimal graph** is Checkpoint → (CLIPTextEncode ×2 + EmptyLatentImage) → KSampler → VAEDecode → SaveImage. Every advanced workflow extends this.
+- **Caching makes iteration cheap.** Only nodes whose inputs changed re-run, so tweaking a prompt doesn't reload the model.
+- **Insert nodes to extend:** a LoraLoader between checkpoint and sampler, an upscaler after decode, a ControlNet branch into conditioning.
+- **Workflows are portable JSON** — but recipients need the same custom nodes and models.
+</div>
 
 ---
 

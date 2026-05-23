@@ -16,6 +16,17 @@ hide_title: true
 
 A Dockerfile is a recipe for building a Docker image. It defines exactly what goes into your container: the operating system, libraries, configuration, and application code. When you share a Dockerfile, anyone can reproduce your exact environment.
 
+The build-to-deploy pipeline follows the same shape regardless of CI platform: a Dockerfile is built into an image, scanned and tested, pushed to a registry, and then pulled by your runtime.
+
+```mermaid
+flowchart LR
+    DF["Dockerfile"] -->|docker build| IMG["Image"]
+    IMG -->|scan + test| Gate{Pass?}
+    Gate -->|yes| Reg[(Registry)]
+    Gate -->|no| Fail([Fail build])
+    Reg -->|docker pull| Run["Runtime<br/>Swarm · K8s · ECS"]
+```
+
 ### Why Dockerfiles Matter
 
 Consider the following benefits:
@@ -287,6 +298,7 @@ Docker enables consistent builds across all CI/CD platforms. The pattern is alwa
 
 The most common approach for GitHub-hosted projects:
 
+{% raw %}
 ```yaml
 # .github/workflows/docker.yml
 name: Docker Build
@@ -312,6 +324,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 ```
+{% endraw %}
 
 ### GitLab CI/CD
 
@@ -335,4 +348,45 @@ build:
 | Tag with commit SHA | Traceable deployments |
 | Use multi-stage builds | Smaller production images |
 | Avoid `latest` tag in production | Reproducible deployments |
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Copying everything before installing dependencies:</strong> <code>COPY . .</code> before <code>RUN npm ci</code> invalidates the dependency cache on every code change. Copy manifests first.</li>
+    <li><strong>Cleaning up in a separate <code>RUN</code>:</strong> <code>rm -rf /var/lib/apt/lists/*</code> in a new layer does not shrink the image — the files already exist in the prior layer. Clean up in the same <code>RUN</code>.</li>
+    <li><strong>Secrets baked into layers:</strong> Anything passed via <code>ARG</code> or copied in is visible in image history. Use BuildKit <code>--secret</code> mounts for build-time credentials.</li>
+    <li><strong>Even number of Swarm managers:</strong> Quorum needs an odd count (3, 5, 7). Two managers cannot form quorum if one fails.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Order for Cache Hits</h4>
+    <p>Place rarely-changing instructions (dependency installs) above frequently-changing ones (source copies) to keep rebuilds fast.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Multi-Stage = Small Images</h4>
+    <p>Build in a heavy stage, copy only artifacts into a minimal runtime stage. Final images shrink from gigabytes to megabytes.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>CMD vs ENTRYPOINT</h4>
+    <p>Use ENTRYPOINT for the fixed executable, CMD for overridable default arguments.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Scan and Pin in CI</h4>
+    <p>Scan images for vulnerabilities, tag with the commit SHA, and avoid <code>latest</code> in production pipelines.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Fundamentals](fundamentals.html) - Images, containers, and the build cache model
+- [Storage &amp; Security](storage-security.html) - Hardening images and managing secrets
+- [Advanced Patterns](advanced.html) - Distroless images and parallel multi-stage builds
+- [Kubernetes](../kubernetes/) - Run your built images at scale
+- [CI/CD](../ci-cd.html) - Broader continuous delivery practices
 

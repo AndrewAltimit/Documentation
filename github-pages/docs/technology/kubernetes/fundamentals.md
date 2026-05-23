@@ -234,6 +234,28 @@ Now that you understand why Kubernetes exists, let us explore how it works. The 
   </div>
 </div>
 
+### What Happens When You Apply a Manifest
+
+The diagram below traces a single `kubectl apply` through the control plane. Notice that the components never talk to each other directly — they all watch the API server, which is the single source of truth backed by etcd. This "level-triggered" design is what makes Kubernetes self-healing: controllers continuously reconcile actual state toward desired state.
+
+```mermaid
+sequenceDiagram
+    participant U as kubectl
+    participant API as API Server
+    participant E as etcd
+    participant S as Scheduler
+    participant K as kubelet (node)
+    U->>API: apply deployment.yaml
+    API->>E: persist desired state
+    API-->>S: new pod (unscheduled)
+    S->>API: bind pod to node
+    API->>E: persist assignment
+    API-->>K: pod assigned to this node
+    K->>K: pull image, start container
+    K->>API: report status (Running)
+    API->>E: persist actual state
+```
+
 ### Kubernetes Objects: The Building Blocks
 
 With the architecture understood, let us explore the objects you will work with daily. Each object type solves a specific problem, and choosing the right one depends on your application's needs.
@@ -725,6 +747,20 @@ Kubernetes networking follows a simple principle: every pod gets its own IP addr
 | External-to-Service | Traffic from outside cluster | Ingress, LoadBalancer |
 | Service-to-External | Outbound connections | NetworkPolicy (egress) |
 
+The diagram below shows how external traffic reaches a pod: an Ingress routes by host/path to a Service, which load-balances across the matching pods (selected by label) managed by a Deployment.
+
+```mermaid
+flowchart TB
+    Ext([External Traffic]) --> Ing[Ingress<br/>host/path rules]
+    Ing --> Svc[Service<br/>ClusterIP + label selector]
+    Svc --> P1[Pod<br/>app=web]
+    Svc --> P2[Pod<br/>app=web]
+    Svc --> P3[Pod<br/>app=web]
+    Deploy[Deployment] -. manages .-> P1
+    Deploy -. manages .-> P2
+    Deploy -. manages .-> P3
+```
+
 ### Ingress: Your Cluster's Front Door
 
 While Services handle internal routing, Ingress manages external HTTP/HTTPS traffic. Instead of creating multiple LoadBalancer services (each with its own IP and cost), Ingress provides a single entry point that routes to different services based on hostnames and paths.
@@ -778,4 +814,45 @@ spec:
 This policy says: "Only allow traffic to the API pods from frontend pods on port 8080."
 
 **Important**: Network Policies require a CNI plugin that supports them (Calico, Cilium, Weave Net). The default kubenet does not enforce policies.
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Managing pods directly:</strong> Never create bare pods in production. Use a Deployment (or StatefulSet) so failed pods are recreated automatically.</li>
+    <li><strong>Mismatched labels:</strong> A Service routes to pods by label selector. If the selector and pod labels disagree, the Service has zero endpoints and silently drops traffic.</li>
+    <li><strong>Assuming NetworkPolicies are enforced:</strong> Without a policy-aware CNI, NetworkPolicy objects are accepted but ignored — giving a false sense of isolation.</li>
+    <li><strong>One LoadBalancer per service:</strong> Each cloud LoadBalancer costs money and consumes an IP. Use a single Ingress to fan out to many services instead.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Declarative, Not Imperative</h4>
+    <p>You describe desired state; controllers continuously reconcile reality toward it. This is the source of self-healing.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Everything Goes Through the API Server</h4>
+    <p>Components never talk directly — they watch the API server, which persists state in etcd.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Deployments Manage Pods</h4>
+    <p>Work with Deployments and Services, not raw pods. The Deployment owns replica count and rollout; the Service owns the stable address.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Labels Wire It Together</h4>
+    <p>Services, NetworkPolicies, and selectors all match by label. Consistent labeling is foundational.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Workloads &amp; Storage](workloads.html) - StatefulSets, persistent volumes, and config management
+- [Operations](operations.html) - kubectl, Helm, and troubleshooting
+- [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, and GitOps
+- [Docker](../docker/) - The container fundamentals Kubernetes builds on
+- [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
 

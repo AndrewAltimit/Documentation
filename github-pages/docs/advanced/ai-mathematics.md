@@ -13,6 +13,31 @@ hide_title: true
 
 **Prerequisites**: Graduate-level mathematics including measure theory, functional analysis, and probability theory.
 
+<div class="intro-card" markdown="1">
+<p class="lead-text">Machine learning works in practice — but <em>why</em>? This page develops the mathematics that explains when learning from finite data generalizes to unseen examples, why gradient-based optimization of wildly non-convex networks succeeds, and what fundamental limits constrain any learning algorithm. The throughline is a single question: <strong>given finitely many samples, when can we trust a model on data it has never seen?</strong></p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card"><i class="fas fa-ruler-combined"></i><h4>Capacity controls generalization</h4><p>A hypothesis class generalizes iff its complexity (VC dimension, Rademacher complexity) is finite — the central message of statistical learning theory.</p></div>
+  <div class="insight-card"><i class="fas fa-arrow-trend-down"></i><h4>Optimization is geometry</h4><p>SGD does not need convexity to work: over-parameterization reshapes the loss landscape so that gradient flow reaches global minima.</p></div>
+  <div class="insight-card"><i class="fas fa-compress-arrows-alt"></i><h4>Compression = learning</h4><p>Information-theoretic views (MDL, the information bottleneck, PAC-Bayes) recast generalization as keeping only the bits about the input that predict the label.</p></div>
+  <div class="insight-card"><i class="fas fa-infinity"></i><h4>Infinite width is tractable</h4><p>As networks widen, training dynamics linearize (the Neural Tangent Kernel), turning deep learning into kernel regression we can analyze.</p></div>
+</div>
+
+### The Logical Spine
+
+The results below are not a grab-bag — they form a dependency chain. Concentration inequalities bound how far an empirical average can stray from its mean; uniform convergence lifts that to *all* hypotheses at once; VC dimension and Rademacher complexity quantify "how many" hypotheses effectively exist; and generalization bounds fall out as a corollary.
+
+```mermaid
+flowchart TD
+    CI["Concentration inequalities<br/>Hoeffding, McDiarmid"] --> UC["Uniform convergence<br/>over a hypothesis class"]
+    GF["Growth function / Sauer's lemma"] --> UC
+    VC["VC dimension"] --> GF
+    RC["Rademacher complexity"] --> UC
+    UC --> GB["Generalization bounds<br/>true risk &le; empirical risk + complexity"]
+    GB --> SRM["Structural risk minimization<br/>(model selection)"]
+```
+
 ## Table of Contents
 - [Computational Learning Theory](#computational-learning-theory)
 - [Statistical Learning Theory](#statistical-learning-theory)
@@ -25,7 +50,14 @@ hide_title: true
 
 ### PAC Learning Framework
 
-**Definition (PAC Learnability)**: A concept class C is PAC-learnable if there exists an algorithm A and a polynomial function poly(·,·,·,·) such that for any ε > 0, δ > 0, for any distribution D over X and any target concept c ∈ C, when running A on m ≥ poly(1/ε, 1/δ, n, size(c)) samples drawn from D and labeled by c:
+**Intuition**: "Probably Approximately Correct" learning makes the informal goal — *learn a good rule from enough examples, most of the time* — precise. "Approximately correct" is the error tolerance $\epsilon$; "probably" is the confidence $1-\delta$. PAC-learnability asks whether a polynomial number of samples suffices to hit both targets, *for the worst-case data distribution*.
+
+<div class="theory-card" markdown="1">
+#### Definition (PAC Learnability)
+A concept class $C$ is **PAC-learnable** if there exist an algorithm $A$ and a polynomial $\text{poly}(\cdot,\cdot,\cdot,\cdot)$ such that for every $\epsilon, \delta > 0$, every distribution $D$ over $X$, and every target $c \in C$, running $A$ on $m \geq \text{poly}(1/\epsilon, 1/\delta, n, \text{size}(c))$ samples returns a hypothesis with true error $\leq \epsilon$ with probability $\geq 1-\delta$.
+</div>
+
+Formally, given an algorithm $A$ and polynomial $\text{poly}(\cdot,\cdot,\cdot,\cdot)$ such that for any $\epsilon > 0$, $\delta > 0$, any distribution $D$ over $X$ and any target concept $c \in C$, when running $A$ on $m \geq \text{poly}(1/\epsilon, 1/\delta, n, \text{size}(c))$ samples drawn from $D$ and labeled by $c$:
 
 $$P_{S \sim D^m}[\mathcal{L}_D(A(S)) \leq \epsilon] \geq 1 - \delta$$
 
@@ -39,10 +71,18 @@ $$VC(H) = \max\{|S| : S \subseteq X, |H_S| = 2^{|S|}\}$$
 
 where $H_S = \{h|_S : h \in H\}$ is the restriction of H to S.
 
-**Fundamental Theorem of Statistical Learning**:
-A hypothesis class H has the uniform convergence property if and only if its VC dimension is finite. Moreover:
+<div class="example-card" markdown="1">
+#### Worked Example: VC dimension of 1D thresholds
+Let $H = \{h_t(x) = \mathbb{1}[x \geq t] : t \in \mathbb{R}\}$ on the real line. A single point can be labeled either way (put the threshold to its left or right), so it is shattered — $VC(H) \geq 1$. But two points $x_1 < x_2$ cannot realize the labeling $(1, 0)$: any threshold that accepts the smaller point also accepts the larger one. No 2-point set is shattered, so $VC(H) = 1$. Plugging into the fundamental theorem, thresholds are learnable with $O\!\left(\tfrac{1 + \log(1/\delta)}{\epsilon^2}\right)$ samples — independent of the data dimension's scale, because the *capacity*, not the input range, sets the rate.
+</div>
 
-$$m(\epsilon, \delta) = O\left(\frac{VC(H) + \log(1/\delta)}{\epsilon^2}\right)$$
+<div class="principle-card" markdown="1">
+#### Fundamental Theorem of Statistical Learning
+A hypothesis class $H$ has the uniform convergence property — and is therefore PAC-learnable by empirical risk minimization — **if and only if** its VC dimension is finite. The sample complexity is then
+$$m(\epsilon, \delta) = O\left(\frac{VC(H) + \log(1/\delta)}{\epsilon^2}\right).$$
+</div>
+
+This is the load-bearing result of the whole field: it converts the qualitative question "can this class be learned?" into the combinatorial quantity $VC(H)$. The bound also explains the $1/\epsilon^2$ scaling familiar from statistics — halving the error costs four times the data.
 
 **Proof Sketch**:
 1. **Upper bound**: Use Rademacher complexity and McDiarmid's inequality
@@ -260,10 +300,33 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ---
 
-*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../../artificial-intelligence/).*
+*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../artificial-intelligence/).*
 
-## Related Advanced Topics
+## Key Takeaways
 
-- [Quantum Machine Learning](../quantum-algorithms-research/) - Intersection of quantum computing and ML
-- [Distributed Systems Theory](../distributed-systems-theory/) - For distributed ML training
-- [Monorepo Strategies](../monorepo/) - Managing large ML codebases
+<div class="takeaway-grid">
+  <div class="takeaway-card"><h4>Finite capacity ⇒ learnable</h4><p>The Fundamental Theorem ties PAC-learnability to finite VC dimension, with sample complexity scaling as $1/\epsilon^2$.</p></div>
+  <div class="takeaway-card"><h4>Generalization gap is bounded</h4><p>Rademacher and PAC-Bayes bounds control how far test error can exceed training error, in terms of complexity and confidence.</p></div>
+  <div class="takeaway-card"><h4>Over-parameterization helps</h4><p>Wide networks enter the NTK regime where training linearizes and gradient descent reaches global minima — and exhibits implicit bias toward simple solutions.</p></div>
+  <div class="takeaway-card"><h4>Modern phenomena need new theory</h4><p>Double descent and grokking violate the classical bias–variance picture and remain active research frontiers.</p></div>
+  <div class="takeaway-card"><h4>Kernels unify the picture</h4><p>RKHS theory and the representer theorem connect kernel methods, SVMs, and the infinite-width limit of neural networks.</p></div>
+  <div class="takeaway-card"><h4>Information bounds learning</h4><p>MDL, the information bottleneck, and PAC-Bayes recast generalization as compression — keeping only predictive bits.</p></div>
+</div>
+
+## See Also
+
+<div class="see-also-card" markdown="1">
+#### See Also
+
+**Related Advanced Topics**
+- [Quantum Algorithms Research](quantum-algorithms-research.html) — Quantum machine learning and kernel methods
+- [Distributed Systems Theory](distributed-systems-theory.html) — Foundations for distributed/federated ML training
+- [Monorepo Strategies](monorepo.html) — Managing large ML research codebases
+
+**Applied & Foundational**
+- [AI/ML Documentation](../ai-ml/) — Practical model training, architectures, and tooling
+- [Model Types Reference](../ai-ml/model-types.html) — Architectures explained without heavy formalism
+- [Statistical Mechanics](../physics/statistical-mechanics.html) — Partition functions and the physics roots of learning theory
+- [Computational Physics](../physics/computational-physics.html) — Numerical optimization and simulation methods
+- [Mathematical Reference](../reference/) — Linear algebra and calculus quick reference
+</div>

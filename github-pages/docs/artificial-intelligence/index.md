@@ -35,6 +35,23 @@ hide_title: true
   </div>
 </div>
 
+## How These Pages Fit Together
+
+This hub points to three depth levels of AI theory plus the hands-on generative-AI guides. Pick a depth, then branch into practice:
+
+```mermaid
+flowchart TD
+    Hub["AI Hub (you are here)"] --> Simple["AI Fundamentals — Simplified<br/>(no math)"]
+    Simple --> Complete["AI Fundamentals — Complete<br/>(technical)"]
+    Complete --> Deep["AI Deep Dive<br/>(transformers, LLMs)"]
+    Complete --> Math["AI Mathematics<br/>(theory & proofs)"]
+    Hub --> Practice["AI/ML Guides<br/>(generative AI)"]
+    Practice --> SD["Stable Diffusion"]
+    Practice --> Comfy["ComfyUI"]
+    Practice --> LoRA["LoRA Training"]
+    Deep --> QML["Quantum ML →<br/>Quantum Computing Hub"]
+```
+
 ## Quick Navigation
 
 ### 🎯 Start Here
@@ -231,4 +248,13 @@ This documentation is continuously evolving. If you notice areas for improvement
     <p>Explore advanced AI mathematics</p>
     <a href="../advanced/ai-mathematics/" class="btn btn-primary">Advanced Topics</a>
   </div>
+</div>
+
+<div class="see-also-card" markdown="1">
+#### See Also
+- [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - No-math starting point
+- [AI Fundamentals - Complete](../technology/ai.html) - Technical reference with equations
+- [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research
+- [AI/ML Documentation](../ai-ml/) - Hands-on generative AI guides
+- [Quantum Computing Hub](../quantum-computing/) - Where quantum meets machine learning
 </div>

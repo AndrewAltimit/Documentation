@@ -33,25 +33,20 @@ Game AI differs from academic AI in key ways:
 
 ### AI Architecture Overview
 
-Typical game AI system layers:
+Typical game AI is organized as three layers, each feeding the one below — decide *what*, then *how to move*, then *how to look*:
 
-```
-Decision Layer (What to do)
-├── Goal Selection
-├── Planning
-└── Behavior Trees / FSMs
-    │
-    ▼
-Steering Layer (How to move)
-├── Path Following
-├── Obstacle Avoidance
-└── Formation Movement
-    │
-    ▼
-Animation Layer (How to look)
-├── Animation State Machine
-├── IK / Procedural Animation
-└── Facial Expressions
+```mermaid
+flowchart TD
+    subgraph Decision["Decision Layer — what to do"]
+        D1[Goal Selection] --- D2[Planning] --- D3[Behavior Trees / FSMs]
+    end
+    subgraph Steering["Steering Layer — how to move"]
+        S1[Path Following] --- S2[Obstacle Avoidance] --- S3[Formation Movement]
+    end
+    subgraph Animation["Animation Layer — how to look"]
+        A1[Animation State Machine] --- A2[IK / Procedural] --- A3[Facial Expressions]
+    end
+    Decision --> Steering --> Animation
 ```
 
 ## Pathfinding
@@ -75,7 +70,11 @@ Industry standard for 3D environments:
 
 ### A* Algorithm
 
-The foundation of game pathfinding:
+The foundation of game pathfinding. A* expands nodes in order of an estimated total cost that balances the known cost so far against an optimistic estimate of the cost remaining:
+
+$$f(n) = g(n) + h(n)$$
+
+where $g(n)$ is the actual cost from the start to node $n$ and $h(n)$ is the heuristic estimate from $n$ to the goal. If $h$ never overestimates the true remaining cost (it is *admissible*), A* is guaranteed to find the shortest path.
 
 ```python
 def a_star(start, goal, graph):
@@ -211,24 +210,17 @@ For crowds and traffic:
 
 ### Finite State Machines (FSM)
 
-Simple, reliable decision structure:
+Simple, reliable decision structure. Each state has clear entry/exit transitions triggered by game events:
 
-```
-States and Transitions:
-
-[Patrol] ──see enemy──► [Chase]
-    ▲                      │
-    │                      ▼
-    └──lost enemy──── [Search]
-                          │
-                     timeout
-                          ▼
-                      [Patrol]
-
-[Chase] ──in range──► [Attack]
-    │                     │
-    │                     ▼
-    └──enemy dead──► [Celebrate]
+```mermaid
+stateDiagram-v2
+    [*] --> Patrol
+    Patrol --> Chase: see enemy
+    Chase --> Search: lost enemy
+    Search --> Patrol: timeout
+    Chase --> Attack: in range
+    Attack --> Celebrate: enemy dead
+    Celebrate --> Patrol
 ```
 
 **Advantages:**
@@ -553,6 +545,16 @@ Efficient queries:
 - **Quadtree/Octree**: Adaptive subdivision
 - **BVH**: Hierarchical bounding volumes
 - **Spatial hashing**: O(1) neighbor lookup
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Game AI optimizes for fun, not optimality.** Believable, appropriately-challenging behavior beats perfect play, all under hard real-time budgets.
+- **Layer the system:** decision (FSM/behavior tree/utility/GOAP) → steering (pathfinding + avoidance) → animation. Each layer has a clear job.
+- **A* is the pathfinding workhorse** — $f(n) = g(n) + h(n)$ with an admissible heuristic guarantees shortest paths; NavMeshes make it practical in 3D.
+- **Behavior trees scale better than FSMs** for complex agents; utility AI and GOAP add flexibility when hand-authored logic gets unwieldy.
+- **Performance is a first-class concern:** LOD for AI, time-slicing, and spatial partitioning keep hundreds of agents within frame budget.
+</div>
 
 ## Related Documentation
 

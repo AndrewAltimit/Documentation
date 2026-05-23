@@ -28,43 +28,28 @@ Running containers on a single machine is straightforward. But what happens when
 
 Without Kubernetes, you would need custom scripts, manual intervention, and constant monitoring. Kubernetes handles all of this automatically through a declarative approach: you describe what you want, and Kubernetes makes it happen.
 
-## Quick Navigation
+## Learning Path
 
-### [Fundamentals](fundamentals.html)
-**Start here if you are new to Kubernetes.** Learn the building blocks that everything else depends on.
+The four guides build on each other. Start at Fundamentals if you are new; jump ahead if you already run clusters.
 
-- Quick start guide to deploy your first application
-- Core architecture: how Kubernetes works under the hood
-- Pods, Deployments, and ReplicaSets explained
-- Services: giving your applications stable network addresses
-- Labels, selectors, and namespaces for organization
-
-### [Workloads & Storage](workloads.html)
-**Move here once you understand the basics.** Learn how to handle real-world requirements like persistent data and specialized workloads.
-
-- StatefulSets for databases and stateful applications
-- DaemonSets for cluster-wide agents (monitoring, logging)
-- Jobs and CronJobs for batch processing
-- Persistent storage that survives pod restarts
-- Configuration and secrets management
-- Security hardening for production
-
-### [Operations](operations.html)
-**Essential for anyone managing Kubernetes clusters.** Day-to-day tools and techniques for running reliable systems.
-
-- kubectl command reference and power-user tips
-- Helm: package management for Kubernetes
-- Proven architectural patterns (sidecar, ambassador, init containers)
-- Troubleshooting guide for common issues
-- Production best practices
-
-### [Advanced Topics](advanced.html)
-**For experienced practitioners.** Deep dives into production-grade deployments and the broader ecosystem.
-
-- Real-world case studies from production environments
-- Certification paths (CKA, CKAD, CKS)
-- Performance tuning and optimization
-- Ecosystem tools and integrations
+<div class="command-grid">
+  <div class="nav-card">
+    <h4><a href="fundamentals.html">1. Fundamentals</a></h4>
+    <p>Start here. Cluster architecture, the apply control flow, Pods, Deployments, Services, Ingress, labels, and namespaces.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="workloads.html">2. Workloads &amp; Storage</a></h4>
+    <p>StatefulSets, DaemonSets, Jobs/CronJobs, persistent volumes, autoscaling, ConfigMaps/Secrets, RBAC, and Pod Security.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="operations.html">3. Operations</a></h4>
+    <p>kubectl power use, Helm, sidecar/init-container patterns, a systematic troubleshooting guide, and a production checklist.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="advanced.html">4. Advanced Topics</a></h4>
+    <p>CRDs and Operators, service mesh, GitOps, performance tuning, certifications (CKA/CKAD/CKS), and the ecosystem.</p>
+  </div>
+</div>
 
 ---
 

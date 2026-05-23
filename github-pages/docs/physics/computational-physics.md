@@ -2477,13 +2477,34 @@ def validate_simulation(results):
 
 Computational physics has transformed our ability to understand and predict physical phenomena. From solving complex differential equations to simulating quantum systems, the combination of physics knowledge and computational techniques opens up endless possibilities for discovery.
 
-### Key Takeaways
+## Key Takeaways
 
-1. **Start Simple**: Master basic numerical methods before tackling complex algorithms
-2. **Validate Constantly**: Always check your results against known solutions
-3. **Optimize Wisely**: Profile first, optimize the bottlenecks
-4. **Use the Right Tool**: Choose algorithms based on problem characteristics
-5. **Visualize Results**: Good visualization leads to physical insight
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Start simple</h4>
+    <p>Master basic numerical methods (integration, ODE solvers, root finding) before reaching for complex algorithms.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Validate constantly</h4>
+    <p>Always check results against known analytic solutions, conserved quantities, and convergence as step size shrinks.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Optimize wisely</h4>
+    <p>Profile first, then optimize the actual bottlenecks; premature optimization wastes effort and obscures bugs.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Use the right tool</h4>
+    <p>Match the algorithm to the problem: stiff ODEs need implicit solvers, high dimensions favor Monte Carlo.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Mind numerical error</h4>
+    <p>Round-off, truncation, and stability (e.g. the CFL condition) determine whether a simulation is trustworthy.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Visualize for insight</h4>
+    <p>Good visualization turns raw arrays into physical understanding and exposes errors a table of numbers hides.</p>
+  </div>
+</div>
 
 ### Next Steps
 

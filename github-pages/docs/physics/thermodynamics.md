@@ -15,6 +15,33 @@ toc_icon: "cog"
 
 <!-- Custom styles are now loaded via main.scss -->
 
+<div class="intro-card">
+  <p class="lead-text">Thermodynamics is the physics of energy in transit. It does not care what a system is made of — atoms, photons, or black holes obey the same four laws. Born from the practical question "how much work can I get from heat?", it grew into one of the most universal frameworks in science, constraining everything from chemical reactions to the arrow of time itself.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-balance-scale"></i>
+    <h4>Energy is conserved</h4>
+    <p>The First Law: you can't get something for nothing — energy only changes form.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-arrow-trend-up"></i>
+    <h4>Entropy increases</h4>
+    <p>The Second Law: isolated systems run downhill toward disorder, defining time's direction.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-snowflake"></i>
+    <h4>Absolute zero is unreachable</h4>
+    <p>The Third Law: entropy approaches a constant as $T \to 0$, and you can never quite get there.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-cogs"></i>
+    <h4>Efficiency has a ceiling</h4>
+    <p>No engine beats Carnot: $\eta_{\max} = 1 - T_C/T_H$, set purely by the two temperatures.</p>
+  </div>
+</div>
+
 ## Overview
 
 **Fundamental Laws**
@@ -69,6 +96,11 @@ The entropy of an isolated system never decreases. There are several equivalent 
 $$dS \geq 0$$
 
 For a reversible process: $dS = \frac{\delta Q_{rev}}{T}$
+
+<div class="principle-card">
+  <h4>Intuition: entropy and the arrow of time</h4>
+  <p>The microscopic laws of physics are time-reversible — a film of two billiard balls colliding looks fine played backward. Yet a shattered glass never reassembles. The Second Law explains why: there are vastly more disordered microstates than ordered ones, so an isolated system overwhelmingly evolves toward higher entropy simply by probability. Entropy thus gives time a direction, distinguishing past from future even though the underlying equations do not.</p>
+</div>
 
 #### Third Law
 As temperature approaches absolute zero, the entropy of a perfect crystal approaches zero:
@@ -204,6 +236,13 @@ The most efficient heat engine operating between two temperatures:
 Efficiency: $\eta = 1 - \frac{T_C}{T_H}$
 
 Where $T_H$ is the hot reservoir temperature and $T_C$ is the cold reservoir temperature.
+
+<div class="example-card">
+  <h4>Worked Example: Why power plants "waste" heat</h4>
+  <p>A steam turbine takes in superheated steam at $T_H = 810\ \text{K}$ and rejects heat to a river at $T_C = 300\ \text{K}$. The <em>maximum</em> efficiency any engine could achieve between these reservoirs is:</p>
+  $$\eta_{\max} = 1 - \frac{T_C}{T_H} = 1 - \frac{300}{810} \approx 0.63 = 63\%$$
+  <p>Real plants reach ~40% because of friction, finite-rate heat transfer, and other irreversibilities. The remaining ~60% of the input energy is <strong>not lost to bad engineering</strong> — the Second Law forbids converting it all to work. To improve efficiency you must raise $T_H$ (hotter steam, better materials) or lower $T_C$ (colder cooling water). This single inequality explains why every thermal power station on Earth dumps heat into a river, cooling tower, or the sky.</p>
+</div>
 
 ### Carnot Refrigerator
 Coefficient of Performance (COP):
@@ -890,7 +929,44 @@ $$
 
 ---
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Four laws, no exceptions</h4>
+    <p>Zeroth defines temperature, First conserves energy, Second drives entropy upward, Third sets the zero of entropy at $T=0$.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>State functions vs. path functions</h4>
+    <p>$U, H, S, G, F$ depend only on the state; heat $Q$ and work $W$ depend on the path taken between states.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Free energy predicts spontaneity</h4>
+    <p>At constant $T,P$ a process runs forward when $\Delta G < 0$; the system seeks minimum free energy, not minimum energy.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Carnot bounds every engine</h4>
+    <p>$\eta_{\max} = 1 - T_C/T_H$ caps all heat engines; refrigerators are bounded by the analogous COP.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Maxwell relations link the unmeasurable</h4>
+    <p>Equality of mixed partials turns hard-to-measure quantities like $(\partial S/\partial V)_T$ into easy ones like $(\partial P/\partial T)_V$.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>It bridges to the microscopic</h4>
+    <p>Statistical mechanics derives every thermodynamic law from counting microstates: $S = k_B \ln \Omega$.</p>
+  </div>
+</div>
+
 ## See Also
-- [Statistical Mechanics](statistical-mechanics.html) - Microscopic foundation of thermodynamics
-- [Classical Mechanics](classical-mechanics.html) - For understanding work and energy
-- [Quantum Mechanics](quantum-mechanics.html) - For quantum statistical mechanics
+
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — work, energy, and the mechanical origin of the First Law.</li>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical mechanics.</li>
+    <li><a href="relativity.html">Relativity</a> — black-hole thermodynamics and the Bekenstein–Hawking entropy.</li>
+    <li><a href="computational-physics.html">Computational Physics</a> — Monte Carlo and molecular dynamics for thermal systems.</li>
+  </ul>
+</div>

@@ -207,6 +207,19 @@ This comparison produces one of five actions for each resource:
 
 **Practical tip:** Always review the plan output before applying. The symbols make it easy to spot unexpected changes.
 
+The full workflow ties these ideas together: `init` downloads providers, `plan` computes the three-way diff, and `apply` executes it against the dependency graph.
+
+```mermaid
+flowchart LR
+    Write["Write .tf config"] --> Init["terraform init<br/>(download providers)"]
+    Init --> Plan["terraform plan<br/>(diff config / state / real)"]
+    Plan --> Review{Looks right?}
+    Review -->|no| Write
+    Review -->|yes| Apply["terraform apply<br/>(create/update/delete)"]
+    Apply --> State[(State updated)]
+    State --> Plan
+```
+
 ---
 
 ## Providers: Connecting to Cloud Services
@@ -392,4 +405,45 @@ bucket_name = "my-company-data-bucket"
 ```
 
 When you run `terraform apply`, Terraform uses the values from `terraform.tfvars` automatically.
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Skipping <code>plan</code>:</strong> Applying without reviewing the plan is how unintended deletes happen. Always read the <code>+/~/-</code> symbols first.</li>
+    <li><strong>Unpinned provider versions:</strong> Without <code>version = "~> 5.0"</code>, a new provider release can break a previously-working config. Pin versions and commit the lock file.</li>
+    <li><strong>Hardcoding secrets in <code>.tf</code> files:</strong> Variables marked <code>sensitive = true</code> and sourced from a vault keep credentials out of version control and plan output.</li>
+    <li><strong>Confusing replace with update:</strong> Some attribute changes (like an EC2 instance type on certain platforms) force a destroy-and-recreate. Watch for the <code>-/+</code> symbol.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Declarative Infrastructure</h4>
+    <p>You describe the desired end state in HCL; Terraform figures out the create/update/delete steps to get there.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Plan Before Apply</h4>
+    <p>The plan is a dry run showing exactly what will change. Treat it as a code review for your infrastructure.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Dependencies Are Automatic</h4>
+    <p>Referencing one resource from another builds the dependency graph; Terraform orders and parallelizes accordingly.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Providers Are Plugins</h4>
+    <p>Each cloud or service has a provider that translates HCL into API calls. Pin provider versions for reproducibility.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [State &amp; Modules](state-modules.html) - Track infrastructure and build reusable components
+- [Enterprise Patterns](patterns.html) - Real-world case studies and testing
+- [Advanced Topics](advanced.html) - Meta-programming, dynamic blocks, and Policy as Code
+- [AWS Cloud Services](../aws/) - Common deployment target for Terraform
+- [Kubernetes](../kubernetes/) - Provision clusters as code
 

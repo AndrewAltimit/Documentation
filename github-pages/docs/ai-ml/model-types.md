@@ -54,17 +54,21 @@ You do not need to understand every model type before generating images. Start w
 
 ## How Components Work Together
 
-The generation pipeline flows through several stages:
+The generation pipeline flows through several stages, with optional components plugging into the U-Net:
 
-```
-Your Prompt → Text Encoder → U-Net/DiT ← LoRAs, ControlNet
-                                ↓
-                          Latent Space
-                                ↓
-                              VAE → Final Image
+```mermaid
+flowchart TD
+    Prompt["Your prompt"] --> TE["Text Encoder<br/>(CLIP / T5)"]
+    Embed["Embeddings<br/>(textual inversion)"] -.-> TE
+    TE --> UNet["U-Net / DiT<br/>(denoiser)"]
+    LoRA["LoRA"] -.modifies.-> UNet
+    CN["ControlNet / IP-Adapter"] -.guides.-> UNet
+    UNet --> Latent["Latent space"]
+    Latent --> VAE["VAE decode"]
+    VAE --> Image["Final image"]
 ```
 
-Each component can be swapped or enhanced independently. This modularity is what makes the ecosystem so flexible.
+Each component can be swapped or enhanced independently. This modularity is what makes the ecosystem so flexible: the dashed arrows are optional add-ons that steer or augment the base model without retraining it.
 
 ## Base Models (Checkpoints)
 
@@ -386,6 +390,23 @@ Before downloading models, verify compatibility:
 
 Start with this flowchart approach:
 
+```mermaid
+flowchart TD
+    Start["Pick a base checkpoint<br/>(match your content type)"] --> Q1{Need a specific<br/>aesthetic?}
+    Q1 -->|Yes| LoRA["Add a style LoRA"]
+    Q1 -->|No| Q2
+    LoRA --> Q2{Need consistent<br/>characters?}
+    Q2 -->|Yes| Char["Add a character LoRA"]
+    Q2 -->|No| Q3
+    Char --> Q3{Need precise<br/>composition?}
+    Q3 -->|Yes| CN["Add ControlNet"]
+    Q3 -->|No| Q4
+    CN --> Q4{Have a style<br/>reference image?}
+    Q4 -->|Yes| IP["Add IP-Adapter"]
+    Q4 -->|No| Done["Generate"]
+    IP --> Done
+```
+
 1. **Choose your base model** based on your content type (see Checkpoints section)
 2. **Add a style LoRA** if you need a specific aesthetic
 3. **Add a character LoRA** if you need consistent characters
@@ -413,6 +434,16 @@ The Stable Diffusion ecosystem offers many specialized components. Start with ju
 - **Embeddings** for quality and simple concepts
 
 Understanding what each piece does helps you build workflows that produce exactly what you envision.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **The checkpoint is the foundation;** everything else (LoRA, VAE, ControlNet, IP-Adapter, embeddings) modifies or steers it without retraining.
+- **Match the family.** SD 1.5 LoRAs, SDXL LoRAs, and FLUX LoRAs are not interchangeable — compatibility is the most common source of broken results.
+- **Pick the right tool for the job:** LoRA for new styles/subjects, VAE for color, ControlNet for structure, IP-Adapter for style-from-image, embeddings for quality/concepts.
+- **Quantization saves VRAM.** fp16/fp8 versions cut memory with minimal quality loss; LCM/Turbo variants cut steps for speed.
+- **Start minimal** (one checkpoint) and add components only as a concrete need appears.
+</div>
 
 ---
 

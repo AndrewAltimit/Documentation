@@ -1563,6 +1563,35 @@ def ads_cft_correlator(operators, positions):
 
 String theory remains one of the most active areas of theoretical physics, providing deep insights into quantum gravity, black holes, and the fundamental structure of spacetime. While experimental verification remains elusive, its mathematical richness and conceptual breakthroughs continue to influence many areas of physics and mathematics.
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Strings, not points</h4>
+    <p>Replacing point particles with one-dimensional strings gives a finite, self-consistent theory of quantum gravity.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Vibrations are particles</h4>
+    <p>Different vibrational modes of a single string correspond to different particles — including a massless spin-2 graviton.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Extra dimensions are required</h4>
+    <p>Consistency forces 10 (superstring) or 11 (M-theory) dimensions; the extra ones are compactified, e.g. on Calabi–Yau manifolds.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Dualities unify the theories</h4>
+    <p>T-duality, S-duality, and M-theory show the five superstring theories are limits of one underlying framework.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Holography is concrete</h4>
+    <p>AdS/CFT relates gravity in the bulk to a field theory on the boundary, a tool now used well beyond string theory.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Testability is the open challenge</h4>
+    <p>The vast landscape of vacua and Planck-scale energies make direct experimental tests its central unsolved difficulty.</p>
+  </div>
+</div>
+
 ## See Also
 
 ### Foundational Topics:

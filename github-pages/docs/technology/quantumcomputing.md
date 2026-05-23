@@ -49,11 +49,9 @@ Think of it this way: if a classical bit is like a coin that's either heads or t
 
 This spinning coin analogy helps, but the reality is even stranger. A qubit's state can be described mathematically as:
 
-```
-|ψ⟩ = α|0⟩ + β|1⟩
-```
+$$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$$
 
-Here, α and β are complex numbers that tell us the "probability amplitudes" for finding the qubit in state |0⟩ or |1⟩ when measured. The beauty is that until we measure it, the qubit genuinely exists in both states simultaneously.
+Here, $\alpha$ and $\beta$ are complex numbers that tell us the "probability amplitudes" for finding the qubit in state $|0\rangle$ or $|1\rangle$ when measured. The beauty is that until we measure it, the qubit genuinely exists in both states simultaneously.
 
 ### Why This Matters: The Power of Superposition
 
@@ -70,11 +68,11 @@ Now that we understand the concept, let's look at the mathematical framework tha
   <p><strong>Looking for rigorous quantum theory?</strong> See our <a href="/docs/advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> page for formal quantum mechanics, complexity theory, and cutting-edge algorithms.</p>
 </div>
 
-When we write |ψ⟩ = α|0⟩ + β|1⟩, we're using what physicists call "Dirac notation" or "bra-ket notation." The |0⟩ and |1⟩ are the two "basis states" - think of them as the quantum equivalent of 0 and 1. The coefficients α and β must satisfy one crucial rule:
+When we write $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$, we're using what physicists call "Dirac notation" or "bra-ket notation." The $|0\rangle$ and $|1\rangle$ are the two "basis states" - think of them as the quantum equivalent of 0 and 1. The coefficients $\alpha$ and $\beta$ must satisfy one crucial rule:
 
-|α|² + |β|² = 1
+$$|\alpha|^2 + |\beta|^2 = 1$$
 
-This ensures that when we measure the qubit, we'll definitely get either 0 or 1 (with probabilities |α|² and |β|² respectively). This constraint reflects a fundamental principle: probabilities must always sum to 1.
+This ensures that when we measure the qubit, we'll definitely get either 0 or 1 (with probabilities $|\alpha|^2$ and $|\beta|^2$ respectively). This constraint reflects a fundamental principle: probabilities must always sum to 1.
 
 ### From One Qubit to Many: The Magic of Entanglement
 
@@ -82,7 +80,7 @@ Here's where quantum computing becomes truly powerful. When we have multiple qub
 
 The simplest example is the "Bell state":
 
-|Φ⁺⟩ = (|00⟩ + |11⟩)/√2
+$$|\Phi^+\rangle = \frac{|00\rangle + |11\rangle}{\sqrt{2}}$$
 
 This represents two qubits that are perfectly correlated. If you measure the first qubit and get 0, you instantly know the second qubit is also 0. If you get 1, the second is also 1. This correlation persists no matter how far apart the qubits are - it's the "spooky action at a distance" that puzzled Einstein.
 
@@ -104,17 +102,42 @@ Let's start with the simplest quantum gates and build up our intuition:
 This is the quantum version of the classical NOT gate. It flips |0⟩ to |1⟩ and |1⟩ to |0⟩. But here's the quantum twist: if a qubit is in superposition, it flips the entire superposition. So α|0⟩ + β|1⟩ becomes α|1⟩ + β|0⟩.
 
 **The Hadamard Gate: Creating Superposition**
-This gate has no classical equivalent - it's purely quantum. Applied to |0⟩, it creates an equal superposition: (|0⟩ + |1⟩)/√2. Applied to |1⟩, it creates (|0⟩ - |1⟩)/√2. This gate is how we typically create superposition from classical states.
+This gate has no classical equivalent - it's purely quantum. Applied to $|0\rangle$, it creates an equal superposition $\tfrac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$. Applied to $|1\rangle$, it creates $\tfrac{1}{\sqrt{2}}(|0\rangle - |1\rangle)$. This gate is how we typically create superposition from classical states.
 
 **The CNOT Gate: Creating Entanglement**
-The Controlled-NOT gate operates on two qubits. It flips the second qubit if and only if the first qubit is |1⟩. This conditional behavior is what allows us to create entanglement. For example:
-- CNOT applied to |00⟩ gives |00⟩ (nothing happens)
-- CNOT applied to |10⟩ gives |11⟩ (second qubit flips)
-- CNOT applied to (|00⟩ + |10⟩)/√2 gives (|00⟩ + |11⟩)/√2 - an entangled state!
+The Controlled-NOT gate operates on two qubits. It flips the second qubit if and only if the first qubit is $|1\rangle$. This conditional behavior is what allows us to create entanglement. For example:
+- CNOT applied to $|00\rangle$ gives $|00\rangle$ (nothing happens)
+- CNOT applied to $|10\rangle$ gives $|11\rangle$ (second qubit flips)
+- CNOT applied to $\tfrac{1}{\sqrt{2}}(|00\rangle + |10\rangle)$ gives $\tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$ - an entangled state!
+
+#### Common Single- and Two-Qubit Gates
+
+| Gate | Symbol | Effect | Matrix |
+|------|--------|--------|--------|
+| Pauli-X (NOT) | $X$ | Flips $\lvert0\rangle \leftrightarrow \lvert1\rangle$ | $\begin{pmatrix}0&1\\1&0\end{pmatrix}$ |
+| Pauli-Z | $Z$ | Phase flip on $\lvert1\rangle$ | $\begin{pmatrix}1&0\\0&-1\end{pmatrix}$ |
+| Hadamard | $H$ | Creates superposition | $\tfrac{1}{\sqrt{2}}\begin{pmatrix}1&1\\1&-1\end{pmatrix}$ |
+| Phase | $S$ | Adds a $90^\circ$ phase | $\begin{pmatrix}1&0\\0&i\end{pmatrix}$ |
+| CNOT | $\text{CX}$ | Entangles control & target | $4\times4$ controlled-X |
 
 ### Building Quantum Circuits
 
 Just as classical circuits are built by connecting logic gates, quantum circuits are built by applying quantum gates in sequence. But there's a key difference: quantum circuits are typically represented as horizontal lines (one per qubit) with gates shown as operations on these lines.
+
+The simplest non-trivial circuit — Hadamard then CNOT — prepares a Bell state. As a gate flow:
+
+```mermaid
+flowchart LR
+    q0i["q0: |0⟩"] --> H["H"] --> ctrl(("●")) --> q0o["measure"]
+    q1i["q1: |0⟩"] --> tgt["⊕ (CNOT target)"] --> q1o["measure"]
+    ctrl -. control .- tgt
+    classDef gate fill:#e1f5fe,stroke:#0277bd,color:#01579b;
+    class H,tgt gate;
+```
+
+Reading left to right: $H$ puts qubit 0 into superposition, then the CNOT couples qubit 1 to it,
+producing $|\Phi^+\rangle = \tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$. Measuring now yields
+`00` or `11` with equal probability — never `01` or `10`.
 
 The power comes from combining simple gates to create complex quantum algorithms. With just a handful of basic gates (Hadamard, CNOT, and a few others), we can build any quantum computation - this is called "quantum universality."
 
@@ -986,12 +1009,25 @@ estimator = Estimator(backend)
 - [arXiv Quantum Physics](https://arxiv.org/list/quant-ph/recent) - Latest research papers
 - [Quantum Computing Report](https://quantumcomputingreport.com/) - Industry news and analysis
 
-## See Also
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **Superposition + entanglement + interference** are the three ingredients of every quantum algorithm: prepare many possibilities at once, correlate them, then steer amplitude toward the answer.
+- **A qubit is a unit vector** $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$ with $|\alpha|^2+|\beta|^2=1$; $n$ qubits span $2^n$ dimensions, but a single measurement returns only $n$ classical bits.
+- **Quantum gates are reversible (unitary).** A universal set such as $\{H, T, \text{CNOT}\}$ can approximate any computation.
+- **Speedups are selective.** Shor's (factoring) is exponential but needs fault tolerance; Grover's (search) is quadratic; HHL and QPE power chemistry and ML subroutines with important caveats.
+- **Error correction is the gating challenge.** Surface codes and the threshold theorem turn many noisy physical qubits into a few reliable logical ones — today's ~1000:1 overhead is the road to fault tolerance.
+</div>
+
+<div class="see-also-card" markdown="1">
+#### See Also
+- [Quantum Computing Hub](../quantum-computing/) - Learning paths, quick start, and topic map
 - [Quantum Mechanics](../physics/quantum-mechanics.html) - Fundamental quantum principles
-- [Quantum Field Theory](../physics/quantum-field-theory.html) - Advanced quantum theory  
+- [Quantum Field Theory](../physics/quantum-field-theory.html) - Advanced quantum theory
 - [Statistical Mechanics](../physics/statistical-mechanics.html) - Quantum statistics
 - [Condensed Matter Physics](../physics/condensed-matter.html) - Quantum phenomena in materials
-- [String Theory](../physics/string-theory.html) - Quantum gravity approaches
+- [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
 - [AWS](aws/) - AWS Braket quantum computing service
 - [AI](ai.html) - Quantum machine learning algorithms
+</div>
 - [Cybersecurity](cybersecurity.html) - Post-quantum cryptography

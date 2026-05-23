@@ -52,7 +52,7 @@ RDS, DynamoDB, and managed database solutions.
 - Caching with ElastiCache
 - Database performance optimization
 
-### [Networking & Content Delivery](../networking.html)
+### [Networking & Content Delivery](networking.html)
 VPC, CloudFront, API Gateway, and load balancing.
 - Virtual private clouds (VPC)
 - Content delivery with CloudFront
@@ -73,6 +73,24 @@ CloudFormation, monitoring, cost optimization, and troubleshooting.
 - Cost optimization strategies
 - Architecture patterns and case studies
 - Troubleshooting guide
+
+---
+
+## How the Services Fit Together
+
+A typical AWS workload draws on services from several of these guides at once. The diagram shows how a standard web application maps onto the hub sections:
+
+```mermaid
+flowchart TB
+    Users([Users]) --> Net["Networking<br/>CloudFront · ALB · VPC"]
+    Net --> Compute["Compute<br/>EC2 · Lambda · ECS"]
+    Compute --> DB["Databases<br/>RDS · DynamoDB"]
+    Compute --> Storage["Storage<br/>S3 · EBS · EFS"]
+    Sec["Security<br/>IAM · KMS"] -.governs.-> Compute
+    Sec -.governs.-> DB
+    Sec -.governs.-> Storage
+    Infra["Infrastructure<br/>CloudFormation · CloudWatch"] -.provisions & monitors.-> Compute
+```
 
 ---
 
@@ -123,10 +141,10 @@ AWS secures the infrastructure ("security of the cloud"), while you secure your 
 
 ## Quick Reference
 
-- **AWS CLI Cheat Sheet**: See [Infrastructure & Operations](infrastructure.html#cli-reference)
-- **Common IAM Policies**: See [Security](security.html#common-policies)
-- **Cost Optimization Tips**: See [Infrastructure & Operations](infrastructure.html#cost-optimization)
-- **Troubleshooting**: See [Infrastructure & Operations](infrastructure.html#troubleshooting)
+- **AWS CLI and developer tools**: See [Infrastructure & Operations](infrastructure.html)
+- **IAM and security best practices**: See [Security](security.html)
+- **Cost optimization strategies**: See [Infrastructure & Operations](infrastructure.html)
+- **Troubleshooting guide**: See [Infrastructure & Operations](infrastructure.html)
 
 ## See Also
 

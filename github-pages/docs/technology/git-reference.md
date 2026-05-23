@@ -11,6 +11,11 @@ hide_title: true
 
 Git is a distributed version control system designed to handle everything from small to very large projects with speed and efficiency. This comprehensive reference covers essential Git commands, workflows, and the latest features introduced in 2023-2024.
 
+<div class="tip-card">
+  <h4>This is the lookup page</h4>
+  <p>Treat this as a <strong>command cheat sheet</strong> — scan or search for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git.html">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
+</div>
+
 ## Repository Initialization
 
 ### Creating a New Repository

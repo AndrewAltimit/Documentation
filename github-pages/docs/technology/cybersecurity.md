@@ -262,6 +262,19 @@ What if you could perform calculations on encrypted data without decrypting it? 
 
 Now that we understand how encryption protects data, let's explore how to defend against attacks on your networks and systems.
 
+Effective security is layered — no single control is trusted to stop everything. This **defense-in-depth** model means an attacker who breaches one layer still faces the next:
+
+```mermaid
+flowchart TD
+    A["Attacker"] --> E["Edge: firewall / WAF / DDoS protection"]
+    E --> N["Network: segmentation, VPN, IDS/IPS"]
+    N --> H["Host: patching, EDR, least privilege"]
+    H --> APP["Application: input validation, authn/authz"]
+    APP --> D["Data: encryption at rest & in transit"]
+    style A fill:#e74c3c,color:#fff
+    style D fill:#27ae60,color:#fff
+```
+
 ### Firewalls: Your First Line of Defense
 
 A firewall is like a security guard for your network, checking every packet of data that tries to enter or leave. But unlike a human guard, it makes decisions based on rules you define:

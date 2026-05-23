@@ -44,6 +44,25 @@ The landscape of diffusion models has evolved rapidly, with each generation brin
 
 *Excellent for anime/stylized content
 
+### How the Families Relate
+
+The major models split into two architectural lineages — the original U-Net diffusion line and the newer transformer-based (DiT) flow-matching line:
+
+```mermaid
+flowchart TD
+    SD15["SD 1.5 (2022)<br/>U-Net, 512px"] --> SD21["SD 2.1 (2022)<br/>768px, OpenCLIP"]
+    SD21 --> SDXL["SDXL (2023)<br/>1024px, dual encoders"]
+    SDXL --> Pony["Pony / Illustrious<br/>SDXL fine-tunes"]
+    SDXL --> SD3["SD3 (2024)<br/>MM-DiT, rectified flow"]
+    SD3 --> FLUX["FLUX (2024)<br/>DiT, flow matching, T5"]
+    classDef unet fill:#e3f2fd,stroke:#1976d2;
+    classDef dit fill:#f3e5f5,stroke:#7b1fa2;
+    class SD15,SD21,SDXL,Pony unet;
+    class SD3,FLUX dit;
+```
+
+Blue = U-Net diffusion lineage; purple = transformer/flow-matching lineage. LoRAs and ControlNets are tied to their lineage, which is why SD 1.5 add-ons don't work on SDXL or FLUX.
+
 ## Stable Diffusion 1.5
 
 ### Overview
@@ -538,6 +557,16 @@ Each model serves different needs:
 - **FLUX**: Cutting-edge quality and capabilities
 
 The rapid evolution continues with models like Stable Cascade, Würstchen, and PixArt-α exploring alternative architectures. Stay informed about new developments while mastering these foundational models. Choose based on your specific requirements for quality, speed, hardware, and content type.
+
+## Key Takeaways
+
+<div class="takeaway-card" markdown="1">
+- **There is no single "best" model** — match the model to your task, hardware, and required ecosystem.
+- **Default to SDXL** for the best balance of quality, speed, and mature LoRA/ControlNet support.
+- **Choose FLUX** for state-of-the-art photorealism, coherence, and text rendering when you have the VRAM (12GB+).
+- **Keep SD 1.5** for low-VRAM setups, fastest iteration, and access to its enormous legacy ecosystem.
+- **Two lineages, two add-on ecosystems:** U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). LoRAs and ControlNets do not cross between them.
+</div>
 
 ---
 

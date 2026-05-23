@@ -17,6 +17,66 @@ toc_icon: "cog"
 
 Quantum Field Theory (QFT) is the theoretical framework that combines quantum mechanics with special relativity to describe the fundamental forces and particles of nature. It treats particles as excited states of underlying quantum fields that permeate all of spacetime.
 
+<div class="intro-card">
+  <p class="lead-text">QFT is the language of the very small and the very fast. Where quantum mechanics describes a fixed number of particles, QFT lets particles be <em>created and destroyed</em> — exactly what happens when an electron and positron annihilate into light, or when a single photon converts into matter. The price of admission is conceptual: the fundamental object is no longer the particle but the <strong>field</strong>, and particles are just its ripples.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-water"></i>
+    <h4>Fields are fundamental</h4>
+    <p>A particle is a localized excitation of a field that fills all space — like a ripple on a pond.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-exchange-alt"></i>
+    <h4>Particle number changes</h4>
+    <p>Creation and annihilation operators let particles appear and disappear, as relativity demands.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-shield-alt"></i>
+    <h4>Symmetry dictates forces</h4>
+    <p>Demanding local gauge symmetry <em>forces</em> the existence of the force-carrying bosons.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-ruler"></i>
+    <h4>Renormalization tames infinities</h4>
+    <p>Physics depends on the energy scale you probe; "running" couplings absorb the divergences.</p>
+  </div>
+</div>
+
+### What You'll Find on This Page
+
+| Section | What it covers |
+|---------|----------------|
+| [Fundamental Concepts](#fundamental-concepts) | Fields, quantization, the vacuum |
+| [Scalar & Dirac fields](#scalar-field-theory) | Spin-0 and spin-½ field theories and their propagators |
+| [Gauge Theories](#gauge-theories) | How local symmetry generates forces |
+| [QED](#quantum-electrodynamics-qed) & [QCD](#quantum-chromodynamics-qcd) | The electromagnetic and strong interactions |
+| [The Standard Model](#the-standard-model) | The full particle content and gauge group |
+| [Renormalization](#renormalization) | Handling divergences and the renormalization group |
+| [Path Integrals](#path-integral-formulation) | Feynman's sum-over-histories formulation |
+| [Modern Developments](#modern-developments) | Amplitudes, AdS/CFT, and the research frontier |
+
+### The Big Picture: From Fields to Forces
+
+```mermaid
+graph LR
+    SYM["Local gauge symmetry"] --> GF["Gauge fields (force carriers)"]
+    GF --> EM["U(1): photon — QED"]
+    GF --> WK["SU(2): W, Z bosons — weak"]
+    GF --> ST["SU(3): gluons — QCD"]
+    MAT["Matter fields (quarks, leptons)"] --> INT["Interactions"]
+    GF --> INT
+    HIGGS["Higgs field"] --> MASS["Mass generation"]
+    EM --> SM["Standard Model"]
+    WK --> SM
+    ST --> SM
+    MASS --> SM
+    style SYM fill:#11998e,color:#fff
+    style SM fill:#38ef7d,color:#222
+    style HIGGS fill:#ccf,color:#222
+```
+
 ## Fundamental Concepts
 
 ### Fields as Fundamental Entities
@@ -190,6 +250,17 @@ $$SU(3)_C \times SU(2)_L \times U(1)_Y$$
 - $SU(2)_L$: Weak isospin
 - $U(1)_Y$: Weak hypercharge
 
+### The Three Gauge Forces at a Glance
+
+| Force | Gauge group | Carrier(s) | Charge | Relative strength | Range |
+|-------|-------------|------------|--------|-------------------|-------|
+| Strong | $SU(3)_C$ | 8 gluons | color | $\sim 1$ | $\sim 10^{-15}$ m (confined) |
+| Electromagnetic | $U(1)_{EM}$ | photon | electric | $\sim 10^{-2}$ | infinite |
+| Weak | $SU(2)_L$ | $W^\pm, Z$ | weak isospin | $\sim 10^{-6}$ | $\sim 10^{-18}$ m |
+| Gravity* | — | (graviton?) | mass-energy | $\sim 10^{-38}$ | infinite |
+
+<p style="font-style:italic; opacity:0.8;">*Gravity is not part of the Standard Model — quantizing it remains an open problem. Strengths are order-of-magnitude comparisons at low energy; the strong and electromagnetic couplings converge toward each other at high energy (see <a href="#renormalization">renormalization</a>).</p>
+
 ### Electroweak Unification
 
 The Weinberg-Salam model unifies electromagnetic and weak forces:
@@ -237,6 +308,11 @@ $$V(r) \approx kr$$
 This confines quarks within hadrons.
 
 ## Renormalization
+
+<div class="theory-card">
+  <h4>The physical idea behind renormalization</h4>
+  <p>Early QFT calculations produced infinite answers, which nearly killed the theory. The resolution is profound: the "constants" in the Lagrangian (mass, charge) are not what we measure. What we measure depends on the <strong>energy scale</strong> at which we probe — a bare electron is dressed by a cloud of virtual particles. Renormalization systematically separates the unmeasurable bare quantities from finite, measured ones. The result is not a trick but a deep statement: physics looks different at different scales, encoded by the <em>running</em> of couplings.</p>
+</div>
 
 ### Divergences in QFT
 
@@ -632,6 +708,35 @@ $$S_A = \frac{\text{Area}(\gamma_A)}{4G_N}$$
 4. **Cosmology:** Early universe, dark sector
 
 Quantum Field Theory represents our deepest understanding of the fundamental forces and particles of nature. It has achieved remarkable experimental success while pointing toward new physics beyond the Standard Model. The framework continues to evolve as we probe higher energies, develop new mathematical tools, and seek to unify all forces including gravity. The interplay between theory, experiment, and computation drives the field forward, revealing ever-deeper connections between physics, mathematics, and the nature of reality itself.
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Fields, not particles</h4>
+    <p>The fundamental degrees of freedom are quantum fields; particles are their quantized excitations, created and destroyed by ladder operators.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Symmetry generates forces</h4>
+    <p>Promoting a global symmetry to a local (gauge) one forces the introduction of gauge bosons — the photon, $W/Z$, and gluons.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>The Standard Model works</h4>
+    <p>$SU(3)\times SU(2)\times U(1)$ plus the Higgs reproduces every confirmed particle measurement, including the electron $g\!-\!2$ to 12 digits.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Renormalization is physics</h4>
+    <p>Infinities are absorbed into scale-dependent couplings; the renormalization group tells you how physics changes with energy.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Two equivalent formulations</h4>
+    <p>Canonical quantization and the path integral give the same physics; the path integral connects directly to statistical mechanics.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>The frontier is open</h4>
+    <p>Dark matter, neutrino masses, the hierarchy problem, and quantum gravity all point beyond the Standard Model.</p>
+  </div>
+</div>
 
 ## See Also
 

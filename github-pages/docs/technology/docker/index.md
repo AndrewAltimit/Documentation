@@ -28,43 +28,28 @@ Whether you are a developer tired of debugging environment-specific issues or an
 
 ---
 
-## Quick Navigation
+## Learning Path
 
-### [Fundamentals](fundamentals.html)
-Start here to understand what containers are and how to use them.
+Work through the four guides in order, or jump to the one matching your task.
 
-- Why Docker? The real problems it solves for teams
-- Core concepts: images, containers, and registries
-- Essential commands for daily work
-- How containers differ from virtual machines
-- Docker network basics
-
-### [Storage & Security](storage-security.html)
-Learn how to persist data and protect your containers.
-
-- Choosing between volumes, bind mounts, and tmpfs
-- Network drivers and when to use each
-- Security hardening for production
-- Troubleshooting common issues
-- Installation and configuration
-
-### [Dockerfiles & CI/CD](dockerfiles.html)
-Build custom images and integrate with your development workflow.
-
-- Writing effective Dockerfiles from scratch
-- Optimization techniques for smaller, faster images
-- Multi-stage builds for production
-- Docker Swarm for orchestration
-- CI/CD integration with GitHub Actions, GitLab, and Jenkins
-
-### [Advanced Patterns](advanced.html)
-Real-world examples and techniques for complex deployments.
-
-- Production-ready patterns and architectures
-- Case studies from real applications
-- WebAssembly and the future of containers
-- Advanced multi-stage build strategies
-- Deployment strategies for zero-downtime releases
+<div class="command-grid">
+  <div class="nav-card">
+    <h4><a href="fundamentals.html">1. Fundamentals</a></h4>
+    <p>Start here. Images vs containers, essential commands, image layering, containers vs VMs, and bridge networking basics.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="storage-security.html">2. Storage &amp; Security</a></h4>
+    <p>Persist data with volumes, bind mounts, and tmpfs; choose network drivers; harden containers; install and troubleshoot.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="dockerfiles.html">3. Dockerfiles &amp; CI/CD</a></h4>
+    <p>Write and optimize Dockerfiles, multi-stage builds, Docker Swarm, and pipelines with GitHub Actions and GitLab.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="advanced.html">4. Advanced Patterns</a></h4>
+    <p>Production architectures, real case studies, design patterns, and WebAssembly as a next-gen container runtime.</p>
+  </div>
+</div>
 
 ---
 

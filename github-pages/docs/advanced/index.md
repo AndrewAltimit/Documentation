@@ -18,44 +18,63 @@ Welcome to the research-oriented section of our documentation. This area contain
   <p class="lead">These resources are designed for researchers, PhD students, and professionals working on theoretical foundations. Whether you're conducting original research, implementing state-of-the-art algorithms, or writing academic work, you'll find rigorous mathematical treatments and complete derivations.</p>
 </div>
 
-<div class="code-example" markdown="1">
-**⚠️ Prerequisites Warning**: These pages assume graduate-level knowledge in mathematics, computer science, and related fields. Each topic includes specific prerequisite requirements.
+<div class="notice--warning" markdown="1">
+#### Prerequisites Warning
+These pages assume graduate-level knowledge in mathematics, computer science, and related fields. Each topic includes specific prerequisite requirements at the top of the page.
 </div>
 
 ## Research Topics
 
-### Foundations of Machine Learning
+<div class="command-grid">
+  <div class="feature-card" markdown="1">
+#### [AI Mathematics: Theoretical Foundations](ai-mathematics/)
+*Foundations of machine learning*
 
-**[AI Mathematics: Theoretical Foundations](ai-mathematics/)**
-- Computational learning theory (PAC learning, VC dimension, Rademacher complexity)
+- Computational learning theory (PAC, VC dimension, Rademacher complexity)
 - Statistical learning theory and generalization bounds
 - Optimization landscapes and convergence analysis
-- Kernel methods and reproducing kernel Hilbert spaces
-- Information-theoretic perspectives on learning
+- Kernel methods and RKHS
+- Information-theoretic perspectives
 
-*Primary audience: ML researchers, theoretical computer scientists, mathematicians*
+*Audience: ML researchers, theoretical CS, mathematicians*
+  </div>
+  <div class="feature-card" markdown="1">
+#### [Distributed Systems Theory](distributed-systems-theory/)
+*Distributed computing theory*
 
-### Distributed Computing Theory
-
-**[Distributed Systems Theory](distributed-systems-theory/)**
-- FLP impossibility theorem and consensus limitations
+- FLP impossibility and consensus limitations
 - CAP theorem and consistency models
 - Byzantine fault tolerance and agreement protocols
 - Formal verification of distributed algorithms
-- Temporal logic and distributed system specifications
+- Temporal logic and specifications
 
-*Primary audience: Distributed systems researchers, formal methods practitioners*
+*Audience: distributed systems researchers, formal methods*
+  </div>
+  <div class="feature-card" markdown="1">
+#### [Quantum Algorithms Research](quantum-algorithms-research/)
+*Quantum computing foundations*
 
-### Quantum Computing Foundations
-
-**[Quantum Algorithms Research](quantum-algorithms-research/)**
-- Quantum complexity theory and computational models
-- Quantum error correction codes and fault tolerance
-- Topological quantum computing approaches
+- Quantum complexity theory and models
+- Error correction codes and fault tolerance
+- Topological quantum computing
 - NISQ-era variational algorithms
-- Quantum advantage and supremacy demonstrations
+- Quantum advantage demonstrations
 
-*Primary audience: Quantum computing researchers, theoretical physicists*
+*Audience: quantum computing researchers, physicists*
+  </div>
+  <div class="feature-card" markdown="1">
+#### [Monorepo Strategies](monorepo/)
+*Large-scale codebase engineering*
+
+- Build-graph modeling and affected-only builds
+- Computation caching (local & remote)
+- Tooling: Nx, Turborepo, Bazel, Rush
+- Git ergonomics for huge repositories
+- Migration and ownership strategies
+
+*Audience: platform & build engineers, tech leads*
+  </div>
+</div>
 
 ---
 
@@ -63,24 +82,26 @@ Welcome to the research-oriented section of our documentation. This area contain
 
 Each research topic requires different mathematical and theoretical foundations:
 
-```
-AI Mathematics:
-├─ Measure Theory ──────┐
-├─ Functional Analysis ─┼─→ Statistical Learning Theory
-├─ Probability Theory ──┘
-└─ Real Analysis ───────→ Optimization Theory
-
-Distributed Systems:
-├─ Formal Methods ──────┐
-├─ Temporal Logic ──────┼─→ Formal Verification
-├─ Graph Theory ────────┤
-└─ Complexity Theory ────┘
-
-Quantum Algorithms:
-├─ Linear Algebra ──────┐
-├─ Complex Analysis ────┼─→ Quantum Information Theory
-├─ Group Theory ────────┤
-└─ Quantum Mechanics ────┘
+```mermaid
+flowchart LR
+    subgraph AI["AI Mathematics"]
+      MT["Measure theory"] --> SLT["Statistical learning theory"]
+      FA["Functional analysis"] --> SLT
+      PT["Probability theory"] --> SLT
+      RA["Real analysis"] --> OPT["Optimization theory"]
+    end
+    subgraph DS["Distributed Systems"]
+      FM["Formal methods"] --> FV["Formal verification"]
+      TL["Temporal logic"] --> FV
+      GT["Graph theory"] --> FV
+      CT["Complexity theory"] --> FV
+    end
+    subgraph QA["Quantum Algorithms"]
+      LA["Linear algebra"] --> QI["Quantum information theory"]
+      CA["Complex analysis"] --> QI
+      GR["Group theory"] --> QI
+      QM["Quantum mechanics"] --> QI
+    end
 ```
 
 ## How to Navigate These Resources
@@ -287,20 +308,17 @@ Theoretical physics foundations for quantum computing:
 
 The advanced topics form a rich network of connections:
 
-```
-Statistical Learning Theory ──────┐
-                                  ├─→ Optimization Theory
-Quantum Information Theory ───────┤
-                                  └─→ Information Geometry
-
-Formal Methods ───────────┐
-                         ├─→ Fault Tolerance Theory
-Quantum Error Correction ─┘
-
-Complexity Theory ─────────┐
-                          ├─→ Algorithm Design
-Graph Theory ──────────────┤
-                          └─→ Network Analysis
+```mermaid
+flowchart LR
+    SLT["Statistical learning theory"] --> OPT["Optimization theory"]
+    QI["Quantum information theory"] --> OPT
+    SLT --> IG["Information geometry"]
+    QI --> IG
+    FM["Formal methods"] --> FT["Fault tolerance theory"]
+    QEC["Quantum error correction"] --> FT
+    CT["Complexity theory"] --> AD["Algorithm design"]
+    GT["Graph theory"] --> AD
+    GT --> NA["Network analysis"]
 ```
 
 Understanding these connections enables interdisciplinary research and novel problem-solving approaches.

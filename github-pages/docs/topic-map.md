@@ -5,11 +5,9 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section topic-map-hero">
-  <div class="hero-content">
-    <h1 class="hero-title">Interactive Learning Map</h1>
-    <p class="hero-subtitle">Discover your personalized learning path through our documentation</p>
-  </div>
+<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Interactive Learning Map</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Discover your personalized learning path through the documentation.</p>
 </div>
 
 <div class="intro-card">
@@ -121,32 +119,7 @@ Shell  Branching Compose Jenkins   Helm    Prometheus
 </div>
 
 <style>
-.topic-map-hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 3rem 0;
-  margin-bottom: 2rem;
-}
-
-.quick-start-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin: 2rem 0;
-}
-
-.quick-start-card {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.5rem;
-  border: 1px solid #e9ecef;
-}
-
-.quick-start-card h3 {
-  margin-top: 0;
-  color: #495057;
-}
-
+/* Page-specific styling only; grids, hero, buttons, and CTA come from global CSS. */
 .connection-legend {
   display: flex;
   flex-direction: column;
@@ -181,25 +154,5 @@ Shell  Branching Compose Jenkins   Helm    Prometheus
   background: #6f42c1;
 }
 
-.cta-section {
-  text-align: center;
-  margin: 3rem 0;
-  padding: 2rem;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.btn-primary {
-  display: inline-block;
-  padding: 0.75rem 2rem;
-  background: #007bff;
-  color: white;
-  text-decoration: none;
-  border-radius: 5px;
-  transition: background 0.3s ease;
-}
-
-.btn-primary:hover {
-  background: #0056b3;
-}
+.cta-section .btn { margin: 0.25rem; }
 </style>

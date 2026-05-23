@@ -437,6 +437,24 @@ The Open Container Initiative (OCI) standardizes these specifications, allowing 
 
 > **Note**: Most users never interact with these low-level components directly. Docker's CLI abstracts away this complexity while giving you control when needed.
 
+### How Images Are Layered
+
+A Docker image is not a single blob; it is a stack of read-only layers, one per build instruction. When you run a container, Docker adds a thin writable layer on top. Multiple containers from the same image share the underlying read-only layers, which is why containers are so lightweight.
+
+```mermaid
+flowchart TB
+    subgraph Image["Image (read-only, shared)"]
+        L1["FROM python:3.12-slim<br/>(base OS layer)"]
+        L2["RUN pip install -r requirements.txt<br/>(dependencies)"]
+        L3["COPY . .<br/>(application code)"]
+        L1 --> L2 --> L3
+    end
+    L3 --> C1["Container A<br/>writable layer"]
+    L3 --> C2["Container B<br/>writable layer"]
+```
+
+**Why this matters for builds**: Docker caches each layer. If a layer's inputs are unchanged, Docker reuses the cached layer instead of rebuilding it. Ordering instructions so that rarely-changing steps (installing dependencies) come before frequently-changing steps (copying source code) maximizes cache hits and dramatically speeds up rebuilds.
+
 ## Docker Network Architecture
 
 Networking is often the trickiest part of containerization. Containers need to communicate with each other, with the host, and with external services, all while maintaining isolation. Docker provides several network drivers for different scenarios.
@@ -463,6 +481,17 @@ When you run a container without specifying a network, Docker uses the default b
 
 **Key insight**: Containers on the same user-defined bridge network can find each other by container name (automatic DNS). The default bridge does not have this feature, which is why creating custom networks is recommended.
 
+The diagram below shows how an external request reaches a container on a bridge network, and how two containers on the same network reach each other directly by name:
+
+```mermaid
+flowchart LR
+    Client([External Client]) -->|"host:8080"| Host[Docker Host]
+    Host -->|"NAT / port map"| Bridge(["docker0 bridge"])
+    Bridge -->|"172.17.0.2:80"| Web[web container]
+    Web -->|"DNS: db"| DB[db container]
+    Bridge --- DB
+```
+
 ### When to Use Each Network Type
 
 - **bridge**: Development, single-host deployments, isolated applications
@@ -470,3 +499,44 @@ When you run a container without specifying a network, Docker uses the default b
 - **overlay**: Docker Swarm services spanning multiple hosts
 - **macvlan**: When container must appear as physical device on network (legacy integration)
 - **none**: Security-sensitive workloads that should have no network access
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Relying on the default bridge for DNS:</strong> Containers on the default <code>bridge</code> cannot resolve each other by name. Always create a user-defined network for multi-container apps.</li>
+    <li><strong>Expecting data to persist:</strong> A container's writable layer is destroyed with the container. Use volumes for anything you need to keep (see Storage &amp; Security).</li>
+    <li><strong>Using <code>latest</code> tags:</strong> <code>latest</code> is not a fixed version; it moves. Pin explicit tags for reproducible builds.</li>
+    <li><strong>Running as root:</strong> Containers default to root inside the container. Add a non-root <code>USER</code> for anything beyond local experiments.</li>
+  </ul>
+</div>
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Images vs Containers</h4>
+    <p>An image is an immutable, layered blueprint; a container is a running instance with a thin writable layer on top.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Containers Share the Kernel</h4>
+    <p>Unlike VMs, containers share the host kernel — giving them second-startup times and minimal overhead, at the cost of weaker isolation.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Layers Drive Caching</h4>
+    <p>Each Dockerfile instruction is a cached layer. Order from least- to most-frequently-changing to speed up rebuilds.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Custom Networks for DNS</h4>
+    <p>User-defined bridge networks give containers automatic name resolution; the default bridge does not.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Storage &amp; Security](storage-security.html) - Persist data with volumes and harden containers
+- [Dockerfiles &amp; CI/CD](dockerfiles.html) - Build optimized images and automate pipelines
+- [Advanced Patterns](advanced.html) - Production architectures and WebAssembly runtimes
+- [Docker Essentials](../docker-essentials.html) - Quick command reference
+- [Kubernetes](../kubernetes/) - Orchestrate containers at scale
