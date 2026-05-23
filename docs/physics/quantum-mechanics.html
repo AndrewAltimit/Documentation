@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -2068,7 +2094,81 @@ Think of it as $F=ma$ for quantum mechanics — it tells you how the wave functi
   <li>Mixed states: inside sphere (radius &lt; 1)</li>
 </ul>
 
+<h3 id="how-the-pieces-fit-together">How the Pieces Fit Together</h3>
+
+<p>It is easy to lose the forest for the trees in quantum mechanics. The map below organizes the machinery: the state vector sits at the center, observables and dynamics act on it, and the strange phenomena (superposition, entanglement, tunneling) are consequences, not separate rules. Applications and interpretations branch off the same trunk.</p>
+
+<pre><code class="language-mermaid">graph TD
+    PSI["State vector |psi&amp;gt;&lt;br/&gt;in Hilbert space"] --&gt; OBS["Observables&lt;br/&gt;(Hermitian operators)"]
+    PSI --&gt; DYN["Dynamics&lt;br/&gt;(Schrodinger equation)"]
+    OBS --&gt; MEAS["Measurement&lt;br/&gt;(Born rule, collapse)"]
+    PSI --&gt; SUP["Superposition"]
+    SUP --&gt; ENT["Entanglement&lt;br/&gt;(composite systems)"]
+    DYN --&gt; TUN["Tunneling"]
+    MEAS --&gt; DEC["Decoherence&lt;br/&gt;(classical limit)"]
+    ENT --&gt; QC["Quantum computing&lt;br/&gt;and information"]
+    DEC --&gt; CL["Classical physics&lt;br/&gt;emerges"]
+    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef phenom fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
+    classDef app fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    class PSI,OBS,DYN,MEAS core;
+    class SUP,ENT,TUN,DEC phenom;
+    class QC,CL app;
+</code></pre>
+
 <h2 id="fundamental-concepts">Fundamental Concepts</h2>
+
+<h3 id="the-postulates-of-quantum-mechanics">The Postulates of Quantum Mechanics</h3>
+
+<p>Beneath the wave functions and operators, the entire theory rests on a short list of postulates. Everything else — uncertainty, quantization, tunneling, entanglement — is a logical consequence. It is worth seeing them assembled in one place; the rest of this page is essentially these five statements worked out in detail.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Postulate</th>
+      <th>Statement</th>
+      <th>Where it appears</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>State</td>
+      <td>A system is fully described by a normalized vector $\lvert\psi\rangle$ in a Hilbert space</td>
+      <td>Wave functions, Dirac notation</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Observables</td>
+      <td>Measurable quantities are Hermitian operators $\hat{A}$; possible results are their eigenvalues</td>
+      <td>Position, momentum, energy operators</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Measurement (Born rule)</td>
+      <td>The probability of result $a_n$ is $\lvert\langle a_n\lvert\psi\rangle\rvert^2$, and the state collapses to $\lvert a_n\rangle$</td>
+      <td>Measurement and decoherence</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Dynamics</td>
+      <td>Between measurements the state evolves by the Schrödinger equation, $i\hbar\,\partial_t\lvert\psi\rangle = \hat{H}\lvert\psi\rangle$</td>
+      <td>Time evolution</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Composite systems</td>
+      <td>The state space of a combined system is the tensor product of the parts</td>
+      <td>Entanglement, many-body QM</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tip-card">
+  <h4>The two kinds of change</h4>
+  <p>Notice that postulates 4 and 3 describe two utterly different ways a quantum state can change. Schrödinger evolution (postulate 4) is smooth, deterministic, and reversible — given $\lvert\psi(0)\rangle$ the future is fixed. Measurement (postulate 3) is abrupt, probabilistic, and irreversible — the state jumps to an eigenstate and information about the others is lost. Reconciling these two — when and why one becomes the other — is the <em>measurement problem</em>, and decoherence is the modern bridge between them. Hold this tension in mind; it is the conceptual heart of quantum mechanics.</p>
+</div>
 
 <h3 id="wave-particle-duality">Wave-Particle Duality</h3>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://www.fisica.net/mecanica-quantica/de_broglie_thesis.pdf"> Paper: <b><i>On the Theory of Quanta</i></b> - Louis de Broglie</a></p>
@@ -2515,6 +2615,13 @@ Note: the prefactor $\left(m\omega/\pi\hbar\right)^{1/4}$ ensures normalization 
 \(T \approx \frac{16E(V_0-E)}{V_0^2}\, e^{-2\kappa a}\)</p>
 
 <p>Where $\kappa = \sqrt{2m(V_0-E)}/\hbar$ and $a$ is the barrier width.</p>
+
+<p>The physics lives in the exponential. A classical particle with energy $E &lt; V_0$ simply bounces off the wall; quantum mechanically the wave function does not stop dead at the barrier but <em>decays</em> inside it as $e^{-\kappa x}$, and if the barrier is thin enough a small amplitude survives on the far side. The transmission probability therefore plummets exponentially with both the barrier width $a$ and the square root of its height — which is why tunneling is dramatic for electrons across an atomic-scale gap yet utterly negligible for a tennis ball against a wall.</p>
+
+<div class="tip-card">
+  <h4>Tunneling in the real world</h4>
+  <p>This single exponential explains a remarkable range of phenomena. <strong>Alpha decay</strong>: an alpha particle escapes a heavy nucleus by tunneling through the Coulomb barrier, and the steep dependence on barrier height is why nuclear half-lives span from microseconds to billions of years. <strong>The scanning tunneling microscope</strong> measures the tunneling current between a sharp tip and a surface; because $T$ changes by a factor of ~10 for every 0.1 nm of gap, it resolves individual atoms. <strong>Fusion in the Sun</strong> proceeds only because protons tunnel through their mutual repulsion — without quantum tunneling, stars could not shine. And <strong>flash memory</strong> stores data by tunneling electrons onto an isolated gate.</p>
+</div>
 
 <h3 id="quantum-entanglement">Quantum Entanglement</h3>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://cds.cern.ch/record/111654/files/vol1p195-200_001.pdf"> Paper: <b><i>On the Einstein Podolsky Rosen Paradox</i></b> - John Bell</a></p>

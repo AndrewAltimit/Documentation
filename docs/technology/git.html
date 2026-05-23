@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -1972,6 +1998,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Because objects are addressed by the hash of their content, identical files anywhere in history share a single blob, and any tampering changes the hash — giving Git both deduplication and cryptographic integrity.</p>
 
+<h4 id="seeing-the-object-model-directly">Seeing the Object Model Directly</h4>
+
+<p>The abstract model becomes concrete with Git’s <em>plumbing</em> commands. The session below creates a blob, wraps it in a tree, and seals that tree into a commit — the exact three steps <code class="language-plaintext highlighter-rouge">git commit</code> performs internally:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Store a blob and get its hash</span>
+<span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"hello"</span> | git hash-object <span class="nt">-w</span> <span class="nt">--stdin</span>
+ce013625030ba8dba906f756967f9e9ca394464a
+
+<span class="c"># 2. Inspect any object: its type, and its content</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-t</span> ce013625        <span class="c"># -&gt; blob</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-p</span> ce013625        <span class="c"># -&gt; hello</span>
+
+<span class="c"># 3. A commit is just text pointing at a tree and parent(s)</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-p</span> HEAD
+tree   a1b2c3...        <span class="c"># the snapshot</span>
+parent d4e5f6...        <span class="c"># previous commit (omitted for the root commit)</span>
+author  Jane Dev &lt;jane@example.com&gt; 1700000000 +0000
+committer Jane Dev &lt;jane@example.com&gt; 1700000000 +0000
+
+    Add greeting
+</code></pre></div></div>
+
+<p>The hash of a blob depends only on its content (plus a <code class="language-plaintext highlighter-rouge">blob &lt;size&gt;\0</code> header), never on its filename or location — that is why renaming a file or copying it elsewhere costs zero extra storage.</p>
+
 <h3 id="storage-model">Storage Model</h3>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>.git/
@@ -1988,6 +2038,83 @@ document.addEventListener('DOMContentLoaded', function () {
 ├── index             # Staging area
 └── config            # Repository configuration
 </code></pre></div></div>
+
+<h3 id="the-three-trees">The Three Trees</h3>
+
+<p>Almost every day-to-day Git command moves data between three “trees” (snapshots of the project). Understanding them demystifies <code class="language-plaintext highlighter-rouge">add</code>, <code class="language-plaintext highlighter-rouge">commit</code>, <code class="language-plaintext highlighter-rouge">reset</code>, and <code class="language-plaintext highlighter-rouge">checkout</code> — they are all just different ways of synchronizing these three states.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tree</th>
+      <th>Lives in</th>
+      <th>Represents</th>
+      <th>Advanced by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HEAD</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">.git</code> (the commit it points to)</td>
+      <td>Last commit — the snapshot you started from</td>
+      <td><code class="language-plaintext highlighter-rouge">git commit</code></td>
+    </tr>
+    <tr>
+      <td><strong>Index</strong> (staging area)</td>
+      <td><code class="language-plaintext highlighter-rouge">.git/index</code></td>
+      <td>The proposed <em>next</em> snapshot</td>
+      <td><code class="language-plaintext highlighter-rouge">git add</code></td>
+    </tr>
+    <tr>
+      <td><strong>Working tree</strong></td>
+      <td>Files on disk</td>
+      <td>Your actual edits, staged or not</td>
+      <td>Editing files</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    WT["Working tree&lt;br/&gt;(files on disk)"] --&gt;|git add| IDX["Index&lt;br/&gt;(staged snapshot)"]
+    IDX --&gt;|git commit| HEAD["HEAD&lt;br/&gt;(committed snapshot)"]
+    HEAD --&gt;|git checkout / reset --hard| WT
+    HEAD --&gt;|git reset --mixed| IDX
+</code></pre>
+
+<p>This is why the three <code class="language-plaintext highlighter-rouge">reset</code> modes differ only in <em>how far</em> they propagate a move of HEAD:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th style="text-align: center">Moves HEAD</th>
+      <th style="text-align: center">Resets Index</th>
+      <th style="text-align: center">Resets Working tree</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git reset --soft</code></td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">No</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git reset --mixed</code> (default)</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git reset --hard</code></td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A <code class="language-plaintext highlighter-rouge">--soft</code> reset leaves your staged changes intact (useful for re-doing a commit message); a <code class="language-plaintext highlighter-rouge">--hard</code> reset discards everything back to the target commit (and is the one command capable of destroying uncommitted work).</p>
 
 <h2 id="configuration-management">Configuration Management</h2>
 
@@ -2342,6 +2469,56 @@ git merge <span class="nt">-s</span> recursive &lt;branch&gt;  <span class="c">#
 git merge <span class="nt">-s</span> ours &lt;branch&gt;       <span class="c"># Keep current content</span>
 git merge <span class="nt">-s</span> octopus b1 b2 b3    <span class="c"># Multiple branches</span>
 </code></pre></div></div>
+
+<h3 id="merge-vs-rebase">Merge vs Rebase</h3>
+
+<p>Both <code class="language-plaintext highlighter-rouge">merge</code> and <code class="language-plaintext highlighter-rouge">rebase</code> integrate work from one branch into another, but they produce different histories. A <strong>merge</strong> preserves the true topology by creating a merge commit with two parents; a <strong>rebase</strong> rewrites your commits so they appear to have been built on top of the latest base, yielding a linear history. The diagrams below show a feature branch <code class="language-plaintext highlighter-rouge">B1 → B2</code> integrated into <code class="language-plaintext highlighter-rouge">main</code> (<code class="language-plaintext highlighter-rouge">M1 → M2 → M3</code>).</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Merge["git merge (preserves topology)"]
+        direction LR
+        m1((M1)) --&gt; m2((M2)) --&gt; m3((M3)) --&gt; mc((Merge))
+        m2 --&gt; b1((B1)) --&gt; b2((B2)) --&gt; mc
+    end
+    subgraph Rebase["git rebase (linear history)"]
+        direction LR
+        r1((M1)) --&gt; r2((M2)) --&gt; r3((M3)) --&gt; rb1((B1')) --&gt; rb2((B2'))
+    end
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Merge</th>
+      <th>Rebase</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>History</td>
+      <td>Non-linear; true graph</td>
+      <td>Linear, easier to read</td>
+    </tr>
+    <tr>
+      <td>Commit hashes</td>
+      <td>Preserved</td>
+      <td>Rewritten (new commits)</td>
+    </tr>
+    <tr>
+      <td>Traceability</td>
+      <td>Records when integration happened</td>
+      <td>Loses the original branch point</td>
+    </tr>
+    <tr>
+      <td>Safe on shared branches?</td>
+      <td>Yes</td>
+      <td>No — never rebase commits others have pulled</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Golden rule of rebasing</strong>: rebase only commits that exist solely in your local repository. Rewriting published history forces every collaborator to recover manually.</p>
 
 <h3 id="rebase-operations">Rebase Operations</h3>
 

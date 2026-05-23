@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -1921,6 +1947,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The split between <em>preprocessor</em> and <em>model</em> is the key idea: the preprocessor is a one-time analysis pass that turns your reference into a control map, and the ControlNet model is what conditions generation on that map. The same depth map can feed any depth ControlNet, and you can hand-author or edit a control map directly when a preprocessor gets it wrong.</p>
 
+<h4 id="why-controlnet-doesnt-break-the-base-model-zero-convolutions">Why ControlNet Doesn’t Break the Base Model: Zero Convolutions</h4>
+
+<p>The reason you can add ControlNet to a model without retraining or degrading it is a design detail called <strong>zero convolutions</strong>. ControlNet clones the encoder half of the frozen base model and connects that clone back into the original network through 1x1 convolution layers whose weights start at zero. At the very first training step those zero-initialized layers output nothing, so the combined network is <em>identical</em> to the original - then they gradually learn to inject the control signal.</p>
+
+<p>This gives two practical guarantees:</p>
+
+<ul>
+  <li><strong>No catastrophic forgetting.</strong> The base model’s weights are frozen; only the trainable copy and the zero-convs learn. The model never “unlearns” what it already knew.</li>
+  <li><strong>Graceful start.</strong> Training begins from a perfect copy of the base model rather than from noise, so even small datasets produce usable controls.</li>
+</ul>
+
+<p>This is also why a ControlNet is bound to its base family: the trainable copy mirrors that specific U-Net (or DiT), so its connection points only line up with a model of the same architecture.</p>
+
 <h2 id="control-types-at-a-glance">Control Types at a Glance</h2>
 
 <p>Most workflows only need one control type. Pick it by what you want to preserve from the reference, not by what the reference <em>is</em>:</p>
@@ -1987,6 +2026,19 @@ document.addEventListener('DOMContentLoaded', function () {
 </table>
 
 <p>If you are unsure, <strong>Depth</strong> is the most forgiving general-purpose control (it constrains layout without locking in exact lines), and <strong>Canny</strong> is the most precise.</p>
+
+<h3 id="a-worked-example-posing-a-character">A Worked Example: Posing a Character</h3>
+
+<p>Suppose you have a reference photo of someone standing with arms crossed, and you want a knight in armor in that exact pose. The end-to-end flow with concrete settings:</p>
+
+<ol>
+  <li><strong>Preprocess</strong> the reference with <code class="language-plaintext highlighter-rouge">dw_openpose_full</code> at 1024px (SDXL). You now have a stick-figure skeleton - preview it and confirm the limbs are detected correctly.</li>
+  <li><strong>Prompt</strong> for content and style only: <code class="language-plaintext highlighter-rouge">"a knight in ornate steel armor, dramatic studio lighting, photorealistic"</code>. Notice the prompt says nothing about pose - the control map handles that.</li>
+  <li><strong>Apply</strong> an SDXL OpenPose ControlNet with <code class="language-plaintext highlighter-rouge">strength: 0.85</code>, <code class="language-plaintext highlighter-rouge">start_percent: 0.0</code>, <code class="language-plaintext highlighter-rouge">end_percent: 0.8</code>.</li>
+  <li><strong>Sample</strong> normally (e.g. DPM++ 2M, 30 steps, CFG 6).</li>
+</ol>
+
+<p>The result is a knight standing with arms crossed. Ending control at 80% (<code class="language-plaintext highlighter-rouge">end_percent: 0.8</code>) lets the final steps add armor detail the skeleton never specified. If the pose drifts, raise strength toward 1.0; if the armor looks stiff or traced, lower strength or pull <code class="language-plaintext highlighter-rouge">end_percent</code> down to 0.6.</p>
 
 <h2 id="controlnet-types">ControlNet Types</h2>
 
@@ -2469,6 +2521,49 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 <div class="tip-card">
   <p><strong>Union models simplify the mess.</strong> Newer “ControlNet Union” releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, …) at runtime instead of juggling a separate file per type.</p>
 </div>
+
+<h3 id="controlnet-vs-the-alternatives">ControlNet vs. the Alternatives</h3>
+
+<p>ControlNet is the most precise spatial conditioner, but it is not always the right tool. Several lighter or differently-focused methods share the space:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Conditions on</th>
+      <th>Strength</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ControlNet</td>
+      <td>Structural map (pose, edge, depth)</td>
+      <td>Highest spatial precision</td>
+      <td>Reproducing exact composition</td>
+    </tr>
+    <tr>
+      <td>T2I-Adapter</td>
+      <td>Same map types, lighter</td>
+      <td>Fast, low VRAM, less precise</td>
+      <td>Real-time, batch, mobile</td>
+    </tr>
+    <tr>
+      <td>IP-Adapter</td>
+      <td>A <em>reference image’s</em> style/content</td>
+      <td>Transfers look, not layout</td>
+      <td>“Make it look like this”</td>
+    </tr>
+    <tr>
+      <td>InstantID</td>
+      <td>A reference <em>face</em></td>
+      <td>Identity-preserving portraits</td>
+      <td>Consistent faces from one photo</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A common pattern is to combine them: ControlNet for <em>where</em> (structure), IP-Adapter for <em>what it looks like</em> (style), and a LoRA for <em>who/what</em> (subject). They condition on different things, so they cooperate rather than conflict.</p>
 
 <h3 id="t2i-adapter">T2I-Adapter</h3>
 

@@ -696,18 +696,29 @@ html[data-theme="dark"] {
    ============================================================ */
 
 :root {
-  --color-accent: #0066cc;
+  --color-accent:      #0066cc;
   --color-accent-dark: #0b4f9c;
-  --color-text: #24292f;
-  --color-text-muted: #57606a;
-  --color-border: #e1e4e8;
-  --color-surface: #f8f9fa;
-  --color-code-bg: #f6f8fa;
+  --color-text:        #24292f;
+  --color-text-muted:  #57606a;
+  --color-border:      #d1d5db;
+  --color-surface:     #f8f9fa;
+  --color-code-bg:     #f6f8fa;
+
+  /* Shared radius / shadow tokens */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --shadow-rest: 0 1px 3px rgba(27, 31, 36, 0.06), 0 1px 2px rgba(27, 31, 36, 0.04);
+  --shadow-lift: 0 6px 20px rgba(27, 31, 36, 0.12), 0 2px 6px rgba(27, 31, 36, 0.06);
+  --transition-fast: 0.15s ease;
+  --transition-std:  0.2s ease;
 }
 
 /* Readable body text and rhythm */
 .page__content {
   color: var(--color-text);
+  /* Slightly loosened line spacing for reading comfort */
+  line-height: 1.65;
 }
 
 .page__content > p,
@@ -717,10 +728,25 @@ html[data-theme="dark"] {
   color: var(--color-text);
 }
 
+/* Tighter paragraph spacing — condensed.css overrides take priority, but
+   this serves the pages where condensed.css margin applies less. */
+.page__content > p + p {
+  margin-top: 0;
+}
+
 /* Heading hierarchy: clearer separation with a subtle rule on H2 */
 .page__content h2 {
-  padding-bottom: 0.25em;
+  padding-bottom: 0.3em;
   border-bottom: 1px solid var(--color-border);
+  /* Add a touch of breathing room above H2 */
+  margin-top: 2.25em;
+}
+
+/* H3 gets a faint left-accent for visual hierarchy */
+.page__content h3 {
+  padding-left: 0.65em;
+  border-left: 3px solid var(--color-accent);
+  margin-left: -0.65em; /* keep text column aligned */
 }
 
 .page__content h1,
@@ -729,19 +755,23 @@ html[data-theme="dark"] {
 .page__content h4 {
   color: #1a1f24;
   scroll-margin-top: 1.5rem;
+  /* Tighten letter-spacing for headings */
+  letter-spacing: -0.012em;
 }
 
 /* Link affordances: underline on hover, clear focus ring */
 .page__content a {
   color: var(--color-accent);
   text-decoration: none;
-  border-bottom: 1px solid rgba(0, 102, 204, 0.25);
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  border-bottom: 1px solid rgba(0, 102, 204, 0.3);
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .page__content a:hover {
   color: var(--color-accent-dark);
   border-bottom-color: var(--color-accent-dark);
+  background: rgba(0, 102, 204, 0.05);
+  border-radius: 2px;
   text-decoration: none;
 }
 
@@ -787,66 +817,116 @@ button:focus-visible,
   outline-offset: -4px;
 }
 
-/* Tables: zebra striping + rounded container + readable header */
+/* Tables: zebra striping + rounded container + readable header
+   Light mode uses a gentle blue-tinted header; dark mode overrides below. */
 .page__content table {
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   border-collapse: separate;
   border-spacing: 0;
+  box-shadow: var(--shadow-rest);
 }
 
 .page__content table th {
-  background: #eef1f5;
+  background: #eef3fa;
   font-weight: 600;
-  border-bottom: 2px solid var(--color-border);
+  color: #1a1f24;
+  font-size: 0.88em;
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 2px solid #c9d4e0;
 }
 
 .page__content table th,
 .page__content table td {
   border: none;
-  border-bottom: 1px solid #eceff2;
+  border-bottom: 1px solid #eaecef;
+  vertical-align: top;
+}
+
+.page__content table tr:last-child td {
+  border-bottom: none;
 }
 
 .page__content table tr:nth-child(even) td {
-  background: #fafbfc;
+  background: #f7f9fb;
 }
 
 .page__content table tr:hover td {
-  background: #f1f6fc;
+  background: #eef4fc;
+  transition: background var(--transition-fast);
 }
 
-/* Inline code: subtle border for definition */
+/* Inline code: chip-style with a soft red for emphasis */
 .page__content code {
   background: var(--color-code-bg);
-  border: 1px solid #e7eaee;
+  border: 1px solid #dde2e8;
   color: #b5113a;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.86em;
+  padding: 0.12em 0.38em;
 }
 
-/* Code blocks: don't put a red border on code inside a pre */
+/* Code blocks: don't override pre code with inline-code chip styling */
 .page__content pre code {
   border: none;
   color: inherit;
   background: transparent;
+  padding: 0;
+  font-size: inherit;
 }
 
+/* Code block: tight but readable, with a subtle shadow to lift off page */
 .page__content pre {
-  border: 1px solid #e7eaee;
-  border-radius: 8px;
+  background: #f6f8fa;
+  border: 1px solid #d8dde4;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-rest);
+  /* Increase left padding slightly so copy button doesn't overlap short lines */
+  padding: 1em 1.1em;
 }
 
-/* Blockquotes as soft callouts */
+/* Blockquotes as soft callouts — a "note" style with an info-blue accent.
+   The generic blockquote is the default callout variant.
+   Named variants (.callout-tip, .callout-warning, .callout-note) can be
+   added to a wrapping div to change the accent color:
+     <div class="callout-warning"><blockquote>...</blockquote></div>
+*/
 .page__content blockquote {
-  background: var(--color-surface);
+  background: #f0f5ff;
   border-left: 4px solid var(--color-accent);
-  border-radius: 0 6px 6px 0;
-  color: var(--color-text-muted);
-  padding: 0.6em 1.1em !important;
+  border-top: none;
+  border-bottom: none;
+  border-right: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--color-text);
+  padding: 0.75em 1.15em !important;
+  margin: 1.25em 0 !important;
+  /* Visually distinguish from surrounding prose */
+  font-style: normal;
 }
 
 .page__content blockquote p:last-child {
   margin-bottom: 0 !important;
+}
+
+/* Tip variant: green accent */
+.page__content .callout-tip > blockquote {
+  background: #f0faf4;
+  border-left-color: #28a745;
+}
+
+/* Warning variant: amber accent */
+.page__content .callout-warning > blockquote {
+  background: #fffbf0;
+  border-left-color: #e6a817;
+}
+
+/* Danger/important variant: red accent */
+.page__content .callout-danger > blockquote {
+  background: #fff5f5;
+  border-left-color: #dc3545;
 }
 
 /* Horizontal rule */
@@ -867,15 +947,32 @@ button:focus-visible,
 .problem-item,
 .solution-item,
 .insight-card {
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  box-shadow: var(--shadow-rest);
+  transition: box-shadow var(--transition-std), transform var(--transition-std);
 }
 
 .nav-card:hover,
 .quick-start-card:hover,
 .feature-card:hover {
-  box-shadow: 0 6px 18px rgba(27, 31, 36, 0.1);
+  box-shadow: var(--shadow-lift);
   transform: translateY(-2px);
+}
+
+/* Equal-height columns: make quick-start cards stretch to fill their grid cell */
+.quick-start-grid {
+  align-items: stretch;
+}
+.quick-start-card {
+  display: flex;
+  flex-direction: column;
+}
+.quick-start-card p:last-child {
+  margin-top: auto !important;
+}
+
+/* Nav cards: uniform min-height so the grid rows align */
+.command-grid {
+  align-items: start;
 }
 
 /* See-also card list spacing */
@@ -885,10 +982,12 @@ button:focus-visible,
 .btn {
   display: inline-block;
   padding: 0.6rem 1.4rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-weight: 600;
+  font-size: 0.9rem;
   text-decoration: none;
-  transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  border-bottom: none !important;
+  transition: background var(--transition-std), transform var(--transition-std), box-shadow var(--transition-std);
 }
 
 .btn-primary {
@@ -899,86 +998,147 @@ button:focus-visible,
 .btn-primary:hover {
   background: var(--color-accent-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 102, 204, 0.3);
+  color: #fff !important;
 }
 
 .btn-secondary {
-  background: #fff;
+  background: transparent;
   color: var(--color-accent) !important;
-  border: 1px solid var(--color-accent);
+  border: 1.5px solid var(--color-accent) !important;
 }
 
 .btn-secondary:hover {
-  background: rgba(0, 102, 204, 0.06);
+  background: rgba(0, 102, 204, 0.07);
+  transform: translateY(-1px);
 }
 
 /* Search banner on the home page */
 .search-banner {
   background: linear-gradient(135deg, #0066cc 0%, #4facfe 100%);
   color: #fff;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem 2rem;
-  margin: 1.5rem 0 2.5rem;
+  margin: 1.75rem 0 2.5rem;
   text-align: center;
+  box-shadow: 0 4px 18px rgba(0, 102, 204, 0.22);
+  position: relative;
+  overflow: hidden;
 }
 
-.search-banner h2 { margin: 0 0 0.25rem !important; color: #fff !important; border: none !important; }
-.search-banner h2 a { color: #fff !important; border-bottom: none !important; }
-.search-banner p { margin: 0 !important; opacity: 0.92; }
+/* Subtle frosted sheen on the banner */
+.search-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
 
-/* Category card grid for landing pages (reuses .card markup) */
+.search-banner h2 {
+  margin: 0 0 0.35rem !important;
+  color: #fff !important;
+  border: none !important;
+  border-bottom: none !important;
+  /* Undo the h3 accent-bar that would bleed onto the banner heading */
+  padding-left: 0 !important;
+  border-left: none !important;
+  margin-left: 0 !important;
+  letter-spacing: -0.01em;
+}
+.search-banner h2 a { color: #fff !important; border-bottom: none !important; }
+.search-banner p { margin: 0 !important; opacity: 0.92; font-size: 0.95rem; }
+
+/* Category card grid for landing pages */
 .category-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.5rem;
+  gap: 1.25rem;
   margin: 1.5rem 0 2rem;
+  align-items: stretch;
 }
 
 .category-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border: 1px solid var(--color-border);
-  border-top: 4px solid var(--color-accent);
-  border-radius: 10px;
-  padding: 1.4rem 1.5rem;
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.5rem 1.2rem;
   text-decoration: none !important;
   color: var(--color-text) !important;
-  box-shadow: 0 1px 2px rgba(27, 31, 36, 0.04);
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  box-shadow: var(--shadow-rest);
+  transition: box-shadow var(--transition-std), transform var(--transition-std);
 }
 
 .category-card:hover {
-  box-shadow: 0 8px 22px rgba(27, 31, 36, 0.12);
+  box-shadow: var(--shadow-lift);
   transform: translateY(-3px);
-  border-bottom: none !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  text-decoration: none !important;
 }
+
+/* Suppress the default hover background that bleeds into card links */
+.category-card:hover {
+  background: rgba(0, 102, 204, 0.01);
+}
+
+/* Clickable region of the card. The card itself is a <div> (not an <a>) so the
+   .category-links anchors below are never nested inside an anchor — nesting <a>
+   in <a> is invalid HTML and the browser auto-closes the outer link, which split
+   each card into a stray empty box. */
+.category-card__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.category-card__main:hover { text-decoration: none !important; }
 
 .category-card .category-icon {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   color: var(--color-accent);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
+  line-height: 1;
 }
 
+/* Category heading: clear the H3 accent-bar rule (not appropriate inside a card) */
 .category-card h3 {
-  margin: 0.25rem 0 0.5rem !important;
-  font-size: 1.15rem !important;
+  margin: 0.2rem 0 0.45rem !important;
+  font-size: 1.08rem !important;
   color: #1a1f24 !important;
   border: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  letter-spacing: -0.01em;
 }
 
 .category-card p {
-  margin: 0 0 0.75rem !important;
+  margin: 0 0 0.8rem !important;
   color: var(--color-text-muted) !important;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  flex: 1; /* fill the clickable area so links sit at the card bottom */
 }
 
 .category-card .category-links {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--color-text-muted);
+  margin-top: auto;
+  line-height: 1.6;
 }
 
 .category-card .category-links a {
-  border-bottom: 1px dotted rgba(0,102,204,0.4) !important;
+  color: var(--color-accent) !important;
+  border-bottom: 1px dotted rgba(0,102,204,0.35) !important;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.category-card .category-links a:hover {
+  border-bottom-color: var(--color-accent) !important;
 }
 
 /* Topic-area accent variants for category cards */
@@ -1014,21 +1174,25 @@ button:focus-visible,
    ============================================================ */
 
 html[data-theme="dark"] {
-  --color-accent: #58a6ff;
+  --color-accent:      #58a6ff;
   --color-accent-dark: #79b8ff;
-  --color-text: #c9d1d9;
-  --color-text-muted: #8b949e;
-  --color-border: #30363d;
-  --color-surface: #161b22;
-  --color-code-bg: #161b22;
+  --color-text:        #c9d1d9;
+  --color-text-muted:  #8b949e;
+  --color-border:      #30363d;
+  --color-surface:     #161b22;
+  --color-code-bg:     #161b22;
 
-  --db-bg: #0d1117;        /* page canvas */
-  --db-surface: #161b22;   /* cards / sidebar */
+  /* Shadow tokens go very dark in dark mode */
+  --shadow-rest: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lift: 0 6px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+
+  --db-bg:       #0d1117;  /* page canvas */
+  --db-surface:  #161b22;  /* cards / sidebar */
   --db-elevated: #1c2128;  /* hover / elevated */
-  --db-border: #30363d;
-  --db-text: #c9d1d9;
-  --db-heading: #e6edf3;
-  --db-muted: #8b949e;
+  --db-border:   #30363d;
+  --db-text:     #c9d1d9;
+  --db-heading:  #e6edf3;
+  --db-muted:    #8b949e;
 }
 
 html[data-theme="dark"] body {
@@ -1060,6 +1224,11 @@ html[data-theme="dark"] .page__content h2,
 html[data-theme="dark"] .page__content h3,
 html[data-theme="dark"] .page__content h4,
 html[data-theme="dark"] .page__title { color: var(--db-heading); }
+
+/* H3 accent bar adapts to dark accent color (already inherits via variable) */
+html[data-theme="dark"] .page__content h3 {
+  border-left-color: var(--color-accent);
+}
 html[data-theme="dark"] .page__content,
 html[data-theme="dark"] .page__content > p,
 html[data-theme="dark"] .page__content > ul,
@@ -1074,11 +1243,91 @@ html[data-theme="dark"] .page__content code { background: #21262d; border-color:
 html[data-theme="dark"] .page__content pre code { background: transparent; color: #c9d1d9; }
 
 /* Tables (override the literal light header/zebra/hover) */
-html[data-theme="dark"] .page__content table th { background: #21262d; border-bottom-color: var(--db-border); }
+html[data-theme="dark"] .page__content table { border-color: var(--db-border); }
+html[data-theme="dark"] .page__content table th {
+  background: #1c2330;
+  color: var(--db-heading);
+  border-bottom-color: #3a4555;
+}
 html[data-theme="dark"] .page__content table tr:nth-child(even) td { background: #12171e; }
-html[data-theme="dark"] .page__content table tr:hover td { background: #1c2433; }
+html[data-theme="dark"] .page__content table tr:hover td { background: #192236; }
 html[data-theme="dark"] .page__content table th,
 html[data-theme="dark"] .page__content table td { border-bottom-color: #262c34; }
+html[data-theme="dark"] .page__content table tr:last-child td { border-bottom: none; }
+
+/* Link hover highlight in dark mode */
+html[data-theme="dark"] .page__content a:hover {
+  background: rgba(88, 166, 255, 0.1);
+}
+
+/* Blockquotes in dark mode */
+html[data-theme="dark"] .page__content blockquote {
+  background: #0e1c2e;
+  border-left-color: var(--color-accent);
+  color: var(--db-text);
+}
+
+html[data-theme="dark"] .page__content .callout-tip > blockquote {
+  background: #0b2219;
+  border-left-color: #3fb950;
+}
+
+html[data-theme="dark"] .page__content .callout-warning > blockquote {
+  background: #271f0d;
+  border-left-color: #d29922;
+}
+
+html[data-theme="dark"] .page__content .callout-danger > blockquote {
+  background: #2c1316;
+  border-left-color: #f85149;
+}
+
+/* Code blocks in dark mode */
+html[data-theme="dark"] .page__content pre {
+  background: var(--db-surface);
+  border-color: var(--db-border);
+}
+
+/* Category cards in dark mode */
+html[data-theme="dark"] .category-card {
+  background: var(--db-surface);
+  border-color: var(--db-border);
+  color: var(--db-text) !important;
+}
+
+html[data-theme="dark"] .category-card:hover {
+  background: var(--db-elevated);
+  box-shadow: var(--shadow-lift);
+}
+
+html[data-theme="dark"] .category-card h3 {
+  color: var(--db-heading) !important;
+}
+
+html[data-theme="dark"] .category-card p {
+  color: var(--db-muted) !important;
+}
+
+html[data-theme="dark"] .category-card .category-links {
+  color: var(--db-muted);
+}
+
+html[data-theme="dark"] .category-card .category-links a {
+  color: var(--color-accent) !important;
+  border-bottom-color: rgba(88, 166, 255, 0.3) !important;
+}
+
+/* Search banner keeps its gradient in dark mode (reads fine on dark canvas) */
+
+/* btn-secondary dark mode */
+html[data-theme="dark"] .btn-secondary {
+  color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+}
+
+html[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(88, 166, 255, 0.12);
+}
 
 /* MathJax equations inherit text color */
 html[data-theme="dark"] mjx-container { color: var(--db-text); }
@@ -1157,9 +1406,121 @@ html[data-theme="dark"] .reference-card { background: var(--db-surface) !importa
 html[data-theme="dark"] .reference-card h4 { color: var(--db-heading) !important; border-bottom-color: var(--color-accent) !important; }
 
 /* Notice / advanced-note boxes */
-html[data-theme="dark"] .notice--warning { background-color: #2a2410; }
-html[data-theme="dark"] .advanced-note { background-color: #2a2410; border-color: #8a5a12; }
+html[data-theme="dark"] .notice--warning { background-color: #261e0a; border-left-color: #d29922; }
+html[data-theme="dark"] .notice--warning h4 { color: #d29922; }
+html[data-theme="dark"] .advanced-note { background-color: #261e0a; border-color: #8a5a12; }
 html[data-theme="dark"] .advanced-note p { color: #e0c08a; }
+
+/* Suppress H3 accent bar inside notice/callout boxes in dark mode too */
+html[data-theme="dark"] .notice--warning h3,
+html[data-theme="dark"] .advanced-note h3 {
+  border-left: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* ============================================================
+   Suppress accent-bar on H3 inside components where it would
+   look wrong (cards, banners, hero sections). Also suppress the
+   H2 bottom-rule inside colored containers.
+   ============================================================ */
+.hero-section h2,
+.hero-section h3,
+.search-banner h3,
+.quick-start-card h3,
+.category-card h3,
+.insight-card h3,
+.intro-card h3,
+.nav-card h3,
+.reference-footer h3,
+.mathematical-foundations h3 {
+  border-bottom: none !important;
+  border-left: none !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Hero section: clear the H2 underline as well */
+.hero-section h2,
+.reference-footer h2,
+.mathematical-foundations h2 {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
+/* ============================================================
+   Hero section polish — applies to all three landing pages.
+   The inline style="" on the element controls the gradient;
+   these rules handle geometry, type, and dark-mode border.
+   ============================================================ */
+.hero-section {
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 2.5rem 2.25rem !important;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Frosted top highlight on heroes */
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Hero text is already white via inline style; reinforce.
+   Use .page__content .hero-section for sufficient specificity to
+   override condensed.css's .page__content h1 !important rule. */
+.page__content .hero-section h1,
+.hero-section h1 {
+  font-size: 2.2rem !important;
+  letter-spacing: -0.02em !important;
+  margin: 0 !important;
+  border: none !important;
+  padding: 0 !important;
+  line-height: 1.18 !important;
+}
+
+.page__content .hero-section > p,
+.hero-section > p {
+  margin-top: 0.85rem !important;
+  margin-bottom: 0 !important;
+  font-size: 1.1rem !important;
+  opacity: 0.93;
+  max-width: 62ch;
+  line-height: 1.55 !important;
+}
+
+/* Figures and images: centered with reasonable max-width */
+.page__content figure {
+  text-align: center;
+  margin: 1.5em auto;
+}
+
+.page__content figure img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.page__content figure figcaption {
+  font-size: 0.85em;
+  color: var(--color-text-muted);
+  margin-top: 0.5em;
+  font-style: italic;
+}
+
+/* Mermaid diagrams: subtle container */
+.mermaid {
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0;
+}
 
 /* Floating theme toggle button (created by custom-head.html) */
 .theme-toggle {

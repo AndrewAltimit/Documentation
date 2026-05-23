@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -2111,6 +2137,14 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
+<h3 id="repeats-and-epochs">Repeats and Epochs</h3>
+
+<p>Trainers usually express dataset exposure as <strong>repeats x images x epochs = total steps</strong>. “Repeats” is how many times each image is seen per epoch; “epochs” is how many full passes over the dataset. They are interchangeable for reaching a step count, but epochs are the convenient unit for saving checkpoints (save every epoch, then pick the best one). For a 20-image set, <code class="language-plaintext highlighter-rouge">10 repeats x 20 images x 10 epochs = 2000 steps</code>.</p>
+
+<h3 id="regularization-images-optional">Regularization Images (Optional)</h3>
+
+<p>For likeness and character LoRAs, some workflows add <strong>regularization images</strong> - generic images of the same broad class (e.g. “a photo of a person”) generated by the base model itself. They act as a prior that discourages the LoRA from overwriting the model’s general knowledge of that class, reducing “everything now looks like my subject” bleed. They are optional and add training time; skip them for style LoRAs, where class bleed is usually the goal.</p>
+
 <h2 id="training-settings">Training Settings</h2>
 
 <h3 id="the-essential-settings">The Essential Settings</h3>
@@ -2182,6 +2216,60 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><strong>Start with rank 32.</strong> Increase only if results lack detail; decrease if overfitting occurs.</p>
 
+<h4 id="rank-vs-alpha">Rank vs. Alpha</h4>
+
+<p>Most trainers expose a second number alongside rank: <strong>alpha</strong> (sometimes <code class="language-plaintext highlighter-rouge">network_alpha</code>). Alpha scales the LoRA’s contribution. The effective update is scaled by $\alpha / r$:</p>
+
+\[W' = W + \frac{\alpha}{r}\, BA\]
+
+<p>So alpha and rank interact:</p>
+
+<ul>
+  <li><strong>alpha = rank</strong> (e.g. 32/32) gives a scale of 1.0 - a common, safe default.</li>
+  <li><strong>alpha = rank/2</strong> (e.g. 16/32) halves the effective strength, which can stabilize training and reduce overfitting.</li>
+  <li>Changing rank without changing alpha changes the <em>effective learning rate</em>, which is why blindly raising rank sometimes makes results worse, not better.</li>
+</ul>
+
+<p>If unsure, set <strong>alpha equal to rank</strong> and tune the learning rate instead.</p>
+
+<h3 id="lora-variants">LoRA Variants</h3>
+
+<p>Plain LoRA is the baseline, but trainers offer richer adapter types that decompose the update differently. They are all “a LoRA” at inference time:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>What it adds</th>
+      <th>When it helps</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LoRA</td>
+      <td>Standard low-rank $BA$ on attention layers</td>
+      <td>Default; works for almost everything</td>
+    </tr>
+    <tr>
+      <td>LoCon / LyCORIS</td>
+      <td>Also adapts convolutional layers</td>
+      <td>Styles where fine texture/brushwork matters</td>
+    </tr>
+    <tr>
+      <td>LoHa / LoKr</td>
+      <td>Hadamard / Kronecker factorization</td>
+      <td>More capacity at the same file size</td>
+    </tr>
+    <tr>
+      <td>DoRA</td>
+      <td>Splits weight into magnitude + direction</td>
+      <td>Often better fidelity at low rank</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Start with standard LoRA. Reach for LoCon when a style LoRA misses fine texture, and DoRA when you want more fidelity without raising rank.</p>
+
 <h3 id="learning-rate-guidelines">Learning Rate Guidelines</h3>
 
 <table>
@@ -2251,6 +2339,59 @@ document.addEventListener('DOMContentLoaded', function () {
     </tr>
   </tbody>
 </table>
+
+<h3 id="starter-recipes">Starter Recipes</h3>
+
+<p>These are conservative, known-good starting points. Treat them as a baseline to adjust, not gospel - the right values depend on your dataset and tool.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Base Model</th>
+      <th>Rank / Alpha</th>
+      <th>Learning Rate</th>
+      <th>Optimizer</th>
+      <th>Resolution</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SD 1.5</td>
+      <td>32 / 16</td>
+      <td>1e-4</td>
+      <td>AdamW8bit</td>
+      <td>512</td>
+      <td>Fast iteration, large legacy ecosystem</td>
+    </tr>
+    <tr>
+      <td>SDXL</td>
+      <td>16-32 / 16</td>
+      <td>1e-4</td>
+      <td>AdamW8bit / Prodigy</td>
+      <td>1024</td>
+      <td>Use bucketing for mixed aspect ratios</td>
+    </tr>
+    <tr>
+      <td>FLUX Dev</td>
+      <td>16 / 16</td>
+      <td>1e-4 (or Prodigy)</td>
+      <td>AdamW8bit / Prodigy</td>
+      <td>1024</td>
+      <td>Lower rank often suffices; very VRAM-hungry</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A few cross-cutting defaults that rarely need changing on a first run:</p>
+
+<ul>
+  <li><strong>Optimizer:</strong> <code class="language-plaintext highlighter-rouge">AdamW8bit</code> saves VRAM with negligible quality cost. <strong>Prodigy</strong> auto-tunes the learning rate (set LR to 1.0) and is forgiving for beginners.</li>
+  <li><strong>Scheduler:</strong> <code class="language-plaintext highlighter-rouge">cosine</code> or <code class="language-plaintext highlighter-rouge">cosine_with_restarts</code> - smooth decay avoids late-training instability.</li>
+  <li><strong>Warmup:</strong> ~5-10% of total steps lets the adapter settle before the full learning rate kicks in.</li>
+  <li><strong>Batch size:</strong> 1-2 is normal for consumer GPUs; raise only if VRAM allows, and scale learning rate up modestly if you do.</li>
+  <li><strong>Mixed precision:</strong> <code class="language-plaintext highlighter-rouge">fp16</code> (or <code class="language-plaintext highlighter-rouge">bf16</code> on newer GPUs) is standard and halves memory.</li>
+</ul>
 
 <h2 id="the-training-process">The Training Process</h2>
 
@@ -2526,7 +2667,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <ul>
     <li><strong>LoRA = a tiny low-rank correction</strong> $\Delta W = BA$ added to frozen base weights — you train millions of parameters, not billions, producing a 20-200MB file.</li>
     <li><strong>Data quality beats quantity.</strong> 15-30 well-captioned, varied images often beat hundreds of repetitive ones; a unique trigger word avoids vocabulary conflicts.</li>
-    <li><strong>Rank trades capacity for size.</strong> Low rank (4-16) for styles, higher (32-128) for complex characters or likenesses.</li>
+    <li><strong>Rank trades capacity for size, and alpha scales its strength</strong> ($W’ = W + \frac{\alpha}{r}BA$). Low rank (4-16) for styles, higher (32-128) for complex subjects; set alpha equal to rank if unsure.</li>
     <li><strong>Watch the loss and the samples, not just the step count.</strong> Stop when samples match your intent and loss stabilizes; save checkpoints so you can pick the best, not the last.</li>
     <li><strong>Overfitting is the #1 failure</strong> — too many steps or too little data makes the LoRA reproduce training images instead of generalizing.</li>
   </ul>

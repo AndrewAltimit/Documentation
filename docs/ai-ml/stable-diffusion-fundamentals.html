@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -1892,6 +1918,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Stable Diffusion instead works in “latent space” - a compressed mathematical representation where a 512x512 image becomes a much smaller 64x64 representation. This compression reduces computation by roughly 50x while preserving the information needed for high-quality images.</p>
 
+<p>This is the defining idea of <strong>latent diffusion</strong>: do the expensive, iterative denoising in the small latent space, and only touch full-resolution pixels at the very start (encode) and very end (decode).</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Px["Pixel image&lt;br/&gt;512×512×3"] -- "VAE encode" --&gt; Lat["Latent&lt;br/&gt;64×64×4"]
+    Lat -- "diffusion happens here&lt;br/&gt;(cheap, iterative)" --&gt; Lat2["Denoised latent"]
+    Lat2 -- "VAE decode" --&gt; Px2["Pixel image&lt;br/&gt;512×512×3"]
+</code></pre>
+
+<p>A 512x512 RGB image is roughly 786,000 numbers; its latent is about 16,000 - a ~48x reduction in what the denoiser has to process each step.</p>
+
 <table>
   <thead>
     <tr>
@@ -1954,6 +1990,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Repeat this millions of times with varying amounts of noise, and the model learns to recognize and predict noise at any level. It never learns to “create” images directly - it learns to clean them up.</p>
 
+<h4 id="the-forward-process-more-precisely">The Forward Process, More Precisely</h4>
+
+<p>The “gradually destroy” step is called the <strong>forward (diffusion) process</strong>. At each timestep $t$ the image is mixed with a little more Gaussian noise according to a fixed schedule, so that a clean latent $x_0$ is corrupted into $x_t$ in a single closed-form step:</p>
+
+\[x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I)\]
+
+<p>Here $\bar{\alpha}<em>t$ runs from near 1 (almost no noise) at small $t$ to near 0 (pure noise) at the final step. The network $\epsilon</em>\theta(x_t, t, c)$ is trained to predict the noise $\epsilon$ that was added, given the noisy latent $x_t$, the timestep $t$, and the text conditioning $c$. The loss is simply the squared error between predicted and actual noise:</p>
+
+\[\mathcal{L} = \mathbb{E}_{x_0, \epsilon, t}\left[\, \lVert \epsilon - \epsilon_\theta(x_t, t, c) \rVert^2 \,\right]\]
+
+<p>This is why the architecture is sometimes called a “noise predictor.” Everything else - sampling, CFG, schedulers - is built on top of this one trained function.</p>
+
 <h3 id="generation-reversing-the-process">Generation: Reversing the Process</h3>
 
 <p>When you generate an image, the model runs in reverse:</p>
@@ -1971,6 +2019,13 @@ document.addEventListener('DOMContentLoaded', function () {
     N["Pure noise&lt;br/&gt;(step 1)"] --&gt; S["Shapes emerge&lt;br/&gt;(step 10)"] --&gt; D["Details form&lt;br/&gt;(step 25)"] --&gt; F["Final image&lt;br/&gt;(step 30)"]
     P["Text prompt"] -. guides every step .-&gt; S
     P -.-&gt; D
+</code></pre>
+
+<p>The forward and reverse processes mirror each other - training learns the arrow going right (adding noise), generation runs the arrow going left (removing it):</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    X0["Clean latent&lt;br/&gt;x₀"] -- "forward: add noise" --&gt; XT["Pure noise&lt;br/&gt;x_T"]
+    XT -. "reverse: predict &amp; subtract noise (learned)" .-&gt; X0
 </code></pre>
 
 <h3 id="why-this-matters-practically">Why This Matters Practically</h3>
@@ -2291,6 +2346,44 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Seed variation</strong> - Change seed slightly to explore similar results</li>
 </ul>
 
+<h3 id="denoising-strength-img2img">Denoising Strength (img2img)</h3>
+
+<p>So far we have started from pure noise (text-to-image). You can also start from an existing image - <strong>image-to-image</strong>. Instead of beginning at full noise, the image is encoded to a latent, noised <em>partially</em>, and the denoising loop finishes the rest. The <strong>denoising strength</strong> (0-1) controls how much noise is added, which is effectively how much freedom the model has to change the input:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Denoising Strength</th>
+      <th>Effect</th>
+      <th>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0.2-0.4</td>
+      <td>Subtle refinement, preserves the original</td>
+      <td>Cleanup, light restyle, upscale detailing</td>
+    </tr>
+    <tr>
+      <td>0.5-0.65</td>
+      <td>Balanced - keeps composition, changes content</td>
+      <td>Style transfer, variations</td>
+    </tr>
+    <tr>
+      <td>0.7-0.85</td>
+      <td>Heavy reinterpretation</td>
+      <td>Sketch-to-image, big style changes</td>
+    </tr>
+    <tr>
+      <td>0.9-1.0</td>
+      <td>Nearly text-to-image</td>
+      <td>Original used only as a loose color/layout hint</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The same dial drives inpainting (denoise only inside a mask) and the high-resolution “hires fix” pass (upscale the latent, then denoise at ~0.4 to add detail without redrawing the scene). For locking composition more firmly than img2img can, see <a href="controlnet.html">ControlNet</a>.</p>
+
 <h2 id="writing-effective-prompts">Writing Effective Prompts</h2>
 
 <p>Your prompt is the primary way you communicate with the model. Understanding how the model interprets prompts helps you get better results.</p>
@@ -2529,7 +2622,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="better-architectures">Better Architectures</h3>
 
-<p>Newer models like FLUX and SD3 use “flow matching” instead of traditional diffusion. This produces straighter paths from noise to image, allowing faster generation with better quality.</p>
+<p>Newer models like FLUX and SD3 use “flow matching” (specifically <strong>rectified flow</strong>) instead of traditional DDPM-style diffusion. Rather than learning to predict the noise at each timestep, the network learns a <strong>velocity field</strong> - the direction to move a sample at every point along a path from noise to data. Training pairs a random noise sample $x_0$ with a real data sample $x_1$ and asks the model to predict the straight-line velocity between them:</p>
+
+\[v_\theta(x_t, t) \approx x_1 - x_0, \qquad x_t = (1 - t)\, x_0 + t\, x_1\]
+
+<p>Because the target paths are (close to) straight lines, the ODE that generates an image can be solved in far fewer steps than the curved trajectories of classic diffusion - this is why FLUX and SD3 reach high quality at 20-28 steps, and why distilled variants like FLUX.1-schnell work in as few as 1-4.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>Network predicts</th>
+      <th>Path shape</th>
+      <th>Models</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DDPM diffusion</td>
+      <td>Noise $\epsilon$ at timestep $t$</td>
+      <td>Curved</td>
+      <td>SD 1.5, SD 2.x, SDXL</td>
+    </tr>
+    <tr>
+      <td>Rectified flow</td>
+      <td>Velocity $x_1 - x_0$</td>
+      <td>Near-straight</td>
+      <td>SD3, FLUX</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="putting-it-into-practice">Putting It Into Practice</h2>
 

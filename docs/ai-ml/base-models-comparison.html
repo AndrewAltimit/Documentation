@@ -139,10 +139,12 @@ mjx-container:not([display="true"]) {
     width: 280px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #f8f9fa;
+    background-color: #f7f8fa;
     border-right: 1px solid #e1e4e8;
     padding: 2rem 1rem;
     z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
   }
   
   /* Sidebar brand / home link */
@@ -620,17 +622,19 @@ document.addEventListener('DOMContentLoaded', function () {
     overflow-y: auto;
     padding: 2.5rem 1.25rem 2rem;
     border-left: 1px solid #e1e4e8;
-    background: #fbfcfd;
+    background: #f9fafc;
     z-index: 90;
     font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
   }
 
   .doc-toc__title {
-    margin: 0 0 0.75rem;
-    font-size: 0.7rem;
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: #6a737d;
   }
 
@@ -644,10 +648,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .doc-toc a {
     display: block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.22rem 0.55rem;
     color: #57606a;
     text-decoration: none;
     border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
     line-height: 1.35;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   }
@@ -655,18 +660,20 @@ document.addEventListener('DOMContentLoaded', function () {
   .doc-toc a:hover {
     color: #0066cc;
     background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
   }
 
   .doc-toc a.toc-h3 {
-    padding-left: 1.25rem;
-    font-size: 0.78rem;
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
   }
 
   .doc-toc a.is-active {
     color: #0066cc;
     font-weight: 600;
     border-left-color: #0066cc;
-    background: rgba(0, 102, 204, 0.06);
+    background: rgba(0, 102, 204, 0.07);
   }
 
   /* When the TOC is present, leave room for it on wide screens */
@@ -679,10 +686,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   .heading-anchor {
     opacity: 0;
-    margin-left: 0.4rem;
-    font-size: 0.8em;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
     color: #b0b8c0;
     text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
     transition: opacity 0.15s ease, color 0.15s ease;
   }
 
@@ -690,30 +700,46 @@ document.addEventListener('DOMContentLoaded', function () {
   .page__content h3:hover .heading-anchor,
   .page__content h4:hover .heading-anchor { opacity: 1; }
 
-  .heading-anchor:hover { color: #0066cc; text-decoration: none; }
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
 
   /* Copy-to-clipboard button on code blocks */
   .page__content pre { position: relative; }
 
   .code-copy-btn {
     position: absolute;
-    top: 0.4rem;
-    right: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #57606a;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid #d0d7de;
-    border-radius: 5px;
+    border-radius: 4px;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
   }
 
   .page__content pre:hover .code-copy-btn { opacity: 1; }
-  .code-copy-btn:hover { background: #0066cc; color: #fff; border-color: #0066cc; }
-  .code-copy-btn.copied { background: #28a745; color: #fff; border-color: #28a745; opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
 
   /* Mermaid rendered diagrams center nicely */
   .mermaid {
@@ -1985,6 +2011,49 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Blue = U-Net diffusion lineage; purple = transformer/flow-matching lineage. LoRAs and ControlNets are tied to their lineage, which is why SD 1.5 add-ons don’t work on SDXL or FLUX.</p>
 
+<h3 id="the-two-architectures-side-by-side">The Two Architectures Side by Side</h3>
+
+<p>The lineage split is not just branding - the two families denoise differently. The U-Net line uses a convolutional encoder/decoder with cross-attention to the text, trained to predict noise. The transformer line replaces the U-Net with a <strong>Diffusion Transformer (DiT)</strong> that processes image and text tokens together (multimodal attention) and is trained with rectified flow.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Aspect</th>
+      <th>U-Net line (SD 1.5 / SDXL)</th>
+      <th>Transformer line (SD3 / FLUX)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Backbone</td>
+      <td>Convolutional U-Net</td>
+      <td>Diffusion Transformer (DiT / MM-DiT)</td>
+    </tr>
+    <tr>
+      <td>Text injected via</td>
+      <td>Cross-attention layers</td>
+      <td>Joint image+text attention (tokens mixed)</td>
+    </tr>
+    <tr>
+      <td>Training objective</td>
+      <td>Noise prediction (DDPM)</td>
+      <td>Velocity / rectified flow</td>
+    </tr>
+    <tr>
+      <td>Guidance</td>
+      <td>CFG scale (~5-9)</td>
+      <td>Distilled/embedded guidance (CFG often 1.0)</td>
+    </tr>
+    <tr>
+      <td>Practical effect</td>
+      <td>Mature add-on ecosystem, fast on low VRAM</td>
+      <td>Stronger prompt adherence and text rendering, heavier</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>If you understand the <a href="stable-diffusion-fundamentals.html">forward/reverse diffusion process and flow matching</a>, this table is the one-line summary of why the newer models behave differently.</p>
+
 <h2 id="stable-diffusion-15">Stable Diffusion 1.5</h2>
 
 <h3 id="overview">Overview</h3>
@@ -2242,6 +2311,37 @@ score_9, score_8_up, masterpiece, best quality,
 score_6, score_5, score_4, worst quality, low quality,
 bad anatomy, bad hands
 </code></pre></div></div>
+
+<h3 id="a-note-on-illustrious-and-noobai">A Note on Illustrious and NoobAI</h3>
+
+<p>Pony is not the only major SDXL anime fine-tune. <strong>Illustrious XL</strong> (and community successors like <strong>NoobAI XL</strong>) trained directly on large booru datasets and have become strong alternatives, often with better native danbooru-tag recognition and without Pony’s <code class="language-plaintext highlighter-rouge">score_*</code> prefix convention. The choice between them is largely community/aesthetic preference - both are SDXL underneath, so they share its LoRAs and ControlNets.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Fine-tune</th>
+      <th>Prompt convention</th>
+      <th>Notable for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pony Diffusion V6</td>
+      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, ...</code> prefix</td>
+      <td>Huge community, strong style control</td>
+    </tr>
+    <tr>
+      <td>Illustrious XL</td>
+      <td>Plain danbooru tags</td>
+      <td>Accurate character/tag recall</td>
+    </tr>
+    <tr>
+      <td>NoobAI XL</td>
+      <td>Plain danbooru tags</td>
+      <td>Recent training data, refined Illustrious base</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="stable-diffusion-3">Stable Diffusion 3</h2>
 
@@ -2675,10 +2775,10 @@ professional photography, shallow depth of field</span><span class="sh">"</span>
 <h3 id="choosing-future-proof-models">Choosing Future-Proof Models</h3>
 
 <ul>
-  <li><strong>FLUX</strong>: Current best for quality and capabilities</li>
-  <li><strong>SD3</strong>: Excellent balance of quality and efficiency</li>
-  <li><strong>SDXL</strong>: Stable choice with mature ecosystem</li>
-  <li><strong>SD 1.5</strong>: Will remain relevant for specialized uses and low-resource scenarios</li>
+  <li><strong>FLUX</strong>: Current best for quality and capabilities; its LoRA and ControlNet ecosystem has matured rapidly and is no longer a reason to avoid it</li>
+  <li><strong>SD3.5</strong>: The 3.5 Large/Medium refresh addressed many launch-day criticisms of the original SD3 Medium (anatomy, licensing) and is the practical SD3-family choice today</li>
+  <li><strong>SDXL</strong>: Stable choice with the deepest mature ecosystem; fine-tunes like Pony and Illustrious keep it highly relevant for stylized art</li>
+  <li><strong>SD 1.5</strong>: Will remain relevant for specialized uses, fastest iteration, and low-resource scenarios</li>
 </ul>
 
 <h2 id="conclusion">Conclusion</h2>
