@@ -323,7 +323,16 @@ spec:
 
 ## Troubleshooting: When Things Go Wrong
 
-When something breaks, a systematic approach saves time. Start broad, then narrow down.
+When something breaks, a systematic approach saves time. Start broad, then narrow down. The flowchart below maps a pod's reported status to the command that explains it and the most likely root cause:
+
+```mermaid
+flowchart TD
+    Start([Pod not healthy]) --> Status{Pod status?}
+    Status -->|ImagePullBackOff| IP["describe pod →<br/>wrong image / missing<br/>registry credentials"]
+    Status -->|CrashLoopBackOff| CL["logs --previous →<br/>app crash, OOM,<br/>or bad config"]
+    Status -->|Pending| PD["describe pod →<br/>no resources or<br/>PVC unbound"]
+    Status -->|Running but no traffic| SVC["get endpoints →<br/>selector does not<br/>match pod labels"]
+```
 
 ### Quick Diagnostic Commands
 

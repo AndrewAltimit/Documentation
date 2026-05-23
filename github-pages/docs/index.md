@@ -10,122 +10,175 @@ toc: false  # Index pages typically don't need TOC
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">This is the complete listing of all documentation. Use the jump links below to skip to a section, or <a href="../search.html">search</a> if you know what you're after.</p>
+  <p class="lead-text">This is the complete listing of every page on the site, grouped by category. Not sure where to start? Jump to a section below, browse the <a href="topic-map.html">visual topic map</a>, or <a href="../search.html">search</a> if you already know what you're after.</p>
 
   <div class="key-insights">
     <div class="insight-card">
       <i class="fas fa-server"></i>
       <h4><a href="#technology">Technology</a></h4>
-      <p>Infrastructure, DevOps, and cloud</p>
+      <p>Infrastructure, DevOps, cloud, and game/real-time development</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-brain"></i>
       <h4><a href="#aiml---generative-ai">AI / ML</a></h4>
-      <p>Generative AI and machine learning</p>
+      <p>Generative AI, model training, and workflows</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-atom"></i>
       <h4><a href="#physics">Physics</a></h4>
-      <p>Quantum mechanics to string theory</p>
+      <p>Classical mechanics to string theory</p>
     </div>
     <div class="insight-card">
       <i class="fas fa-flask"></i>
-      <h4><a href="#research--advanced-topics">Advanced</a></h4>
-      <p>Graduate-level theory and research</p>
+      <h4><a href="#specialized-hubs">Hubs &amp; Advanced</a></h4>
+      <p>Curated topic hubs and graduate-level theory</p>
     </div>
   </div>
+</div>
+
+<div class="tip-card" markdown="1">
+#### New here? Start at a hub
+Each major area has a hub page that orients you and recommends a reading path: the [Quantum Computing Hub](quantum-computing/), [Distributed Systems Hub](distributed-systems/), [Performance Optimization Hub](optimization/), [AI/ML Hub](ai-ml/), and the [Physics Hub](physics/). The lists below are the full index; the hubs are the guided way in.
 </div>
 
 
 ## Technology
 
+Infrastructure, DevOps, cloud, security, and game/real-time development.
+
 ### Infrastructure & DevOps
-- [Terraform](technology/terraform/) - Infrastructure as Code for multi-cloud deployment
-- [Docker](technology/docker/) - Comprehensive containerization guide
-- [Docker Essentials](technology/docker-essentials.html) - Quick reference for Docker commands
-- [Kubernetes](technology/kubernetes/) - Production-grade container orchestration
-- [AWS](technology/aws/) - Amazon Web Services comprehensive guide
-- [CI/CD](technology/ci-cd.html) - Continuous Integration and Deployment pipelines
+
+<div class="command-grid">
+  <a href="technology/terraform/" class="nav-card"><h4><i class="fas fa-cubes"></i> Terraform</h4><p>Infrastructure as Code for multi-cloud provisioning.</p></a>
+  <a href="technology/docker/" class="nav-card"><h4><i class="fab fa-docker"></i> Docker</h4><p>Comprehensive containerization guide, images to networking.</p></a>
+  <a href="technology/docker-essentials.html" class="nav-card"><h4><i class="fas fa-terminal"></i> Docker Essentials</h4><p>Quick command reference for everyday Docker.</p></a>
+  <a href="technology/kubernetes/" class="nav-card"><h4><i class="fas fa-dharmachakra"></i> Kubernetes</h4><p>Production-grade container orchestration.</p></a>
+  <a href="technology/aws/" class="nav-card"><h4><i class="fab fa-aws"></i> AWS</h4><p>Amazon Web Services: compute, storage, and networking.</p></a>
+  <a href="technology/ci-cd.html" class="nav-card"><h4><i class="fas fa-sync-alt"></i> CI/CD</h4><p>Continuous integration and deployment pipelines.</p></a>
+  <a href="technology/please-build.html" class="nav-card"><h4><i class="fas fa-hammer"></i> Please Build</h4><p>High-performance polyglot build system.</p></a>
+</div>
 
 ### Development & Version Control
-- [Git Version Control](technology/git.html) - Core concepts and workflows
-- [Git Command Reference](technology/git-reference.html) - Comprehensive command guide
-- [Branching Strategies](technology/branching.html) - Git workflow patterns
-- [Database Design](technology/database-design.html) - Relational and NoSQL patterns
+
+<div class="command-grid">
+  <a href="technology/git.html" class="nav-card"><h4><i class="fab fa-git-alt"></i> Git Version Control</h4><p>Core concepts, the object model, and workflows.</p></a>
+  <a href="technology/git-reference.html" class="nav-card"><h4><i class="fas fa-book"></i> Git Command Reference</h4><p>Comprehensive command-by-command guide.</p></a>
+  <a href="technology/branching.html" class="nav-card"><h4><i class="fas fa-code-branch"></i> Branching Strategies</h4><p>Git Flow, trunk-based, and release patterns.</p></a>
+  <a href="technology/database-design.html" class="nav-card"><h4><i class="fas fa-database"></i> Database Design</h4><p>Relational and NoSQL modeling patterns.</p></a>
+</div>
 
 ### Networking & Security
-- [Networking](technology/networking.html) - TCP/IP, protocols, and modern architecture
-- [Cybersecurity](technology/cybersecurity.html) - Security principles and threat mitigation
 
-### Advanced Technologies
-- [Quantum Computing](technology/quantumcomputing.html) - From qubits to quantum algorithms
+<div class="command-grid">
+  <a href="technology/networking.html" class="nav-card"><h4><i class="fas fa-network-wired"></i> Networking</h4><p>TCP/IP, protocols, DNS, and modern architecture.</p></a>
+  <a href="technology/cybersecurity.html" class="nav-card"><h4><i class="fas fa-shield-alt"></i> Cybersecurity</h4><p>Security principles and threat mitigation.</p></a>
+  <a href="technology/quantumcomputing.html" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing</h4><p>From qubits to algorithms and hardware.</p></a>
+</div>
 
 ### Game & Real-Time Development
-- [Unreal Engine](technology/unreal.html) - UE5 game development guide
-- [Game Development](gamedev/) - Engines, loops, and architecture
-- [3D Graphics & Rendering](graphics/3d-rendering.html) - Rasterization, shading, and pipelines
-- [VR / AR Development](vr-ar/) - Immersive computing fundamentals
-- [Game AI](ai-ml/game-ai.html) - Pathfinding, behavior trees, and decision-making
 
-### Artificial Intelligence
-- [AI Fundamentals - Simplified](technology/ai-fundamentals-simple.html) - No-math introduction
-- [Artificial Intelligence](technology/ai.html) - Comprehensive technical overview
-- [AI Deep Dive](technology/ai-lecture-2023.html) - Advanced concepts and research
+<div class="command-grid">
+  <a href="technology/unreal.html" class="nav-card"><h4><i class="fas fa-gamepad"></i> Unreal Engine</h4><p>UE5 development with Nanite, Lumen, and MetaSounds.</p></a>
+  <a href="gamedev/" class="nav-card"><h4><i class="fas fa-dice-d20"></i> Game Development</h4><p>Engines, the game loop, ECS, and architecture.</p></a>
+  <a href="graphics/3d-rendering.html" class="nav-card"><h4><i class="fas fa-cube"></i> 3D Graphics &amp; Rendering</h4><p>Rasterization, shading, and the GPU pipeline.</p></a>
+  <a href="vr-ar/" class="nav-card"><h4><i class="fas fa-vr-cardboard"></i> VR / AR Development</h4><p>Immersive spatial computing fundamentals.</p></a>
+  <a href="ai-ml/game-ai.html" class="nav-card"><h4><i class="fas fa-robot"></i> Game AI</h4><p>Pathfinding, behavior trees, and decision-making.</p></a>
+</div>
 
-### Build Systems
-- [Please Build](technology/please-build.html) - High-performance polyglot build system
+### Artificial Intelligence (Conceptual)
+
+<div class="command-grid">
+  <a href="technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> AI Fundamentals — Simplified</h4><p>A no-math introduction to how AI works.</p></a>
+  <a href="technology/ai.html" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence</h4><p>Comprehensive technical overview.</p></a>
+  <a href="technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> AI Deep Dive</h4><p>Advanced concepts and research directions.</p></a>
+</div>
 
 ## AI/ML - Generative AI
 
+Hands-on generative AI: diffusion models, training, and production workflows. New to this area? Begin at the [AI/ML Hub](ai-ml/).
+
 ### Getting Started
-- [AI/ML Documentation Overview](ai-ml/) - Start here for AI/ML content
-- [Stable Diffusion Fundamentals](ai-ml/stable-diffusion-fundamentals.html) - Core concepts explained
-- [Base Models Comparison](ai-ml/base-models-comparison.html) - SD 1.5, SDXL, FLUX, SD3 compared
+
+<div class="command-grid">
+  <a href="ai-ml/" class="nav-card"><h4><i class="fas fa-compass"></i> AI/ML Overview</h4><p>The hub — start here for all generative-AI content.</p></a>
+  <a href="ai-ml/stable-diffusion-fundamentals.html" class="nav-card"><h4><i class="fas fa-image"></i> Stable Diffusion Fundamentals</h4><p>Core diffusion concepts explained.</p></a>
+  <a href="ai-ml/base-models-comparison.html" class="nav-card"><h4><i class="fas fa-balance-scale"></i> Base Models Comparison</h4><p>SD 1.5, SDXL, FLUX, and SD3 compared.</p></a>
+</div>
 
 ### Tools & Workflows
-- [ComfyUI Comprehensive Guide](ai-ml/comfyui-guide.html) - Visual workflow creation
-- [LoRA Training Guide](ai-ml/lora-training.html) - Fine-tune your own models
-- [ControlNet Guide](ai-ml/controlnet.html) - Precise generation control
 
-### Advanced Topics
-- [Model Types Explained](ai-ml/model-types.html) - LoRAs, embeddings, VAEs detailed
-- [Output Formats Guide](ai-ml/output-formats.html) - Images, video, audio generation
-- [Advanced Techniques & Workflows](ai-ml/advanced-techniques.html) - Professional workflows
+<div class="command-grid">
+  <a href="ai-ml/comfyui-guide.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> ComfyUI Guide</h4><p>Node-based visual workflow creation.</p></a>
+  <a href="ai-ml/lora-training.html" class="nav-card"><h4><i class="fas fa-sliders-h"></i> LoRA Training</h4><p>Fine-tune your own models efficiently.</p></a>
+  <a href="ai-ml/controlnet.html" class="nav-card"><h4><i class="fas fa-crosshairs"></i> ControlNet</h4><p>Precise structural control over generation.</p></a>
+</div>
+
+### Going Deeper
+
+<div class="command-grid">
+  <a href="ai-ml/model-types.html" class="nav-card"><h4><i class="fas fa-layer-group"></i> Model Types Explained</h4><p>LoRAs, embeddings, VAEs, and checkpoints.</p></a>
+  <a href="ai-ml/output-formats.html" class="nav-card"><h4><i class="fas fa-photo-video"></i> Output Formats</h4><p>Image, video, and audio generation.</p></a>
+  <a href="ai-ml/advanced-techniques.html" class="nav-card"><h4><i class="fas fa-magic"></i> Advanced Techniques</h4><p>Professional, production-grade workflows.</p></a>
+</div>
 
 ## Physics
 
+First-principles treatments pairing rigorous math with physical intuition. The [Physics Hub](physics/) suggests guided reading paths.
+
 ### Classical Physics
-- [Classical Mechanics](physics/classical-mechanics.html) - Newton's laws to Lagrangian formalism
-- [Thermodynamics](physics/thermodynamics.html) - Heat, work, and entropy
-- [Statistical Mechanics](physics/statistical-mechanics.html) - Microscopic to macroscopic
+
+<div class="command-grid">
+  <a href="physics/classical-mechanics.html" class="nav-card"><h4><i class="fas fa-atom"></i> Classical Mechanics</h4><p>Newton's laws through Lagrangian and Hamiltonian formalism.</p></a>
+  <a href="physics/thermodynamics.html" class="nav-card"><h4><i class="fas fa-fire"></i> Thermodynamics</h4><p>Heat, work, entropy, and the four laws.</p></a>
+  <a href="physics/statistical-mechanics.html" class="nav-card"><h4><i class="fas fa-dice"></i> Statistical Mechanics</h4><p>From microscopic randomness to macroscopic law.</p></a>
+</div>
 
 ### Modern Physics
-- [Relativity](physics/relativity.html) - Special and general relativity explained
-- [Quantum Mechanics](physics/quantum-mechanics.html) - Wave functions to entanglement
+
+<div class="command-grid">
+  <a href="physics/relativity.html" class="nav-card"><h4><i class="fas fa-clock"></i> Relativity</h4><p>Special and general relativity, spacetime, and gravity.</p></a>
+  <a href="physics/quantum-mechanics.html" class="nav-card"><h4><i class="fas fa-wave-square"></i> Quantum Mechanics</h4><p>Wave functions, uncertainty, and entanglement.</p></a>
+</div>
 
 ### Advanced & Computational
-- [Condensed Matter Physics](physics/condensed-matter.html) - Solids, superconductors, topology
-- [Quantum Field Theory](physics/quantum-field-theory.html) - Fields, particles, and interactions
-- [String Theory](physics/string-theory.html) - Extra dimensions and quantum gravity
-- [Computational Physics](physics/computational-physics.html) - Numerical methods and simulation
 
-## Additional Resources
+<div class="command-grid">
+  <a href="physics/condensed-matter.html" class="nav-card"><h4><i class="fas fa-cube"></i> Condensed Matter</h4><p>Solids, superconductors, and topological materials.</p></a>
+  <a href="physics/quantum-field-theory.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> Quantum Field Theory</h4><p>Fields, particles, and the Standard Model.</p></a>
+  <a href="physics/string-theory.html" class="nav-card"><h4><i class="fas fa-infinity"></i> String Theory</h4><p>Extra dimensions and quantum gravity.</p></a>
+  <a href="physics/computational-physics.html" class="nav-card"><h4><i class="fas fa-laptop-code"></i> Computational Physics</h4><p>Numerical methods, Monte Carlo, and simulation.</p></a>
+</div>
 
-### Reference Materials
-- [Quick Reference Guide](reference/) - Commands, formulas, and cheat sheets
-- [Topic Map](topic-map.html) - Visual navigation of all content
+## Specialized Hubs
 
-### Specialized Hubs
-- [Distributed Systems](distributed-systems/) - Architecture and implementation
-- [Artificial Intelligence Hub](artificial-intelligence/) - Comprehensive AI resources
-- [Quantum Computing Hub](quantum-computing/) - Quantum theory to programming
-- [Performance Optimization](optimization/) - Profiling, tuning, and scalability
+Curated landing pages that gather related material across the site and recommend a path through it.
 
-### Research & Advanced Topics
-- [Advanced Topics Hub](advanced/) - Graduate-level mathematics and theory
-- [AI Mathematics](advanced/ai-mathematics/) - Statistical learning theory
-- [Distributed Systems Theory](advanced/distributed-systems-theory/) - Formal methods
-- [Quantum Algorithms Research](advanced/quantum-algorithms-research/) - Cutting-edge algorithms
+<div class="command-grid">
+  <a href="quantum-computing/" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing Hub</h4><p>Theory-to-hardware: qubits, algorithms, and cloud platforms.</p></a>
+  <a href="distributed-systems/" class="nav-card"><h4><i class="fas fa-network-wired"></i> Distributed Systems Hub</h4><p>Consensus, consistency, and resilient architecture patterns.</p></a>
+  <a href="optimization/" class="nav-card"><h4><i class="fas fa-tachometer-alt"></i> Performance Optimization</h4><p>Profiling, bottleneck analysis, and scaling.</p></a>
+  <a href="artificial-intelligence/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence Hub</h4><p>Comprehensive AI resources and orientation.</p></a>
+</div>
+
+## Research & Advanced Topics
+
+Graduate-level, proof-oriented material. Each page frames its prerequisites and intuition before the formalism.
+
+<div class="command-grid">
+  <a href="advanced/" class="nav-card"><h4><i class="fas fa-flask"></i> Advanced Topics Hub</h4><p>The research section's index and reading paths.</p></a>
+  <a href="advanced/ai-mathematics/" class="nav-card"><h4><i class="fas fa-square-root-alt"></i> AI Mathematics</h4><p>Statistical learning theory and optimization landscapes.</p></a>
+  <a href="advanced/distributed-systems-theory/" class="nav-card"><h4><i class="fas fa-ban"></i> Distributed Systems Theory</h4><p>Impossibility results and formal verification.</p></a>
+  <a href="advanced/quantum-algorithms-research/" class="nav-card"><h4><i class="fas fa-microchip"></i> Quantum Algorithms Research</h4><p>Complexity, error correction, and NISQ algorithms.</p></a>
+  <a href="advanced/monorepo/" class="nav-card"><h4><i class="fas fa-code-branch"></i> Monorepo Strategies</h4><p>Build graphs, caching, and large-repo engineering.</p></a>
+</div>
+
+## Reference & Navigation
+
+<div class="command-grid">
+  <a href="reference/" class="nav-card"><h4><i class="fas fa-list"></i> Quick Reference Guide</h4><p>CLI commands, physics constants, Big-O, regex, and checklists.</p></a>
+  <a href="topic-map.html" class="nav-card"><h4><i class="fas fa-sitemap"></i> Topic Map</h4><p>Visual navigation across every knowledge domain.</p></a>
+  <a href="../search.html" class="nav-card"><h4><i class="fas fa-search"></i> Search</h4><p>Full-text search across the whole site.</p></a>
+</div>
 
 ---
 
@@ -138,14 +191,3 @@ A few areas that go deeper than a typical reference:
 - **Git internals**: How commits, refs, and the object model actually work, plus security practices
 - **Quantum**: A theory-to-hardware path spanning quantum mechanics, algorithms, and cloud platforms
 - **Physics**: First-principles treatments from classical mechanics through quantum field theory
-
-## Can't Find What You Need?
-
-1. Try our [search function](../search.html) for quick access
-2. Browse the [topic map](topic-map.html) for visual organization
-3. Visit section-specific index pages for detailed subcategories:
-   - [AI/ML Hub](ai-ml/) - Generative AI and machine learning
-   - [Artificial Intelligence Hub](artificial-intelligence/) - Comprehensive AI resources
-   - [Quantum Computing Hub](quantum-computing/) - Quantum computing from basics to research
-   - [Distributed Systems Hub](distributed-systems/) - Architecture and implementation
-   - [Reference Guide](reference/) - Quick reference materials

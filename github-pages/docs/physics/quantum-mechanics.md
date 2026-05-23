@@ -15,6 +15,51 @@ toc_icon: "cog"
 
 <!-- Custom styles are now loaded via main.scss -->
 
+<div class="intro-card">
+  <p class="lead-text">Quantum mechanics is the operating system of the microscopic world. It replaces the definite trajectories of classical physics with <em>amplitudes</em> — complex numbers whose squared magnitudes give probabilities — and in doing so explains the stability of atoms, the colors of light, the periodic table, and the transistor in the device you are reading this on. This page builds from intuition (how to think quantum) through the core formalism (states, operators, the Schrödinger equation) to worked examples and the modern research frontier.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-wave-square"></i>
+    <h4>The state is a wave function</h4>
+    <p>A system is a vector $\lvert\psi\rangle$; $\lvert\psi\rvert^2$ gives probabilities, and amplitudes can interfere.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-ruler-combined"></i>
+    <h4>Observables are operators</h4>
+    <p>Measurable quantities are Hermitian operators; their eigenvalues are the only possible outcomes.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-random"></i>
+    <h4>Measurement is special</h4>
+    <p>Smooth, deterministic evolution is interrupted by abrupt, probabilistic collapse — the measurement problem.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-link"></i>
+    <h4>Entanglement is real</h4>
+    <p>Composite systems share correlations with no classical counterpart — the engine of quantum information.</p>
+  </div>
+</div>
+
+### What You'll Find on This Page
+
+| Section | What it covers |
+|---------|----------------|
+| [Crash Course](#quick-start-quantum-mechanics-crash-course) & [How to Think Quantum](#how-to-think-quantum) | Plain-language intuition before any heavy math |
+| [Fundamental Concepts](#fundamental-concepts) | The five postulates, duality, uncertainty, wave functions |
+| [The Schrödinger Equation](#the-schrodinger-equation) | Time-dependent and time-independent dynamics |
+| [States & Operators](#quantum-states-and-operators) | Dirac notation, observables, eigenvalues |
+| [Quantum Systems](#quantum-systems) | The box, oscillator, and hydrogen atom worked out |
+| [Quantum Phenomena](#quantum-phenomena) | Tunneling, entanglement, superposition |
+| [Mathematical Formalism](#mathematical-formalism) | Hilbert spaces, density matrices, path integrals (graduate) |
+| [Research Frontiers](#modern-research-frontiers) | Quantum information, topological matter, quantum biology |
+
+<div class="tip-card">
+  <h4>Level and prerequisites</h4>
+  <p>The Crash Course assumes only high-school algebra. The core theory uses calculus and a little linear algebra (vectors, matrices, eigenvalues). The Mathematical Formalism and Advanced Topics are graduate-level and can be skipped on a first read — they are here for reference, not as a linear path.</p>
+</div>
+
 ## Quick Start: Quantum Mechanics Crash Course
 
 ### What is Quantum Mechanics?
@@ -80,11 +125,6 @@ Quantum mechanics powers modern technology:
 - **Future Tech**: Quantum computers, quantum sensors, quantum internet
 
 ---
-
-<div class="tip-card">
-  <h4>How to read this page</h4>
-  <p>The full section list is in the sidebar. If you are new, read the <strong>Crash Course</strong> and <strong>How to Think Quantum</strong> first, then the <strong>Fundamental Concepts</strong> and <strong>Schrödinger Equation</strong> sections for the core theory. The solved systems (particle in a box, harmonic oscillator, hydrogen) make the formalism concrete. Later sections — Mathematical Formalism, Advanced Topics, and Research Frontiers — are graduate-level and can be skipped on a first pass.</p>
-</div>
 
 ## How to Think Quantum
 
@@ -206,6 +246,7 @@ $$
 $$
 
 ## The Schrödinger Equation
+{: #the-schrodinger-equation}
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/Schrodinger_1926.pdf"> Paper: <b><i>An Undulatory Theory of the Mechanics of Atoms and Molecules</i></b> - Erwin Schrödinger</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://hyperphysics.phy-astr.gsu.edu/hbase/quantum/schrcn.html"> Article: <b><i>The Schrödinger Equation - HyperPhysics</i></b></a></p>
 
@@ -395,6 +436,11 @@ $$\psi_{100}(r,\theta,\phi) = \frac{1}{\sqrt{\pi}}\left(\frac{1}{a_0}\right)^{3/
 Where $a_0$ = Bohr radius = 0.529 Å = $5.29 \times 10^{-11}$ m.
 
 Note: this is properly normalized: $\iiint |\psi_{100}|^2\, r^2 \sin\theta\,dr\,d\theta\,d\phi = 1$.
+
+<div class="tip-card">
+  <h4>Why hydrogen is the keystone</h4>
+  <p>The hydrogen atom is the only atom solved exactly, and almost everything in chemistry borrows its vocabulary. Two features carry the physics. First, the energy depends <em>only</em> on $n$ (a special "accidental" degeneracy of the pure $1/r$ Coulomb potential), so the $2s$ and $2p$ states share an energy in this idealization — degeneracies that real atoms lift through electron–electron repulsion and relativistic corrections. Second, the levels converge to $E \to 0$ as $n \to \infty$: that ceiling is the <strong>ionization energy</strong> (13.6 eV from the ground state), the work needed to free the electron entirely. The transitions between these levels produce the Balmer and Lyman spectral lines that first revealed quantization, and the Bohr radius $a_0$ sets the natural size of the atom.</p>
+</div>
 
 ### Comparing the Three Canonical Systems
 
