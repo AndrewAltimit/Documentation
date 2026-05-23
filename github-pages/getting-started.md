@@ -125,11 +125,10 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
 4. **Troubleshooting Sections**: Common issues are addressed proactively
 
 ### Staying Updated
-- **Recent Updates**: Check [homepage](index.html) for latest additions
-- **Version Tags**: Look for "Updated 2025" markers
-- **Technology Evolution**: Guides include migration paths for major updates
-- **Community Standards**: Documentation follows current industry practices
-- **What's New**: Regular updates to AI/ML models, Kubernetes features, and quantum computing advances
+- **Highlights**: The [documentation index](docs/index.html#highlights) flags the areas that go deepest
+- **Versioned guidance**: Where a tool's behavior is version-specific, the guide calls out the version
+- **Technology evolution**: Major-version guides include migration notes and current best practices
+- **Living document**: AI/ML, Kubernetes, and quantum sections are revised as the field moves
 
 ## Contributing
 

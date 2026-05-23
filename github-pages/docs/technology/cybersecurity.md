@@ -1327,12 +1327,32 @@ Cybersecurity isn't a destination—it's an ongoing journey. Every new technolog
 
 ### Key Takeaways
 
-1. **Start with the basics**: Strong passwords, encryption, and patches stop most attacks
-2. **Defense in depth**: No single security measure is perfect—layer your defenses
-3. **Think like an attacker**: Understanding how attacks work helps you defend better
-4. **Security is everyone's job**: Technology can't protect against users who don't care
-5. **Plan for failure**: Assume breaches will happen and prepare your response
-6. **Keep learning**: The threat landscape evolves constantly
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Basics stop most attacks</h4>
+    <p>Strong unique passwords, MFA, encryption, and timely patching defeat the overwhelming majority of real-world intrusions.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Defense in depth</h4>
+    <p>No single control is perfect. Layered, overlapping defenses ensure one failure does not become a full compromise.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Think like an attacker</h4>
+    <p>Understanding how injection, phishing, and lateral movement actually work is what lets you defend against them.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Security is everyone's job</h4>
+    <p>Technology cannot protect against careless users — culture, training, and usable controls are part of the system.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Plan for failure</h4>
+    <p>Assume breaches will happen. Detection, logging, and a rehearsed incident-response plan limit the damage when they do.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>It's an ongoing journey</h4>
+    <p>Every new technology brings new vulnerabilities and every defense spawns new attacks — continuous learning is the only constant.</p>
+  </div>
+</div>
 
 ### Your Next Steps
 

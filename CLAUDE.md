@@ -37,39 +37,62 @@ Documentation/
 
 ### Building the Site
 
+Both workflows build inside the **multi-arch `ruby:3.2-slim`** image, NOT the
+`jekyll/jekyll` image — the latter is amd64-only and segfaults under QEMU on arm64
+hosts/runners. `bundle install` compiles native gems for the host architecture
+inside the container, so the same commands work on amd64 and arm64. (There is no
+Dockerfile or docker-compose in this repo; the workflows invoke `docker run` inline.)
+
 ```bash
-# Build the site as CI does it: assemble config + assets into github-pages/, then build
+# Assemble build inputs into github-pages/ exactly as both workflows do
 cp _config.yml Gemfile Gemfile.lock github-pages/ 2>/dev/null || true
 mkdir -p github-pages/assets/css && cp -r assets/css/* github-pages/assets/css/
 
-cd github-pages
+# Build with the same multi-arch ruby image CI uses
 docker run --rm \
-  --volume="$PWD:/srv/jekyll:Z" \
-  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
-  jekyll/jekyll:4.2.2 \
-  /bin/bash -c "bundle install && jekyll build"
+  -v "$PWD/github-pages:/srv/jekyll" \
+  -w /srv/jekyll \
+  ruby:3.2-slim \
+  /bin/bash -c '
+    set -e
+    apt-get update -qq && apt-get install -y -qq build-essential git libcurl4 >/dev/null
+    gem install bundler -q
+    bundle install
+    bundle exec jekyll build
+  '
 
 # Serve locally for testing (http://localhost:4000)
 docker run --rm \
-  --volume="$PWD:/srv/jekyll:Z" \
-  --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
+  -v "$PWD/github-pages:/srv/jekyll" \
+  -w /srv/jekyll \
   -p 4000:4000 \
-  jekyll/jekyll:4.2.2 \
-  jekyll serve --host 0.0.0.0
+  ruby:3.2-slim \
+  /bin/bash -c '
+    set -e
+    apt-get update -qq && apt-get install -y -qq build-essential git >/dev/null
+    gem install bundler -q
+    bundle install
+    bundle exec jekyll serve --host 0.0.0.0
+  '
 ```
+
+Note: on a shared/self-hosted runner the container runs as root and leaves
+root-owned `_site/` and `.jekyll-cache/` behind; the workflows add a `chown` trap
+to hand ownership back so the next checkout can clean up. For one-off local builds
+that is usually unnecessary.
 
 ### Link Checking
 
 Links are validated with **html-proofer** against the built `_site` (not the raw
-`.md` sources), so it understands Jekyll's `.md`→`.html` permalinks. It runs as
-part of the Jekyll build container:
+`.md` sources), so it understands Jekyll's `.md`→`.html` permalinks. `pr-validation.yml`
+runs it in the same `ruby:3.2-slim` container right after the build — append the
+html-proofer line to the build command above (it needs `libcurl4`, already installed):
 
 ```bash
-cd github-pages
-bundle exec jekyll build
-bundle exec htmlproofer ./_site \
-  --checks Links --disable-external --no-enforce-https \
-  --swap-urls '^/Documentation/:/'
+    bundle exec jekyll build
+    bundle exec htmlproofer ./_site \
+      --checks Links --disable-external --no-enforce-https \
+      --swap-urls "^/Documentation/:/"
 ```
 
 `--swap-urls` strips the `/Documentation` baseurl so root-relative links resolve;

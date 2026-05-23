@@ -2227,6 +2227,26 @@ AWS evolves constantly. The services you master today will have new features tom
 
 Start small, think big, and build amazing things. The cloud is your platform for innovation. What will you create?
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Architect for Failure</h4>
+    <p>Spread across Availability Zones, decouple components with queues, and assume any single resource can disappear. Resilient designs degrade gracefully rather than fall over.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Codify Everything</h4>
+    <p>CloudFormation, CDK, or Terraform turn clicks into reviewable, repeatable code. Manual console changes drift and cannot be reproduced.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Cost Is a Design Constraint</h4>
+    <p>Right-size, use the appropriate pricing model (Spot, Savings Plans, Reserved), and set billing alerts early. Optimization is continuous, not a one-time cleanup.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Observe Before You Troubleshoot</h4>
+    <p>CloudWatch metrics, logs, and traces turn outages into diagnosable events. Instrument first so you have data when something breaks.</p>
+  </div>
+</div>
 
 ---
 

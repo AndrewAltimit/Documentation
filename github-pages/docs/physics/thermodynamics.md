@@ -42,24 +42,6 @@ toc_icon: "cog"
   </div>
 </div>
 
-## Overview
-
-**Fundamental Laws**
-- [The Laws of Thermodynamics](#the-laws-of-thermodynamics)
-- [Thermodynamic Processes](#thermodynamic-processes)
-- [State Functions and Properties](#state-functions-and-properties)
-
-**Applications**
-- [Heat Engines and Refrigerators](#heat-engines-and-refrigerators)
-- [Phase Transitions](#phase-transitions)
-
-**Advanced Topics**
-- [Maxwell Relations](#maxwell-relations)
-- [Chemical Thermodynamics](#chemical-thermodynamics)
-- [Non-equilibrium Thermodynamics](#non-equilibrium-thermodynamics)
-
----
-
 ## Fundamental Concepts
 
 ### The Laws of Thermodynamics

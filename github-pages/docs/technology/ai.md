@@ -640,7 +640,7 @@ In a surprising twist, researchers discovered that infinitely wide neural networ
 
 **Neural Tangent Kernel (NTK) theory connects neural networks to kernel methods:**
 
-- **NTK Definition**: Θ(x,x') = ⟨∇_θf(x), ∇_θf(x')⟩ - gradient inner product
+- **NTK Definition**: $\Theta(x, x') = \langle \nabla_\theta f(x),\, \nabla_\theta f(x') \rangle$ — gradient inner product
 - **Infinite Width Limit**: Wide networks converge to Gaussian processes
 - **Training Dynamics**: Gradient flow becomes linear in function space
 - **CNTK**: Convolutional NTK for CNN architectures
@@ -1798,26 +1798,14 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [Networking](networking.html) - Distributed training infrastructure
 - [AWS](aws/) - Cloud platforms for AI/ML workloads
 
-## Related AI Documentation
-
-### Different Depth Levels
-- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
-- [AI Deep Dive](ai-lecture-2023.html) - Research-level content on transformers and LLMs
-- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
-
-### Practical Generative AI
-- [AI/ML Documentation Hub](../ai-ml/) - Comprehensive generative AI guides
-- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation
-- [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom applications
-
-### Navigation
-- [AI Documentation Hub](../artificial-intelligence/) - Complete index of all AI resources
-
 ---
 
+## See Also
+
 <div class="see-also-card">
-  <h4>See Also</h4>
+  <h4>Related pages</h4>
   <ul>
+    <li><a href="../artificial-intelligence/">AI Documentation Hub</a> — complete index of all AI resources</li>
     <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
     <li><a href="ai-lecture-2023.html">AI Deep Dive</a> — transformers, LLM internals, and current research</li>
     <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — practical generative AI guides</li>

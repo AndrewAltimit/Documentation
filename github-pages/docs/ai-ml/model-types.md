@@ -19,14 +19,6 @@ hide_title: true
 A practical guide to the building blocks of AI image generation: what each component does, when to use it, and how they work together.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 ## Why Understanding Model Types Matters
 
 When you generate an image, multiple specialized components work together. Understanding what each one does helps you:

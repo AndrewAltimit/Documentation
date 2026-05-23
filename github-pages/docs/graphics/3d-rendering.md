@@ -119,26 +119,21 @@ Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for spe
 
 **Phong Reflection Model:**
 
-```
-I = Iₐ * kₐ + Σ[Iₗ * (kd * (N·L) + ks * (R·V)ⁿ)]
+$$I = I_a k_a + \sum_{\text{lights}} I_\ell\Big(k_d\,(\vec{N}\cdot\vec{L}) + k_s\,(\vec{R}\cdot\vec{V})^{\,n}\Big)$$
 
-Where:
-- Iₐ = Ambient light intensity
-- kₐ = Ambient reflection coefficient
-- Iₗ = Light intensity
-- kd = Diffuse coefficient
-- ks = Specular coefficient
-- N = Surface normal
-- L = Light direction
-- R = Reflection direction
-- V = View direction
-- n = Shininess exponent
-```
+| Symbol | Meaning |
+|--------|---------|
+| $I_a,\ k_a$ | Ambient intensity and reflection coefficient |
+| $I_\ell$ | Per-light intensity |
+| $k_d,\ k_s$ | Diffuse and specular coefficients |
+| $\vec{N},\ \vec{L}$ | Surface normal, light direction |
+| $\vec{R},\ \vec{V}$ | Reflection direction, view direction |
+| $n$ | Shininess exponent |
 
 **Blinn-Phong (Optimized):**
-- Uses halfway vector H = normalize(L + V)
-- Specular: ks * (N·H)ⁿ
-- More efficient, similar results
+- Uses the halfway vector $\vec{H} = \operatorname{normalize}(\vec{L} + \vec{V})$
+- Specular term becomes $k_s\,(\vec{N}\cdot\vec{H})^{\,n}$
+- More efficient, with near-identical results
 
 ### Physically Based Rendering (PBR)
 
@@ -153,15 +148,11 @@ Modern standard for realistic materials:
 
 **Cook-Torrance BRDF:**
 
-```
-f(l,v) = fᵈⁱᶠᶠᵘˢᵉ + fˢᵖᵉᶜᵘˡᵃʳ
+$$f(\vec{l},\vec{v}) = f_{\text{diffuse}} + f_{\text{specular}}, \qquad f_{\text{specular}} = \frac{D\,F\,G}{4\,(\vec{n}\cdot\vec{l})(\vec{n}\cdot\vec{v})}$$
 
-fˢᵖᵉᶜᵘˡᵃʳ = DFG / (4(n·l)(n·v))
-
-D = Normal Distribution Function (GGX/Trowbridge-Reitz)
-F = Fresnel (Schlick approximation)
-G = Geometry/Shadowing (Smith GGX)
-```
+- $D$ — Normal Distribution Function (GGX / Trowbridge-Reitz)
+- $F$ — Fresnel term (Schlick approximation)
+- $G$ — Geometry / shadowing-masking (Smith GGX)
 
 ### Global Illumination
 

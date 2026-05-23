@@ -342,4 +342,3 @@ Ready to go deeper? Here's your learning path:
     <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — when you're ready for the proofs</li>
   </ul>
 </div>
-- [AI/ML Documentation Hub](../ai-ml/) - Practical AI tools and guides

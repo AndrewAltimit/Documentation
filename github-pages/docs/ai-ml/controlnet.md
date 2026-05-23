@@ -19,14 +19,6 @@ hide_title: true
 Stop fighting the prompt for composition. ControlNet lets you *show* the model the pose, edges, or depth you want and have it follow that structure exactly while the prompt handles content and style.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 ## Why Use ControlNet?
 
 Prompts are great at describing *what* to generate but poor at controlling *where* things go. ControlNet closes that gap by conditioning generation on a structural reference. Understanding it unlocks several practical wins:

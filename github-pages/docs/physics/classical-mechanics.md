@@ -15,27 +15,9 @@ toc_icon: "cog"
 
 <!-- Custom styles are now loaded via main.scss -->
 
-## Journey Through Classical Mechanics
-
-**Starting with the Basics**
-- [Newton's Laws: The Foundation](#newtons-laws-of-motion)
-- [Understanding Motion](#kinematics-describing-motion)
-- [Forces in Action](#dynamics-forces-in-action)
-
-**Building Powerful Tools**
-- [Conservation Laws: Nature's Bookkeeping](#conservation-laws-natures-hidden-symmetries)
-- [Energy Methods: A Better Way](#work-and-energy)
-- [Beyond Point Particles](#rotational-motion-beyond-point-particles)
-
-**Advanced Frameworks**
-- [Lagrangian Mechanics: Freedom from Forces](#lagrangian-mechanics-a-new-perspective)
-- [Hamiltonian Mechanics: The Geometry of Motion](#hamiltonian-mechanics-the-ultimate-abstraction)
-- [Modern Perspectives](#modern-perspectives-geometry-rules)
-
-**Deeper Understanding**
-- [When Newton Isn't Enough](#when-classical-mechanics-fails)
-- [Chaos and Complexity](#chaos-theory-and-nonlinear-dynamics)
-- [Connections to Modern Physics](#the-living-edge-of-classical-mechanics)
+<div class="intro-card">
+  <p class="lead-text">Classical mechanics is the physics of everyday motion — how forces, energy, and momentum dictate the paths of everything from thrown balls to orbiting planets. This page builds in three layers: first Newton's force-based picture, then the deeper energy-based formulations of Lagrange and Hamilton, and finally the modern, geometric view that connects mechanics to chaos, quantum theory, and computation. The full section list lives in the sidebar; read top to bottom for a guided arc, intuition before formalism.</p>
+</div>
 
 <div class="key-insights">
   <div class="insight-card">
@@ -78,9 +60,7 @@ The foundation of classical mechanics is built upon Newton's three laws of motio
 An object at rest stays at rest and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force.
 
 **Mathematical Expression:**
-$$
-If \Sigma F = 0, then v = constant
-$$
+$$\text{If } \sum \vec{F} = 0, \text{ then } \vec{v} = \text{constant}$$
 
 #### Second Law (Law of Acceleration)
 
@@ -88,21 +68,17 @@ $$
 The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass.
 
 **Mathematical Expression:**
-$$
-F = ma
-$$
+$$\vec{F} = m\vec{a}$$
 Where:
-- F = net force (N)
-- m = mass (kg)
-- a = acceleration (m/s²)
+- $\vec{F}$ = net force (N)
+- $m$ = mass (kg)
+- $\vec{a}$ = acceleration (m/s²)
 
 #### Third Law (Action-Reaction)
 For every action, there is an equal and opposite reaction.
 
 **Mathematical Expression:**
-$$
-F₁₂ = -F₂₁
-$$
+$$\vec{F}_{12} = -\vec{F}_{21}$$
 
 ### Why Newton's Laws Matter
 
@@ -138,17 +114,15 @@ These conservation laws aren't arbitrary; they reflect deep symmetries in nature
 The total energy of an isolated system remains constant over time.
 
 **Types of Energy:**
-- **Kinetic Energy**: KE = ½mv²
-- **Potential Energy**: PE = mgh (gravitational)
-- **Elastic Potential Energy**: PE = ½kx²
+- **Kinetic Energy**: $KE = \tfrac{1}{2}mv^2$
+- **Potential Energy**: $PE = mgh$ (gravitational)
+- **Elastic Potential Energy**: $PE = \tfrac{1}{2}kx^2$
 
 **Conservation Equation:**
-$$
-\begin{aligned}
-E_{	ext{initial}} = E_{	ext{final}}
-KE_{	ext{i}} + PE_{	ext{i}} = KE_{	ext{f}} + PE_{	ext{f}}
-\end{aligned}
-$$
+$$\begin{aligned}
+E_{\text{initial}} &= E_{\text{final}} \\
+KE_i + PE_i &= KE_f + PE_f
+\end{aligned}$$
 
 #### Conservation of Momentum
 
@@ -157,28 +131,22 @@ $$
 The total momentum of an isolated system remains constant.
 
 **Linear Momentum:**
-$$
-p = mv
-$$
+$$\vec{p} = m\vec{v}$$
 
 **Conservation Equation:**
-$$
-\Sigma p_{	ext{initial}} = \Sigma p_{	ext{final}}
-$$
+$$\sum \vec{p}_{\text{initial}} = \sum \vec{p}_{\text{final}}$$
 
 #### Conservation of Angular Momentum
 The total angular momentum of an isolated system remains constant.
 
 **Angular Momentum:**
-$$
-L = I\omega  = r \times  p
-$$
+$$\vec{L} = I\vec{\omega} = \vec{r} \times \vec{p}$$
 
 Where:
-- I = moment of inertia
-- ω = angular velocity
-- r = position vector
-- p = linear momentum
+- $I$ = moment of inertia
+- $\vec{\omega}$ = angular velocity
+- $\vec{r}$ = position vector
+- $\vec{p}$ = linear momentum
 
 ### The Power of Conservation
 
@@ -196,17 +164,17 @@ Kinematics describes motion without asking "why?"—that's dynamics. It's like s
 
 ### One-Dimensional Motion
 
-**Position:** x(t)
+**Position:** $x(t)$
 
-**Velocity:** v = dx/dt
+**Velocity:** $v = \dfrac{dx}{dt}$
 
-**Acceleration:** a = dv/dt = d²x/dt²
+**Acceleration:** $a = \dfrac{dv}{dt} = \dfrac{d^2x}{dt^2}$
 
 ### Equations of Motion (Constant Acceleration)
-1. v = v₀ + at
-2. x = x₀ + v₀t + ½at²
-3. v² = v₀² + 2a(x - x₀)
-4. x = x₀ + ½(v + v₀)t
+1. $v = v_0 + at$
+2. $x = x_0 + v_0 t + \tfrac{1}{2}at^2$
+3. $v^2 = v_0^2 + 2a(x - x_0)$
+4. $x = x_0 + \tfrac{1}{2}(v + v_0)t$
 
 ### Projectile Motion
 
@@ -215,30 +183,22 @@ Kinematics describes motion without asking "why?"—that's dynamics. It's like s
 For projectile motion under constant gravitational acceleration:
 
 **Horizontal Motion:**
-$$
-\begin{aligned}
-x = v₀ₓt
-vₓ = v₀ₓ (constant)
-\end{aligned}
-$$
+$$\begin{aligned}
+x &= v_{0x}\,t \\
+v_x &= v_{0x} \quad (\text{constant})
+\end{aligned}$$
 
 **Vertical Motion:**
-$$
-\begin{aligned}
-y = v₀ᵧt - ½gt^2
-vᵧ = v₀ᵧ - gt
-\end{aligned}
-$$
+$$\begin{aligned}
+y &= v_{0y}\,t - \tfrac{1}{2}gt^2 \\
+v_y &= v_{0y} - gt
+\end{aligned}$$
 
 **Range Formula:**
-$$
-R = (v₀^2sin(2\theta ))/g
-$$
+$$R = \frac{v_0^2 \sin(2\theta)}{g}$$
 
 **Maximum Height:**
-$$
-H = (v₀^2sin^2(\theta ))/(2g)
-$$
+$$H = \frac{v_0^2 \sin^2\theta}{2g}$$
 
 ## Dynamics: Forces in Action
 
@@ -252,22 +212,16 @@ Dynamics bridges the gap between abstract forces and observable motion:
 
 **Work:** The energy transferred to or from an object via the application of force along a displacement.
 
-$$
-W = F·d = Fd cos(\theta )
-$$
+$$W = \vec{F}\cdot\vec{d} = Fd\cos\theta$$
 
 For variable force:
-$$
-W = ∫F·dr
-$$
+$$W = \int \vec{F}\cdot d\vec{r}$$
 
 ### Power
 
 Power is the rate at which work is done:
 
-$$
-P = dW/dt = F·v
-$$
+$$P = \frac{dW}{dt} = \vec{F}\cdot\vec{v}$$
 
 ### Simple Harmonic Motion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/matplotlib/matplotlib/blob/main/galleries/examples/animation/simple_anim.py"> Code: <b><i>SHM Animation with Matplotlib</i></b></a></p>
@@ -276,24 +230,18 @@ $$
 Objects that experience a restoring force proportional to displacement exhibit simple harmonic motion.
 
 **Hooke's Law:**
-$$
-F = -kx
-$$
+$$F = -kx$$
 
 **Equation of Motion:**
-$$
-x(t) = A cos(\omega t + φ)
-$$
+$$x(t) = A\cos(\omega t + \varphi)$$
 
 Where:
-- A = amplitude
-- ω = angular frequency = √(k/m)
-- φ = phase constant
+- $A$ = amplitude
+- $\omega$ = angular frequency = $\sqrt{k/m}$
+- $\varphi$ = phase constant
 
 **Period:**
-$$
-T = 2\pi /\omega  = 2\pi √(m/k)
-$$
+$$T = \frac{2\pi}{\omega} = 2\pi\sqrt{\frac{m}{k}}$$
 
 ## Rotational Motion: Beyond Point Particles
 
@@ -347,14 +295,12 @@ Analogous to linear motion:
 The rotational equivalent of mass:
 
 **Point Mass:**
-$$
-I = mr^2
-$$
+$$I = mr^2$$
 
 **Common Shapes:**
-- Solid sphere: I = (2/5)MR²
-- Solid cylinder: I = (1/2)MR²
-- Thin rod (center): I = (1/12)ML²
+- Solid sphere: $I = \tfrac{2}{5}MR^2$
+- Solid cylinder: $I = \tfrac{1}{2}MR^2$
+- Thin rod (about center): $I = \tfrac{1}{12}ML^2$
 
 ### Torque
 
@@ -540,6 +486,24 @@ def double_pendulum_lagrangian(theta1, theta2, theta1_dot, theta2_dot,
 Lagrangian mechanics is powerful, but it still thinks in terms of trajectories through configuration space. What if we want to think more abstractly about the *state* of a system? What if we want to understand the geometry of all possible motions? What if we want to connect classical mechanics to quantum mechanics? 
 
 These questions led Hamilton to reformulate mechanics once again, creating a framework so elegant and powerful that it remains central to theoretical physics today...
+
+### The Three Formulations at a Glance
+
+All three describe the *same physics* — they predict identical motion — but each takes a different starting point and excels at different problems.
+
+| Aspect | Newtonian | Lagrangian | Hamiltonian |
+|--------|-----------|------------|-------------|
+| Central quantity | Force $\vec{F}$ | Lagrangian $L = T - V$ | Hamiltonian $H = T + V$ |
+| Variables | Positions, accelerations | Generalized coordinates $q_i, \dot{q}_i$ | Coordinates and momenta $q_i, p_i$ |
+| Core equation | $\vec{F} = m\vec{a}$ | $\frac{d}{dt}\frac{\partial L}{\partial \dot{q}_i} - \frac{\partial L}{\partial q_i} = 0$ | $\dot{q}_i = \frac{\partial H}{\partial p_i},\ \dot{p}_i = -\frac{\partial H}{\partial q_i}$ |
+| Handles constraints | Awkwardly (constraint forces) | Naturally (pick smart coordinates) | Naturally |
+| Best for | Direct force problems, intuition | Complex/constrained systems, symmetries | Phase-space geometry, chaos, the bridge to QM |
+| Mathematical home | Vectors in space | Configuration space (tangent bundle) | Phase space (cotangent bundle) |
+
+<div class="tip-card">
+  <h4>Which one should you reach for?</h4>
+  <p>Use <strong>Newton</strong> when forces are simple and you want physical intuition. Switch to <strong>Lagrange</strong> the moment constraints appear (a bead on a wire, a double pendulum) — choosing the right generalized coordinates makes constraint forces vanish. Move to <strong>Hamilton</strong> when you care about the <em>structure</em> of all possible motions, conserved quantities, statistical mechanics, or the route to quantum theory.</p>
+</div>
 
 ## Hamiltonian Mechanics: The Ultimate Abstraction
 

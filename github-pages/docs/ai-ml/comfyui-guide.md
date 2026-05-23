@@ -19,14 +19,6 @@ hide_title: true
 Build visual AI workflows by connecting nodes, from simple image generation to complex multi-model pipelines.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 ## Why Use ComfyUI?
 
 ComfyUI takes a different approach from other AI interfaces. Instead of hiding complexity behind menus, it shows you exactly how each part of the generation process connects to the next. You build workflows by linking nodes together, like connecting pipes in a plumbing diagram.

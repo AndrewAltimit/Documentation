@@ -19,19 +19,27 @@ hide_title: true
 Cutting-edge techniques and complex workflows for pushing the boundaries of AI image generation.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
+## Who This Guide Is For
 
-1. TOC
-{:toc}
+This guide is for users already comfortable with prompting, samplers, and basic ComfyUI workflows who want to push further. It covers latent-space manipulation, regional prompting, advanced sampling, and multi-stage pipelines — plus the newer ideas (consistency distillation, flow matching, adversarial distillation) that now make near-real-time generation possible without collapsing quality. Read it as a toolbox: most real results come from combining a few of these techniques, not from any single one.
 
----
-
-## Overview
-
-This guide covers advanced techniques that go beyond basic image generation, including latent space manipulation, regional prompting, advanced sampling methods, and complex multi-stage workflows.
-
-In 2024, the field has advanced with new techniques like consistency distillation, flow matching, and adversarial training methods that enable real-time generation without quality loss. These cutting-edge approaches are reshaping what's possible with diffusion models.
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-bezier-curve"></i>
+    <h4>Latent Control</h4>
+    <p>Interpolate, blend, and mask in latent space (SLERP, regional prompts) for transitions and composition prompts alone can't reach.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-bolt"></i>
+    <h4>Faster Sampling</h4>
+    <p>Distillation (LCM, ADD) and flow matching cut 30+ steps to 1-8, trading a little quality for real-time speed.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-layer-group"></i>
+    <h4>Multi-Stage Pipelines</h4>
+    <p>Progressive upscaling, detail passes, and self-attention guidance stack into reference-grade results.</p>
+  </div>
+</div>
 
 ## Latent Space Techniques
 

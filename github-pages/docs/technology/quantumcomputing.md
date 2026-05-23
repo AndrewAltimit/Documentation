@@ -123,7 +123,7 @@ In classical computing, we manipulate bits using logic gates like AND, OR, and N
 Let's start with the simplest quantum gates and build up our intuition:
 
 **The NOT Gate (Pauli-X)**
-This is the quantum version of the classical NOT gate. It flips |0⟩ to |1⟩ and |1⟩ to |0⟩. But here's the quantum twist: if a qubit is in superposition, it flips the entire superposition. So α|0⟩ + β|1⟩ becomes α|1⟩ + β|0⟩.
+This is the quantum version of the classical NOT gate. It flips $|0\rangle$ to $|1\rangle$ and $|1\rangle$ to $|0\rangle$. But here's the quantum twist: if a qubit is in superposition, it flips the entire superposition. So $\alpha|0\rangle + \beta|1\rangle$ becomes $\alpha|1\rangle + \beta|0\rangle$.
 
 **The Hadamard Gate: Creating Superposition**
 This gate has no classical equivalent - it's purely quantum. Applied to $|0\rangle$, it creates an equal superposition $\tfrac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$. Applied to $|1\rangle$, it creates $\tfrac{1}{\sqrt{2}}(|0\rangle - |1\rangle)$. This gate is how we typically create superposition from classical states.
@@ -221,13 +221,13 @@ What makes Shor's algorithm special:
 
 While the classical algorithms grabbed headlines, a more subtle algorithm called Quantum Phase Estimation (QPE) has emerged as perhaps the most important quantum subroutine. It's the quantum computing equivalent of the Fast Fourier Transform - a tool that appears everywhere.
 
-QPE solves a seemingly abstract problem: given a quantum operation U and a state |ψ⟩ that U doesn't change (except for a phase), find that phase. Why does this matter? Because an astonishing number of problems can be recast as phase estimation:
+QPE solves a seemingly abstract problem: given a quantum operation $U$ and a state $|\psi\rangle$ that $U$ doesn't change (except for a phase), find that phase. Why does this matter? Because an astonishing number of problems can be recast as phase estimation:
 
 - **In Shor's algorithm**: Finding periods becomes estimating phases
 - **In chemistry**: Molecular energies are phases of time evolution
 - **In optimization**: Solution quality appears as phases
 
-The algorithm works by preparing a superposition of many applications of U (U⁰, U¹, U², ...), then using the quantum Fourier transform to extract the phase. It's a beautiful example of how quantum interference can extract global information from a quantum system.
+The algorithm works by preparing a superposition of many applications of $U$ ($U^0, U^1, U^2, \ldots$), then using the quantum Fourier transform to extract the phase. It's a beautiful example of how quantum interference can extract global information from a quantum system.
 
 <div class="code-reference">
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L14">quantum_algorithms.py#QuantumPhaseEstimation</a>
@@ -318,8 +318,7 @@ Think of it like this: imagine you want to protect a secret message. Classically
 
 The key insight is to encode one "logical" qubit into multiple "physical" qubits. The simplest example is encoding one qubit into three:
 
-|0⟩_L = |000⟩
-|1⟩_L = |111⟩
+$$|0\rangle_L = |000\rangle, \qquad |1\rangle_L = |111\rangle$$
 
 Now if one qubit flips, we can detect it (it's the odd one out) and correct it by majority vote. But this only works for bit flips. Quantum errors are more complex - qubits can also experience phase flips and combinations thereof.
 
@@ -631,13 +630,13 @@ Now that we've built intuition, let's peek under the hood at the mathematical fr
 ### Quantum States as Vectors
 
 Quantum mechanics represents states as vectors in complex vector spaces called Hilbert spaces. For a single qubit:
-- |0⟩ and |1⟩ are basis vectors (like x and y axes)
-- Any qubit state is a combination: |ψ⟩ = α|0⟩ + β|1⟩
-- The constraint |α|² + |β|² = 1 ensures valid probabilities
+- $|0\rangle$ and $|1\rangle$ are basis vectors (like $x$ and $y$ axes)
+- Any qubit state is a combination: $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$
+- The constraint $|\alpha|^2 + |\beta|^2 = 1$ ensures valid probabilities
 
 For multiple qubits, we use tensor products:
-- Two qubits: 4-dimensional space with basis {|00⟩, |01⟩, |10⟩, |11⟩}
-- n qubits: 2^n-dimensional space
+- Two qubits: 4-dimensional space with basis $\{|00\rangle, |01\rangle, |10\rangle, |11\rangle\}$
+- $n$ qubits: $2^n$-dimensional space
 
 This exponential growth in dimension is why quantum computers can process so much information.
 
@@ -645,27 +644,27 @@ This exponential growth in dimension is why quantum computers can process so muc
 
 Quantum gates are represented by unitary matrices - matrices that preserve the total probability (normalization) of quantum states. For example:
 
-**Hadamard gate**: H = (1/√2)[1  1; 1 -1]
-**Pauli-X (NOT)**: X = [0 1; 1 0]
-**CNOT**: A 4×4 matrix that flips the target qubit when control is |1⟩
+$$H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}, \qquad X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$$
 
-The requirement of unitarity (U†U = I) ensures quantum operations are reversible - a fundamental requirement from physics.
+and CNOT is a $4\times4$ matrix that flips the target qubit when the control is $|1\rangle$.
+
+The requirement of unitarity ($U^\dagger U = I$) ensures quantum operations are reversible - a fundamental requirement from physics.
 
 ### The Density Matrix: Handling Real-World Quantum States
 
-Pure states (|ψ⟩) represent ideal quantum systems. Real systems often involve statistical mixtures or entanglement with environments. Density matrices handle these cases:
+Pure states ($|\psi\rangle$) represent ideal quantum systems. Real systems often involve statistical mixtures or entanglement with environments. Density matrices handle these cases:
 
-- Pure state: ρ = |ψ⟩⟨ψ|
-- Mixed state: ρ = Σᵢ pᵢ|ψᵢ⟩⟨ψᵢ|
-- Partial trace: Tracing out environment gives reduced density matrix
+- Pure state: $\rho = |\psi\rangle\langle\psi|$
+- Mixed state: $\rho = \sum_i p_i\,|\psi_i\rangle\langle\psi_i|$
+- Partial trace: tracing out the environment gives a reduced density matrix
 
 This formalism is crucial for understanding decoherence, error correction, and real quantum devices.
 
 ### The Postulates: Quantum Mechanics in Five Rules
 
-1. **States are vectors**: In Hilbert space with ⟨ψ|ψ⟩ = 1
-2. **Evolution is unitary**: |ψ(t)⟩ = U(t)|ψ(0)⟩
-3. **Measurement collapses**: Probabilities given by Born rule
+1. **States are vectors**: in Hilbert space with $\langle\psi|\psi\rangle = 1$
+2. **Evolution is unitary**: $|\psi(t)\rangle = U(t)|\psi(0)\rangle$
+3. **Measurement collapses**: probabilities given by the Born rule
 4. **Composite systems**: Use tensor products
 5. **Observables**: Physical quantities are Hermitian operators
 
@@ -1053,5 +1052,5 @@ estimator = Estimator(backend)
 - [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
 - [AWS](aws/) - AWS Braket quantum computing service
 - [AI](ai.html) - Quantum machine learning algorithms
-</div>
 - [Cybersecurity](cybersecurity.html) - Post-quantum cryptography
+</div>

@@ -30,9 +30,7 @@ Branching strategies are fundamental to modern software development workflows. T
 | GitLab Flow | `main` + env branches | Per-environment | Medium | Teams needing staging/prod gates |
 | Git Flow | `main` + `develop` | Scheduled, versioned | High | Versioned/enterprise software |
 
-## Overview
-
-A branching strategy is designed to minimize the complexity of managing multiple long-lived branches. It promotes a culture of collaboration and continuous integration by encouraging developers to commit their changes frequently to the mainline. This results in fewer merge conflicts and enables rapid feedback on new features or bug fixes.
+A good branching strategy minimizes the complexity of managing multiple long-lived branches. It promotes collaboration and continuous integration by encouraging developers to merge changes into the mainline frequently — which means fewer merge conflicts and faster feedback on new features and bug fixes. The four strategies below trade simplicity for control in different ways; the rest of this page works through each, then offers a decision matrix.
 
 ## Trunk-Based Branching Strategies
 Trunk-based branching is a software development approach where all developers work together on a single branch, called the "trunk" or "mainline". The primary goal of this approach is to maintain a clean, stable codebase, enabling fast integration and continuous delivery. 
@@ -529,13 +527,6 @@ Choosing the right branching strategy depends on your team's needs, project requ
     <li><strong>Feature flags decouple deploy from release,</strong> enabling continuous delivery even with incomplete features.</li>
   </ul>
 </div>
-
-## Related Git Documentation
-
-- [Git Version Control](git.html) - Deep dive into Git internals and architecture
-- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
-- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
-- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
 
 ## References
 

@@ -15,29 +15,32 @@ toc_icon: "laptop-code"
 
 <!-- Custom styles are now loaded via main.scss -->
 
-## Journey Through Computational Physics
+<div class="intro-card">
+  <p class="lead-text">Computational physics is the third pillar of modern physics, sitting alongside theory and experiment. When equations are too hard to solve by hand — nonlinear dynamics, many interacting bodies, complex geometries — we turn the physics into algorithms and let computers do the work. This page is a practical, code-first tour of the core numerical methods, from integrating differential equations to Monte Carlo sampling, molecular dynamics, fluid solvers, and GPU acceleration. The full section list is in the sidebar.</p>
+</div>
 
-**Getting Started**
-- [Why Computational Physics?](#introduction-to-computational-physics)
-- [Essential Numerical Methods](#fundamental-numerical-methods)
-- [Your First Simulations](#the-computational-approach)
-
-**Core Techniques**
-- [Solving Differential Equations](#differential-equations)
-- [Monte Carlo Methods](#monte-carlo-methods)
-- [Molecular Dynamics](#molecular-dynamics)
-
-**Advanced Methods**
-- [Finite Element Analysis](#finite-element-methods)
-- [Computational Fluid Dynamics](#computational-fluid-dynamics)
-- [Quantum Simulations](#quantum-computational-methods)
-
-**Modern Tools & Applications**
-- [Parallel Computing](#parallel-computing-for-physics)
-- [Machine Learning in Physics](#machine-learning-applications)
-- [Visualization Techniques](#visualization-and-analysis)
-
----
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-square-root-variable"></i>
+    <h4>Discretize the continuum</h4>
+    <p>Derivatives become finite differences, integrals become sums — turning calculus into arithmetic a computer can run.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-dice"></i>
+    <h4>Sample what you can't solve</h4>
+    <p>Monte Carlo methods use randomness to evaluate high-dimensional integrals and explore huge state spaces.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-scale-balanced"></i>
+    <h4>Respect the physics</h4>
+    <p>Good algorithms preserve conservation laws and stability — a fast method that drifts in energy is worthless.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-microchip"></i>
+    <h4>Scale with hardware</h4>
+    <p>Parallelism (MPI, GPUs) and machine learning push simulations to sizes no single processor could reach.</p>
+  </div>
+</div>
 
 ## Introduction to Computational Physics
 

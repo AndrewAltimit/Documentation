@@ -227,6 +227,27 @@ Use this decision tree to choose the right storage service:
 | Container persistent storage | EFS or EBS (via CSI) | Depends on sharing requirements |
 | Big data processing | S3 (source) + EBS (compute) | S3 for data lake, EBS for processing nodes |
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Three Shapes of Storage</h4>
+    <p>Object (S3) for anything reached over HTTP/API, block (EBS) for a single instance's mounted disk, file (EFS) for a filesystem shared across many instances.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>S3 Classes Track Access Frequency</h4>
+    <p>Pay for the access pattern you actually have. Lifecycle policies move aging data from Standard to IA to Glacier automatically.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>gp3 Is the Sensible EBS Default</h4>
+    <p>Best price-to-performance for most workloads; reserve io2 for databases that need guaranteed high IOPS, and resize without downtime as you grow.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Encrypt and Snapshot by Default</h4>
+    <p>Turn on default encryption, block public access on S3, and back EBS volumes with regular snapshots — these are cheap insurance against the worst days.</p>
+  </div>
+</div>
+
 ## See Also
 
 - [AWS Hub](./) - Overview of all AWS documentation

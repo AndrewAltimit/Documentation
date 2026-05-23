@@ -19,14 +19,6 @@ hide_title: true
 Create custom AI models that generate your specific styles, characters, or concepts - all without needing massive computing resources.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 ## Why Train Your Own LoRA?
 
 Pre-made models cannot generate everything. When you need consistent characters, specific art styles, or custom objects, training a LoRA lets you teach the model exactly what you want.

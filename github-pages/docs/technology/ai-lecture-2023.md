@@ -46,38 +46,14 @@ hide_title: true
   </div>
 </div>
 
-## Overview 
+## How to read this page
 
-**Neural Networks: A Foundation for AI**
-- [Key Components and Architecture](#key-components-and-architecture)
-- [Supervised and Unsupervised Learning](#supervised-and-unsupervised-learning)
+This deep dive moves from foundations to frontier in four stages (use the sidebar contents to jump):
 
-**The Transformer Era: A Turning Point in NLP**
-- [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformers)
-- [BERT: Bidirectional Encoder Representations from Transformers](#bert-bidirectional-encoder-representations-from-transformers)
-- [GPT: Generative Pre-trained Transformers](#gpt-generative-pre-trained-transformers)
-- [Llama](#llama)
-- [Alpaca](#alpaca)
-- [Reflexion](#reflexion)
-- [HuggingGPT](#hugginggpt)
-
-**Usage**
-- [Code Generation](#code-generation)
-- [Administrative Automation](#administrative-automation)
-- [Productivity](#productivity)
-- [Extending ChatGPT Capabilities](#extending-chatgpt-capabilities)
-- [Running your own LLM Chatbot](#running-your-own-llm-chatbot)
-
-**Security and Ethics**
-- [Misinformation and Disinformation](#misinformation-and-disinformation)
-- [Bias and Discrimination](#bias-and-discrimination)
-- [Privacy and Data Security](#privacy-and-data-security)
-- [Accountability and Transparency](#accountability-and-transparency)
-- [Malicious Use](#malicious-use)
-- [Prompt Attacks](#prompt-attacks)
-
-**Closing Thoughts**
-- [Looking Ahead](#looking-ahead)
+1. **Neural network foundations** — neurons, weights, biases, activations, and the supervised/self-supervised regimes that train them.
+2. **The transformer era** — self-attention and the model families it spawned (BERT, GPT, Llama, Alpaca, Reflexion, HuggingGPT).
+3. **Usage in practice** — code generation, automation, productivity, and running your own LLM.
+4. **Security and ethics** — misinformation, bias, privacy, accountability, and prompt attacks, closing with where the field is headed.
 
 ---
 
@@ -564,35 +540,16 @@ Finally, it's important for us to advocate for the responsible development and i
 - **Capability raises the stakes on safety.** Bias, misinformation, prompt injection, and accountability are engineering concerns, not afterthoughts.
 </div>
 
-## Related AI Documentation
-
-### Foundation Knowledge
-- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Start here if you need the basics
-- [AI Fundamentals - Complete](ai.html) - Comprehensive technical reference
-- [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory
-
-### Practical Applications
-- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models
-- [ComfyUI Guide](../ai-ml/comfyui-guide.html) - Node-based AI workflows
-- [LoRA Training](../ai-ml/lora-training.html) - Fine-tune models for custom styles
-
-### Related Technologies
-- [Quantum Computing](quantumcomputing.html) - Quantum machine learning
-- [Database Design](database-design.html) - Vector databases for AI applications
-- [AWS](aws/) - Cloud infrastructure for AI/ML
-
-### Hub Page
-- [AI Documentation Hub](../artificial-intelligence/) - Navigate all AI resources
-
----
+## See Also
 
 <div class="see-also-card">
-  <h4>See Also</h4>
+  <h4>Related pages</h4>
   <ul>
     <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
     <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with core mathematics</li>
     <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
     <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — generative AI guides and workflows</li>
     <li><a href="../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — image generation with diffusion models</li>
+    <li><a href="../artificial-intelligence/">AI Documentation Hub</a> — navigate all AI resources</li>
   </ul>
 </div>

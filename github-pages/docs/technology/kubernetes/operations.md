@@ -413,15 +413,26 @@ If you want to validate your Kubernetes skills, consider these certifications:
 
 All exams are hands-on, performance-based tests where you solve real Kubernetes problems in a live environment.
 
-## Summary
+## Key Takeaways
 
-This guide covered the operational aspects of running Kubernetes:
-
-- **kubectl**: Your primary tool for cluster interaction
-- **Helm**: Package management for complex applications
-- **Patterns**: Proven approaches like sidecars and init containers
-- **Troubleshooting**: Systematic debugging of common issues
-- **Best Practices**: Production-ready configurations
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>kubectl Is the Workhorse</h4>
+    <p>Master <code>get</code>, <code>describe</code>, <code>logs</code>, and <code>exec</code> — they answer most "what is happening?" questions. Contexts and namespaces keep you pointed at the right cluster.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Helm Packages Complexity</h4>
+    <p>Charts turn dozens of manifests into one versioned, parameterized unit. Use <code>--dry-run</code> and per-environment values files.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Diagnose Systematically</h4>
+    <p>Start broad (<code>get pods</code>, <code>get events</code>), then narrow with <code>describe</code> and <code>logs --previous</code>. The status (ImagePullBackOff, CrashLoopBackOff, Pending) tells you where to look first.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Production Is a Checklist</h4>
+    <p>Resource limits, 3+ replicas with anti-affinity, RBAC, health probes, and centralized logs are non-negotiable before going live.</p>
+  </div>
+</div>
 
 The key to Kubernetes mastery is practice. Start with simple deployments, gradually add complexity, and always follow the principle of declarative configuration: describe what you want, and let Kubernetes make it happen.
 

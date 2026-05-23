@@ -11,15 +11,38 @@ toc: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive resource for commands, formulas, algorithms, and best practices</p>
 </div>
 
+<div class="intro-card" markdown="1">
+<p class="lead-text">A single-page cheat sheet for the things you look up constantly — CLI commands, physics constants and equations, Big-O complexity, API conventions, regex, and pre-flight checklists. Skim the cards, or jump straight to a section below. <strong>Tip:</strong> use <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd> on Mac) to find anything instantly.</p>
+</div>
+
 ## Quick Navigation
 
-- **[Command Line](#command-line-references)** - Git, Docker, Kubernetes, AWS CLI, Terraform
-- **[Physics & Math](#physics-formulas--constants)** - Constants, equations, calculus
-- **[Algorithms](#algorithms--data-structures)** - Big O, patterns, implementations
-- **[API & Network](#api-reference-patterns)** - REST, protocols, regex
-- **[Troubleshooting](#troubleshooting-flowcharts)** - Docker, Git, deployment issues
-- **[Best Practices](#best-practices-checklists)** - Code review, deployment, security
-- **[Recently Added](#recently-added)** - Latest additions to this reference
+<div class="command-grid">
+  <div class="nav-card" markdown="1">
+**[Command Line](#command-line-references)**
+Git · Docker · Kubernetes · AWS CLI · Terraform
+  </div>
+  <div class="nav-card" markdown="1">
+**[Physics & Math](#physics-formulas--constants)**
+Constants · mechanics · QM · EM · calculus · linear algebra
+  </div>
+  <div class="nav-card" markdown="1">
+**[Algorithms](#algorithms--data-structures)**
+Big-O tables · patterns · templates
+  </div>
+  <div class="nav-card" markdown="1">
+**[API & Network](#api-reference-patterns)**
+REST · status codes · ports · regex
+  </div>
+  <div class="nav-card" markdown="1">
+**[Troubleshooting](#troubleshooting-flowcharts)**
+Docker · Git · deployment fixes
+  </div>
+  <div class="nav-card" markdown="1">
+**[Best Practices](#best-practices-checklists)**
+Code review · deployment · security
+  </div>
+</div>
 
 ---
 
@@ -305,18 +328,18 @@ export TF_VAR_name=value      # Set variable via environment
 
 | Constant | Symbol | Value | Units |
 |----------|--------|-------|-------|
-| Speed of light | c | 2.998 × 10⁸ | m/s |
-| Planck constant | h | 6.626 × 10⁻³⁴ | J·s |
-| Reduced Planck constant | ℏ | 1.055 × 10⁻³⁴ | J·s |
-| Gravitational constant | G | 6.674 × 10⁻¹¹ | N·m²/kg² |
-| Elementary charge | e | 1.602 × 10⁻¹⁹ | C |
-| Electron mass | mₑ | 9.109 × 10⁻³¹ | kg |
-| Proton mass | mₚ | 1.673 × 10⁻²⁷ | kg |
-| Boltzmann constant | k_B | 1.381 × 10⁻²³ | J/K |
-| Avogadro's number | N_A | 6.022 × 10²³ | mol⁻¹ |
-| Fine structure constant | α | 1/137.036 | dimensionless |
-| Vacuum permittivity | ε₀ | 8.854 × 10⁻¹² | F/m |
-| Vacuum permeability | μ₀ | 4π × 10⁻⁷ | H/m |
+| Speed of light | $c$ | $2.998 \times 10^{8}$ | m/s |
+| Planck constant | $h$ | $6.626 \times 10^{-34}$ | J·s |
+| Reduced Planck constant | $\hbar$ | $1.055 \times 10^{-34}$ | J·s |
+| Gravitational constant | $G$ | $6.674 \times 10^{-11}$ | N·m²/kg² |
+| Elementary charge | $e$ | $1.602 \times 10^{-19}$ | C |
+| Electron mass | $m_e$ | $9.109 \times 10^{-31}$ | kg |
+| Proton mass | $m_p$ | $1.673 \times 10^{-27}$ | kg |
+| Boltzmann constant | $k_B$ | $1.381 \times 10^{-23}$ | J/K |
+| Avogadro's number | $N_A$ | $6.022 \times 10^{23}$ | mol⁻¹ |
+| Fine structure constant | $\alpha$ | $1/137.036$ | dimensionless |
+| Vacuum permittivity | $\varepsilon_0$ | $8.854 \times 10^{-12}$ | F/m |
+| Vacuum permeability | $\mu_0$ | $4\pi \times 10^{-7}$ | H/m |
 </div>
 
 ### Key Physics Equations
@@ -325,72 +348,66 @@ export TF_VAR_name=value      # Set variable via environment
 
 #### Classical Mechanics
 
-```
-Newton's Laws:
-F = ma                          # Second law
-F₁₂ = -F₂₁                     # Third law
-
-Kinematics:
-v = v₀ + at                    # Velocity
-x = x₀ + v₀t + ½at²           # Position
-v² = v₀² + 2a(x - x₀)         # Velocity-position
-
-Energy:
-KE = ½mv²                      # Kinetic energy
-PE = mgh                       # Gravitational PE
-PE = ½kx²                      # Spring PE
-W = F·d cos(θ)                # Work
-
-Momentum:
-p = mv                         # Linear momentum
-L = r × p                      # Angular momentum
-τ = r × F                      # Torque
-```
+| Quantity | Equation |
+|----------|----------|
+| Newton's second law | $\vec{F} = m\vec{a}$ |
+| Newton's third law | $\vec{F}_{12} = -\vec{F}_{21}$ |
+| Velocity (constant $a$) | $v = v_0 + at$ |
+| Position (constant $a$) | $x = x_0 + v_0 t + \tfrac{1}{2}at^2$ |
+| Velocity–position | $v^2 = v_0^2 + 2a(x - x_0)$ |
+| Kinetic energy | $KE = \tfrac{1}{2}mv^2$ |
+| Gravitational PE | $PE = mgh$ |
+| Spring PE | $PE = \tfrac{1}{2}kx^2$ |
+| Work | $W = \vec{F}\cdot\vec{d} = Fd\cos\theta$ |
+| Linear momentum | $\vec{p} = m\vec{v}$ |
+| Angular momentum | $\vec{L} = \vec{r}\times\vec{p}$ |
+| Torque | $\vec{\tau} = \vec{r}\times\vec{F}$ |
 </div>
 
 <div class="reference-card" markdown="1">
 
 #### Quantum Mechanics
 
-```
-Fundamental Equations:
-iℏ ∂ψ/∂t = Ĥψ                # Schrödinger equation
-Ĥ = -ℏ²/2m ∇² + V            # Hamiltonian
-[x̂, p̂] = iℏ                   # Canonical commutation
-ΔxΔp ≥ ℏ/2                   # Uncertainty principle
+**Fundamental equations**
 
-Quantum States:
-|ψ⟩ = Σᵢ cᵢ|i⟩               # Superposition
-⟨ψ|ψ⟩ = 1                    # Normalization
-P = |⟨φ|ψ⟩|²                 # Transition probability
+$$i\hbar\,\frac{\partial \psi}{\partial t} = \hat{H}\psi \quad\text{(Schrödinger equation)}$$
 
-Hydrogen Atom:
-E_n = -13.6 eV / n²          # Energy levels
-r_n = n²a₀                   # Bohr radius
-a₀ = 0.529 Å                 # Bohr radius constant
-```
+$$\hat{H} = -\frac{\hbar^2}{2m}\nabla^2 + V \quad\text{(Hamiltonian)}$$
+
+$$[\hat{x}, \hat{p}] = i\hbar \quad\text{(canonical commutation)}$$
+
+$$\Delta x\,\Delta p \geq \frac{\hbar}{2} \quad\text{(uncertainty principle)}$$
+
+**Quantum states**
+
+$$|\psi\rangle = \sum_i c_i |i\rangle, \qquad \langle\psi|\psi\rangle = 1, \qquad P = |\langle\phi|\psi\rangle|^2$$
+
+**Hydrogen atom**
+
+$$E_n = -\frac{13.6\ \text{eV}}{n^2}, \qquad r_n = n^2 a_0, \qquad a_0 = 0.529\ \text{Å}$$
 </div>
 
 <div class="reference-card" markdown="1">
 
 #### Electromagnetism
 
-```
-Maxwell's Equations:
-∇·E = ρ/ε₀                    # Gauss's law
-∇·B = 0                       # No magnetic monopoles
-∇×E = -∂B/∂t                  # Faraday's law
-∇×B = μ₀(J + ε₀∂E/∂t)        # Ampère-Maxwell law
+**Maxwell's equations**
 
-Field Relations:
-F = q(E + v×B)                # Lorentz force
-E = -∇φ - ∂A/∂t              # Electric field
-B = ∇×A                       # Magnetic field
-c = 1/√(μ₀ε₀)                # Speed of light
+$$\nabla\cdot\vec{E} = \frac{\rho}{\varepsilon_0} \quad\text{(Gauss's law)}$$
 
-Wave Equation:
-∇²E - (1/c²)∂²E/∂t² = 0     # EM wave equation
-```
+$$\nabla\cdot\vec{B} = 0 \quad\text{(no magnetic monopoles)}$$
+
+$$\nabla\times\vec{E} = -\frac{\partial \vec{B}}{\partial t} \quad\text{(Faraday's law)}$$
+
+$$\nabla\times\vec{B} = \mu_0\!\left(\vec{J} + \varepsilon_0\frac{\partial \vec{E}}{\partial t}\right) \quad\text{(Ampère–Maxwell law)}$$
+
+**Field relations**
+
+$$\vec{F} = q(\vec{E} + \vec{v}\times\vec{B}), \qquad \vec{E} = -\nabla\phi - \frac{\partial \vec{A}}{\partial t}, \qquad \vec{B} = \nabla\times\vec{A}, \qquad c = \frac{1}{\sqrt{\mu_0\varepsilon_0}}$$
+
+**Wave equation**
+
+$$\nabla^2\vec{E} - \frac{1}{c^2}\frac{\partial^2 \vec{E}}{\partial t^2} = 0$$
 </div>
 
 ## Algorithms & Data Structures
@@ -764,28 +781,21 @@ Lost Commits?
 
 #### Derivatives and Integrals
 
-```
-Common Derivatives:
-d/dx(xⁿ) = nxⁿ⁻¹
-d/dx(eˣ) = eˣ
-d/dx(ln x) = 1/x
-d/dx(sin x) = cos x
-d/dx(cos x) = -sin x
-d/dx(tan x) = sec²x
+**Common derivatives**
 
-Product Rule: d/dx(uv) = u'v + uv'
-Chain Rule: d/dx(f(g(x))) = f'(g(x))g'(x)
-Quotient Rule: d/dx(u/v) = (u'v - uv')/v²
+$$\frac{d}{dx}x^n = nx^{n-1}, \quad \frac{d}{dx}e^x = e^x, \quad \frac{d}{dx}\ln x = \frac{1}{x}$$
 
-Common Integrals:
-∫xⁿ dx = xⁿ⁺¹/(n+1) + C  (n ≠ -1)
-∫1/x dx = ln|x| + C
-∫eˣ dx = eˣ + C
-∫sin x dx = -cos x + C
-∫cos x dx = sin x + C
+$$\frac{d}{dx}\sin x = \cos x, \quad \frac{d}{dx}\cos x = -\sin x, \quad \frac{d}{dx}\tan x = \sec^2 x$$
 
-Integration by Parts: ∫u dv = uv - ∫v du
-```
+**Differentiation rules**
+
+$$\underbrace{(uv)' = u'v + uv'}_{\text{product}}, \quad \underbrace{\frac{d}{dx}f(g(x)) = f'(g(x))\,g'(x)}_{\text{chain}}, \quad \underbrace{\left(\frac{u}{v}\right)' = \frac{u'v - uv'}{v^2}}_{\text{quotient}}$$
+
+**Common integrals**
+
+$$\int x^n\,dx = \frac{x^{n+1}}{n+1} + C \;\; (n \neq -1), \quad \int \frac{1}{x}\,dx = \ln|x| + C, \quad \int e^x\,dx = e^x + C$$
+
+$$\int \sin x\,dx = -\cos x + C, \quad \int \cos x\,dx = \sin x + C, \quad \int u\,dv = uv - \int v\,du$$
 </div>
 
 ### Linear Algebra
@@ -794,29 +804,19 @@ Integration by Parts: ∫u dv = uv - ∫v du
 
 #### Matrix Operations
 
-```
-Matrix Multiplication:
-(AB)ᵢⱼ = Σₖ AᵢₖBₖⱼ
+**Multiplication, determinants, and invariants**
 
-Determinant (2×2):
-|a b|
-|c d| = ad - bc
+$$(AB)_{ij} = \sum_k A_{ik}B_{kj}$$
 
-Determinant (3×3):
-|a b c|
-|d e f| = a(ei-fh) - b(di-fg) + c(dh-eg)
-|g h i|
+$$\det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc$$
 
-Eigenvalues: det(A - λI) = 0
-Trace: tr(A) = Σᵢ Aᵢᵢ
-Transpose: (Aᵀ)ᵢⱼ = Aⱼᵢ
+$$\det\begin{pmatrix} a & b & c \\ d & e & f \\ g & h & i \end{pmatrix} = a(ei - fh) - b(di - fg) + c(dh - eg)$$
 
-Special Matrices:
-Identity: Iᵢⱼ = δᵢⱼ
-Orthogonal: QᵀQ = QQᵀ = I
-Hermitian: A† = A
-Unitary: U†U = UU† = I
-```
+$$\det(A - \lambda I) = 0 \;\;(\text{eigenvalues}), \qquad \operatorname{tr}(A) = \sum_i A_{ii}, \qquad (A^\mathsf{T})_{ij} = A_{ji}$$
+
+**Special matrices**
+
+$$\underbrace{I_{ij} = \delta_{ij}}_{\text{identity}}, \quad \underbrace{Q^\mathsf{T}Q = QQ^\mathsf{T} = I}_{\text{orthogonal}}, \quad \underbrace{A^\dagger = A}_{\text{Hermitian}}, \quad \underbrace{U^\dagger U = UU^\dagger = I}_{\text{unitary}}$$
 </div>
 
 ## Network Protocols

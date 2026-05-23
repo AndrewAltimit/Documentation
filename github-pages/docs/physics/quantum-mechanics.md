@@ -31,7 +31,7 @@ Quantum mechanics describes nature at the smallest scales - atoms and subatomic 
    - Electrons act as particles (tracks in detectors) AND waves (electron diffraction)
 
 3. **Uncertainty Principle**: You cannot simultaneously know exact position AND momentum
-   - ΔxΔp ≥ ℏ/2 (position × momentum uncertainty ≥ reduced Planck's constant/2)
+   - $\Delta x\,\Delta p \geq \hbar/2$ (position × momentum uncertainty ≥ reduced Planck's constant / 2)
    - This is NOT due to measurement limitations - it's fundamental to nature
 
 4. **Superposition**: Quantum systems exist in multiple states simultaneously
@@ -44,26 +44,24 @@ Quantum mechanics describes nature at the smallest scales - atoms and subatomic 
 
 ### Essential Mathematics (Simplified)
 
-**The Wave Function** ψ(x,t) contains all information about a quantum system:
-- |ψ(x,t)|² = probability density of finding particle at position x
-- P(a < x < b) = ∫ₐᵇ |ψ(x,t)|² dx (probability in region)
-- Must be normalized: ∫_{-∞}^{∞} |ψ|²dx = 1 (total probability = 100%)
+**The Wave Function** $\psi(x,t)$ contains all information about a quantum system:
+- $|\psi(x,t)|^2$ = probability density of finding the particle at position $x$
+- $P(a < x < b) = \int_a^b |\psi(x,t)|^2\,dx$ (probability of finding it in a region)
+- Must be normalized: $\int_{-\infty}^{\infty} |\psi|^2\,dx = 1$ (total probability = 100%)
 
 **The Schrödinger Equation** governs how quantum systems evolve:
-$$
-iℏ ∂ψ/∂t = Ĥψ
-$$
-Think of it as F=ma for quantum mechanics - it tells you how the wave function changes over time.
+$$i\hbar\,\frac{\partial \psi}{\partial t} = \hat{H}\psi$$
+Think of it as $F=ma$ for quantum mechanics — it tells you how the wave function changes over time.
 
 ### Your First Quantum Calculation
 
 **Particle in a Box** - the simplest quantum system:
-- Particle confined between x=0 and x=L
-- Allowed energies: En = n²π²ℏ²/(2mL²) where n = 1,2,3...
+- Particle confined between $x=0$ and $x=L$
+- Allowed energies: $E_n = \dfrac{n^2\pi^2\hbar^2}{2mL^2}$ where $n = 1, 2, 3, \ldots$
 - Key insight: Energy is quantized! Only certain values allowed
 
-Example: An electron in a 1 nm box has ground state energy:
-E₁ = π²(1.05×10⁻³⁴)²/(2×9.1×10⁻³¹×(10⁻⁹)²) ≈ 6×10⁻²⁰ J ≈ 0.38 eV
+Example: An electron in a 1 nm box has ground state energy
+$$E_1 = \frac{\pi^2(1.05\times10^{-34})^2}{2 \times 9.1\times10^{-31} \times (10^{-9})^2} \approx 6\times10^{-20}\ \text{J} \approx 0.38\ \text{eV}$$
 
 ### Common Misconceptions to Avoid
 
@@ -83,53 +81,10 @@ Quantum mechanics powers modern technology:
 
 ---
 
-## Overview
-
-**Quick Start**
-- [Quantum Mechanics Crash Course](#quick-start-quantum-mechanics-crash-course)
-- [How to Think Quantum](#how-to-think-quantum)
-
-**Foundations of Quantum Theory**
-- [Wave-Particle Duality](#wave-particle-duality)
-- [The Uncertainty Principle](#the-uncertainty-principle)
-- [Wave Functions and Probability](#wave-functions-and-probability)
-
-**Core Theory**
-- [The Schrödinger Equation](#the-schrödinger-equation)
-- [Quantum States and Operators](#quantum-states-and-operators)
-- [Angular Momentum](#angular-momentum)
-- [Measurement and Decoherence](#measurement-and-decoherence)
-
-**Quantum Systems**
-- [Practical Quantum Mechanics](#practical-quantum-mechanics)
-- [Particle in a Box](#particle-in-a-box)
-- [Harmonic Oscillator](#harmonic-oscillator)
-- [Hydrogen Atom](#hydrogen-atom)
-
-**Quantum Phenomena**
-- [Quantum Tunneling](#tunneling)
-- [Quantum Entanglement](#quantum-entanglement)
-- [Time Evolution](#time-evolution)
-- [Perturbation Theory](#perturbation-theory)
-
-**Applications and Modern Physics**
-- [Quantum Computing Applications](#quantum-computing-applications)
-- [Interpretations of Quantum Mechanics](#interpretations-of-quantum-mechanics)
-- [Modern Applications](#modern-applications)
-- [Experimental Techniques](#experimental-techniques)
-
-**Advanced Topics**
-- [Mathematical Formalism](#mathematical-formalism)
-- [Advanced Computational Methods](#advanced-computational-methods)
-- [Modern Research Frontiers](#modern-research-frontiers)
-- [Common Pitfalls and How to Avoid Them](#common-pitfalls-and-how-to-avoid-them)
-
-**Learning Resources**
-- [Practice Problems and Exercises](#practice-problems-and-exercises)
-- [Research-Level Resources](#research-level-resources)
-- [Essential Resources](#essential-resources)
-
----
+<div class="tip-card">
+  <h4>How to read this page</h4>
+  <p>The full section list is in the sidebar. If you are new, read the <strong>Crash Course</strong> and <strong>How to Think Quantum</strong> first, then the <strong>Fundamental Concepts</strong> and <strong>Schrödinger Equation</strong> sections for the core theory. The solved systems (particle in a box, harmonic oscillator, hydrogen) make the formalism concrete. Later sections — Mathematical Formalism, Advanced Topics, and Research Frontiers — are graduate-level and can be skipped on a first pass.</p>
+</div>
 
 ## How to Think Quantum
 
@@ -176,14 +131,12 @@ This geometric view helps understand:
 
 All matter and radiation exhibit both wave and particle properties. This duality is captured by de Broglie's relation:
 
-$$
-λ = h/p
-$$
+$$\lambda = \frac{h}{p}$$
 
 Where:
-- λ = de Broglie wavelength
-- h = Planck's constant (6.626 × 10⁻³⁴ J·s)
-- p = momentum
+- $\lambda$ = de Broglie wavelength
+- $h$ = Planck's constant ($6.626 \times 10^{-34}$ J·s)
+- $p$ = momentum
 
 ### The Uncertainty Principle
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.phys.lsu.edu/faculty/oconnell/p7221/Heisenberg_zpk_1927.pdf"> Paper: <b><i>Über den anschaulichen Inhalt der quantentheoretischen Kinematik und Mechanik</i></b> - Werner Heisenberg</a></p>
@@ -193,25 +146,19 @@ Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowl
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a></p>
 
 **Position-Momentum Uncertainty:**
-$$
-\Delta x\Delta p \geq  ℏ/2
-$$
+$$\Delta x\,\Delta p \geq \frac{\hbar}{2}$$
 
 **Energy-Time Uncertainty:**
-$$
-\Delta E\Delta t \geq  ℏ/2
-$$
-Note: Δt is the time scale for significant change in the system, not an uncertainty in clock time.
+$$\Delta E\,\Delta t \geq \frac{\hbar}{2}$$
+Note: $\Delta t$ is the time scale for significant change in the system, not an uncertainty in clock time.
 
-Where ℏ = h/2π (reduced Planck's constant)
+Where $\hbar = h/2\pi$ (reduced Planck's constant).
 
 ### Wave Functions and Probability
 
-The state of a quantum system is described by a wave function ψ(x,t). The probability of finding a particle at position x is:
+The state of a quantum system is described by a wave function $\psi(x,t)$. The probability density of finding a particle at position $x$ is:
 
-$$
-P(x) = |ψ(x,t)|^2
-$$
+$$P(x) = |\psi(x,t)|^2$$
 
 **Normalization condition:**
 $$
@@ -226,62 +173,50 @@ $$
 
 The fundamental equation of quantum mechanics:
 
-$$
-iℏ ∂ψ/∂t = Ĥψ
-$$
+$$i\hbar\,\frac{\partial \psi}{\partial t} = \hat{H}\psi$$
 
-Where Ĥ is the Hamiltonian operator:
-$$
-Ĥ = -ℏ^2/2m ∇^2 + V(x,t)
-$$
+Where $\hat{H}$ is the Hamiltonian operator:
+$$\hat{H} = -\frac{\hbar^2}{2m}\nabla^2 + V(x,t)$$
 
 ### Time-Independent Schrödinger Equation
 
 For stationary states with definite energy:
 
-$$
-Ĥψ = Eψ
-$$
+$$\hat{H}\psi = E\psi$$
 
 Or explicitly:
-$$
--ℏ^2/2m d^2ψ/dx^2 + V(x)ψ = Eψ
-$$
+$$-\frac{\hbar^2}{2m}\frac{d^2\psi}{dx^2} + V(x)\psi = E\psi$$
 
 ## Quantum States and Operators
 
 ### Dirac Notation
 
 Quantum states are represented as vectors in Hilbert space:
-- **Ket:** |ψ⟩ represents a quantum state
-- **Bra:** ⟨ψ| represents the complex conjugate
-- **Inner product:** ⟨φ|ψ⟩ gives probability amplitude
-- **Outer product:** |φ⟩⟨ψ| represents an operator
+- **Ket:** $|\psi\rangle$ represents a quantum state
+- **Bra:** $\langle\psi|$ represents the complex conjugate (dual vector)
+- **Inner product:** $\langle\phi|\psi\rangle$ gives a probability amplitude
+- **Outer product:** $|\phi\rangle\langle\psi|$ represents an operator
 
 ### Observable Quantities
 
 Physical quantities are represented by Hermitian operators:
 
-**Position operator:** x̂ = x
+**Position operator:** $\hat{x} = x$
 
-**Momentum operator:** p̂ = -iℏ∂/∂x
+**Momentum operator:** $\hat{p} = -i\hbar\,\dfrac{\partial}{\partial x}$
 
-**Energy operator (Hamiltonian):** Ĥ = p̂²/2m + V(x̂)
+**Energy operator (Hamiltonian):** $\hat{H} = \dfrac{\hat{p}^2}{2m} + V(\hat{x})$
 
-**Angular momentum:** L̂ = r̂ × p̂
+**Angular momentum:** $\hat{\mathbf{L}} = \hat{\mathbf{r}} \times \hat{\mathbf{p}}$
 
 ### Eigenvalues and Eigenstates
 
-Measurement of an observable Â yields eigenvalues:
+Measurement of an observable $\hat{A}$ yields eigenvalues:
 
-$$
-Â|ψₙ⟩ = aₙ|ψₙ⟩
-$$
+$$\hat{A}|\psi_n\rangle = a_n|\psi_n\rangle$$
 
-The probability of measuring eigenvalue aₙ is:
-$$
-P(aₙ) = |⟨ψₙ|ψ⟩|^2
-$$
+The probability of measuring eigenvalue $a_n$ is:
+$$P(a_n) = |\langle\psi_n|\psi\rangle|^2$$
 
 ## Measurement and Decoherence
 
@@ -315,16 +250,12 @@ This explains why cats are never alive-and-dead but electrons can be!
 
 **Mathematical Framework:**
 The system-environment interaction Hamiltonian:
-$$
-Ĥ_{	ext{int}} = \Sigma _α g_α Ŝ_α ⊗ Ê_α
-$$
-Where Ŝ_α are system operators and Ê_α are environment operators.
+$$\hat{H}_{\text{int}} = \sum_\alpha g_\alpha\, \hat{S}_\alpha \otimes \hat{E}_\alpha$$
+Where $\hat{S}_\alpha$ are system operators and $\hat{E}_\alpha$ are environment operators.
 
 The reduced density matrix evolution follows:
-$$
-∂ρ_{	ext{S}}/∂t = -i[Ĥ_{	ext{S}}, ρ_{	ext{S}}] - \Sigma _α γ_α[Ŝ_α, [Ŝ_α, ρ_{	ext{S}}]]
-$$
-Where γ_α are decoherence rates determined by environmental coupling strengths and correlation times.
+$$\frac{\partial \rho_S}{\partial t} = -\frac{i}{\hbar}[\hat{H}_S, \rho_S] - \sum_\alpha \gamma_\alpha\,[\hat{S}_\alpha, [\hat{S}_\alpha, \rho_S]]$$
+Where $\gamma_\alpha$ are decoherence rates determined by environmental coupling strengths and correlation times.
 
 ### Quantum Zeno Effect
 
@@ -388,70 +319,70 @@ $$
 $$
 
 **Energy levels:**
-$$
-Eₙ = n^2\pi ^2ℏ^2/2mL^2
-$$
+$$E_n = \frac{n^2\pi^2\hbar^2}{2mL^2}$$
 
-Where n = 1, 2, 3, ...
+Where $n = 1, 2, 3, \ldots$
 
 ### Harmonic Oscillator
 
-
-**Potential:** V(x) = ½mω²x²
+**Potential:** $V(x) = \tfrac{1}{2}m\omega^2 x^2$
 
 **Energy levels:**
-$$
-Eₙ = ℏ\omega (n + ½)
-$$
+$$E_n = \hbar\omega\left(n + \tfrac{1}{2}\right)$$
 
-Where n = 0, 1, 2, ...
+Where $n = 0, 1, 2, \ldots$
 
 **Ground state wave function:**
-$$
-ψ₀(x) = (m\omega /\pi ℏ)^(1/4) exp(-m\omega x^2/2ℏ)
-$$
-Note: The factor (mω/πℏ)^(1/4) ensures normalization ∫|ψ₀|²dx = 1.
+$$\psi_0(x) = \left(\frac{m\omega}{\pi\hbar}\right)^{1/4} \exp\left(-\frac{m\omega x^2}{2\hbar}\right)$$
+Note: the prefactor $\left(m\omega/\pi\hbar\right)^{1/4}$ ensures normalization $\int|\psi_0|^2\,dx = 1$.
 
 ### Hydrogen Atom
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Hydrogen_atom"> Article: <b><i>Hydrogen Atom Electron Orbitals - Wikipedia</i></b></a></p>
 
 **Energy levels:**
-$$
-Eₙ = -13.6 eV/n^2
-$$
+$$E_n = -\frac{13.6\ \text{eV}}{n^2}$$
 
 **Wave functions characterized by quantum numbers:**
-- n: principal quantum number (1, 2, 3, ...)
-- ℓ: orbital angular momentum (0, 1, ..., n-1)
-- m: magnetic quantum number (-ℓ, ..., +ℓ)
-- s: spin quantum number (±½)
+- $n$: principal quantum number ($1, 2, 3, \ldots$)
+- $\ell$: orbital angular momentum ($0, 1, \ldots, n-1$)
+- $m$: magnetic quantum number ($-\ell, \ldots, +\ell$)
+- $s$: spin quantum number ($\pm\tfrac{1}{2}$)
 
 **Ground state (1s):**
-$$
-ψ₁₀₀(r,\theta ,φ) = 1/√\pi  (1/a₀)^(3/2) e^(-r/a₀)
-$$
+$$\psi_{100}(r,\theta,\phi) = \frac{1}{\sqrt{\pi}}\left(\frac{1}{a_0}\right)^{3/2} e^{-r/a_0}$$
 
-Where a₀ = Bohr radius = 0.529 Å = 5.29 × 10⁻¹¹ m.
+Where $a_0$ = Bohr radius = 0.529 Å = $5.29 \times 10^{-11}$ m.
 
-Note: This is properly normalized: ∫∫∫ |ψ₁₀₀|² r² sin(θ) dr dθ dφ = 1.
+Note: this is properly normalized: $\iiint |\psi_{100}|^2\, r^2 \sin\theta\,dr\,d\theta\,d\phi = 1$.
+
+### Comparing the Three Canonical Systems
+
+These three solvable systems anchor most of quantum mechanics. Notice how the *spacing* of energy levels — not just their values — reflects the shape of the confining potential.
+
+| System | Potential | Energy levels | Level spacing | Where it shows up |
+|--------|-----------|---------------|---------------|-------------------|
+| Particle in a box | Infinite walls | $E_n = \dfrac{n^2\pi^2\hbar^2}{2mL^2}$ | Grows like $n^2$ (spreads out) | Quantum dots, conjugated molecules |
+| Harmonic oscillator | $\tfrac{1}{2}m\omega^2 x^2$ | $E_n = \hbar\omega\left(n+\tfrac{1}{2}\right)$ | Constant $\hbar\omega$ (evenly spaced) | Vibrations, phonons, quantum fields |
+| Hydrogen atom | $-\dfrac{e^2}{4\pi\varepsilon_0 r}$ | $E_n = -\dfrac{13.6\ \text{eV}}{n^2}$ | Shrinks like $1/n^2$ (converges) | Atomic spectra, chemistry |
+
+<div class="tip-card">
+  <h4>Why the patterns differ</h4>
+  <p>A steep, hard-walled box pushes higher states up rapidly, so levels spread apart. A spring-like (quadratic) well gives perfectly even rungs — the hallmark of the harmonic oscillator and the reason it underlies field quantization. The hydrogen atom's $-1/r$ attraction weakens with distance, so levels bunch up and converge to the ionization threshold ($E \to 0$) as $n \to \infty$.</p>
+</div>
 
 ## Angular Momentum
 
 ### Orbital Angular Momentum
 
 **Operators:**
-$$
-\begin{aligned}
-L̂^2 |ℓ,m⟩ = ℏ^2ℓ(ℓ+1)|ℓ,m⟩
-L̂z |ℓ,m⟩ = ℏm|ℓ,m⟩
-\end{aligned}
-$$
+$$\begin{aligned}
+\hat{L}^2 |\ell,m\rangle &= \hbar^2\ell(\ell+1)|\ell,m\rangle \\
+\hat{L}_z |\ell,m\rangle &= \hbar m\,|\ell,m\rangle
+\end{aligned}$$
 
 **Commutation relations:**
-$$
-[L̂ᵢ, L̂ⱼ] = iℏεᵢⱼₖL̂ₖ
-$$
+$$[\hat{L}_i, \hat{L}_j] = i\hbar\,\varepsilon_{ijk}\hat{L}_k$$
 
 ### Spin
 
@@ -463,23 +394,14 @@ Intrinsic angular momentum of particles:
 
 **Pauli Matrices:**
 $$
-\begin{aligned}
-σₓ = |0 1|    σᵧ = |0 -i|    σz = |1  0|
-     |1 0|         |i  0|         |0 -1|
-\end{aligned}
-$$
-
-In standard matrix notation:
-$$
-\begin{aligned}
-σₓ = (0 1)    σᵧ = (0 -i)    σz = (1  0)
-     (1 0)         (i  0)         (0 -1)
-\end{aligned}
+\sigma_x = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}, \quad
+\sigma_y = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}, \quad
+\sigma_z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
 $$
 
 **Spin states:**
-- Spin up: |↑⟩ = |½, ½⟩
-- Spin down: |↓⟩ = |½, -½⟩
+- Spin up: $|\!\uparrow\rangle = |\tfrac{1}{2}, \tfrac{1}{2}\rangle$
+- Spin down: $|\!\downarrow\rangle = |\tfrac{1}{2}, -\tfrac{1}{2}\rangle$
 
 ## Quantum Phenomena
 
@@ -490,24 +412,20 @@ $$
 Particles can penetrate classically forbidden regions. For a rectangular barrier:
 
 **Transmission coefficient:**
-$$
-T ≈ 16E(V₀-E)/V₀^2 \times  e^(-2κa)
-$$
+$$T \approx \frac{16E(V_0-E)}{V_0^2}\, e^{-2\kappa a}$$
 
-Where κ = √(2m(V₀-E))/ℏ and a is barrier width.
+Where $\kappa = \sqrt{2m(V_0-E)}/\hbar$ and $a$ is the barrier width.
 
 ### Quantum Entanglement
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://cds.cern.ch/record/111654/files/vol1p195-200_001.pdf"> Paper: <b><i>On the Einstein Podolsky Rosen Paradox</i></b> - John Bell</a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=ZuvK-od647c"> Video: <b><i>Quantum Entanglement Explained</i></b></a></p>
 
-Non-local correlations between particles. Example - Bell state:
+Non-local correlations between particles. Example — the singlet Bell state:
 
-$$
-|Ψ⁻⟩ = 1/√2(|↑↓⟩ - |↓↑⟩)
-$$
+$$|\Psi^-\rangle = \frac{1}{\sqrt{2}}\left(|\!\uparrow\downarrow\rangle - |\!\downarrow\uparrow\rangle\right)$$
 
-This is one of the four maximally entangled Bell states. Note that it's properly normalized:
-⟨Ψ⁻|Ψ⁻⟩ = 1/2(⟨↑↓| - ⟨↓↑|)(|↑↓⟩ - |↓↑⟩) = 1/2(1 + 1) = 1.
+This is one of the four maximally entangled Bell states. It is properly normalized:
+$$\langle\Psi^-|\Psi^-\rangle = \tfrac{1}{2}\left(\langle\uparrow\downarrow| - \langle\downarrow\uparrow|\right)\left(|\!\uparrow\downarrow\rangle - |\!\downarrow\uparrow\rangle\right) = \tfrac{1}{2}(1 + 1) = 1.$$
 
 Measurement of one particle instantly determines the state of the other, regardless of distance.
 
@@ -515,14 +433,12 @@ Measurement of one particle instantly determines the state of the other, regardl
 
 A system can exist in multiple states simultaneously:
 
-$$
-|ψ⟩ = α|0⟩ + β|1⟩
-$$
+$$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$$
 
-**Normalization requirement:** |α|² + |β|² = 1
-- |α|² = probability of measuring state |0⟩
-- |β|² = probability of measuring state |1⟩
-- α and β are complex numbers (amplitudes)
+**Normalization requirement:** $|\alpha|^2 + |\beta|^2 = 1$
+- $|\alpha|^2$ = probability of measuring state $|0\rangle$
+- $|\beta|^2$ = probability of measuring state $|1\rangle$
+- $\alpha$ and $\beta$ are complex numbers (amplitudes)
 
 ## Time Evolution
 
@@ -530,39 +446,29 @@ $$
 
 States evolve in time according to:
 
-$$
-|ψ(t)⟩ = Û(t)|ψ(0)⟩
-$$
+$$|\psi(t)\rangle = \hat{U}(t)|\psi(0)\rangle$$
 
 Where the time evolution operator is:
-$$
-Û(t) = e^(-iĤt/ℏ)
-$$
-Note: This form assumes a time-independent Hamiltonian Ĥ.
+$$\hat{U}(t) = e^{-i\hat{H}t/\hbar}$$
+Note: this form assumes a time-independent Hamiltonian $\hat{H}$.
 
 ### Heisenberg Picture
 
 Operators evolve while states remain fixed:
 
-$$
-Â(t) = Û†(t)Â(0)Û(t)
-$$
+$$\hat{A}(t) = \hat{U}^\dagger(t)\,\hat{A}(0)\,\hat{U}(t)$$
 
 **Heisenberg equation of motion:**
-$$
-dÂ/dt = i/ℏ[Ĥ,Â] + ∂Â/∂t
-$$
+$$\frac{d\hat{A}}{dt} = \frac{i}{\hbar}[\hat{H},\hat{A}] + \frac{\partial \hat{A}}{\partial t}$$
 
 ## Perturbation Theory
 
 ### Time-Independent Perturbation Theory
 
-For Ĥ = Ĥ₀ + λV̂:
+For $\hat{H} = \hat{H}_0 + \lambda\hat{V}$:
 
 **First-order energy correction:**
-$$
-E_{	ext{n}}^(1) = ⟨n⁰|V̂|n⁰⟩
-$$
+$$E_n^{(1)} = \langle n^{(0)}|\hat{V}|n^{(0)}\rangle$$
 
 **First-order wave function correction:**
 $$
@@ -615,28 +521,16 @@ Quantum computing leverages quantum mechanics principles for computation. Here's
 The quantum analog of classical bits:
 
 $$
-|ψ⟩ = α|0⟩ + β|1⟩
+|\psi\rangle = \alpha|0\rangle + \beta|1\rangle
 $$
 
 ### Quantum Gates
 
 **Hadamard gate:**
-$$
-\begin{aligned}
-H = 1/√2 |1  1|
-          |1 -1|
-\end{aligned}
-$$
+$$H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}$$
 
 **CNOT gate:**
-$$
-\begin{aligned}
-CNOT = |1 0 0 0|
-       |0 1 0 0|
-       |0 0 0 1|
-       |0 0 1 0|
-\end{aligned}
-$$
+$$\text{CNOT} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 1 \\ 0 & 0 & 1 & 0 \end{pmatrix}$$
 
 ### Quantum Algorithms
 

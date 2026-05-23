@@ -1070,7 +1070,7 @@ The future of version control explores novel approaches beyond traditional DAG-b
 - Superposition of multiple development branches
 - Quantum entanglement for correlated changes
 - Amplitude amplification for optimal path selection
-- Theoretical framework: |ψ⟩ = Σ αᵢ|branchᵢ⟩
+- Theoretical framework: $|\psi\rangle = \sum_i \alpha_i\,|\text{branch}_i\rangle$
 
 **CRDT-Based VCS:**
 - Conflict-free Replicated Data Types guarantee convergence
@@ -1111,6 +1111,35 @@ The future of version control explores novel approaches beyond traditional DAG-b
 - Test coverage recommendations
 
 > **Code Reference**: For experimental implementations of quantum VCS, CRDT-based systems, blockchain VCS, and ML enhancements, see [`research_frontiers.py`](../../code-examples/technology/git/research_frontiers.py)
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Snapshots, not diffs</h4>
+    <p>Each commit stores a full tree snapshot. Identical content is deduplicated by hash, so snapshots stay cheap.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Everything is content-addressed</h4>
+    <p>Blobs, trees, commits, and tags are named by the hash of their content, giving Git both integrity and deduplication.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>History is a DAG</h4>
+    <p>Commits link to parents to form a directed acyclic graph. Branches and tags are just movable pointers into it.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Branches are cheap pointers</h4>
+    <p>A branch is a 40-character file pointing at a commit. Creating, switching, and merging are fast and local.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Merge needs a common ancestor</h4>
+    <p>Three-way merge diffs both sides against the merge base; non-overlapping changes combine automatically.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Almost everything is local</h4>
+    <p>Commits, branches, history, and diffs work offline. The network is only needed to fetch, push, and clone.</p>
+  </div>
+</div>
 
 ## Additional Resources
 
@@ -1204,18 +1233,6 @@ Checksum
 4. Pack transmission
 5. Reference update
 
-## Related Git Documentation
-
-### Quick References
-- [Git Command Reference](git-reference.html) - Comprehensive command syntax and examples
-- [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
-- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
-
-### Related Technologies
-- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
-- [Docker](docker/) - Containerized development workflows
-- [Kubernetes](kubernetes/) - GitOps and deployment strategies
-
 ### External Resources
 - [Pro Git Book](https://git-scm.com/book) - Comprehensive Git guide
 - [Git Documentation](https://git-scm.com/docs) - Official reference
@@ -1223,14 +1240,16 @@ Checksum
 
 ---
 
+## See Also
+
 <div class="see-also-card">
-  <h4>See Also</h4>
+  <h4>Related pages</h4>
   <ul>
     <li><a href="git-crash-course.html">Git Crash Course</a> — start here if you are new to Git</li>
     <li><a href="git-reference.html">Git Command Reference</a> — complete command syntax cheat sheet</li>
     <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
     <li><a href="ci-cd.html">CI/CD</a> — continuous integration and deployment pipelines</li>
     <li><a href="docker/">Docker</a> — containerization for consistent development environments</li>
+    <li><a href="cybersecurity.html">Cybersecurity</a> — security practices for version control and secrets management</li>
   </ul>
 </div>
-- [Cybersecurity](cybersecurity.html) - Security practices for version control and secrets management
