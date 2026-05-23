@@ -12,6 +12,10 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive architecture patterns, tooling, and best practices for managing large-scale unified codebases</p>
 </div>
 
+<div class="advanced-note" markdown="1">
+**Advanced engineering deep-dive.** This page is written for platform engineers, build engineers, and tech leads evaluating or operating monorepos at scale. **Helpful background:** build systems and dependency graphs, CI/CD pipelines, and Git internals. For day-to-day Git workflows see the [Git Reference](../../technology/git-reference.html); for pipeline fundamentals see [CI/CD Pipelines](../../technology/ci-cd.html).
+</div>
+
 ## Introduction
 
 A monorepo (monolithic repository) is a software development strategy where code for multiple projects is stored in a single repository. This approach has gained significant traction among large tech companies and is increasingly adopted by teams of all sizes.
@@ -88,7 +92,7 @@ A change to a leaf app rebuilds just that app; a change to a foundational packag
 | Aspect | Monorepo | Polyrepo |
 |--------|----------|----------|
 | Code Sharing | Direct imports | Published packages |
-| Atomic Changes | ✅ Native | ❌ Requires coordination |
+| Atomic Changes | Native | Requires coordination |
 | Build Complexity | Higher | Lower per repo |
 | Repository Size | Large | Small |
 | Team Autonomy | Lower | Higher |
@@ -851,20 +855,20 @@ await Promise.all(tasks);
 ## Best Practices Summary
 
 ### Do's
-- ✅ Start with clear package boundaries
-- ✅ Invest in tooling early
-- ✅ Use computation caching
-- ✅ Implement clear ownership rules
-- ✅ Automate dependency updates
-- ✅ Monitor repository metrics
+- Start with clear package boundaries
+- Invest in tooling early
+- Use computation caching
+- Implement clear ownership rules
+- Automate dependency updates
+- Monitor repository metrics
 
 ### Don'ts
-- ❌ Mix unrelated projects
-- ❌ Ignore tooling investment
-- ❌ Allow circular dependencies
-- ❌ Skip documentation
-- ❌ Neglect CI/CD optimization
-- ❌ Force monorepo on all projects
+- Mix unrelated projects
+- Ignore tooling investment
+- Allow circular dependencies
+- Skip documentation
+- Neglect CI/CD optimization
+- Force monorepo on all projects
 
 ## Choosing a Tool
 

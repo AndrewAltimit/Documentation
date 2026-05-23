@@ -559,31 +559,31 @@ docker pull my-registry/my-app:latest  # Fails if not signed</code></pre>
   <div class="security-checklist">
     <h4>Image Security</h4>
     <ul>
-      <li>✓ Use minimal base images (alpine, distroless)</li>
-      <li>✓ Scan images for vulnerabilities regularly</li>
-      <li>✓ Don't store secrets in images</li>
-      <li>✓ Use specific version tags, not 'latest'</li>
-      <li>✓ Sign images with Docker Content Trust</li>
-      <li>✓ Remove unnecessary packages and files</li>
+      <li>Use minimal base images (alpine, distroless)</li>
+      <li>Scan images for vulnerabilities regularly</li>
+      <li>Don't store secrets in images</li>
+      <li>Use specific version tags, not 'latest'</li>
+      <li>Sign images with Docker Content Trust</li>
+      <li>Remove unnecessary packages and files</li>
     </ul>
     
     <h4>Runtime Security</h4>
     <ul>
-      <li>✓ Run containers as non-root user</li>
-      <li>✓ Use read-only root filesystems</li>
-      <li>✓ Drop unnecessary capabilities</li>
-      <li>✓ Limit resources (memory, CPU, PIDs)</li>
-      <li>✓ Use security profiles (AppArmor, SELinux, Seccomp)</li>
-      <li>✓ Isolate containers with user namespaces</li>
+      <li>Run containers as non-root user</li>
+      <li>Use read-only root filesystems</li>
+      <li>Drop unnecessary capabilities</li>
+      <li>Limit resources (memory, CPU, PIDs)</li>
+      <li>Use security profiles (AppArmor, SELinux, Seccomp)</li>
+      <li>Isolate containers with user namespaces</li>
     </ul>
     
     <h4>Network Security</h4>
     <ul>
-      <li>✓ Use custom bridge networks, not default</li>
-      <li>✓ Encrypt overlay network traffic</li>
-      <li>✓ Implement network segmentation</li>
-      <li>✓ Use TLS for container communication</li>
-      <li>✓ Restrict container-to-container communication</li>
+      <li>Use custom bridge networks, not default</li>
+      <li>Encrypt overlay network traffic</li>
+      <li>Implement network segmentation</li>
+      <li>Use TLS for container communication</li>
+      <li>Restrict container-to-container communication</li>
     </ul>
   </div>
 </div>
@@ -655,4 +655,35 @@ docker inspect --format='{% raw %}{{.State.Health.Status}}{% endraw %}' containe
 </div>
 
 After mastering the basic Docker commands, the next crucial skill is creating your own Docker images. This is where Dockerfiles come in - they are the blueprint for building custom container images.
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Volumes for Persistence</h4>
+    <p>Container writable layers are ephemeral. Use named volumes for production data, bind mounts for local development, and tmpfs for secrets that must never touch disk.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Custom Networks by Default</h4>
+    <p>Always create user-defined bridge networks — they provide automatic DNS resolution between containers, which the default bridge does not.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Run as Non-Root</h4>
+    <p>The single highest-impact hardening step. Add a <code>USER</code> directive and drop capabilities with <code>--cap-drop ALL</code>.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Scan and Sign Images</h4>
+    <p>Catch known CVEs with Docker Scout or Trivy in CI, and verify provenance with Docker Content Trust before deploying.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Fundamentals](fundamentals.html) - Images, containers, layers, and network drivers
+- [Dockerfiles &amp; CI/CD](dockerfiles.html) - Build optimized images and automate pipelines
+- [Advanced Patterns](advanced.html) - Production architectures and runtime alternatives
+- [Docker Essentials](../docker-essentials.html) - Quick command reference
+- [Cybersecurity](../cybersecurity.html) - Broader security fundamentals
 

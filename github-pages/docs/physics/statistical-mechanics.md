@@ -1460,25 +1460,14 @@ class VariationalWavefunction(nn.Module):
 
 ## See Also
 
-<div class="see-also-grid">
-  <a href="thermodynamics.html" class="see-also-card">
-    <i class="fas fa-temperature-high"></i>
-    <h4>Thermodynamics</h4>
-    <p>Macroscopic consequences</p>
-  </a>
-  <a href="quantum-mechanics.html" class="see-also-card">
-    <i class="fas fa-atom"></i>
-    <h4>Quantum Mechanics</h4>
-    <p>Quantum foundation</p>
-  </a>
-  <a href="condensed-matter.html" class="see-also-card">
-    <i class="fas fa-cube"></i>
-    <h4>Condensed Matter Physics</h4>
-    <p>Applications to solids</p>
-  </a>
-  <a href="quantum-field-theory.html" class="see-also-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>Quantum Field Theory</h4>
-    <p>Field theoretic methods</p>
-  </a>
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="thermodynamics.html">Thermodynamics</a> — the macroscopic laws that statistical mechanics derives from microstate counting.</li>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — the quantum foundation behind Bose–Einstein and Fermi–Dirac statistics.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — many-body applications to solids and phase transitions.</li>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — finite-temperature field theory and the path-integral link.</li>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — the microscopic dynamics that ensembles average over.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
 </div>

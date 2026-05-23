@@ -15,7 +15,32 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Every application needs to store data. Whether you're building a social network, e-commerce platform, or analytics system, you'll face fundamental questions: How should data be organized? How can multiple users access it simultaneously? What happens if the system crashes? Database design provides systematic answers to these challenges.
+<div class="intro-card">
+  <p class="lead-text">Every application needs to store data. Whether you're building a social network, an e-commerce platform, or an analytics system, you'll face the same fundamental questions: how should data be organized, how can many users access it at once, and what happens when the system crashes? This is the <strong>deep-dive companion</strong> — it works through relational modeling, normalization, indexing internals, query execution, transactions, and distributed/NoSQL architecture.</p>
+</div>
+
+<div class="tip-card">
+  <h4>New to databases? Start with the crash course</h4>
+  <p>If you just need tables, SQL basics, and enough to be productive, read the <a href="database-crash-course.html">Database Crash Course</a> first, then come back here for the theory and scaling concerns.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-table"></i>
+    <h4>Modeling</h4>
+    <p>Schemas, relationships, and normalization that keep data consistent</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-bolt"></i>
+    <h4>Performance</h4>
+    <p>Indexes, query planning, and execution that make reads fast</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-network-wired"></i>
+    <h4>Scale</h4>
+    <p>Replication, sharding, transactions, and the NoSQL trade-offs</p>
+  </div>
+</div>
 
 ## Quick Start: Database Design in 5 Minutes
 
@@ -2519,13 +2544,16 @@ class MiniSQL:
 
 Each project builds on the last, gradually introducing complexity!
 
-## See Also
-- [AWS](aws/) - Cloud database services and DynamoDB internals
-- [Docker](docker/) - Containerizing databases
-- [Cybersecurity](cybersecurity.html) - Database security and encryption
-- [AI](ai.html) - Machine learning with databases and learned indexes
-- [Networking](networking.html) - Distributed database protocols
-- [Quantum Computing](quantumcomputing.html) - Future of quantum database algorithms
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="database-crash-course.html">Database Crash Course</a> — the fast on-ramp to tables and SQL</li>
+    <li><a href="aws/">AWS</a> — managed database services and DynamoDB internals</li>
+    <li><a href="docker/">Docker</a> — containerizing databases for local development</li>
+    <li><a href="cybersecurity.html">Cybersecurity</a> — database security and encryption</li>
+    <li><a href="networking.html">Networking</a> — protocols behind distributed databases</li>
+  </ul>
+</div>
 
 ## Summary
 

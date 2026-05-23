@@ -222,7 +222,7 @@ Git implements a content-addressable filesystem where objects are stored and ret
 **Key Components:**
 - **GitObject**: Base class for all Git objects (blob, tree, commit, tag)
 - **SHA-256 Hashing**: Content addressing using cryptographic hashes (recommended)
-  - **⚠️ Security Notice**: SHA-1 is cryptographically broken. New repositories should use SHA-256 with `git init --object-format=sha256`. Git 2.42+ supports automatic algorithm detection and interoperability
+  - **Security Notice**: SHA-1 is cryptographically broken. New repositories should use SHA-256 with `git init --object-format=sha256`. Git 2.42+ supports automatic algorithm detection and interoperability
 - **Compression**: zlib compression for efficient storage
 - **Merkle Trees**: Tree objects form a Merkle tree structure
 - **Commit DAG**: Directed Acyclic Graph for version history
@@ -1223,9 +1223,14 @@ Checksum
 
 ---
 
-## See Also
-- [Git Command Reference](git-reference.html) - Complete reference for Git commands and syntax
-- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and trunk-based development
-- [CI/CD](ci-cd.html) - Continuous integration and deployment pipelines
-- [Docker](docker/) - Containerization for consistent development environments
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git-crash-course.html">Git Crash Course</a> — start here if you are new to Git</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — complete command syntax cheat sheet</li>
+    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
+    <li><a href="ci-cd.html">CI/CD</a> — continuous integration and deployment pipelines</li>
+    <li><a href="docker/">Docker</a> — containerization for consistent development environments</li>
+  </ul>
+</div>
 - [Cybersecurity](cybersecurity.html) - Security practices for version control and secrets management

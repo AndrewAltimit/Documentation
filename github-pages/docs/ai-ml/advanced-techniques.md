@@ -792,13 +792,14 @@ The key to mastering these techniques is understanding the underlying principles
 
 ---
 
-## See Also
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
-- [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
-- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
-- [LoRA Training](lora-training.html) - Train custom models
+<div class="see-also-card" markdown="1">
+#### See Also
+
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts these techniques build on
+- [ComfyUI Guide](comfyui-guide.html) - Build the multi-stage workflows described here
 - [ControlNet](controlnet.html) - Precise control over generation
+- [LoRA Training](lora-training.html) - Train custom models
+- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Output Formats](output-formats.html) - Exporting and using generated content
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

@@ -1815,10 +1815,14 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 
 ---
 
-## See Also
-- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - No-math introduction for beginners
-- [AI Deep Dive](ai-lecture-2023.html) - Advanced concepts and research
-- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides
-- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Diffusion models
-- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations
-- [Quantum Computing](quantumcomputing.html) - Quantum machine learning
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
+    <li><a href="ai-lecture-2023.html">AI Deep Dive</a> — transformers, LLM internals, and current research</li>
+    <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — practical generative AI guides</li>
+    <li><a href="../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — diffusion models</li>
+    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
+    <li><a href="quantumcomputing.html">Quantum Computing</a> — quantum machine learning</li>
+  </ul>
+</div>

@@ -13,7 +13,9 @@ toc_icon: "shield-alt"
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive guide to IAM, Security Hub, KMS, WAF, and security best practices for protecting your AWS infrastructure.</p>
 </div>
 
-Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers IAM, Security Hub, KMS, WAF, and security best practices.
+<div class="intro-card">
+  <p class="lead-text">Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.</p>
+</div>
 
 ## Security: Your First and Constant Priority
 
@@ -463,6 +465,28 @@ resource "aws_wafv2_web_acl" "main" {
 }
 ```
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Least Privilege Always</h4>
+    <p>Grant the minimum permissions each user or service needs. Prefer scoped custom policies and IAM roles over broad managed policies like AdministratorAccess.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Encrypt Everywhere</h4>
+    <p>Enable encryption at rest (S3, EBS, RDS) and in transit (TLS). Let KMS handle key management and rotation.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Shared Responsibility</h4>
+    <p>AWS secures the cloud; you secure what's in it — access control, configuration, and data. Know which side of the line each control sits on.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Detect and Automate</h4>
+    <p>Turn on GuardDuty and Security Hub for continuous threat detection, and automate remediation so misconfigurations are caught fast.</p>
+  </div>
+</div>
+
+---
 
 ## See Also
 

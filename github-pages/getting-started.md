@@ -16,28 +16,28 @@ Welcome to Andrew's technical documentation. This guide explains how the knowled
 
 The documentation is organized into several main sections, each serving different purposes:
 
-### 💻 [Technology Documentation](docs/index.html#technology)
+### [Technology Documentation](docs/index.html#technology)
 Comprehensive guides for modern software development:
 - **Infrastructure & DevOps**: [Terraform](docs/technology/terraform/), [Docker](docs/technology/docker/), [Kubernetes](docs/technology/kubernetes/), [AWS](docs/technology/aws/), [CI/CD pipelines](docs/technology/ci-cd.html)
 - **Development & Tools**: [Git workflows](docs/technology/git.html), [database design](docs/technology/database-design.html), [build systems](docs/technology/please-build.html)
 - **Networking & Security**: [TCP/IP](docs/technology/networking.html), protocols, [cybersecurity](docs/technology/cybersecurity.html) best practices
 - **Advanced Topics**: [Quantum computing](docs/technology/quantumcomputing.html), [AI/ML](docs/technology/ai.html), [distributed systems](docs/distributed-systems/index.html)
 
-### 🔬 [Physics Documentation](docs/index.html#physics)
+### [Physics Documentation](docs/index.html#physics)
 From fundamentals to cutting-edge research:
 - **Classical Physics**: [Mechanics](docs/physics/classical-mechanics.html), [thermodynamics](docs/physics/thermodynamics.html), [statistical mechanics](docs/physics/statistical-mechanics.html)
 - **Modern Physics**: [Relativity](docs/physics/relativity.html), [quantum mechanics](docs/physics/quantum-mechanics.html)
 - **Advanced Topics**: [Quantum field theory](docs/physics/quantum-field-theory.html), [string theory](docs/physics/string-theory.html), [condensed matter](docs/physics/condensed-matter.html)
 - **Computational Physics**: Numerical methods and simulations
 
-### 🤖 [AI/ML Documentation Hub](docs/ai-ml/index.html)
+### [AI/ML Documentation Hub](docs/ai-ml/index.html)
 Specialized content for artificial intelligence:
 - **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/base-models-comparison.html#flux), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
 - **Model Training**: [LoRA fine-tuning](docs/ai-ml/lora-training.html), dataset preparation
 - **Practical Guides**: From beginner tutorials to [advanced techniques](docs/ai-ml/advanced-techniques.html)
 - **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics/) and research papers
 
-### 📚 [Reference Materials](docs/reference/index.html)
+### [Reference Materials](docs/reference/index.html)
 Quick-access resources:
 - **Command References**: [Git](docs/technology/git-reference.html), [Docker](docs/technology/docker-essentials.html), Kubernetes, AWS CLI
 - **Cheat Sheets**: Algorithms, formulas, API patterns
@@ -56,7 +56,7 @@ Quick-access resources:
 - **Depth Levels**: Content ranges from beginner-friendly to research-level
 - **Cross-References**: Related topics are linked throughout for easy navigation
 - **Code Examples**: Practical implementations with copy-paste-ready snippets (hover any code block for a Copy button)
-- **Cross-References**: Each page ends with a "See Also" block linking related topics
+- **See Also Blocks**: Each substantial page ends with a "See Also" block linking related topics
 
 ### Learning Paths
 Depending on your goals:
@@ -112,19 +112,19 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
 
 ## Tips for Maximum Value
 
-### 📖 Effective Learning
+### Effective Learning
 1. **Start with Overview Pages**: Each section has an index that provides context
 2. **Follow Prerequisites**: Advanced topics clearly state required knowledge
 3. **Practice with Examples**: Most guides include hands-on exercises
 4. **Use Multiple Resources**: Cross-reference between topics for deeper understanding
 
-### 🔧 Practical Application
+### Practical Application
 1. **Copy Code Snippets**: All code examples are tested and production-ready
 2. **Check Compatibility**: Version numbers and requirements are clearly marked
 3. **Review Best Practices**: Each technology includes industry standards
 4. **Troubleshooting Sections**: Common issues are addressed proactively
 
-### 📚 Staying Updated
+### Staying Updated
 - **Recent Updates**: Check [homepage](index.html) for latest additions
 - **Version Tags**: Look for "Updated 2025" markers
 - **Technology Evolution**: Guides include migration paths for major updates

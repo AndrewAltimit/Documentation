@@ -15,7 +15,27 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Please Build is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This comprehensive guide covers everything from basic setup to advanced features.
+<div class="intro-card">
+  <p class="lead-text">Please Build is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This guide covers everything from basic setup to advanced remote execution.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-project-diagram"></i>
+    <h4>Build Graph</h4>
+    <p>Targets declare inputs; Please rebuilds only what changed</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-cube"></i>
+    <h4>Hermetic &amp; Cached</h4>
+    <p>Isolated, content-addressed builds that are reproducible everywhere</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-language"></i>
+    <h4>Polyglot</h4>
+    <p>One consistent build across Go, Python, Java, C++, Rust, and more</p>
+  </div>
+</div>
 
 <div class="tip-card">
   <h4>When does a tool like Please earn its keep?</h4>

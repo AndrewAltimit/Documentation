@@ -447,13 +447,14 @@ Understanding what each piece does helps you build workflows that produce exactl
 
 ---
 
-## See Also
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
+- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [LoRA Training](lora-training.html) - Train custom models
 - [ControlNet](controlnet.html) - Precise control over generation
-- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
+- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
 - [Output Formats](output-formats.html) - Exporting and using generated content
-- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

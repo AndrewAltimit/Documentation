@@ -575,10 +575,14 @@ Unreal Engine 5 represents not just an incremental upgrade but a paradigm shift 
 
 Unreal Engine continues to push the boundaries of what's possible in real-time rendering, making previously impossible creative visions achievable on consumer hardware. Whether you're an indie developer, a AAA studio, or a professional in another industry, UE5 provides the tools to bring your ideas to life with unprecedented fidelity and performance.
 
-## See Also
-- [Game Development](../gamedev/) - Game design principles and patterns
-- [3D Graphics](../graphics/3d-rendering.html) - Rendering pipeline and techniques
-- [AI in Games](../ai-ml/game-ai.html) - AI systems for games
-- [Virtual Reality](../vr-ar/) - VR development with Unreal
-- [Performance Optimization](../optimization/) - Profiling and optimization techniques
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="../gamedev/">Game Development</a> — game design principles and patterns</li>
+    <li><a href="../graphics/3d-rendering.html">3D Graphics</a> — the rendering pipeline and techniques</li>
+    <li><a href="../ai-ml/game-ai.html">AI in Games</a> — AI systems for games</li>
+    <li><a href="../vr-ar/">Virtual Reality</a> — VR development with Unreal</li>
+    <li><a href="../optimization/">Performance Optimization</a> — profiling and optimization techniques</li>
+  </ul>
+</div>
 

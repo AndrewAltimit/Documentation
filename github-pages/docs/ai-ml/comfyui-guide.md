@@ -399,12 +399,15 @@ Start with the basic text-to-image workflow, then add complexity as you need it.
 
 ---
 
-## See Also
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts behind the generation process
-- [ControlNet](controlnet.html) - Add precision control to ComfyUI workflows
-- [LoRA Training](lora-training.html) - Train custom LoRAs for use in ComfyUI
 - [Model Types](model-types.html) - Understanding models, LoRAs, and VAEs
 - [Base Models Comparison](base-models-comparison.html) - Choosing the right base model
+- [ControlNet](controlnet.html) - Add precision control to ComfyUI workflows
+- [LoRA Training](lora-training.html) - Train custom LoRAs for use in ComfyUI
 - [Advanced Techniques](advanced-techniques.html) - Expert workflow patterns
 - [Output Formats](output-formats.html) - Image formats and optimization
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

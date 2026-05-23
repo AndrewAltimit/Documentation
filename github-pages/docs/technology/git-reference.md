@@ -465,7 +465,12 @@ git secrets --scan                  # Scan for secrets
 
 ---
 
-## See Also
-- [Git Version Control](git.html) - Git architecture, internals, and distributed version control theory
-- [Branching Strategies](branching.html) - Workflow patterns including Git Flow, GitHub Flow, and trunk-based development
-- [CI/CD](ci-cd.html) - Automating Git workflows with continuous integration and deployment pipelines
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git-crash-course.html">Git Crash Course</a> — the guided first walkthrough for newcomers</li>
+    <li><a href="git.html">Git Version Control</a> — architecture, internals, and distributed VCS theory</li>
+    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
+    <li><a href="ci-cd.html">CI/CD</a> — automating Git workflows with continuous integration pipelines</li>
+  </ul>
+</div>

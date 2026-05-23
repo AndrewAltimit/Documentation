@@ -54,13 +54,13 @@ flowchart TD
 
 ## Quick Navigation
 
-### 🎯 Start Here
+### Start Here
 - **New to AI?** → [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(No math required)*
 - **Ready for Technical Details?** → [AI Fundamentals - Complete](../technology/ai.html)
 - **Research & Implementation** → [AI Deep Dive - Advanced](../technology/ai-lecture-2023.html)
 - **Mathematical Foundations** → [AI Mathematics](../advanced/ai-mathematics/)
 
-### 🛠️ Practical AI/ML Tools
+### Practical AI/ML Tools
 Our comprehensive [AI/ML Documentation](../ai-ml/) covers:
 - [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html)
 - [ComfyUI Guide](../ai-ml/comfyui-guide.html)
@@ -145,17 +145,17 @@ Generative AI creates new content including images, text, audio, and video.
 
 ## Resource Categories
 
-### 📖 Foundational Resources
+### Foundational Resources
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Core concepts without mathematics
 - [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical overview
 - [Model Types](../ai-ml/model-types.html) - Understanding different AI architectures
 
-### 🔧 Implementation Guides
+### Implementation Guides
 - [ComfyUI Guide](../ai-ml/comfyui-guide.html) - Visual workflow interface
 - [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html) - Image generation technology
 - [LoRA Training](../ai-ml/lora-training.html) - Model fine-tuning techniques
 
-### 🎓 Advanced Topics
+### Advanced Topics
 - [AI Mathematics](../advanced/ai-mathematics/) - Mathematical foundations
 - [Advanced AI Lecture](../technology/ai-lecture-2023.html) - Research-level content
 - [Advanced Techniques](../ai-ml/advanced-techniques.html) - State-of-the-art methods
@@ -164,7 +164,7 @@ Generative AI creates new content including images, text, audio, and video.
 
 Choose a path based on your goals:
 
-### 🎯 Path 1: AI Fundamentals (Theory-Focused)
+### Path 1: AI Fundamentals (Theory-Focused)
 **For:** Understanding how AI works conceptually and mathematically
 
 1. [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(Start here - no math required)*
@@ -172,7 +172,7 @@ Choose a path based on your goals:
 3. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Transformers, LLMs, research)*
 4. [AI Mathematics](../advanced/ai-mathematics/) *(Statistical learning theory)*
 
-### 🎨 Path 2: Generative AI (Practice-Focused)
+### Path 2: Generative AI (Practice-Focused)
 **For:** Creating images, training models, building AI applications
 
 1. [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) *(Core concepts)*
@@ -181,7 +181,7 @@ Choose a path based on your goals:
 4. [LoRA Training](../ai-ml/lora-training.html) *(Train custom models)*
 5. [Advanced Techniques](../ai-ml/advanced-techniques.html) *(Professional workflows)*
 
-### 🔬 Path 3: Research Track
+### Path 3: Research Track
 **For:** Those pursuing AI research or advanced development
 
 1. [AI Fundamentals - Complete](../technology/ai.html) *(Foundation)*
@@ -232,19 +232,19 @@ This documentation is continuously evolving. If you notice areas for improvement
 
 <div class="navigation-cards">
   <div class="nav-card">
-    <h3>🎓 Learn the Basics</h3>
+    <h3>Learn the Basics</h3>
     <p>Start with simplified AI fundamentals</p>
     <a href="../technology/ai-fundamentals-simple.html" class="btn btn-primary">Begin Learning</a>
   </div>
   
   <div class="nav-card">
-    <h3>🔧 Build Something</h3>
+    <h3>Build Something</h3>
     <p>Try ComfyUI for hands-on experience</p>
     <a href="../ai-ml/comfyui-guide.html" class="btn btn-primary">Start Building</a>
   </div>
   
   <div class="nav-card">
-    <h3>🧠 Go Deeper</h3>
+    <h3>Go Deeper</h3>
     <p>Explore advanced AI mathematics</p>
     <a href="../advanced/ai-mathematics/" class="btn btn-primary">Advanced Topics</a>
   </div>

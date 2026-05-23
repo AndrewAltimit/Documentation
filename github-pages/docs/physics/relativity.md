@@ -1864,14 +1864,14 @@ def riemann(Gamma, coords):
 
 ## See Also
 
-### Core Physics Topics:
-- [Classical Mechanics](classical-mechanics.html) - Newtonian mechanics and the classical limit
-- [Quantum Mechanics](quantum-mechanics.html) - Quantum theory and relativistic quantum mechanics
-- [Quantum Field Theory](quantum-field-theory.html) - Unifying quantum mechanics and special relativity
-- [String Theory](string-theory.html) - Quantum gravity and extra dimensions
-
-### Related Topics:
-- [Computational Physics](computational-physics.html) - Numerical relativity simulations
-- [Condensed Matter Physics](condensed-matter.html) - Relativistic effects in graphene
-- [Thermodynamics](thermodynamics.html) - Relativistic thermodynamics
-- [Statistical Mechanics](statistical-mechanics.html) - Relativistic statistical mechanics
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — Newtonian mechanics, recovered in the low-speed, weak-gravity limit.</li>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — unifying special relativity with quantum mechanics.</li>
+    <li><a href="string-theory.html">String Theory</a> — a leading candidate for quantum gravity and extra dimensions.</li>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — the quantum theory that relativity is reconciled with in QFT.</li>
+    <li><a href="computational-physics.html">Computational Physics</a> — numerical relativity and gravitational-wave simulations.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

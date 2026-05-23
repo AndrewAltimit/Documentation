@@ -152,7 +152,7 @@ Choose your quantum journey based on your background and goals:
 
 ## Key Topics
 
-### 🎯 Foundational Concepts
+### Foundational Concepts
 
 **Essential Reading:**
 - [Introduction to Quantum Computing](../technology/quantumcomputing.html) - Comprehensive overview
@@ -164,7 +164,7 @@ Choose your quantum journey based on your background and goals:
 - Quantum random number generators
 - Grover's search algorithm
 
-### 🚀 Quantum Programming
+### Quantum Programming
 
 **Development Frameworks:**
 - Qiskit (IBM) - Full-featured quantum SDK
@@ -184,7 +184,7 @@ Choose your quantum journey based on your background and goals:
 - Error mitigation strategies
 - Performance benchmarking
 
-### 🔬 Research Topics
+### Research Topics
 
 **Theoretical Foundations:**
 - [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/)

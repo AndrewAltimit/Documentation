@@ -333,7 +333,13 @@ Ready to go deeper? Here's your learning path:
 
 ---
 
-## See Also
-- [AI Fundamentals - Complete](ai.html) - Technical deep-dive with mathematical foundations
-- [AI Deep Dive](ai-lecture-2023.html) - Advanced topics and research
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics</li>
+    <li><a href="ai-lecture-2023.html">AI Deep Dive</a> — transformers, LLM internals, and current research</li>
+    <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — hands-on generative AI tools and guides</li>
+    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — when you're ready for the proofs</li>
+  </ul>
+</div>
 - [AI/ML Documentation Hub](../ai-ml/) - Practical AI tools and guides

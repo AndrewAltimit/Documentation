@@ -11,7 +11,7 @@ toc: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive resource for commands, formulas, algorithms, and best practices</p>
 </div>
 
-## 🔍 Quick Navigation
+## Quick Navigation
 
 - **[Command Line](#command-line-references)** - Git, Docker, Kubernetes, AWS CLI, Terraform
 - **[Physics & Math](#physics-formulas--constants)** - Constants, equations, calculus

@@ -1594,12 +1594,14 @@ String theory remains one of the most active areas of theoretical physics, provi
 
 ## See Also
 
-### Foundational Topics:
-- [Quantum Mechanics](quantum-mechanics.html) - Quantum foundations essential for string theory
-- [Quantum Field Theory](quantum-field-theory.html) - The starting point for string interactions
-- [Relativity](relativity.html) - General relativity and spacetime geometry
-
-### Related Topics:
-- [Statistical Mechanics](statistical-mechanics.html) - Black hole thermodynamics and entropy
-- [Condensed Matter Physics](condensed-matter.html) - AdS/CMT correspondence applications
-- [Computational Physics](computational-physics.html) - Numerical methods in string theory
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — the point-particle starting point that string theory extends.</li>
+    <li><a href="relativity.html">Relativity</a> — general relativity and the spacetime geometry string theory must reproduce.</li>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — the quantum foundations underlying string quantization.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — AdS/CMT, where holographic methods find experimental traction.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — black-hole thermodynamics and microstate counting.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

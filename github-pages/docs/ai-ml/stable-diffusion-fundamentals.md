@@ -393,12 +393,14 @@ With this foundation, you are ready to explore:
 
 ---
 
-## See Also
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation for Stable Diffusion
 - [LoRA Training](lora-training.html) - Train custom models and styles
 - [ControlNet](controlnet.html) - Precise control over generation
 - [Model Types](model-types.html) - Understanding LoRAs, VAEs, and embeddings
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Advanced Techniques](advanced-techniques.html) - Expert generation techniques
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>
