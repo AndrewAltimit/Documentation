@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1828,6 +1889,11 @@ document.addEventListener('DOMContentLoaded', function () {
       <p>Superconductivity and magnetism</p>
     </div>
   </div>
+</div>
+
+<div class="principle-card">
+  <h4>The big idea: more is different</h4>
+  <p>You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new <strong>emergent</strong> phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the <em>organization</em>. The recurring strategy on this page is to start from the periodic arrangement of atoms (the crystal lattice), see how it reshapes the allowed electron energies (band theory), and then watch genuinely new states of matter emerge when interactions and topology take over.</p>
 </div>
 
 <h2 id="crystal-structure">Crystal Structure</h2>

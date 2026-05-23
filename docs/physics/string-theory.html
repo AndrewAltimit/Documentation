@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1833,6 +1894,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="fundamental-concepts">Fundamental Concepts</h2>
 
+<div class="principle-card">
+  <h4>Why replace particles with strings?</h4>
+  <p>The motivation is a crisis at the meeting point of our two best theories. Quantum field theory treats particles as <em>points</em>, and general relativity treats gravity as <em>spacetime curvature</em>. Try to combine them — to quantize gravity the way we quantized electromagnetism — and the calculations spew uncontrollable infinities. A point particle has zero size, so interactions happen at a single spacetime point where field strengths blow up; for gravity these divergences cannot be renormalized away.</p>
+  <p>String theory's one radical move fixes this: smear the point out into a tiny one-dimensional <strong>string</strong> roughly $10^{-35}$ m long. Interactions are now spread over the smooth tube of a worldsheet rather than crammed into a single point, and the infinities soften into finite answers. The unexpected bonus: one of the string's natural vibration modes is a massless spin-2 particle with exactly the properties of the <strong>graviton</strong>. String theory does not just <em>tolerate</em> gravity — it predicts it.</p>
+</div>
+
 <div class="concepts-section">
   <div class="string-types">
     <h3><i class="fas fa-circle-notch"></i> From Points to Strings</h3>
@@ -2959,6 +3026,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="criticisms-and-challenges">Criticisms and Challenges</h2>
 
+<p>String theory is genuinely contested science, and it is worth being clear-eyed about both the legitimate scientific objections and the popular misconceptions that cloud the debate.</p>
+
 <h3 id="lack-of-uniqueness">Lack of Uniqueness</h3>
 
 <ul>
@@ -2982,6 +3051,19 @@ document.addEventListener('DOMContentLoaded', function () {
   <li>Background independence</li>
   <li>Off-shell formulation</li>
 </ul>
+
+<h3 id="common-misconceptions">Common Misconceptions</h3>
+
+<div class="principle-card">
+  <h4>Setting the record straight</h4>
+  <ul>
+    <li><strong>"String theory has been proven."</strong> No. It has produced no confirmed experimental prediction; the string scale lies roughly $10^{15}$ times beyond current colliders. It is a mathematically rich framework, not an established theory of nature.</li>
+    <li><strong>"String theory has been ruled out."</strong> Also no. The non-observation of supersymmetry at the LHC weakens some <em>specific</em> low-energy models but does not falsify the framework, whose characteristic effects sit far above accessible energies.</li>
+    <li><strong>"The extra dimensions are just a mathematical trick."</strong> They are taken as physically real but <em>compactified</em> — curled up so small (near the Planck length) that they are invisible at everyday scales, much as a garden hose looks one-dimensional from afar.</li>
+    <li><strong>"The landscape of $\sim 10^{500}$ vacua means the theory predicts nothing."</strong> The landscape is a serious challenge, but the complementary <em>Swampland</em> program argues that most conceivable low-energy theories are <em>not</em> consistent with quantum gravity — turning "anything goes" into sharp, in-principle-testable constraints.</li>
+    <li><strong>"It's purely abstract with no impact."</strong> Even absent experimental confirmation, string theory has delivered concrete tools used elsewhere: AdS/CFT now models quark–gluon plasma and strange metals, and microstate counting gave the first statistical derivation of black-hole entropy.</li>
+  </ul>
+</div>
 
 <h2 id="current-research">Current Research</h2>
 

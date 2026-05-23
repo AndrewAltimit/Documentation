@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1858,6 +1919,75 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>ControlNet creates a trainable copy of the diffusion model’s encoder blocks, which learns to respond to specific spatial conditions while preserving the original model’s generation capabilities. The preprocessor extracts a structural “control map” (a stick-figure pose, an edge outline, a depth gradient) from your reference image; ControlNet then injects that structure into every denoising step.</p>
 
+<p>The split between <em>preprocessor</em> and <em>model</em> is the key idea: the preprocessor is a one-time analysis pass that turns your reference into a control map, and the ControlNet model is what conditions generation on that map. The same depth map can feed any depth ControlNet, and you can hand-author or edit a control map directly when a preprocessor gets it wrong.</p>
+
+<h2 id="control-types-at-a-glance">Control Types at a Glance</h2>
+
+<p>Most workflows only need one control type. Pick it by what you want to preserve from the reference, not by what the reference <em>is</em>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>You want to preserve…</th>
+      <th>Use</th>
+      <th>Preprocessor</th>
+      <th>Typical strength</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A character’s pose</td>
+      <td>OpenPose / DWPose</td>
+      <td><code class="language-plaintext highlighter-rouge">dw_openpose_full</code></td>
+      <td>0.8-1.0</td>
+    </tr>
+    <tr>
+      <td>Exact edges and outlines</td>
+      <td>Canny</td>
+      <td><code class="language-plaintext highlighter-rouge">canny</code></td>
+      <td>0.7-1.0</td>
+    </tr>
+    <tr>
+      <td>Soft/organic shapes</td>
+      <td>SoftEdge</td>
+      <td><code class="language-plaintext highlighter-rouge">hed</code> / <code class="language-plaintext highlighter-rouge">pidinet</code></td>
+      <td>0.5-0.8</td>
+    </tr>
+    <tr>
+      <td>3D spatial layout / depth</td>
+      <td>Depth</td>
+      <td><code class="language-plaintext highlighter-rouge">depth_anything</code> / <code class="language-plaintext highlighter-rouge">zoe</code></td>
+      <td>0.5-0.8</td>
+    </tr>
+    <tr>
+      <td>Straight architectural lines</td>
+      <td>MLSD</td>
+      <td><code class="language-plaintext highlighter-rouge">mlsd</code></td>
+      <td>0.7-1.0</td>
+    </tr>
+    <tr>
+      <td>A rough sketch → finished art</td>
+      <td>Scribble</td>
+      <td><code class="language-plaintext highlighter-rouge">scribble</code></td>
+      <td>0.6-0.9</td>
+    </tr>
+    <tr>
+      <td>Per-region scene semantics</td>
+      <td>Segmentation</td>
+      <td><code class="language-plaintext highlighter-rouge">seg_ofade20k</code></td>
+      <td>0.5-0.8</td>
+    </tr>
+    <tr>
+      <td>Structure during upscaling</td>
+      <td>Tile</td>
+      <td><code class="language-plaintext highlighter-rouge">tile_resample</code></td>
+      <td>0.5-1.0</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>If you are unsure, <strong>Depth</strong> is the most forgiving general-purpose control (it constrains layout without locking in exact lines), and <strong>Canny</strong> is the most precise.</p>
+
 <h2 id="controlnet-types">ControlNet Types</h2>
 
 <h3 id="pose-control">Pose Control</h3>
@@ -1966,6 +2096,15 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="na">Features</span><span class="pi">:</span> <span class="s">Handles complex scenes</span>
 <span class="na">Speed</span><span class="pi">:</span> <span class="s">Slower than MiDaS</span>
 <span class="na">Best for</span><span class="pi">:</span> <span class="s">Complex compositions</span>
+</code></pre></div></div>
+
+<h4 id="depth-anything">Depth Anything</h4>
+<p>The current default for most workflows — fast, robust monocular depth trained on a very large dataset.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Quality</span><span class="pi">:</span> <span class="s">State-of-the-art relative depth</span>
+<span class="na">Versions</span><span class="pi">:</span> <span class="s">Depth Anything v1, v2</span>
+<span class="na">Speed</span><span class="pi">:</span> <span class="s">Fast, suitable for batch/video</span>
+<span class="na">Best for</span><span class="pi">:</span> <span class="s">General-purpose depth control (recommended starting point)</span>
 </code></pre></div></div>
 
 <h3 id="semantic-control">Semantic Control</h3>
@@ -2109,6 +2248,20 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 </span>    <span class="sh">"</span><span class="s">control_mode</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">balanced</span><span class="sh">"</span><span class="p">,</span> <span class="c1"># balanced/prompt/control
 </span><span class="p">}</span>
 </code></pre></div></div>
+
+<p>The two most useful dials beyond <code class="language-plaintext highlighter-rouge">strength</code> are <code class="language-plaintext highlighter-rouge">start_percent</code> and <code class="language-plaintext highlighter-rouge">end_percent</code>. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. <code class="language-plaintext highlighter-rouge">end_percent: 0.7</code>) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.</p>
+
+<div class="tip-card">
+  <p><strong>Common pitfalls</strong></p>
+
+  <ul>
+    <li><strong>Mismatched ControlNet and base model.</strong> An SD 1.5 ControlNet silently fails or corrupts output on SDXL/FLUX. Match the family first.</li>
+    <li><strong>Strength pinned at 1.0.</strong> Full strength makes results look traced and fights the prompt. Start around 0.7 and raise only if structure drifts.</li>
+    <li><strong>Wrong preprocessor for the input.</strong> Running Canny on a soft watercolor produces noisy edges; use SoftEdge. Always preview the control map before sampling.</li>
+    <li><strong>Control resolution mismatch.</strong> Preprocess at the model’s native resolution (512 for SD 1.5, 1024 for SDXL) or the map misaligns with the latent.</li>
+    <li><strong>Stacking too many controls.</strong> Three or more ControlNets usually conflict and degrade quality. Prefer one strong control plus IP-Adapter for style.</li>
+  </ul>
+</div>
 
 <h2 id="advanced-techniques">Advanced Techniques</h2>
 
@@ -2266,49 +2419,56 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <h4 id="model-support">Model Support</h4>
 <ul>
-  <li><strong>SDXL ControlNet</strong>: Full support with higher quality</li>
-  <li><strong>SD3 ControlNet</strong>: In development</li>
-  <li><strong>FLUX Support</strong>: Coming soon with new architecture</li>
+  <li><strong>SD 1.5 ControlNet</strong>: The most mature ecosystem — every control type, heavily optimized</li>
+  <li><strong>SDXL ControlNet</strong>: Full support at higher resolution and quality</li>
+  <li><strong>SD3 ControlNet</strong>: Available (Canny, Depth, and others released by Stability AI)</li>
+  <li><strong>FLUX Support</strong>: Available — multiple options now ship, including <strong>ControlNet Union</strong> (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs</li>
 </ul>
 
 <h3 id="controlnet-versions">ControlNet Versions</h3>
+
+<p>ControlNets are tied to their base-model family. A control map is portable, but the ControlNet <em>model</em> is not — an SD 1.5 ControlNet will not load on SDXL or FLUX.</p>
 
 <table>
   <thead>
     <tr>
       <th>Base Model</th>
-      <th>ControlNet Version</th>
+      <th>ControlNet Family</th>
       <th>File Pattern</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>SD 1.5</td>
-      <td>v1.1</td>
-      <td>control_v11<em>_sd15_</em>.pth</td>
+      <td>v1.1 (most complete)</td>
+      <td><code class="language-plaintext highlighter-rouge">control_v11*_sd15_*.pth</code></td>
     </tr>
     <tr>
       <td>SD 2.1</td>
       <td>v1.1 SD2</td>
-      <td>control_v11<em>_sd21_</em>.pth</td>
+      <td><code class="language-plaintext highlighter-rouge">control_v11*_sd21_*.pth</code></td>
     </tr>
     <tr>
       <td>SDXL</td>
-      <td>SDXL v1</td>
-      <td>controlnet-<em>-sdxl-1.0</em>.safetensors</td>
+      <td>SDXL v1 / Union</td>
+      <td><code class="language-plaintext highlighter-rouge">controlnet-*-sdxl-1.0*.safetensors</code></td>
     </tr>
     <tr>
       <td>SD3</td>
-      <td>In Development</td>
-      <td>controlnet-<em>-sd3-</em>.safetensors</td>
+      <td>SD3 (Canny, Depth, …)</td>
+      <td><code class="language-plaintext highlighter-rouge">*controlnet*sd3*.safetensors</code></td>
     </tr>
     <tr>
       <td>FLUX</td>
-      <td>Coming Soon</td>
-      <td>TBD</td>
+      <td>FLUX / Union</td>
+      <td><code class="language-plaintext highlighter-rouge">*flux*controlnet*.safetensors</code></td>
     </tr>
   </tbody>
 </table>
+
+<div class="tip-card">
+  <p><strong>Union models simplify the mess.</strong> Newer “ControlNet Union” releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, …) at runtime instead of juggling a separate file per type.</p>
+</div>
 
 <h3 id="t2i-adapter">T2I-Adapter</h3>
 

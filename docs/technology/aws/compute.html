@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -2017,12 +2078,15 @@ Install CloudWatch agent on EC2:
 <h3 id="your-first-cloud-architecture">Your First Cloud Architecture</h3>
 
 <p>Congratulations! You’ve built a real cloud architecture:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Internet → EC2 (Web Server) → RDS (Database)
-    ↓
-S3 (Static Assets) → CloudFront (CDN)
-    ↓
-CloudWatch (Monitoring Everything)
-</code></pre></div></div>
+
+<pre><code class="language-mermaid">flowchart TB
+    Internet([Internet]) --&gt; EC2["EC2&lt;br/&gt;Web Server"]
+    EC2 --&gt; RDS[("RDS&lt;br/&gt;Database")]
+    S3["S3&lt;br/&gt;Static Assets"] --&gt; CF["CloudFront&lt;br/&gt;CDN"]
+    CF --&gt; Internet
+    CW["CloudWatch"] -. "monitors" .-&gt; EC2
+    CW -. "monitors" .-&gt; RDS
+</code></pre>
 
 <h3 id="next-steps-after-the-crash-course">Next Steps After the Crash Course</h3>
 
@@ -2504,7 +2568,7 @@ aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcd
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
   <li><a href="storage.html">Storage Services</a> - S3 and EBS for your data</li>
   <li><a href="databases.html">Database Services</a> - RDS and DynamoDB</li>
-  <li><a href="../networking.html">Networking</a> - VPC and load balancers</li>
+  <li><a href="networking.html">Networking &amp; Content Delivery</a> - VPC, load balancers, and CloudFront</li>
   <li><a href="security.html">Security</a> - IAM and security best practices</li>
   <li><a href="infrastructure.html">Infrastructure &amp; Operations</a> - CloudFormation, monitoring, and cost optimization</li>
   <li><a href="../kubernetes/">Kubernetes on AWS</a> - Container orchestration with EKS</li>

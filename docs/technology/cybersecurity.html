@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1864,34 +1925,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>To defeat rainbow tables, we add “salt”—random data mixed with your password before hashing. Now even if two users have the same password, their hashes are different:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">secrets</span>
-<span class="kn">import</span> <span class="n">hashlib</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">bcrypt</span>
 
 <span class="k">def</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
-    <span class="kn">import</span> <span class="n">bcrypt</span>
-    
     <span class="c1"># CRITICAL: Never use SHA256 for password hashing - it's too fast!
-</span>    <span class="c1"># Use bcrypt, scrypt, or Argon2 instead
-</span>    
-    <span class="c1"># Generate salt and hash password with bcrypt
-</span>    <span class="c1"># Cost factor 12 is a good default (adjust based on your security needs)
-</span>    <span class="n">hashed</span> <span class="o">=</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">hashpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">gensalt</span><span class="p">(</span><span class="n">rounds</span><span class="o">=</span><span class="mi">12</span><span class="p">))</span>
-    
-    <span class="c1"># bcrypt includes the salt in the hash, so no need to store separately
-</span>    <span class="k">return</span> <span class="n">hashed</span>
+</span>    <span class="c1"># Use bcrypt, scrypt, or Argon2 instead.
+</span>    <span class="c1">#
+</span>    <span class="c1"># bcrypt generates a fresh random salt each call and embeds it in the
+</span>    <span class="c1"># output, so identical passwords still produce different hashes — and
+</span>    <span class="c1"># there is no separate salt to store. Cost factor 12 is a good default;
+</span>    <span class="c1"># raise it as hardware gets faster.
+</span>    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">hashpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">gensalt</span><span class="p">(</span><span class="n">rounds</span><span class="o">=</span><span class="mi">12</span><span class="p">))</span>
 
-<span class="c1"># For verification:
-</span><span class="k">def</span> <span class="nf">verify_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">hashed</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">checkpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">hashed</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">verify_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">hashed</span><span class="p">):</span>
+    <span class="c1"># Re-derives the hash using the salt embedded in `hashed`, in constant time
+</span>    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">checkpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">hashed</span><span class="p">)</span>
 
 <span class="c1"># Even identical passwords get different hashes
 </span><span class="n">pwd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">CommonPassword123</span><span class="sh">"</span>
-<span class="n">salt1</span><span class="p">,</span> <span class="n">hash1</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
-<span class="n">salt2</span><span class="p">,</span> <span class="n">hash2</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Same password, different hashes:</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 1: </span><span class="si">{</span><span class="n">hash1</span><span class="p">[</span><span class="si">:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s">...</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 2: </span><span class="si">{</span><span class="n">hash2</span><span class="p">[</span><span class="si">:</span><span class="mi">32</span><span class="p">]</span><span class="si">}</span><span class="s">...</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="n">hash1</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
+<span class="n">hash2</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Same password, different hashes:</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 1: </span><span class="si">{</span><span class="n">hash1</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 2: </span><span class="si">{</span><span class="n">hash2</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># differs from hash1, yet both verify
+</span></code></pre></div></div>
 
 <p>But modern attackers have GPUs that can compute billions of hashes per second. This is why security experts now recommend specialized password hashing functions like <strong>bcrypt</strong>, <strong>scrypt</strong>, or <strong>Argon2</strong> that are intentionally slow and memory-intensive, making brute-force attacks impractical.</p>
 

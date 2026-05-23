@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1711,7 +1772,26 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master CloudWatch monitoring, CloudFormation IaC, architecture patterns, cost optimization, and production troubleshooting.</p>
 </div>
 
-<p>This comprehensive guide covers CloudWatch monitoring, CloudFormation infrastructure as code, architecture patterns, cost optimization, and troubleshooting. Learn how to build, operate, and optimize production AWS environments.</p>
+<p>Building an application is one problem; <em>operating</em> it reliably and affordably is another. This guide covers the operational side of AWS — how you watch a system, codify it, scale it, pay for it, and fix it when it breaks. It is long and reference-oriented; use the table of contents to jump to what you need rather than reading top to bottom.</p>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <h4>Observe</h4>
+    <p>CloudWatch metrics, logs, and alarms so you find out about problems before your users do.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Codify</h4>
+    <p>CloudFormation and CDK turn console clicks into reviewable, repeatable infrastructure.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Architect</h4>
+    <p>Six patterns from static sites to multi-region, plus case studies from companies running at scale.</p>
+  </div>
+  <div class="insight-card">
+    <h4>Optimize &amp; Fix</h4>
+    <p>Cost controls that prevent bill shock and a troubleshooting playbook for the four failure categories.</p>
+  </div>
+</div>
 
 <h3 id="monitoring-and-management-your-cloud-operations-center">Monitoring and Management: Your Cloud Operations Center</h3>
 
@@ -4323,7 +4403,7 @@ aws ssm start-session <span class="nt">--target</span> i-xxxxx
   <li>
 <a href="databases.html">Database Services</a> - RDS and DynamoDB</li>
   <li>
-<a href="../networking.html">Networking</a> - VPC and load balancers</li>
+<a href="networking.html">Networking &amp; Content Delivery</a> - VPC, load balancers, and CloudFront</li>
   <li>
 <a href="security.html">Security</a> - Security automation and compliance</li>
   <li>

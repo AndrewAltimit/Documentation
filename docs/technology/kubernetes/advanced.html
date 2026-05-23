@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1855,6 +1916,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h4 id="building-an-operator">Building an Operator</h4>
 
+<p>A CRD on its own only teaches the API server a new <em>noun</em> — it stores <code class="language-plaintext highlighter-rouge">Database</code> objects but does nothing with them. The verb comes from an <strong>operator</strong>: a controller that watches for those objects and drives the cluster toward the state they describe. This is the same reconcile loop that powers built-in controllers, applied to your custom type. The simplified <code class="language-plaintext highlighter-rouge">Reconcile</code> below shows the core idea — fetch the desired object, then create or update the real resources (a StatefulSet, a backup CronJob) to match it.</p>
+
 <div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Simplified operator logic</span>
 <span class="k">func</span> <span class="p">(</span><span class="n">r</span> <span class="o">*</span><span class="n">DatabaseReconciler</span><span class="p">)</span> <span class="n">Reconcile</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="n">ctrl</span><span class="o">.</span><span class="n">Request</span><span class="p">)</span> <span class="p">(</span><span class="n">ctrl</span><span class="o">.</span><span class="n">Result</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
     <span class="c">// Fetch the Database instance</span>
@@ -1888,7 +1951,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>As microservices architectures grow, managing service-to-service communication becomes complex. Service meshes like Istio provide a dedicated infrastructure layer for handling service communications, offering features like traffic management, security, and observability without changing application code.</p>
 
-<h4 id="istio-architecture">Istio Architecture</h4>
+<h4 id="traffic-management">Traffic Management</h4>
+
+<p>A service mesh injects a sidecar proxy next to every pod and routes all traffic through it. Because the proxy sees every request, you can shift, split, and inspect traffic with configuration rather than code. The <code class="language-plaintext highlighter-rouge">VirtualService</code> below does a <strong>canary release</strong>: requests from the user <code class="language-plaintext highlighter-rouge">jason</code> go to <code class="language-plaintext highlighter-rouge">v2</code>, while everyone else is split 75/25 between <code class="language-plaintext highlighter-rouge">v1</code> and <code class="language-plaintext highlighter-rouge">v2</code>. Shifting the weights gradually rolls the canary out (or rolls it back) with no redeploy.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Virtual Service for canary deployment</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
@@ -1918,7 +1983,9 @@ document.addEventListener('DOMContentLoaded', function () {
       <span class="na">weight</span><span class="pi">:</span> <span class="m">25</span>
 </code></pre></div></div>
 
-<h4 id="circuit-breaking-and-retry-logic">Circuit Breaking and Retry Logic</h4>
+<h4 id="resilience-circuit-breaking-and-outlier-detection">Resilience: Circuit Breaking and Outlier Detection</h4>
+
+<p>The other half of mesh traffic policy is keeping a struggling service from taking down its callers. A <code class="language-plaintext highlighter-rouge">DestinationRule</code> caps how many connections and pending requests pile up (the connection pool), and <strong>outlier detection</strong> ejects an instance from the load-balancing pool after it returns too many consecutive errors — the mesh’s version of a circuit breaker. The settings below eject a backend for 30 seconds after 5 consecutive errors, while never ejecting more than half the pool.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.istio.io/v1beta1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">DestinationRule</span>
@@ -2043,6 +2110,8 @@ document.addEventListener('DOMContentLoaded', function () {
 </code></pre></div></div>
 
 <h4 id="pod-topology-spread-constraints">Pod Topology Spread Constraints</h4>
+
+<p>Most teams never write a custom scheduler — instead they nudge the default one with constraints. <strong>Topology spread constraints</strong> are the most useful: they tell the scheduler to spread replicas evenly across a failure domain (nodes, then zones) so a single node or zone outage cannot take down a disproportionate share of your pods. The <code class="language-plaintext highlighter-rouge">maxSkew: 1</code> below means no domain may hold more than one extra pod versus the least-loaded one, and <code class="language-plaintext highlighter-rouge">DoNotSchedule</code> makes that a hard requirement.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
@@ -2174,19 +2243,30 @@ velero backup create production-backup <span class="se">\</span>
   <span class="nt">--ttl</span> 720h
 </code></pre></div>    </div>
   </li>
-  <li><strong>Multi-Region Failover</strong>:
-    <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Federation v2 example</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">types.kubefed.io/v1beta1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">FederatedDeployment</span>
+  <li>
+    <p><strong>Multi-Region Failover</strong>: The older KubeFed (Federation v2) project is effectively retired; the modern pattern is <strong>independent clusters per region</strong>, each reconciled from the same Git repo, with a global load balancer steering traffic. Fleet/multi-cluster managers such as Karmada, Open Cluster Management, or a hub-and-spoke Argo CD coordinate placement and failover across them.</p>
+
+    <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Argo CD ApplicationSet fans the same app out to every regional cluster</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ApplicationSet</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-all-regions</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">argocd</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">placement</span><span class="pi">:</span>
-    <span class="na">clusters</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-east-1</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">us-west-2</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eu-west-1</span>
+  <span class="na">generators</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">clusters</span><span class="pi">:</span> <span class="pi">{}</span>          <span class="c1"># one Application per registered cluster</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">app-{{name}}'</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">project</span><span class="pi">:</span> <span class="s">default</span>
+      <span class="na">source</span><span class="pi">:</span>
+        <span class="na">repoURL</span><span class="pi">:</span> <span class="s">https://github.com/myorg/app</span>
+        <span class="na">targetRevision</span><span class="pi">:</span> <span class="s">HEAD</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">k8s</span>
+      <span class="na">destination</span><span class="pi">:</span>
+        <span class="na">server</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{server}}'</span>
+        <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
 </code></pre></div>    </div>
   </li>
 </ol>
@@ -2322,27 +2402,53 @@ velero backup create production-backup <span class="se">\</span>
 <span class="na">dnsPolicy</span><span class="pi">:</span> <span class="s">ClusterFirstWithHostNet</span>
 </code></pre></div></div>
 
-<h2 id="kubernetes-updates-latest-features-and-best-practices">Kubernetes Updates: Latest Features and Best Practices</h2>
+<h2 id="modern-capabilities-worth-knowing">Modern Capabilities Worth Knowing</h2>
 
-<h3 id="whats-new-in-kubernetes-v129-mandala">What’s New in Kubernetes v1.29 (Mandala)</h3>
-<ol>
-  <li><strong>ReadinessGates for Jobs</strong>: Better job lifecycle management</li>
-  <li><strong>Sidecar Containers</strong>: Native support for sidecar patterns</li>
-  <li><strong>In-Place Pod Vertical Scaling</strong>: Resize pods without restart</li>
-  <li><strong>CEL for Admission Control</strong>: Common Expression Language support</li>
-  <li><strong>Structured Authentication Configuration</strong>: Enhanced security</li>
-</ol>
+<p>Kubernetes ships a new minor release roughly every four months, so “latest features” age quickly. The capabilities below have stabilized in recent releases and are worth reaching for once you are past the basics — they change how you handle sidecars, resizing, security, and ingress.</p>
 
-<h3 id="whats-new-in-kubernetes-v128-planternetes">What’s New in Kubernetes v1.28 (Planternetes)</h3>
-<ol>
-  <li><strong>Cgroups v2 GA</strong>: Better resource isolation</li>
-  <li><strong>Mixed CPUs Support</strong>: Heterogeneous CPU architectures</li>
-  <li><strong>Persistent Volume Last Phase Transition Time</strong>: Better storage monitoring</li>
-  <li><strong>Non-Graceful Node Shutdown</strong>: Improved failure handling</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>What it changes</th>
+      <th>Why it matters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Native sidecar containers</strong></td>
+      <td>Sidecars declared as restartable init containers</td>
+      <td>Sidecars start before and stop after the main container, fixing log/proxy lifecycle bugs</td>
+    </tr>
+    <tr>
+      <td><strong>In-place pod vertical scaling</strong></td>
+      <td>Resize CPU/memory requests without restarting the pod</td>
+      <td>Right-size live workloads with no disruption</td>
+    </tr>
+    <tr>
+      <td><strong>CEL admission policies</strong></td>
+      <td>Validate/mutate objects with Common Expression Language</td>
+      <td>Policy enforcement without a webhook server to operate</td>
+    </tr>
+    <tr>
+      <td><strong>cgroups v2</strong></td>
+      <td>Unified resource hierarchy on the node</td>
+      <td>More accurate memory accounting and pressure handling</td>
+    </tr>
+    <tr>
+      <td><strong>Gateway API</strong></td>
+      <td>Role-oriented successor to Ingress</td>
+      <td>Richer, portable L4/L7 routing (see below)</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="enhanced-security-features">Enhanced Security Features</h3>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pod Security Standards (enforced by default)</span>
+<h3 id="hardening-namespaces-with-pod-security-standards">Hardening Namespaces with Pod Security Standards</h3>
+
+<p>Pod Security Standards are applied per namespace through labels, in three independent modes: <code class="language-plaintext highlighter-rouge">enforce</code> rejects non-compliant pods, <code class="language-plaintext highlighter-rouge">warn</code> lets them through with a warning, and <code class="language-plaintext highlighter-rouge">audit</code> records a violation in the audit log. A common rollout is to start with <code class="language-plaintext highlighter-rouge">warn</code>/<code class="language-plaintext highlighter-rouge">audit</code> to find offenders, then flip <code class="language-plaintext highlighter-rouge">enforce</code> once the namespace is clean.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enforce the Restricted profile; warn and audit on the same standard</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
 <span class="na">metadata</span><span class="pi">:</span>
@@ -2353,8 +2459,11 @@ velero backup create production-backup <span class="se">\</span>
     <span class="na">pod-security.kubernetes.io/warn</span><span class="pi">:</span> <span class="s">restricted</span>
 </code></pre></div></div>
 
-<h3 id="aiml-workload-support">AI/ML Workload Support</h3>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GPU scheduling improvements</span>
+<h3 id="scheduling-gpu-workloads">Scheduling GPU Workloads</h3>
+
+<p>GPUs are exposed as a schedulable <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/">extended resource</a> named <code class="language-plaintext highlighter-rouge">nvidia.com/gpu</code> (installed by the GPU device plugin). You request whole GPUs the same way you request CPU or memory — fractional GPUs are not supported by the standard plugin, so a request and limit of <code class="language-plaintext highlighter-rouge">2</code> reserves two entire devices for the pod.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Request whole GPUs via the device-plugin extended resource</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
@@ -2373,9 +2482,11 @@ velero backup create production-backup <span class="se">\</span>
       <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">all"</span>
 </code></pre></div></div>
 
-<h3 id="gateway-api-v10-ga">Gateway API v1.0 (GA)</h3>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Modern ingress replacement</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<h3 id="gateway-api-the-successor-to-ingress">Gateway API: The Successor to Ingress</h3>
+
+<p>The Gateway API is the long-term replacement for Ingress. It splits responsibilities by role: a cluster operator owns the <code class="language-plaintext highlighter-rouge">Gateway</code> (the listener, ports, and TLS), while application teams attach <code class="language-plaintext highlighter-rouge">HTTPRoute</code> objects to it for their own routing — without touching shared infrastructure. It also handles protocols Ingress never did cleanly (gRPC, TCP, UDP). The <code class="language-plaintext highlighter-rouge">Gateway</code> below just declares an HTTPS listener; routes are defined separately and bound to it.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">prod-gateway</span>
@@ -2390,22 +2501,15 @@ velero backup create production-backup <span class="se">\</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">prod-cert</span>
 </code></pre></div></div>
 
-<h3 id="performance-improvements">Performance Improvements</h3>
-<ul>
-  <li><strong>Improved etcd performance</strong>: 30% faster for large clusters</li>
-  <li><strong>API Priority and Fairness</strong>: Better request handling</li>
-  <li><strong>Efficient SELinux relabeling</strong>: Faster pod startup</li>
-  <li><strong>Memory manager improvements</strong>: Better NUMA awareness</li>
-</ul>
-
 <h2 id="future-of-kubernetes-whats-next">Future of Kubernetes: What’s Next?</h2>
 
-<h3 id="emerging-trends-2024-2025">Emerging Trends (2024-2025)</h3>
+<p>Several ecosystems are maturing on top of Kubernetes rather than changing the core. These are the directions worth watching:</p>
+
 <ol>
-  <li><strong>Serverless on Kubernetes</strong>: Knative 1.12+, OpenFaaS, KEDA 2.13</li>
-  <li><strong>Edge Computing</strong>: K3s, KubeEdge, Akri for leaf devices</li>
-  <li><strong>WebAssembly</strong>: Running Wasm workloads with runwasi</li>
-  <li><strong>AI/ML Workloads</strong>: Kubeflow 1.8, MLOps pipelines, Ray on K8s</li>
+  <li><strong>Serverless on Kubernetes</strong>: Knative, OpenFaaS, and KEDA for scale-to-zero and event-driven workloads</li>
+  <li><strong>Edge Computing</strong>: K3s, KubeEdge, and Akri for resource-constrained and leaf devices</li>
+  <li><strong>WebAssembly</strong>: Running Wasm workloads alongside containers via runwasi</li>
+  <li><strong>AI/ML Workloads</strong>: Kubeflow, MLOps pipelines, and Ray on Kubernetes</li>
   <li><strong>eBPF Integration</strong>: Cilium, Pixie for advanced observability</li>
   <li><strong>Platform Engineering</strong>: Backstage, Crossplane for developer portals</li>
   <li><strong>FinOps</strong>: Cost optimization with Kubecost, OpenCost</li>

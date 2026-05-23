@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1806,7 +1867,9 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Git Flow, GitHub Flow, and team workflow patterns</p>
 </div>
 
-<p>Branching strategies are fundamental to modern software development workflows. This guide covers the most widely adopted approaches, their implementation details, and guidance on selecting the right strategy for your project.</p>
+<div class="intro-card">
+  <p class="lead-text">A branching strategy answers a deceptively simple question: where does work-in-progress live before it ships, and how does it get to production safely? Pick the wrong one and you get merge hell, "it works on my branch" surprises, and release-day panic; pick well and integration becomes routine. This guide compares the widely adopted approaches, shows each as a commit graph, and ends with a decision matrix for choosing one.</p>
+</div>
 
 <div class="tip-card">
   <h4>Where this fits among the Git pages</h4>
@@ -2149,14 +2212,24 @@ git push <span class="nt">-u</span> origin feature/shopping-cart
 
 <h3 id="release-branch-workflow">Release Branch Workflow</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>main         ──●────────────●────────────●──────&gt;
-                │            │            │
-release/1.0     ●────●───●───●            │
-                      \   \               │
-release/1.1           │    ●──●───●───●───●
-                      │        \   \
-hotfix               ●─●        ●───●
-</code></pre></div></div>
+<p>A release branch is cut from the mainline, stabilized with only fixes (no new features), tagged at release, then merged back so those fixes are not lost:</p>
+
+<pre><code class="language-mermaid">gitGraph
+    commit
+    commit
+    branch release/1.0
+    checkout release/1.0
+    commit id: "stabilize"
+    commit id: "v1.0" tag: "v1.0"
+    checkout main
+    merge release/1.0
+    commit id: "more features"
+    branch hotfix/1.0.1
+    checkout hotfix/1.0.1
+    commit id: "patch"
+    checkout main
+    merge hotfix/1.0.1 tag: "v1.0.1"
+</code></pre>
 
 <h3 id="managing-releases">Managing Releases</h3>
 

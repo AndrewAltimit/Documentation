@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1810,46 +1871,249 @@ document.addEventListener('DOMContentLoaded', function () {
   <p class="lead-text">Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.</p>
 </div>
 
-<h2 id="security-your-first-and-constant-priority">Security: Your First and Constant Priority</h2>
+<h2 id="the-problem-security-solves">The Problem Security Solves</h2>
 
-<p>Security in AWS isn’t a feature you add later - it’s woven into every decision from day one. The good news? AWS provides powerful tools that make security easier than traditional on-premise setups.</p>
+<p>In an on-premises data center, a locked door and a firewall went a long way: an attacker had to physically reach the building or breach the network perimeter. In the cloud, every resource has a public API endpoint, and a single leaked access key or an over-permissive policy can expose your entire account from anywhere on the internet. Security in AWS is therefore less about a perimeter and more about <em>who can do what to which resource</em> — and proving it.</p>
 
-<h3 id="the-security-mindset-evolution">The Security Mindset Evolution</h3>
+<p>The good news: AWS gives you fine-grained controls for exactly this, and most of them cost nothing to turn on. The hard part is knowing which control addresses which risk. This guide is organized around four questions:</p>
 
-<p>Your security journey typically progresses through these stages:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Risk it addresses</th>
+      <th>Primary services</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Who can act, and on what?</strong></td>
+      <td>Stolen credentials, privilege escalation</td>
+      <td>IAM, IAM Identity Center, Organizations</td>
+    </tr>
+    <tr>
+      <td><strong>Is the data readable if stolen?</strong></td>
+      <td>Data exfiltration, lost disks</td>
+      <td>KMS, encryption defaults</td>
+    </tr>
+    <tr>
+      <td><strong>Are we being attacked right now?</strong></td>
+      <td>Active intrusion, misconfiguration</td>
+      <td>GuardDuty, Security Hub, Config</td>
+    </tr>
+    <tr>
+      <td><strong>Can attacker traffic even reach us?</strong></td>
+      <td>DDoS, injection, scraping</td>
+      <td>WAF, Shield, Security Groups</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="where-the-line-is-drawn-shared-responsibility">Where the Line Is Drawn: Shared Responsibility</h3>
+
+<p>AWS secures the cloud (physical data centers, hypervisors, the network backbone). You secure what is <em>in</em> the cloud (identities, configuration, data, application code). Almost every breach you read about lives on the customer side of that line — a public S3 bucket, a hardcoded key, an <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> rule. Internalizing this division tells you where to spend your effort.</p>
+
+<h3 id="the-security-maturity-path">The Security Maturity Path</h3>
+
+<p>Most teams progress through these stages. You do not need to reach the end on day one, but you should know what each stage protects against:</p>
 
 <ol>
-  <li><strong>Basic Protection</strong>: Strong passwords, MFA, and basic IAM policies</li>
-  <li><strong>Defense in Depth</strong>: Network isolation, encryption, and logging</li>
-  <li><strong>Automated Compliance</strong>: Continuous monitoring and automated remediation</li>
-  <li><strong>Zero Trust Architecture</strong>: Assume breach, verify everything</li>
+  <li><strong>Basic protection</strong>: MFA on the root account, individual IAM users/roles, no long-lived keys in code.</li>
+  <li><strong>Defense in depth</strong>: Private subnets, encryption at rest and in transit, CloudTrail logging on.</li>
+  <li><strong>Automated compliance</strong>: Config rules and Security Hub flag drift; GuardDuty watches for active threats.</li>
+  <li><strong>Zero trust</strong>: Assume breach. Verify every request, scope every credential, segment every network.</li>
 </ol>
 
-<h3 id="core-security-principles-that-save-you-later">Core Security Principles That Save You Later</h3>
+<hr />
 
-<h4 id="principle-of-least-privilege">Principle of Least Privilege</h4>
-<p>Give users and services only the permissions they need, nothing more. It’s tempting to grant broad permissions for convenience, but this creates massive risk.</p>
+<h2 id="iam-who-can-do-what">IAM: Who Can Do What</h2>
 
-<p><strong>Example progression</strong>:</p>
+<p>IAM (Identity and Access Management) is the foundation everything else rests on. Get IAM wrong and no amount of encryption or threat detection will save you. Get it right and most attacks have nowhere to go.</p>
+
+<h3 id="the-four-iam-building-blocks">The Four IAM Building Blocks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>What it is</th>
+      <th>When to use it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>User</strong></td>
+      <td>A long-lived identity for a human or legacy app</td>
+      <td>Rare today — prefer Identity Center for humans</td>
+    </tr>
+    <tr>
+      <td><strong>Group</strong></td>
+      <td>A collection of users sharing permissions</td>
+      <td>Apply policies to many users at once (e.g. <code class="language-plaintext highlighter-rouge">Developers</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Role</strong></td>
+      <td>A temporary identity that anything can assume</td>
+      <td>The default for applications, EC2, Lambda, cross-account access</td>
+    </tr>
+    <tr>
+      <td><strong>Policy</strong></td>
+      <td>A JSON document granting or denying actions</td>
+      <td>Attached to users, groups, or roles to define permissions</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>The single most important rule:</strong> prefer <strong>roles</strong> over <strong>users with access keys</strong>. A role hands out short-lived, automatically-rotated credentials; a user’s access key sits in a config file or environment variable indefinitely, waiting to leak. EC2 instances, Lambda functions, and CI/CD pipelines should all assume roles, never carry static keys.</p>
+
+<h3 id="anatomy-of-an-iam-policy">Anatomy of an IAM Policy</h3>
+
+<p>Every permission decision comes down to a policy document. Read this one as “allow reading objects from a specific bucket, but only over TLS”:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
+    </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ReadAppBucketOverTLS"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"s3:GetObject"</span><span class="p">],</span><span class="w">
+    </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-app-bucket/*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"Bool"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"aws:SecureTransport"</span><span class="p">:</span><span class="w"> </span><span class="s2">"true"</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
 <ul>
-  <li>Bad: Give developers AdministratorAccess</li>
-  <li>Better: Create a PowerUserAccess role without IAM permissions</li>
-  <li>Best: Custom policies granting exactly what each team needs</li>
+  <li><strong>Effect</strong>: <code class="language-plaintext highlighter-rouge">Allow</code> or <code class="language-plaintext highlighter-rouge">Deny</code>. An explicit <code class="language-plaintext highlighter-rouge">Deny</code> always wins over any <code class="language-plaintext highlighter-rouge">Allow</code>.</li>
+  <li><strong>Action</strong>: The API calls being permitted (<code class="language-plaintext highlighter-rouge">service:Operation</code>). Resist <code class="language-plaintext highlighter-rouge">s3:*</code>.</li>
+  <li><strong>Resource</strong>: The exact ARNs the actions apply to. Resist <code class="language-plaintext highlighter-rouge">"Resource": "*"</code>.</li>
+  <li><strong>Condition</strong>: Extra constraints — source IP, MFA present, encryption in transit, etc.</li>
 </ul>
 
-<h4 id="encryption-everywhere">Encryption Everywhere</h4>
-<p>AWS makes encryption easy - use it for everything:</p>
-<ul>
-  <li><strong>At Rest</strong>: S3, EBS, RDS all support transparent encryption</li>
-  <li><strong>In Transit</strong>: TLS/SSL for all communications</li>
-  <li><strong>Key Management</strong>: AWS KMS handles the complexity of key rotation</li>
-</ul>
+<h3 id="least-privilege-in-practice">Least Privilege in Practice</h3>
 
-<p><strong>Real-world scenario</strong>: A healthcare startup encrypts patient data by default. When they undergo HIPAA compliance audit, encryption is already in place, saving months of remediation work.</p>
+<p>Least privilege means granting only the permissions actually needed, then widening only when something breaks. The progression below shows the journey teams typically take:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Stage</th>
+      <th>What it looks like</th>
+      <th>Why it is risky / better</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Bad</strong></td>
+      <td>Every developer has <code class="language-plaintext highlighter-rouge">AdministratorAccess</code></td>
+      <td>One leaked key compromises everything</td>
+    </tr>
+    <tr>
+      <td><strong>Better</strong></td>
+      <td>A shared <code class="language-plaintext highlighter-rouge">PowerUserAccess</code> role (no IAM rights)</td>
+      <td>Limits self-escalation, but still broad</td>
+    </tr>
+    <tr>
+      <td><strong>Best</strong></td>
+      <td>Per-team policies scoped to specific services and resources</td>
+      <td>Blast radius of any one credential stays small</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tip-card">
+  <h4>Tighten policies with real usage data</h4>
+  <p>Do not guess at permissions. IAM Access Analyzer can generate a least-privilege policy from the actual CloudTrail history of what a role used. Start broad in dev, then let the data tell you what to remove before production.</p>
+</div>
+
+<h3 id="common-iam-pitfalls">Common IAM Pitfalls</h3>
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Using the root account for daily work:</strong> The root user can do anything, including closing the account. Lock it behind MFA, create an admin role, and never use root again except for the handful of tasks that require it.</li>
+    <li><strong>Long-lived access keys in code:</strong> Keys committed to git or baked into AMIs are the #1 source of breaches. Use roles; if you must use keys, rotate them and scan repos with tools like git-secrets.</li>
+    <li><strong>Wildcards everywhere:</strong> <code>"Action": "*"</code> on <code>"Resource": "*"</code> is administrator access by another name. Scope both.</li>
+    <li><strong>Forgetting MFA:</strong> A password alone is one phished email away from compromise. Enforce MFA on all human identities via an IAM policy condition.</li>
+  </ul>
+</div>
+
+<hr />
+
+<h2 id="encryption-unreadable-if-stolen">Encryption: Unreadable If Stolen</h2>
+
+<p>Encryption is your fallback for when a control fails — if a disk, snapshot, or bucket leaks, encrypted data is just noise without the key. AWS makes this nearly free to enable, so the only wrong choice is leaving it off.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>What to enable</th>
+      <th>How</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>At rest</strong></td>
+      <td>Default encryption on S3, EBS, RDS, DynamoDB</td>
+      <td>Toggle in console/IaC; transparent to your app</td>
+    </tr>
+    <tr>
+      <td><strong>In transit</strong></td>
+      <td>TLS for every connection</td>
+      <td>Enforce with the <code class="language-plaintext highlighter-rouge">aws:SecureTransport</code> condition shown above</td>
+    </tr>
+    <tr>
+      <td><strong>Key management</strong></td>
+      <td>KMS keys with automatic rotation</td>
+      <td>Use AWS-managed keys to start; customer-managed keys when you need control over policy and rotation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Why KMS instead of managing keys yourself?</strong> KMS handles generation, storage, rotation, and access logging of keys, and integrates directly with S3/EBS/RDS so encryption is transparent. Every use of a key is recorded in CloudTrail, giving you an audit trail of who decrypted what.</p>
+
+<p><strong>Real-world scenario</strong>: A healthcare startup turns on default encryption and KMS rotation from day one. When the HIPAA audit arrives, encryption-at-rest is already in place across every store — turning what is often months of remediation into a checkbox.</p>
+
+<hr />
+
+<h2 id="detection-are-we-being-attacked">Detection: Are We Being Attacked?</h2>
+
+<p>Prevention is never perfect, so you also need to <em>see</em> what is happening. Three services cover the spectrum, and they complement rather than replace each other:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>What it answers</th>
+      <th>What it watches</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>GuardDuty</strong></td>
+      <td>“Is something malicious happening?”</td>
+      <td>CloudTrail, VPC flow, DNS logs analyzed by ML for threats</td>
+    </tr>
+    <tr>
+      <td><strong>Config</strong></td>
+      <td>“Did a resource drift from policy?”</td>
+      <td>Resource configuration changes against rules (e.g. “no public buckets”)</td>
+    </tr>
+    <tr>
+      <td><strong>Security Hub</strong></td>
+      <td>“What is my overall posture?”</td>
+      <td>Aggregates GuardDuty + Config + standards (CIS, PCI-DSS) into one score</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Think of it as layers: <strong>Config</strong> catches misconfiguration, <strong>GuardDuty</strong> catches active intrusion, and <strong>Security Hub</strong> is the dashboard that rolls both up against a compliance benchmark so you get a single prioritized findings list instead of scattered alarms.</p>
 
 <h3 id="security-hub-your-compliance-command-center">Security Hub: Your Compliance Command Center</h3>
 
-<p>Security Hub continuously monitors your AWS environment against industry standards (CIS, PCI-DSS, HIPAA). Instead of manual security reviews, you get real-time compliance scores.</p>
+<p>Security Hub continuously evaluates your environment against industry standards (CIS, PCI-DSS, AWS Foundational Security Best Practices) and produces a real-time compliance score, so manual quarterly security reviews become continuous automated ones. The Terraform below shows the core wiring — enabling Security Hub, subscribing to standards, and routing high-severity findings to an automated remediation Lambda. The full configuration (GuardDuty, Macie, Inspector, Config rules, WAF) follows; treat it as a reference you adapt, not a block to copy wholesale.</p>
 
 <div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># security-hub.tf - Security Hub configuration and custom checks</span>
 
@@ -2262,6 +2526,63 @@ document.addEventListener('DOMContentLoaded', function () {
   <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
+
+<hr />
+
+<h2 id="edge-protection-can-attacker-traffic-reach-us">Edge Protection: Can Attacker Traffic Reach Us?</h2>
+
+<p>The final layer filters traffic before it touches your application. The <code class="language-plaintext highlighter-rouge">aws_wafv2_web_acl</code> above sits in front of CloudFront or an ALB and drops bad requests at the edge:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>Protects against</th>
+      <th>Where it sits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>WAF</strong></td>
+      <td>SQL injection, XSS, bot scraping, request floods</td>
+      <td>CloudFront / ALB / API Gateway</td>
+    </tr>
+    <tr>
+      <td><strong>Shield Standard</strong></td>
+      <td>Common network/transport DDoS (free, always on)</td>
+      <td>Edge, automatic</td>
+    </tr>
+    <tr>
+      <td><strong>Shield Advanced</strong></td>
+      <td>Large/sophisticated DDoS, with cost protection</td>
+      <td>Edge, paid</td>
+    </tr>
+    <tr>
+      <td><strong>Security Groups</strong></td>
+      <td>Unwanted inbound/outbound to a resource</td>
+      <td>Per ENI (stateful firewall)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The WAF rules above combine a <strong>rate-based rule</strong> (block any IP exceeding 2,000 requests in the evaluation window — a cheap defense against scraping and brute force) with an <strong>AWS-managed rule group</strong> (<code class="language-plaintext highlighter-rouge">KnownBadInputs</code>) that catches common exploit payloads without you maintaining signatures. Start with managed rule groups; write custom rules only for application-specific patterns.</p>
+
+<h2 id="how-the-layers-fit-together">How the Layers Fit Together</h2>
+
+<p>Security is not one control but a stack — a request must clear every layer, and a breach of one is contained by the next:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    Req([Incoming request]) --&gt; WAF["WAF + Shield&lt;br/&gt;filter malicious traffic"]
+    WAF --&gt; SG["Security Group&lt;br/&gt;allow only expected ports"]
+    SG --&gt; App["Application / EC2 / Lambda"]
+    App --&gt; IAM["IAM role&lt;br/&gt;scoped, temporary credentials"]
+    IAM --&gt; Data["Encrypted data&lt;br/&gt;KMS keys, TLS in transit"]
+    GD["GuardDuty + Config + Security Hub"] -. "watch every layer" .-&gt; WAF
+    GD -. .-&gt; App
+    GD -. .-&gt; Data
+</code></pre>
+
+<p>If WAF misses something, the security group still limits exposure. If a credential leaks, IAM scoping limits the blast radius. If data is exfiltrated, encryption renders it useless. And throughout, the detection services watch every layer for anomalies.</p>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 

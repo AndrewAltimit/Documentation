@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1832,7 +1893,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="advantages-of-unreal-engine-5-over-unreal-engine-4">Advantages of Unreal Engine 5 over Unreal Engine 4</h2>
 
-<p>Unreal Engine 5, released in 2022 and continuously updated, represents a quantum leap in real-time rendering technology. Building on UE4’s solid foundation, UE5 introduces game-changing features that eliminate many traditional technical constraints, allowing creators to focus on artistry and design rather than optimization. Let’s explore the revolutionary improvements that make UE5 the most advanced real-time 3D creation tool available.</p>
+<p>Unreal Engine 5, released in 2022 and updated on a roughly quarterly cadence, builds on UE4’s architecture while removing several long-standing technical ceilings. The headline shift is that two tasks artists used to spend most of their time on — authoring LODs for geometry and baking lightmaps for static lighting — are now handled automatically by Nanite and Lumen. The table below summarizes where UE5 departs from UE4; each feature is detailed in the sections that follow.</p>
 
 <table>
   <thead>
@@ -2111,7 +2172,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="lighting">Lighting</h2>
 
-<p>Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as <strong>Directional Lights</strong>, <strong>Point Lights</strong>, <strong>Spot Lights</strong>, and <strong>Sky Lights</strong>.</p>
+<p>Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as <strong>Directional Lights</strong>, <strong>Point Lights</strong>, <strong>Spot Lights</strong>, and <strong>Sky Lights</strong>. Each describes <em>where</em> light comes from; how that light bounces and fills a scene is handled by the global illumination system.</p>
+
+<div class="tip-card">
+  <h4 id="lumen-changes-the-lighting-workflow">Lumen Changes the Lighting Workflow</h4>
+  <p>In UE4, indirect light from these sources was typically <em>baked</em> into lightmaps — accurate, but static and slow to iterate on. With Lumen enabled (the UE5 default), the same lights produce real-time bounce lighting and reflections that update instantly as you move objects or change the time of day. The practical consequence: you place lights and immediately see the final result, with no bake step. Baked lighting still exists for fixed scenes or low-end hardware where the runtime cost of Lumen is too high.</p>
+</div>
 
 <h3 id="directional-lights">Directional Lights</h3>
 

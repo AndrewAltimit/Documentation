@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -1737,8 +1798,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
-  <li><a href="#overview" id="markdown-toc-overview">Overview</a></li>
-  <li><a href="#recent-updates-2025" id="markdown-toc-recent-updates-2025">Recent Updates (2025)</a></li>
+  <li>
+<a href="#overview" id="markdown-toc-overview">Overview</a>    <ol>
+      <li><a href="#how-the-pieces-fit-together" id="markdown-toc-how-the-pieces-fit-together">How the Pieces Fit Together</a></li>
+    </ol>
+  </li>
   <li>
 <a href="#quick-navigation" id="markdown-toc-quick-navigation">Quick Navigation</a>    <ol>
       <li><a href="#core-infrastructure" id="markdown-toc-core-infrastructure">Core Infrastructure</a></li>
@@ -1855,7 +1919,6 @@ document.addEventListener('DOMContentLoaded', function () {
       <li><a href="#community" id="markdown-toc-community">Community</a></li>
     </ol>
   </li>
-  <li><a href="#updates-and-contributions" id="markdown-toc-updates-and-contributions">Updates and Contributions</a></li>
 </ol>
 
 <hr>
@@ -1866,22 +1929,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Whether you’re building microservices, implementing consensus algorithms, or deploying container orchestration platforms, you’ll find detailed guides, theoretical foundations, and practical examples here.</p>
 
-<h2 id="recent-updates-2025">Recent Updates (2025)</h2>
+<p><strong>What you’ll get:</strong> a working mental model of why distributed systems are hard (failure, partial knowledge, no global clock), the patterns that tame that difficulty, and curated links into the deeper theory and the concrete technologies that implement it.</p>
 
-<p>The distributed systems landscape continues to evolve rapidly. Key developments in 2025:</p>
+<p><strong>Assumed background:</strong> comfort with networking basics, concurrency, and at least one programming language. No prior distributed-systems experience required — we build up from first principles.</p>
 
-<ul>
-  <li>
-<strong>Consensus Algorithm Improvements</strong>: Enhanced Raft implementations with adaptive quorum optimization and Paxos variants optimized for geo-distributed deployments</li>
-  <li>
-<strong>Cloud-Native Distributed Patterns</strong>: Service mesh evolution with eBPF-based observability, WASM-based edge computing, and serverless distributed architectures</li>
-  <li>
-<strong>Modern Distributed Databases</strong>: Next-generation consistency models, distributed SQL with global transactions, and NewSQL systems achieving linearizability at scale</li>
-  <li>
-<strong>Observability and Service Mesh</strong>: Advanced distributed tracing with continuous profiling, AI-powered anomaly detection, and zero-trust security patterns</li>
-  <li>
-<strong>Quantum-Safe Cryptography</strong>: Preparing distributed systems for post-quantum security with lattice-based and hash-based cryptographic primitives</li>
-</ul>
+<h3 id="how-the-pieces-fit-together">How the Pieces Fit Together</h3>
+
+<p>A distributed system is a stack of decisions. The physical reality at the bottom (unreliable networks, independent failures) forces theoretical limits (CAP, FLP), which the consensus and consistency layers work around, which in turn are packaged into the patterns and technologies you actually deploy. Reading top-down tells you <em>what to build</em>; reading bottom-up tells you <em>why it has to be that way</em>.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Reality["Physical reality&lt;br/&gt;unreliable network, partial failure, no global clock"] --&gt; Limits["Theoretical limits&lt;br/&gt;CAP, FLP, Two Generals"]
+    Limits --&gt; Coord["Coordination layer&lt;br/&gt;consensus (Raft/Paxos), consistency models"]
+    Coord --&gt; Patterns["Design patterns&lt;br/&gt;leader election, sagas, sharding, event-driven"]
+    Patterns --&gt; Tech["Technologies&lt;br/&gt;Kubernetes, Kafka, Istio, distributed DBs"]
+    Limits -.-&gt;|formal treatment| Theory["Distributed Systems Theory →"]
+    Tech -.-&gt;|orchestration| K8s["Kubernetes →"]
+</code></pre>
+
+<p>Start anywhere that matches your goal: jump to the <a href="#common-patterns-and-solutions">patterns</a> if you’re building today, or to <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> if you want the impossibility proofs behind the limits.</p>
 
 <h2 id="quick-navigation">Quick Navigation</h2>
 
@@ -2073,32 +2138,46 @@ kubectl expose deployment example-service <span class="nt">--port</span><span cl
 
 <h3 id="consistency-models">Consistency Models</h3>
 
-<p>Different applications require different consistency guarantees:</p>
+<p>Consistency is a spectrum, not a switch. The stronger the guarantee, the more coordination (and latency) it costs — so the rule of thumb is to pick the <em>weakest</em> model your application can tolerate. The models below are ordered from strongest to weakest:</p>
 
-<ol>
-  <li>
-<strong>Strong Consistency</strong>:
-    <ul>
-      <li>
-<strong>Linearizability</strong>: Operations appear atomic and instantaneous</li>
-      <li>
-<strong>Sequential Consistency</strong>: Operations appear in program order</li>
-      <li>
-<strong>Causal Consistency</strong>: Causally related operations are ordered</li>
-    </ul>
-  </li>
-  <li>
-<strong>Weak Consistency</strong>:
-    <ul>
-      <li>
-<strong>Eventual Consistency</strong>: System converges to consistent state</li>
-      <li>
-<strong>Read Your Writes</strong>: Process sees its own writes</li>
-      <li>
-<strong>Monotonic Reads</strong>: Once seen, data doesn’t go backwards</li>
-    </ul>
-  </li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Guarantee</th>
+      <th>Cost</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Linearizable</strong></td>
+      <td>Operations appear atomic and instantaneous, in real-time order</td>
+      <td>Highest (cross-node coordination per op)</td>
+      <td>Locks, leader election, financial ledgers</td>
+    </tr>
+    <tr>
+      <td><strong>Sequential</strong></td>
+      <td>A single global order consistent with each process’s program order</td>
+      <td>High</td>
+      <td>Replicated state machines</td>
+    </tr>
+    <tr>
+      <td><strong>Causal</strong></td>
+      <td>Causally related operations seen in the same order everywhere</td>
+      <td>Moderate</td>
+      <td>Collaborative editing, comment threads</td>
+    </tr>
+    <tr>
+      <td><strong>Eventual</strong></td>
+      <td>Replicas converge if updates stop; readers may see stale data</td>
+      <td>Lowest (no coordination on the write path)</td>
+      <td>Shopping carts, DNS, social feeds</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Weaker models add <em>session guarantees</em> — read-your-writes (a process always sees its own updates) and monotonic reads (data never appears to go backwards) — to make eventual consistency tolerable for users. For the formal definitions and the happens-before relation that underpins causal ordering, see <a href="../advanced/distributed-systems-theory/#consistency-models">Distributed Systems Theory</a>.</p>
 
 <h2 id="architecture-patterns">Architecture Patterns</h2>
 
@@ -3044,21 +3123,6 @@ kubectl expose deployment example-service <span class="nt">--port</span><span cl
 <hr>
 
 <p><em>Building distributed systems is a journey of continuous learning. Start with the fundamentals, practice with real implementations, and always be prepared for the unexpected failures that make distributed systems both challenging and fascinating.</em></p>
-
-<h2 id="updates-and-contributions">Updates and Contributions</h2>
-
-<p>This documentation is actively maintained and updated with the latest distributed systems patterns and technologies. Recent additions include:</p>
-
-<ul>
-  <li>
-<strong>2025 Updates</strong>: Service mesh patterns with Istio 1.21+</li>
-  <li>
-<strong>WASM Integration</strong>: Edge computing with WebAssembly</li>
-  <li>
-<strong>eBPF Observability</strong>: Kernel-level monitoring without overhead</li>
-  <li>
-<strong>Quantum-Safe Cryptography</strong>: Preparing for post-quantum distributed systems</li>
-</ul>
 
 <p>For contributions or corrections, please visit our <a href="https://github.com/AndrewAltimit/Documentation">GitHub repository</a>.</p>
 

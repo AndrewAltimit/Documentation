@@ -37,6 +37,20 @@
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
 
 <!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
 <!-- MathJax for LaTeX equation rendering -->
 <script>
 MathJax = {
@@ -550,6 +564,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
 <!-- ============================================================
      On-page Table of Contents ("On This Page") + reading enhancers
      ============================================================ -->
@@ -686,7 +742,12 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: mermaidDark ? 'dark' : 'neutral',
+      securityLevel: 'loose'
+    });
 
     var mermaidBlocks = [];
     // rouge-highlighted form
@@ -2303,55 +2364,70 @@ RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
 
 <h3 id="advantages-of-wasm-containers">Advantages of WASM Containers</h3>
 
-<h4 id="1-startup-performance">1. <strong>Startup Performance</strong></h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Performance comparison
-</span><span class="n">startup_times</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">docker_container</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span>      <span class="c1"># seconds
-</span>    <span class="sh">"</span><span class="s">firecracker_vm</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">,</span>      <span class="c1"># seconds
-</span>    <span class="sh">"</span><span class="s">wasm_module</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.001</span>          <span class="c1"># seconds (1ms)
-</span><span class="p">}</span>
+<p>WebAssembly’s appeal as a runtime comes down to three properties: it starts almost instantly, it isolates by <em>capability</em> rather than by kernel namespace, and its modules are tiny. The figures below are representative order-of-magnitude comparisons (exact numbers vary by workload and host); treat them as relative, not absolute.</p>
 
-<span class="n">memory_overhead</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">docker_container</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>       <span class="c1"># MB
-</span>    <span class="sh">"</span><span class="s">firecracker_vm</span><span class="sh">"</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>        <span class="c1"># MB
-</span>    <span class="sh">"</span><span class="s">wasm_module</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span>              <span class="c1"># MB
-</span><span class="p">}</span>
-</code></pre></div></div>
+<h4 id="startup-time-and-footprint">Startup time and footprint</h4>
 
-<h4 id="2-security-model">2. <strong>Security Model</strong></h4>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Docker container</th>
+      <th>Firecracker microVM</th>
+      <th>WASM module</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cold start</td>
+      <td>~1 s</td>
+      <td>~125 ms</td>
+      <td>~1 ms</td>
+    </tr>
+    <tr>
+      <td>Memory overhead</td>
+      <td>~50 MB</td>
+      <td>~150 MB</td>
+      <td>~1-5 MB</td>
+    </tr>
+    <tr>
+      <td>Disk footprint</td>
+      <td>100 MB - 1 GB</td>
+      <td>100 MB - 1 GB</td>
+      <td>1-10 MB</td>
+    </tr>
+    <tr>
+      <td>CPU overhead</td>
+      <td>5-10%</td>
+      <td>5-15%</td>
+      <td>under 1%</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>WASM provides strong isolation through:</p>
+<p>The sub-millisecond cold start is the headline number: it makes WASM attractive for serverless and edge workloads where a traditional container’s ~1 second startup dominates request latency.</p>
 
-<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Capability-based security model</span>
+<h4 id="capability-based-security">Capability-based security</h4>
+
+<p>A container restricts a process <em>after</em> it has full access to a shared kernel — you drop capabilities and add seccomp profiles to claw privileges back. WebAssembly inverts this: a module starts with <strong>no</strong> access to the host and can only touch resources its host explicitly hands it (a pre-opened directory, a socket, a clock). There is no ambient authority to escape from.</p>
+
+<div class="language-rust highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// A WASI module can only open files under a directory the host pre-opened.</span>
+<span class="c1">// Without that grant, path_open simply fails — the module never had access.</span>
 <span class="k">use</span> <span class="nn">wasi</span><span class="p">::{</span><span class="n">Errno</span><span class="p">,</span> <span class="n">Fd</span><span class="p">};</span>
 
-<span class="c1">// WASM modules must be explicitly granted capabilities</span>
-<span class="k">fn</span> <span class="nf">open_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="o">&amp;</span><span class="nb">str</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">Fd</span><span class="p">,</span> <span class="n">Errno</span><span class="o">&gt;</span> <span class="p">{</span>
-    <span class="c1">// Only works if file access capability was granted</span>
-    <span class="k">unsafe</span> <span class="p">{</span> <span class="nn">wasi</span><span class="p">::</span><span class="nf">path_open</span><span class="p">(</span>
-        <span class="mi">3</span><span class="p">,</span>  <span class="c1">// Directory file descriptor</span>
-        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Dirflags</span>
-        <span class="n">path</span><span class="p">,</span>
-        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Open flags</span>
-        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Rights base</span>
-        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Rights inheriting</span>
-        <span class="mi">0</span><span class="p">,</span>  <span class="c1">// Fd flags</span>
-    <span class="p">)</span> <span class="p">}</span>
+<span class="k">fn</span> <span class="nf">open_under_preopened</span><span class="p">(</span><span class="n">dir_fd</span><span class="p">:</span> <span class="n">Fd</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="o">&amp;</span><span class="nb">str</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">Fd</span><span class="p">,</span> <span class="n">Errno</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">unsafe</span> <span class="p">{</span>
+        <span class="nn">wasi</span><span class="p">::</span><span class="nf">path_open</span><span class="p">(</span>
+            <span class="n">dir_fd</span><span class="p">,</span> <span class="c1">// a directory FD the host chose to expose</span>
+            <span class="mi">0</span><span class="p">,</span>      <span class="c1">// dirflags</span>
+            <span class="n">path</span><span class="p">,</span>
+            <span class="mi">0</span><span class="p">,</span>      <span class="c1">// open flags</span>
+            <span class="mi">0</span><span class="p">,</span>      <span class="c1">// rights base</span>
+            <span class="mi">0</span><span class="p">,</span>      <span class="c1">// rights inheriting</span>
+            <span class="mi">0</span><span class="p">,</span>      <span class="c1">// fd flags</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
 <span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="3-resource-efficiency">3. <strong>Resource Efficiency</strong></h4>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Resource comparison</span>
-<span class="na">traditional_container</span><span class="pi">:</span>
-  <span class="na">cpu_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5-10%"</span>
-  <span class="na">memory_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">50-200MB"</span>
-  <span class="na">disk_footprint</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100MB-1GB"</span>
-  
-<span class="na">wasm_container</span><span class="pi">:</span>
-  <span class="na">cpu_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;1%"</span>
-  <span class="na">memory_overhead</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1-5MB"</span>
-  <span class="na">disk_footprint</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1-10MB"</span>
 </code></pre></div></div>
 
 <p>These advantages make WebAssembly particularly attractive for modern cloud-native applications. But how do we manage WebAssembly containers at scale? The answer lies in integrating with existing orchestration platforms.</p>
@@ -2453,28 +2529,67 @@ RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
 
 <p>To make informed decisions about migration, it’s essential to understand the real-world performance characteristics of WebAssembly containers compared to traditional Docker containers.</p>
 
-<h3 id="performance-benchmarks">Performance Benchmarks</h3>
+<h3 id="performance-characteristics">Performance Characteristics</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Real-world performance comparison
-</span><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<p>The table below sketches how the two runtimes compare across a few common workload shapes. Startup and memory are reported in the same units across rows so the trend is visible; per-request latency is roughly comparable once warm, which is the key takeaway — <strong>WASM’s win is in cold start and footprint, not steady-state throughput.</strong></p>
 
-<span class="n">benchmarks</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">HTTP Request Handler</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1200</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">Image Processing</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1500</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">20</span><span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">API Gateway</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">docker</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">wasm</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">startup</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">request</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="sh">"</span><span class="s">memory</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Workload</th>
+      <th>Runtime</th>
+      <th>Cold start</th>
+      <th>Per-request latency</th>
+      <th>Memory</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HTTP request handler</td>
+      <td>Docker</td>
+      <td>~1200 ms</td>
+      <td>~0.5 ms</td>
+      <td>~50 MB</td>
+    </tr>
+    <tr>
+      <td>HTTP request handler</td>
+      <td>WASM</td>
+      <td>~1 ms</td>
+      <td>~0.6 ms</td>
+      <td>~2 MB</td>
+    </tr>
+    <tr>
+      <td>Image processing</td>
+      <td>Docker</td>
+      <td>~1500 ms</td>
+      <td>~10 ms</td>
+      <td>~200 MB</td>
+    </tr>
+    <tr>
+      <td>Image processing</td>
+      <td>WASM</td>
+      <td>~2 ms</td>
+      <td>~12 ms</td>
+      <td>~20 MB</td>
+    </tr>
+    <tr>
+      <td>API gateway</td>
+      <td>Docker</td>
+      <td>~1000 ms</td>
+      <td>~0.2 ms</td>
+      <td>~100 MB</td>
+    </tr>
+    <tr>
+      <td>API gateway</td>
+      <td>WASM</td>
+      <td>~0.5 ms</td>
+      <td>~0.25 ms</td>
+      <td>~5 MB</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>These benchmarks demonstrate WebAssembly’s strengths in startup time and memory efficiency. As the technology matures, we can expect even more improvements. Let’s look at what’s on the horizon.</p>
+<p>Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services. As the technology matures, we can expect even more improvements. Let’s look at what’s on the horizon.</p>
 
 <h3 id="future-developments">Future Developments</h3>
 
@@ -2507,49 +2622,20 @@ world service {
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="bringing-it-all-together">Bringing It All Together</h2>
+<h2 id="putting-it-into-practice">Putting It Into Practice</h2>
 
-<p>This comprehensive journey through Docker and container technology has taken us from fundamental concepts to advanced production patterns. We’ve explored:</p>
+<p>The patterns on this page — sidecars, distroless images, multi-stage builds, and WASM runtimes — all serve the same goals: smaller attack surface, faster delivery, and predictable behavior at scale. Which ones matter most depends on your role.</p>
 
-<h3 id="what-weve-covered">What We’ve Covered</h3>
-
-<ol>
-  <li>
-    <p><strong>Why Docker Matters</strong>: Understanding the real problems Docker solves - from “it works on my machine” to efficient resource utilization</p>
-  </li>
-  <li>
-    <p><strong>Practical Examples</strong>: Real-world Docker usage patterns and commands</p>
-  </li>
-  <li><strong>Deep Technical Knowledge</strong>:
-    <ul>
-      <li>Container vs VM architecture</li>
-      <li>Docker’s internal architecture (OCI runtime, containerd, CNI)</li>
-      <li>Storage options (volumes, bind mounts, tmpfs)</li>
-      <li>Networking drivers (bridge, host, overlay, macvlan)</li>
-      <li>Security best practices and hardening techniques</li>
-    </ul>
-  </li>
-  <li><strong>Production Readiness</strong>:
-    <ul>
-      <li>Performance optimization strategies</li>
-      <li>Docker Swarm orchestration</li>
-      <li>CI/CD integration patterns</li>
-      <li>Real-world case studies and design patterns</li>
-    </ul>
-  </li>
-  <li><strong>The Future</strong>: WebAssembly as a next-generation container runtime</li>
-</ol>
-
-<h3 id="key-takeaways-for-different-audiences">Key Takeaways for Different Audiences</h3>
+<h3 id="where-to-focus-by-role">Where to Focus by Role</h3>
 
 <div class="takeaway-grid">
   <div class="takeaway-card">
-    <h4><i class="fas fa-book"></i> Getting Started</h4>
+    <h4><i class="fas fa-book"></i> Newcomers</h4>
     <ul>
-      <li>Start with the crash course - get hands-on immediately</li>
-      <li>Master the basic commands before diving deep</li>
-      <li>Use Docker Compose for multi-container apps</li>
-      <li>Always follow security best practices from day one</li>
+      <li>Solidify the basics in <a href="fundamentals.html">Fundamentals</a> before adopting these patterns</li>
+      <li>Reach for Docker Compose before any orchestrator</li>
+      <li>Adopt the sidecar pattern only once a single container is too limiting</li>
+      <li>Follow security best practices from day one, not as a retrofit</li>
     </ul>
   </div>
   
@@ -2584,75 +2670,55 @@ world service {
   </div>
 </div>
 
-<h3 id="your-next-steps">Your Next Steps</h3>
+<h3 id="the-modern-toolchain">The Modern Toolchain</h3>
 
-<ol>
-  <li><strong>Practice</strong>: Build and deploy a real application using Docker</li>
-  <li><strong>Experiment</strong>: Try different networking modes and storage options</li>
-  <li><strong>Secure</strong>: Implement security scanning in your workflow</li>
-  <li><strong>Scale</strong>: Deploy a multi-node Swarm cluster or explore Kubernetes</li>
-  <li><strong>Innovate</strong>: Experiment with WebAssembly for suitable workloads</li>
-</ol>
+<p>The ecosystem around Docker has matured well beyond the original CLI and daemon. The tools below are worth knowing because they change how you build, scan, and run images day to day.</p>
 
-<h3 id="the-container-ecosystem-evolution">The Container Ecosystem Evolution</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Tool</th>
+      <th>What it gives you</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Supply chain</td>
+      <td>Docker Scout</td>
+      <td>Vulnerability scanning and SBOM generation</td>
+    </tr>
+    <tr>
+      <td>Supply chain</td>
+      <td>Build attestations</td>
+      <td>SLSA provenance baked into the image</td>
+    </tr>
+    <tr>
+      <td>Build</td>
+      <td>BuildKit</td>
+      <td>The default builder: parallel stages, cache mounts, secrets</td>
+    </tr>
+    <tr>
+      <td>Build</td>
+      <td>Docker Build Cloud</td>
+      <td>Remote, shared builders for faster CI</td>
+    </tr>
+    <tr>
+      <td>Runtime</td>
+      <td>containerd</td>
+      <td>The OCI runtime Docker and Kubernetes share</td>
+    </tr>
+    <tr>
+      <td>Dev loop</td>
+      <td>Compose Watch</td>
+      <td>Auto-sync source into running containers</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The container landscape continues to evolve rapidly:</p>
+<p><strong>Drop-in alternatives</strong> are also worth tracking. <strong>Podman</strong> runs daemonless, rootless containers with a Docker-compatible CLI; <strong>Colima</strong>, <strong>Rancher Desktop</strong>, and <strong>OrbStack</strong> are lighter Docker Desktop replacements for macOS. WASM runtimes (via <code class="language-plaintext highlighter-rouge">runwasi</code>/<code class="language-plaintext highlighter-rouge">crun</code>) sit at the other end of the spectrum for ultra-light, sandboxed workloads.</p>
 
-<ul>
-  <li><strong>Today</strong>: Docker dominates with mature tooling and vast ecosystem</li>
-  <li><strong>Emerging</strong>: WebAssembly offers new possibilities for lightweight, secure containers</li>
-  <li><strong>Future</strong>: Hybrid approaches combining traditional containers and WASM</li>
-</ul>
-
-<h3 id="docker-updates">Docker Updates</h3>
-
-<p><strong>Docker Desktop Enhancements</strong>:</p>
-<ul>
-  <li><strong>Docker Scout</strong>: Built-in vulnerability scanning and SBOM generation</li>
-  <li><strong>Docker Build Cloud</strong>: Remote builders for faster CI/CD</li>
-  <li><strong>Docker Extensions</strong>: Ecosystem of third-party tools</li>
-  <li><strong>Compose Watch</strong>: Automatic sync for development</li>
-</ul>
-
-<p><strong>Container Runtime Evolution</strong>:</p>
-<ul>
-  <li><strong>containerd 2.0</strong>: Improved performance and features</li>
-  <li><strong>BuildKit</strong>: Default builder with enhanced caching</li>
-  <li><strong>Docker Init</strong>: AI-powered Dockerfile generation</li>
-  <li><strong>Attestations</strong>: Supply chain security with SLSA</li>
-</ul>
-
-<p><strong>Alternative Runtimes</strong>:</p>
-<ul>
-  <li><strong>Podman</strong>: Daemonless, rootless containers</li>
-  <li><strong>Colima</strong>: Lightweight Docker Desktop alternative for Mac</li>
-  <li><strong>Rancher Desktop</strong>: Kubernetes-focused container management</li>
-  <li><strong>OrbStack</strong>: Fast, lightweight Docker Desktop alternative</li>
-</ul>
-
-<p>Remember, containerization is not just about technology - it’s about enabling:</p>
-<ul>
-  <li>Faster development cycles</li>
-  <li>More reliable deployments</li>
-  <li>Better resource utilization</li>
-  <li>Improved team collaboration</li>
-  <li>Greater application portability</li>
-</ul>
-
-<h3 id="final-thoughts">Final Thoughts</h3>
-
-<p>Docker has fundamentally changed how we build, ship, and run applications. Whether you’re containerizing a simple web app or architecting a complex microservices platform, the principles remain constant: consistency, isolation, and portability.</p>
-
-<p>As you continue your Docker journey:</p>
-<ul>
-  <li>Stay curious about new developments</li>
-  <li>Share knowledge with your team</li>
-  <li>Contribute to the community</li>
-  <li>Always consider security and performance</li>
-  <li>Choose the right tool for each job</li>
-</ul>
-
-<p>The future of application deployment is containerized, and you’re now equipped with the knowledge to be part of that future.</p>
+<p>The durable principles do not change with the tooling: build for <strong>consistency, isolation, and portability</strong>, and choose the lightest runtime that meets your isolation needs.</p>
 
 <h2 id="related-docker-documentation">Related Docker Documentation</h2>
 
@@ -2663,11 +2729,6 @@ world service {
   <li><a href="../ci-cd.html">CI/CD Pipelines</a> - Docker in continuous integration workflows</li>
   <li><a href="../aws/">AWS</a> - ECS, EKS, and cloud container services</li>
 </ul>
-
-<div class="cta-section">
-  <h3><i class="fas fa-rocket"></i> Ready to Start?</h3>
-  <p>Begin with a simple <code>docker run hello-world</code> and build from there. The container revolution awaits!</p>
-</div>
 
 <hr />
 
