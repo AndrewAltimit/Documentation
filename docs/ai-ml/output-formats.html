@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Diffusion Model Outputs</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the complete spectrum of diffusion outputs across text, images, audio, video, and 3D for professional multi-modal workflows.</p>
@@ -1920,8 +1954,10 @@ document.addEventListener('DOMContentLoaded', function () {
       <li><a href="#universal-skills" id="markdown-toc-universal-skills">Universal Skills:</a></li>
     </ol>
   </li>
-  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a></li>
-  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a>    <ol>
+      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+    </ol>
+  </li>
 </ol>
 
 <hr />
@@ -1932,11 +1968,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="what-youll-master">What You’ll Master</h3>
 
-<p>📝 <strong>Text Diffusion</strong>: From Gemini to specialized language models<br />
-🎨 <strong>Image Diffusion</strong>: Stable Diffusion, FLUX, and beyond<br />
-🎵 <strong>Audio Diffusion</strong>: Music, speech, and sound effects<br />
-🎬 <strong>Video Diffusion</strong>: AnimateDiff, SVD, and emerging models<br />
-🔮 <strong>3D Diffusion</strong>: Point clouds, meshes, and neural fields</p>
+<p><strong>Text Diffusion</strong>: From Gemini to specialized language models<br />
+<strong>Image Diffusion</strong>: Stable Diffusion, FLUX, and beyond<br />
+<strong>Audio Diffusion</strong>: Music, speech, and sound effects<br />
+<strong>Video Diffusion</strong>: AnimateDiff, SVD, and emerging models<br />
+<strong>3D Diffusion</strong>: Point clouds, meshes, and neural fields</p>
 
 <h3 id="the-unified-diffusion-pipeline">The Unified Diffusion Pipeline</h3>
 
@@ -2155,35 +2191,35 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>PNG</strong></td>
-      <td>Lossless ✓✓✓</td>
+      <td>Lossless</td>
       <td>Large</td>
       <td>Portfolio, Editing</td>
       <td>Best for further processing</td>
     </tr>
     <tr>
       <td><strong>JPEG</strong></td>
-      <td>Good ✓✓</td>
+      <td>Good</td>
       <td>Small</td>
       <td>Social Media</td>
       <td>85% quality sweet spot</td>
     </tr>
     <tr>
       <td><strong>WebP</strong></td>
-      <td>Great ✓✓✓</td>
+      <td>Great</td>
       <td>Tiny</td>
       <td>Modern Web</td>
       <td>25-35% smaller than JPEG</td>
     </tr>
     <tr>
       <td><strong>AVIF</strong></td>
-      <td>Excellent ✓✓✓</td>
+      <td>Excellent</td>
       <td>Smallest</td>
       <td>Cutting Edge</td>
       <td>HDR support built-in</td>
     </tr>
     <tr>
       <td><strong>EXR</strong></td>
-      <td>Perfect ✓✓✓✓</td>
+      <td>Perfect</td>
       <td>Huge</td>
       <td>Compositing</td>
       <td>Stores multiple passes</td>
@@ -2465,7 +2501,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>AnimateDiff</strong></td>
       <td>Text prompt</td>
       <td>16-32 frames</td>
-      <td>Great ✓✓✓</td>
+      <td>Great</td>
       <td>Fast</td>
       <td>Seamless loops</td>
     </tr>
@@ -2473,7 +2509,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>SVD</strong></td>
       <td>Single image</td>
       <td>14-25 frames</td>
-      <td>Excellent ✓✓✓✓</td>
+      <td>Excellent</td>
       <td>Medium</td>
       <td>Image animation</td>
     </tr>
@@ -2481,7 +2517,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>SORA-style</strong></td>
       <td>Text prompt</td>
       <td>60+ seconds</td>
-      <td>Pro ✓✓✓✓✓</td>
+      <td>Pro</td>
       <td>Slow</td>
       <td>Full videos</td>
     </tr>
@@ -2489,7 +2525,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>Frame Interp</strong></td>
       <td>Image sequence</td>
       <td>Smooth video</td>
-      <td>Good ✓✓</td>
+      <td>Good</td>
       <td>Fast</td>
       <td>Enhancing output</td>
     </tr>
@@ -2724,28 +2760,28 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td><strong>Music</strong></td>
       <td>Stable Audio</td>
-      <td>Studio ✓✓✓✓</td>
+      <td>Studio</td>
       <td>Fast</td>
       <td>Background tracks</td>
     </tr>
     <tr>
       <td><strong>Sound Effects</strong></td>
       <td>AudioLDM 2</td>
-      <td>Pro ✓✓✓</td>
+      <td>Pro</td>
       <td>Fast</td>
       <td>Game/video SFX</td>
     </tr>
     <tr>
       <td><strong>Voice/Speech</strong></td>
       <td>Bark</td>
-      <td>Natural ✓✓✓</td>
+      <td>Natural</td>
       <td>Medium</td>
       <td>Narration</td>
     </tr>
     <tr>
       <td><strong>Custom Music</strong></td>
       <td>MusicGen</td>
-      <td>Good ✓✓✓</td>
+      <td>Good</td>
       <td>Fast</td>
       <td>With melody input</td>
     </tr>
@@ -2907,25 +2943,25 @@ AudioLDM  Denoise   Metadata
   <tbody>
     <tr>
       <td><strong>FLUX</strong></td>
-      <td>Perfect ✓✓✓✓</td>
+      <td>Perfect</td>
       <td>Logos, signs, any text</td>
       <td>Just write naturally</td>
     </tr>
     <tr>
       <td><strong>SD3</strong></td>
-      <td>Excellent ✓✓✓</td>
+      <td>Excellent</td>
       <td>Book covers, posters</td>
       <td>Use quotes around text</td>
     </tr>
     <tr>
       <td><strong>SDXL</strong></td>
-      <td>Good with LoRA ✓✓</td>
+      <td>Good with LoRA</td>
       <td>Simple text</td>
       <td>Use text LoRAs</td>
     </tr>
     <tr>
       <td><strong>SD 1.5</strong></td>
-      <td>Poor ✗</td>
+      <td>Poor</td>
       <td>Avoid text</td>
       <td>Use ControlNet instead</td>
     </tr>
@@ -3172,29 +3208,29 @@ white background, professional
   <tbody>
     <tr>
       <td><strong>TripoSR</strong></td>
-      <td>&lt;1 second ⚡</td>
-      <td>Good ✓✓</td>
+      <td>&lt;1 second</td>
+      <td>Good</td>
       <td>Quick prototypes</td>
-      <td>✓ Yes</td>
+      <td>Yes</td>
     </tr>
     <tr>
       <td><strong>DreamGaussian</strong></td>
       <td>1-2 min</td>
-      <td>Great ✓✓✓</td>
+      <td>Great</td>
       <td>Real-time viewing</td>
       <td>For quality</td>
     </tr>
     <tr>
       <td><strong>One-2-3-45</strong></td>
       <td>45 seconds</td>
-      <td>Great ✓✓✓</td>
+      <td>Great</td>
       <td>Textured models</td>
       <td>For games</td>
     </tr>
     <tr>
       <td><strong>NeRF</strong></td>
       <td>30+ min</td>
-      <td>Best ✓✓✓✓</td>
+      <td>Best</td>
       <td>Film quality</td>
       <td>For pros</td>
     </tr>
@@ -3813,7 +3849,7 @@ white background, professional
   <tbody>
     <tr>
       <td><strong>AVIF</strong></td>
-      <td>Ready Now ✓</td>
+      <td>Ready Now</td>
       <td>Today</td>
       <td>50% smaller, HDR support</td>
     </tr>
@@ -4036,18 +4072,19 @@ white background, professional
 
 <hr />
 
-<h2 id="see-also">See Also</h2>
-<ul>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core concepts explained</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Visual workflow creation</li>
-  <li><a href="model-types.html">Model Types</a> - Understanding LoRAs, VAEs, embeddings</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD 1.5, SDXL, FLUX compared</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
-  <li><a href="controlnet.html">ControlNet</a> - Precise control over generation</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Train custom models</li>
-  <li><a href="../technology/ai.html">AI Fundamentals</a> - Core AI/ML concepts</li>
-  <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
-</ul>
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <ul>
+    <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - The denoising principle shared by every modality</li>
+    <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Visual workflow creation</li>
+    <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
+    <li><a href="model-types.html">Model Types</a> - Understanding LoRAs, VAEs, embeddings</li>
+    <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD 1.5, SDXL, FLUX compared</li>
+    <li><a href="controlnet.html">ControlNet</a> - Precise control over generation</li>
+    <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+  </ul>
+</div>
 
       </section>
     </div>

@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Performance Optimization</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master profiling-driven development, eliminate bottlenecks, and build responsive applications that scale</p>

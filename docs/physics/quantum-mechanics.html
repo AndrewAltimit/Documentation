@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Mechanics</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
@@ -3460,36 +3494,36 @@ But: $(\Delta x) &lt; \sqrt{\hbar/2m\omega}$ or $(\Delta p) &lt; \sqrt{m\omega\h
 <ol>
   <li><strong>Confusing Uncertainty with Ignorance</strong>
     <ul>
-      <li>❌ Wrong: “We just don’t know both position and momentum”</li>
-      <li>✅ Right: “Position and momentum don’t have simultaneous definite values”</li>
+      <li>Wrong: “We just don’t know both position and momentum”</li>
+      <li>Right: “Position and momentum don’t have simultaneous definite values”</li>
       <li>Key insight: Quantum properties are fundamentally indefinite, not just unknown</li>
     </ul>
   </li>
   <li><strong>Misunderstanding Wave Function Collapse</strong>
     <ul>
-      <li>❌ Wrong: “Consciousness causes collapse”</li>
-      <li>✅ Right: “Any interaction that distinguishes quantum states causes apparent collapse”</li>
+      <li>Wrong: “Consciousness causes collapse”</li>
+      <li>Right: “Any interaction that distinguishes quantum states causes apparent collapse”</li>
       <li>Remember: Decoherence explains why we see definite outcomes</li>
     </ul>
   </li>
   <li><strong>Treating Quantum Systems Classically</strong>
     <ul>
-      <li>❌ Wrong: “The electron orbits the nucleus”</li>
-      <li>✅ Right: “The electron exists in orbital probability distributions”</li>
+      <li>Wrong: “The electron orbits the nucleus”</li>
+      <li>Right: “The electron exists in orbital probability distributions”</li>
       <li>Visualization tip: Think clouds, not trajectories</li>
     </ul>
   </li>
   <li><strong>Misinterpreting Entanglement</strong>
     <ul>
-      <li>❌ Wrong: “Information travels faster than light”</li>
-      <li>✅ Right: “Correlations exist, but no usable information transfers”</li>
+      <li>Wrong: “Information travels faster than light”</li>
+      <li>Right: “Correlations exist, but no usable information transfers”</li>
       <li>No-communication theorem prevents FTL signaling</li>
     </ul>
   </li>
   <li><strong>Confusing Virtual Particles with Real Ones</strong>
     <ul>
-      <li>❌ Wrong: “Virtual particles pop in and out of existence”</li>
-      <li>✅ Right: “Virtual particles are calculation tools in perturbation theory”</li>
+      <li>Wrong: “Virtual particles pop in and out of existence”</li>
+      <li>Right: “Virtual particles are calculation tools in perturbation theory”</li>
       <li>They’re mathematical, not physical</li>
     </ul>
   </li>
@@ -3823,14 +3857,18 @@ Build a 3-qubit Grover’s algorithm circuit. Verify it finds marked item with h
 </div>
 
 <h2 id="see-also">See Also</h2>
-<ul>
-  <li><a href="classical-mechanics.html">Classical Mechanics</a> - The classical limit of quantum mechanics</li>
-  <li><a href="statistical-mechanics.html">Statistical Mechanics</a> - Quantum statistics and many-body systems</li>
-  <li><a href="condensed-matter.html">Condensed Matter Physics</a> - Applications to solid state physics</li>
-  <li><a href="quantum-field-theory.html">Quantum Field Theory</a> - Relativistic quantum mechanics</li>
-  <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> - Technological applications</li>
-  <li><a href="computational-physics.html">Computational Physics</a> - Numerical methods for quantum systems</li>
-</ul>
+
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — the classical limit recovered as $\hbar \to 0$.</li>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — quantum mechanics made relativistic, with particles as field excitations.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — quantum statistics (Bose–Einstein, Fermi–Dirac) and many-body systems.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — quantum mechanics applied to solids and emergent phases.</li>
+    <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> — superposition and entanglement as a computational resource.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>
 
       </section>
     </div>

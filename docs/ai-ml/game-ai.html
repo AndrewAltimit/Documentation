@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,13 +1800,101 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Game AI Systems</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Techniques and systems for creating intelligent, responsive NPCs and game behaviors that prioritize engaging gameplay over optimal decision-making.</p>
 </div>
 
-<p>Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike traditional AI research focused on optimal decision-making, game AI prioritizes creating engaging, entertaining, and appropriately challenging experiences while maintaining performance constraints of real-time applications.</p>
+<div class="code-example">
+  <p>How games make characters feel alive: pathfinding, decision-making, steering, and the performance tricks that keep hundreds of agents thinking inside a single frame.</p>
+</div>
+
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
+
+<ol id="markdown-toc">
+  <li><a href="#foundations-of-game-ai" id="markdown-toc-foundations-of-game-ai">Foundations of Game AI</a>    <ol>
+      <li><a href="#goals-of-game-ai" id="markdown-toc-goals-of-game-ai">Goals of Game AI</a></li>
+      <li><a href="#ai-architecture-overview" id="markdown-toc-ai-architecture-overview">AI Architecture Overview</a></li>
+    </ol>
+  </li>
+  <li><a href="#pathfinding" id="markdown-toc-pathfinding">Pathfinding</a>    <ol>
+      <li><a href="#navigation-meshes-navmesh" id="markdown-toc-navigation-meshes-navmesh">Navigation Meshes (NavMesh)</a></li>
+      <li><a href="#a-algorithm" id="markdown-toc-a-algorithm">A* Algorithm</a></li>
+      <li><a href="#hierarchical-pathfinding" id="markdown-toc-hierarchical-pathfinding">Hierarchical Pathfinding</a></li>
+      <li><a href="#path-smoothing" id="markdown-toc-path-smoothing">Path Smoothing</a></li>
+    </ol>
+  </li>
+  <li><a href="#steering-behaviors" id="markdown-toc-steering-behaviors">Steering Behaviors</a>    <ol>
+      <li><a href="#reynolds-steering-behaviors" id="markdown-toc-reynolds-steering-behaviors">Reynolds’ Steering Behaviors</a></li>
+      <li><a href="#obstacle-avoidance" id="markdown-toc-obstacle-avoidance">Obstacle Avoidance</a></li>
+      <li><a href="#local-avoidance" id="markdown-toc-local-avoidance">Local Avoidance</a></li>
+    </ol>
+  </li>
+  <li><a href="#decision-making" id="markdown-toc-decision-making">Decision Making</a>    <ol>
+      <li><a href="#finite-state-machines-fsm" id="markdown-toc-finite-state-machines-fsm">Finite State Machines (FSM)</a></li>
+      <li><a href="#hierarchical-fsms-hfsm" id="markdown-toc-hierarchical-fsms-hfsm">Hierarchical FSMs (HFSM)</a></li>
+      <li><a href="#behavior-trees" id="markdown-toc-behavior-trees">Behavior Trees</a></li>
+      <li><a href="#utility-ai" id="markdown-toc-utility-ai">Utility AI</a></li>
+      <li><a href="#goal-oriented-action-planning-goap" id="markdown-toc-goal-oriented-action-planning-goap">Goal-Oriented Action Planning (GOAP)</a></li>
+    </ol>
+  </li>
+  <li><a href="#tactical-and-strategic-ai" id="markdown-toc-tactical-and-strategic-ai">Tactical and Strategic AI</a>    <ol>
+      <li><a href="#influence-maps" id="markdown-toc-influence-maps">Influence Maps</a></li>
+      <li><a href="#cover-system" id="markdown-toc-cover-system">Cover System</a></li>
+      <li><a href="#squad-tactics" id="markdown-toc-squad-tactics">Squad Tactics</a></li>
+    </ol>
+  </li>
+  <li><a href="#machine-learning-in-games" id="markdown-toc-machine-learning-in-games">Machine Learning in Games</a>    <ol>
+      <li><a href="#reinforcement-learning" id="markdown-toc-reinforcement-learning">Reinforcement Learning</a></li>
+      <li><a href="#imitation-learning" id="markdown-toc-imitation-learning">Imitation Learning</a></li>
+      <li><a href="#neural-network-npcs" id="markdown-toc-neural-network-npcs">Neural Network NPCs</a></li>
+    </ol>
+  </li>
+  <li><a href="#perception-systems" id="markdown-toc-perception-systems">Perception Systems</a>    <ol>
+      <li><a href="#sensory-simulation" id="markdown-toc-sensory-simulation">Sensory Simulation</a></li>
+      <li><a href="#awareness-system" id="markdown-toc-awareness-system">Awareness System</a></li>
+    </ol>
+  </li>
+  <li><a href="#performance-optimization" id="markdown-toc-performance-optimization">Performance Optimization</a>    <ol>
+      <li><a href="#lod-for-ai" id="markdown-toc-lod-for-ai">LOD for AI</a></li>
+      <li><a href="#time-slicing" id="markdown-toc-time-slicing">Time Slicing</a></li>
+      <li><a href="#spatial-partitioning" id="markdown-toc-spatial-partitioning">Spatial Partitioning</a></li>
+    </ol>
+  </li>
+  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a>    <ol>
+      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+    </ol>
+  </li>
+</ol>
+
+<hr />
+
+<div class="intro-card">
+  <p class="lead-text">Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-route"></i>
+    <h4>Pathfinding</h4>
+    <p>NavMeshes and A* find routes through the world; hierarchical search and smoothing keep it fast and natural.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sitemap"></i>
+    <h4>Decision Making</h4>
+    <p>FSMs, behavior trees, utility AI, and GOAP decide what an agent should do next.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-tachometer-alt"></i>
+    <h4>Performance</h4>
+    <p>LOD for AI, time-slicing, and spatial partitioning keep many agents within frame budget.</p>
+  </div>
+</div>
+
+<blockquote>
+  <p><strong>Read this as a layered stack.</strong> Decision (<em>what to do</em>) feeds steering (<em>how to move</em>) feeds animation (<em>how to look</em>). Each section below maps to one of these layers, progressing from movement up to learned behavior.</p>
+</blockquote>
 
 <h2 id="foundations-of-game-ai">Foundations of Game AI</h2>
 
@@ -2399,28 +2521,19 @@ Uses:
   </ul>
 </div>
 
-<h2 id="related-documentation">Related Documentation</h2>
-
-<ul>
-  <li><a href="../gamedev/">Game Development</a> - Game development fundamentals</li>
-  <li><a href="../technology/ai.html">AI Fundamentals</a> - Machine learning foundations</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 AI systems</li>
-  <li><a href="../optimization/">Performance Optimization</a> - Optimization techniques</li>
-</ul>
-
 <hr />
 
-<h2 id="see-also">See Also</h2>
-<ul>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core concepts explained</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Visual workflow creation</li>
-  <li><a href="model-types.html">Model Types</a> - Understanding LoRAs, VAEs, embeddings</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD 1.5, SDXL, FLUX compared</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
-  <li><a href="../gamedev/">Game Development</a> - Game development fundamentals</li>
-  <li><a href="../technology/ai.html">AI Fundamentals</a> - Core AI/ML concepts</li>
-  <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
-</ul>
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <ul>
+    <li><a href="../gamedev/">Game Development</a> - Game development fundamentals</li>
+    <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 AI systems and behavior frameworks</li>
+    <li><a href="../optimization/">Performance Optimization</a> - Optimization techniques for real-time systems</li>
+    <li><a href="../technology/ai.html">AI Fundamentals</a> - Machine learning foundations behind ML-driven NPCs</li>
+    <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+  </ul>
+</div>
 
       </section>
     </div>

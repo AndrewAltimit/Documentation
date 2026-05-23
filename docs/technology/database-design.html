@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1671,7 +1705,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Database Design</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Relational modeling, indexing, and distributed database architecture</p>
@@ -1679,7 +1713,32 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<p>Every application needs to store data. Whether you’re building a social network, e-commerce platform, or analytics system, you’ll face fundamental questions: How should data be organized? How can multiple users access it simultaneously? What happens if the system crashes? Database design provides systematic answers to these challenges.</p>
+<div class="intro-card">
+  <p class="lead-text">Every application needs to store data. Whether you're building a social network, an e-commerce platform, or an analytics system, you'll face the same fundamental questions: how should data be organized, how can many users access it at once, and what happens when the system crashes? This is the <strong>deep-dive companion</strong> — it works through relational modeling, normalization, indexing internals, query execution, transactions, and distributed/NoSQL architecture.</p>
+</div>
+
+<div class="tip-card">
+  <h4>New to databases? Start with the crash course</h4>
+  <p>If you just need tables, SQL basics, and enough to be productive, read the <a href="database-crash-course.html">Database Crash Course</a> first, then come back here for the theory and scaling concerns.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-table"></i>
+    <h4>Modeling</h4>
+    <p>Schemas, relationships, and normalization that keep data consistent</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-bolt"></i>
+    <h4>Performance</h4>
+    <p>Indexes, query planning, and execution that make reads fast</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-network-wired"></i>
+    <h4>Scale</h4>
+    <p>Replication, sharding, transactions, and the NoSQL trade-offs</p>
+  </div>
+</div>
 
 <h2 id="quick-start-database-design-in-5-minutes">Quick Start: Database Design in 5 Minutes</h2>
 
@@ -4307,21 +4366,21 @@ Special Cases:
 
 <p>Each project builds on the last, gradually introducing complexity!</p>
 
-<h2 id="see-also">See Also</h2>
-<ul>
-  <li>
-<a href="aws/">AWS</a> - Cloud database services and DynamoDB internals</li>
-  <li>
-<a href="docker/">Docker</a> - Containerizing databases</li>
-  <li>
-<a href="cybersecurity.html">Cybersecurity</a> - Database security and encryption</li>
-  <li>
-<a href="ai.html">AI</a> - Machine learning with databases and learned indexes</li>
-  <li>
-<a href="networking.html">Networking</a> - Distributed database protocols</li>
-  <li>
-<a href="quantumcomputing.html">Quantum Computing</a> - Future of quantum database algorithms</li>
-</ul>
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li>
+<a href="database-crash-course.html">Database Crash Course</a> — the fast on-ramp to tables and SQL</li>
+    <li>
+<a href="aws/">AWS</a> — managed database services and DynamoDB internals</li>
+    <li>
+<a href="docker/">Docker</a> — containerizing databases for local development</li>
+    <li>
+<a href="cybersecurity.html">Cybersecurity</a> — database security and encryption</li>
+    <li>
+<a href="networking.html">Networking</a> — protocols behind distributed databases</li>
+  </ul>
+</div>
 
 <h2 id="summary">Summary</h2>
 

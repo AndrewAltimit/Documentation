@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Getting Started</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">How this notebook is organized and the fastest way to find what you need.</p>
@@ -1778,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The documentation is organized into several main sections, each serving different purposes:</p>
 
-<h3 id="-technology-documentation">💻 <a href="docs/index.html#technology">Technology Documentation</a></h3>
+<h3 id="technology-documentation"><a href="docs/index.html#technology">Technology Documentation</a></h3>
 <p>Comprehensive guides for modern software development:</p>
 <ul>
   <li><strong>Infrastructure &amp; DevOps</strong>: <a href="docs/technology/terraform/">Terraform</a>, <a href="docs/technology/docker/">Docker</a>, <a href="docs/technology/kubernetes/">Kubernetes</a>, <a href="docs/technology/aws/">AWS</a>, <a href="docs/technology/ci-cd.html">CI/CD pipelines</a></li>
@@ -1787,7 +1821,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Advanced Topics</strong>: <a href="docs/technology/quantumcomputing.html">Quantum computing</a>, <a href="docs/technology/ai.html">AI/ML</a>, <a href="docs/distributed-systems/index.html">distributed systems</a></li>
 </ul>
 
-<h3 id="-physics-documentation">🔬 <a href="docs/index.html#physics">Physics Documentation</a></h3>
+<h3 id="physics-documentation"><a href="docs/index.html#physics">Physics Documentation</a></h3>
 <p>From fundamentals to cutting-edge research:</p>
 <ul>
   <li><strong>Classical Physics</strong>: <a href="docs/physics/classical-mechanics.html">Mechanics</a>, <a href="docs/physics/thermodynamics.html">thermodynamics</a>, <a href="docs/physics/statistical-mechanics.html">statistical mechanics</a></li>
@@ -1796,7 +1830,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Computational Physics</strong>: Numerical methods and simulations</li>
 </ul>
 
-<h3 id="-aiml-documentation-hub">🤖 <a href="docs/ai-ml/index.html">AI/ML Documentation Hub</a></h3>
+<h3 id="aiml-documentation-hub"><a href="docs/ai-ml/index.html">AI/ML Documentation Hub</a></h3>
 <p>Specialized content for artificial intelligence:</p>
 <ul>
   <li><strong>Generative AI</strong>: <a href="docs/ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion</a>, <a href="docs/ai-ml/base-models-comparison.html#flux">FLUX</a>, <a href="docs/ai-ml/comfyui-guide.html">ComfyUI workflows</a></li>
@@ -1805,7 +1839,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Theory</strong>: <a href="docs/advanced/ai-mathematics/">Mathematical foundations</a> and research papers</li>
 </ul>
 
-<h3 id="-reference-materials">📚 <a href="docs/reference/index.html">Reference Materials</a></h3>
+<h3 id="reference-materials"><a href="docs/reference/index.html">Reference Materials</a></h3>
 <p>Quick-access resources:</p>
 <ul>
   <li><strong>Command References</strong>: <a href="docs/technology/git-reference.html">Git</a>, <a href="docs/technology/docker-essentials.html">Docker</a>, Kubernetes, AWS CLI</li>
@@ -1829,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Depth Levels</strong>: Content ranges from beginner-friendly to research-level</li>
   <li><strong>Cross-References</strong>: Related topics are linked throughout for easy navigation</li>
   <li><strong>Code Examples</strong>: Practical implementations with copy-paste-ready snippets (hover any code block for a Copy button)</li>
-  <li><strong>Cross-References</strong>: Each page ends with a “See Also” block linking related topics</li>
+  <li><strong>See Also Blocks</strong>: Each substantial page ends with a “See Also” block linking related topics</li>
 </ul>
 
 <h3 id="learning-paths">Learning Paths</h3>
@@ -1888,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="tips-for-maximum-value">Tips for Maximum Value</h2>
 
-<h3 id="-effective-learning">📖 Effective Learning</h3>
+<h3 id="effective-learning">Effective Learning</h3>
 <ol>
   <li><strong>Start with Overview Pages</strong>: Each section has an index that provides context</li>
   <li><strong>Follow Prerequisites</strong>: Advanced topics clearly state required knowledge</li>
@@ -1896,7 +1930,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Use Multiple Resources</strong>: Cross-reference between topics for deeper understanding</li>
 </ol>
 
-<h3 id="-practical-application">🔧 Practical Application</h3>
+<h3 id="practical-application">Practical Application</h3>
 <ol>
   <li><strong>Copy Code Snippets</strong>: All code examples are tested and production-ready</li>
   <li><strong>Check Compatibility</strong>: Version numbers and requirements are clearly marked</li>
@@ -1904,7 +1938,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Troubleshooting Sections</strong>: Common issues are addressed proactively</li>
 </ol>
 
-<h3 id="-staying-updated">📚 Staying Updated</h3>
+<h3 id="staying-updated">Staying Updated</h3>
 <ul>
   <li><strong>Recent Updates</strong>: Check <a href="index.html">homepage</a> for latest additions</li>
   <li><strong>Version Tags</strong>: Look for “Updated 2025” markers</li>

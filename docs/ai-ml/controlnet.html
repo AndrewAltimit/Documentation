@@ -131,6 +131,31 @@ mjx-container:not([display="true"]) {
     z-index: 100;
   }
   
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
   /* Sidebar navigation styling */
   .nav__list {
     margin: 0;
@@ -474,51 +499,54 @@ mjx-container:not([display="true"]) {
 <!-- Mobile navigation toggle script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Mobile menu functionality
-  if (window.innerWidth <= 1023) {
-    if (!document.querySelector('.nav-toggle')) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'nav-toggle';
-      toggleBtn.innerHTML = '☰ Menu';
-      toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
-      document.body.appendChild(toggleBtn);
-      
-      const overlay = document.createElement('div');
-      overlay.className = 'sidebar-overlay';
-      document.body.appendChild(overlay);
-      
-      toggleBtn.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
-      });
-      
-      overlay.addEventListener('click', function() {
-        const sidebar = document.querySelector('.sidebar.sticky');
-        sidebar.classList.remove('active');
-        overlay.classList.remove('active');
-      });
-    }
-  }
-  
-  // Handle window resize
-  let resizeTimer;
-  window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-      const sidebar = document.querySelector('.sidebar.sticky');
-      const overlay = document.querySelector('.sidebar-overlay');
-      const toggle = document.querySelector('.nav-toggle');
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
 
-      if (window.innerWidth > 1023) {
-        if (sidebar) sidebar.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        if (toggle) toggle.style.display = 'none';
-      } else {
-        if (toggle) toggle.style.display = 'block';
-      }
-    }, 250);
-  });
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
 });
 </script>
 
@@ -804,9 +832,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 </head>
 <body>
-  <div id="main" role="main">
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
   <aside class="sidebar sticky">
-    <nav class="nav__list">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
       
         
           <h3 class="nav__title">Start Here</h3>
@@ -1766,10 +1800,168 @@ document.addEventListener('DOMContentLoaded', function () {
         
       </header>
 
-      <section class="page__content">
+      <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">ControlNet Guide</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
+</div>
+
+<div class="code-example">
+  <p>Stop fighting the prompt for composition. ControlNet lets you <em>show</em> the model the pose, edges, or depth you want and have it follow that structure exactly while the prompt handles content and style.</p>
+</div>
+
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
+
+<ol id="markdown-toc">
+  <li><a href="#why-use-controlnet" id="markdown-toc-why-use-controlnet">Why Use ControlNet?</a></li>
+  <li><a href="#what-is-controlnet" id="markdown-toc-what-is-controlnet">What is ControlNet?</a>    <ol>
+      <li><a href="#how-controlnet-works" id="markdown-toc-how-controlnet-works">How ControlNet Works</a></li>
+    </ol>
+  </li>
+  <li><a href="#controlnet-types" id="markdown-toc-controlnet-types">ControlNet Types</a>    <ol>
+      <li><a href="#pose-control" id="markdown-toc-pose-control">Pose Control</a>        <ol>
+          <li><a href="#openpose" id="markdown-toc-openpose">OpenPose</a></li>
+          <li><a href="#dwpose" id="markdown-toc-dwpose">DWPose</a></li>
+          <li><a href="#rtmpose" id="markdown-toc-rtmpose">RTMPose</a></li>
+        </ol>
+      </li>
+      <li><a href="#edge-detection" id="markdown-toc-edge-detection">Edge Detection</a>        <ol>
+          <li><a href="#canny-edge" id="markdown-toc-canny-edge">Canny Edge</a></li>
+          <li><a href="#mlsd-m-lsd" id="markdown-toc-mlsd-m-lsd">MLSD (M-LSD)</a></li>
+          <li><a href="#softedge-hedpidi" id="markdown-toc-softedge-hedpidi">SoftEdge (HED/PIDI)</a></li>
+        </ol>
+      </li>
+      <li><a href="#depth-control" id="markdown-toc-depth-control">Depth Control</a>        <ol>
+          <li><a href="#midas" id="markdown-toc-midas">MiDaS</a></li>
+          <li><a href="#zoe-depth" id="markdown-toc-zoe-depth">Zoe Depth</a></li>
+          <li><a href="#leres" id="markdown-toc-leres">LeReS</a></li>
+        </ol>
+      </li>
+      <li><a href="#semantic-control" id="markdown-toc-semantic-control">Semantic Control</a>        <ol>
+          <li><a href="#segmentation" id="markdown-toc-segmentation">Segmentation</a></li>
+          <li><a href="#normal-maps" id="markdown-toc-normal-maps">Normal Maps</a></li>
+        </ol>
+      </li>
+      <li><a href="#line-art-control" id="markdown-toc-line-art-control">Line Art Control</a>        <ol>
+          <li><a href="#anime-line-art" id="markdown-toc-anime-line-art">Anime Line Art</a></li>
+          <li><a href="#scribble" id="markdown-toc-scribble">Scribble</a></li>
+        </ol>
+      </li>
+      <li><a href="#special-controls" id="markdown-toc-special-controls">Special Controls</a>        <ol>
+          <li><a href="#shuffle" id="markdown-toc-shuffle">Shuffle</a></li>
+          <li><a href="#tile" id="markdown-toc-tile">Tile</a></li>
+          <li><a href="#inpaint" id="markdown-toc-inpaint">Inpaint</a></li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+  <li><a href="#installation-and-setup" id="markdown-toc-installation-and-setup">Installation and Setup</a>    <ol>
+      <li><a href="#comfyui-installation" id="markdown-toc-comfyui-installation">ComfyUI Installation</a></li>
+      <li><a href="#required-components" id="markdown-toc-required-components">Required Components</a></li>
+    </ol>
+  </li>
+  <li><a href="#basic-workflows" id="markdown-toc-basic-workflows">Basic Workflows</a>    <ol>
+      <li><a href="#simple-controlnet-workflow" id="markdown-toc-simple-controlnet-workflow">Simple ControlNet Workflow</a></li>
+      <li><a href="#multi-controlnet-setup" id="markdown-toc-multi-controlnet-setup">Multi-ControlNet Setup</a></li>
+      <li><a href="#controlnet-parameters" id="markdown-toc-controlnet-parameters">ControlNet Parameters</a></li>
+    </ol>
+  </li>
+  <li><a href="#advanced-techniques" id="markdown-toc-advanced-techniques">Advanced Techniques</a>    <ol>
+      <li><a href="#strength-scheduling" id="markdown-toc-strength-scheduling">Strength Scheduling</a></li>
+      <li><a href="#multiple-control-combinations" id="markdown-toc-multiple-control-combinations">Multiple Control Combinations</a>        <ol>
+          <li><a href="#pose--depth" id="markdown-toc-pose--depth">Pose + Depth</a></li>
+          <li><a href="#edge--segmentation" id="markdown-toc-edge--segmentation">Edge + Segmentation</a></li>
+        </ol>
+      </li>
+      <li><a href="#control-mode-selection" id="markdown-toc-control-mode-selection">Control Mode Selection</a></li>
+      <li><a href="#resolution-considerations" id="markdown-toc-resolution-considerations">Resolution Considerations</a></li>
+    </ol>
+  </li>
+  <li><a href="#preprocessing-best-practices" id="markdown-toc-preprocessing-best-practices">Preprocessing Best Practices</a>    <ol>
+      <li><a href="#image-preparation" id="markdown-toc-image-preparation">Image Preparation</a></li>
+      <li><a href="#preprocessor-selection" id="markdown-toc-preprocessor-selection">Preprocessor Selection</a></li>
+      <li><a href="#custom-preprocessing" id="markdown-toc-custom-preprocessing">Custom Preprocessing</a></li>
+    </ol>
+  </li>
+  <li><a href="#model-compatibility" id="markdown-toc-model-compatibility">Model Compatibility</a>    <ol>
+      <li><a href="#recent-developments" id="markdown-toc-recent-developments">Recent Developments</a>        <ol>
+          <li><a href="#new-control-types" id="markdown-toc-new-control-types">New Control Types</a></li>
+          <li><a href="#model-support" id="markdown-toc-model-support">Model Support</a></li>
+        </ol>
+      </li>
+      <li><a href="#controlnet-versions" id="markdown-toc-controlnet-versions">ControlNet Versions</a></li>
+      <li><a href="#t2i-adapter" id="markdown-toc-t2i-adapter">T2I-Adapter</a></li>
+      <li><a href="#ip-adapter-integration" id="markdown-toc-ip-adapter-integration">IP-Adapter Integration</a></li>
+    </ol>
+  </li>
+  <li><a href="#common-workflows" id="markdown-toc-common-workflows">Common Workflows</a>    <ol>
+      <li><a href="#character-consistency" id="markdown-toc-character-consistency">Character Consistency</a></li>
+      <li><a href="#architecture-visualization" id="markdown-toc-architecture-visualization">Architecture Visualization</a></li>
+      <li><a href="#style-transfer-with-structure" id="markdown-toc-style-transfer-with-structure">Style Transfer with Structure</a></li>
+    </ol>
+  </li>
+  <li><a href="#troubleshooting" id="markdown-toc-troubleshooting">Troubleshooting</a>    <ol>
+      <li><a href="#common-issues" id="markdown-toc-common-issues">Common Issues</a>        <ol>
+          <li><a href="#preprocessor-not-detecting-features" id="markdown-toc-preprocessor-not-detecting-features">Preprocessor Not Detecting Features</a></li>
+          <li><a href="#over-controlling-generation" id="markdown-toc-over-controlling-generation">Over-controlling Generation</a></li>
+          <li><a href="#artifacts-at-edges" id="markdown-toc-artifacts-at-edges">Artifacts at Edges</a></li>
+        </ol>
+      </li>
+      <li><a href="#performance-optimization" id="markdown-toc-performance-optimization">Performance Optimization</a></li>
+    </ol>
+  </li>
+  <li><a href="#creative-applications" id="markdown-toc-creative-applications">Creative Applications</a>    <ol>
+      <li><a href="#hybrid-controls" id="markdown-toc-hybrid-controls">Hybrid Controls</a></li>
+      <li><a href="#temporal-consistency" id="markdown-toc-temporal-consistency">Temporal Consistency</a></li>
+      <li><a href="#interactive-control" id="markdown-toc-interactive-control">Interactive Control</a></li>
+    </ol>
+  </li>
+  <li><a href="#best-practices" id="markdown-toc-best-practices">Best Practices</a>    <ol>
+      <li><a href="#do" id="markdown-toc-do">Do</a></li>
+      <li><a href="#avoid" id="markdown-toc-avoid">Avoid</a></li>
+    </ol>
+  </li>
+  <li><a href="#future-developments" id="markdown-toc-future-developments">Future Developments</a>    <ol>
+      <li><a href="#emerging-controlnet-technologies" id="markdown-toc-emerging-controlnet-technologies">Emerging ControlNet Technologies</a></li>
+      <li><a href="#integration-trends" id="markdown-toc-integration-trends">Integration Trends</a></li>
+    </ol>
+  </li>
+  <li><a href="#conclusion" id="markdown-toc-conclusion">Conclusion</a></li>
+  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a>    <ol>
+      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+    </ol>
+  </li>
+</ol>
+
+<hr />
+
+<h2 id="why-use-controlnet">Why Use ControlNet?</h2>
+
+<p>Prompts are great at describing <em>what</em> to generate but poor at controlling <em>where</em> things go. ControlNet closes that gap by conditioning generation on a structural reference. Understanding it unlocks several practical wins:</p>
+
+<ul>
+  <li><strong>Reliable composition</strong> - Reproduce a specific pose, layout, or perspective instead of rerolling seeds</li>
+  <li><strong>Sketch-to-image</strong> - Turn rough drawings or line art into finished renders</li>
+  <li><strong>Consistency</strong> - Hold a character’s pose or a scene’s geometry steady across many generations</li>
+  <li><strong>Style-preserving structure</strong> - Restyle a photo while keeping its shapes and depth intact</li>
+</ul>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-vector-square"></i>
+    <h4>Control Maps</h4>
+    <p>A preprocessor turns your reference into a pose skeleton, edge map, or depth gradient that steers every denoising step.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sliders-h"></i>
+    <h4>Strength Is a Dial</h4>
+    <p>Tune control influence (and when it applies) so structure guides the result without overriding the prompt.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-layer-group"></i>
+    <h4>Composable</h4>
+    <p>Combine with IP-Adapter for style and LoRAs for subjects — but stacking many ControlNets rarely helps.</p>
+  </div>
 </div>
 
 <h2 id="what-is-controlnet">What is ControlNet?</h2>
@@ -2387,19 +2579,25 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <h2 id="best-practices">Best Practices</h2>
 
-<h3 id="dos">Do’s</h3>
-<p>✓ Match control resolution to model resolution<br />
-✓ Use appropriate preprocessor for input type<br />
-✓ Experiment with strength values<br />
-✓ Combine multiple controls thoughtfully<br />
-✓ Save successful control maps for reuse</p>
+<h3 id="do">Do</h3>
 
-<h3 id="donts">Don’ts</h3>
-<p>✗ Don’t use 100% control strength always<br />
-✗ Don’t ignore prompt importance<br />
-✗ Don’t use incompatible model versions<br />
-✗ Don’t expect perfect results immediately<br />
-✗ Don’t overstack controls (3+ rarely helpful)</p>
+<ul>
+  <li>Match control resolution to model resolution</li>
+  <li>Use the appropriate preprocessor for the input type</li>
+  <li>Experiment with strength values</li>
+  <li>Combine multiple controls thoughtfully</li>
+  <li>Save successful control maps for reuse</li>
+</ul>
+
+<h3 id="avoid">Avoid</h3>
+
+<ul>
+  <li>Using 100% control strength by default</li>
+  <li>Ignoring prompt importance</li>
+  <li>Mixing incompatible model versions</li>
+  <li>Expecting perfect results immediately</li>
+  <li>Overstacking controls (3+ is rarely helpful)</li>
+</ul>
 
 <h2 id="future-developments">Future Developments</h2>
 
@@ -2447,17 +2645,19 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <hr />
 
-<h2 id="see-also">See Also</h2>
-<ul>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Understanding the base generation process</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Integrate ControlNet into advanced workflows</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Combine LoRAs with ControlNet for custom styles</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Multi-control and expert patterns</li>
-  <li><a href="model-types.html">Model Types</a> - ControlNet model types and compatibility</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - ControlNet support across models</li>
-  <li><a href="../technology/ai.html">AI Fundamentals</a> - Core neural network concepts</li>
-  <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
-</ul>
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <ul>
+    <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Understanding the base generation process</li>
+    <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Integrate ControlNet into advanced workflows</li>
+    <li><a href="lora-training.html">LoRA Training</a> - Combine LoRAs with ControlNet for custom styles</li>
+    <li><a href="advanced-techniques.html">Advanced Techniques</a> - Multi-control and expert patterns</li>
+    <li><a href="model-types.html">Model Types</a> - ControlNet model types and compatibility</li>
+    <li><a href="base-models-comparison.html">Base Models Comparison</a> - ControlNet support across models</li>
+    <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+  </ul>
+</div>
 
       </section>
     </div>
