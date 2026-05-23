@@ -102,7 +102,14 @@ flowchart LR
       GR["Group theory"] --> QI
       QM["Quantum mechanics"] --> QI
     end
+    subgraph MR["Monorepo Strategies"]
+      BG["Build systems &amp; dependency graphs"] --> SE["Scalable codebase engineering"]
+      CICD["CI/CD pipelines"] --> SE
+      GI["Git internals"] --> SE
+    end
 ```
+
+Of the four, **Monorepo Strategies** is the most applied: it is an engineering deep-dive rather than a proof-oriented research page, and asks for systems background rather than graduate mathematics.
 
 ## How to Navigate These Resources
 

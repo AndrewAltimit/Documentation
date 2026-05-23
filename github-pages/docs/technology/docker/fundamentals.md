@@ -125,8 +125,7 @@ docker run -d -p 5000:5000 my-app</code></pre>
     <div class="example-section">
       <h4>Using Docker Compose</h4>
       <p><strong>When to use:</strong> When your application needs multiple services (web server + database, for example) that work together.</p>
-      <pre><code class="language-yaml"># docker-compose.yml
-version: '3.8'
+      <pre><code class="language-yaml"># compose.yaml
 services:
   web:
     build: .
@@ -137,10 +136,10 @@ services:
   redis:
     image: redis:alpine</code></pre>
       <pre><code class="language-bash"># Start all services with one command
-docker-compose up -d
+docker compose up -d
 
 # Stop everything
-docker-compose down</code></pre>
+docker compose down</code></pre>
       <p class="explanation">Compose automatically creates a network where services can find each other by name. Your web service can connect to <code>redis</code> without knowing its IP address.</p>
     </div>
   </div>

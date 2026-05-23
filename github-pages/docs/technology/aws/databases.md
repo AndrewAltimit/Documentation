@@ -42,6 +42,22 @@ Before diving into specific services, understand the two main categories:
 | Time-series data | Timestream |
 | Graph relationships | Neptune |
 
+The flowchart below captures the same decision as a series of questions, starting from the shape of your data and access pattern:
+
+```mermaid
+flowchart TD
+    Start([What does your data look like?]) --> Q1{Relational with<br/>JOINs and transactions?}
+    Q1 -->|Yes| Q2{Need 3-5x throughput<br/>or auto-scaling storage?}
+    Q2 -->|No| RDS[(RDS<br/>PostgreSQL / MySQL)]
+    Q2 -->|Yes| Aurora[(Aurora)]
+    Q1 -->|No| Q3{Access pattern?}
+    Q3 -->|Key/value at scale| DDB[(DynamoDB)]
+    Q3 -->|Sub-ms cache| EC[(ElastiCache<br/>Redis)]
+    Q3 -->|Document / MongoDB| DocDB[(DocumentDB)]
+    Q3 -->|Graph traversal| Neptune[(Neptune)]
+    Q3 -->|Time-series| TS[(Timestream)]
+```
+
 ---
 
 ## Amazon RDS - Managed Relational Databases
@@ -191,6 +207,17 @@ aws dynamodb query --table-name MyTable \
 - **Web application**: RDS/Aurora for main data + ElastiCache for sessions and hot data
 - **Mobile app**: DynamoDB for user data + S3 for media
 - **Analytics**: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Single-AZ production databases:</strong> A non-Multi-AZ RDS instance has no automatic failover. Enable Multi-AZ for any database you cannot afford to lose during a hardware or AZ failure.</li>
+    <li><strong>Public database access:</strong> Never set <code>PubliclyAccessible=true</code>. Place databases in private subnets and reach them from application servers or via a bastion / Session Manager.</li>
+    <li><strong>DynamoDB hot partitions:</strong> Concentrating traffic on a single partition key (for example a sequential timestamp) throttles throughput. Choose high-cardinality partition keys that spread load evenly.</li>
+    <li><strong>Provisioned capacity for spiky traffic:</strong> Provisioned mode throttles requests beyond the set capacity. Use On-Demand until your traffic pattern is well understood, then optimize.</li>
+    <li><strong>Caching without an eviction policy:</strong> An ElastiCache node with no <code>maxmemory-policy</code> can fill and fail writes. Set <code>allkeys-lru</code> (or similar) for cache workloads.</li>
+  </ul>
+</div>
 
 ## Key Takeaways
 

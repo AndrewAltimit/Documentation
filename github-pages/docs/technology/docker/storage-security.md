@@ -209,8 +209,10 @@ Once Docker is installed, you'll interact with it primarily through the command-
 
 ### Docker Compose
 
-- Start a multi-container application: `docker-compose up -d`
-- Stop a multi-container application: `docker-compose down`
+Compose v2 ships as a `docker` subcommand (note the space), replacing the standalone `docker-compose` v1 binary. It also reads `compose.yaml` by default and no longer needs the legacy top-level `version:` key.
+
+- Start a multi-container application: `docker compose up -d`
+- Stop a multi-container application: `docker compose down`
 
 ## Docker Storage: Volumes, Bind Mounts, and tmpfs
 
@@ -276,7 +278,7 @@ Consider the following scenarios and which storage type fits each:
     <h4>Essential Volume Commands</h4>
     <pre><code class="language-bash"># Create and use a named volume
 docker volume create app-data
-docker run -d -v app-data:/var/lib/postgresql/data postgres:15
+docker run -d -v app-data:/var/lib/postgresql/data postgres:16
 
 # List and clean up volumes
 docker volume ls
@@ -299,7 +301,7 @@ docker run --rm -v app-data:/target -v $(pwd):/backup:ro \
   <div class="bind-mount-examples">
     <h4>Development Workflow</h4>
     <pre><code class="language-bash"># Mount source code for live development
-docker run -d -v $(pwd)/src:/app/src -p 3000:3000 node:18 npm run dev
+docker run -d -v $(pwd)/src:/app/src -p 3000:3000 node:22 npm run dev
 
 # Mount config file read-only (container cannot modify)
 docker run -d -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx</code></pre>

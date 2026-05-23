@@ -103,7 +103,7 @@ Multi-stage builds solve a common problem: build tools make images large. Your G
 
 ```dockerfile
 # Stage 1: Build (large image with all build tools)
-FROM node:18 AS builder
+FROM node:22 AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -198,7 +198,7 @@ Use BuildKit cache mounts to dramatically speed up builds:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM golang:1.20 AS builder
+FROM golang:1.23 AS builder
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -o app .

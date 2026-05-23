@@ -321,6 +321,20 @@ Automate Terraform in CI/CD:
 - Add cost estimation (Infracost) and security scanning (Checkov)
 - Post results as PR comments
 
+```mermaid
+flowchart LR
+    PR[Pull Request] --> Fmt[fmt + validate]
+    Fmt --> Scan[Checkov / tfsec]
+    Scan --> Plan[terraform plan]
+    Plan --> Comment[Post plan + Infracost<br/>as PR comment]
+    Comment --> Review{Human approval}
+    Review -->|approved + merged| Apply[terraform apply]
+    Review -->|changes requested| PR
+    Apply --> State[(Remote state)]
+```
+
+The plan output and cost diff land on the PR before anyone approves, so reviewers see exactly what will change — and what it will cost — without running anything locally.
+
 **3. Policy as Code**
 
 Use tools like OPA (Open Policy Agent) or Sentinel to enforce rules:
@@ -403,6 +417,17 @@ func TestWebServerModule(t *testing.T) {
 - Always validate and run static analysis in CI
 - Run unit tests on every PR
 - Run integration tests nightly or before releases (they are slow and cost money)
+
+<div class="notice--warning">
+  <h4>Common Pitfalls at Scale</h4>
+  <ul>
+    <li><strong>One monolithic state file:</strong> A single state for the whole org makes every plan slow and every apply high-risk. Split by blast-radius boundary (account, environment, service) early.</li>
+    <li><strong>Secrets in state:</strong> Even when sourced from Secrets Manager, the resolved value is written to state in plaintext. Encrypt the state backend, lock down access, and prefer dynamic credentials from Vault where possible.</li>
+    <li><strong>Unpinned module and provider versions:</strong> Floating versions turn an unrelated <code>terraform init</code> into a surprise upgrade. Pin module sources to a tag and constrain providers with <code>~></code>.</li>
+    <li><strong>Overusing <code>-target</code>:</strong> Convenient for debugging, but routine targeted applies drift state from config. Treat it as a break-glass tool, not a workflow.</li>
+    <li><strong>Skipping <code>plan</code> review in CI:</strong> Auto-applying on merge without a reviewed plan removes the last safety gate. Always surface the plan for approval before a production apply.</li>
+  </ul>
+</div>
 
 ## Key Takeaways
 

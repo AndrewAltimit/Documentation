@@ -207,6 +207,15 @@ sudo mount -t efs -o tls fs-12345678:/ /mnt/efs
 
 Use this decision tree to choose the right storage service:
 
+```mermaid
+flowchart TD
+    Start([Where should this data live?]) --> Q1{Mount as a filesystem<br/>on EC2?}
+    Q1 -->|No, HTTP/API is fine| S3[(S3<br/>object storage)]
+    Q1 -->|Yes| Q2{Shared across<br/>multiple instances?}
+    Q2 -->|No, single instance| EBS[(EBS<br/>block storage)]
+    Q2 -->|Yes| EFS[(EFS<br/>shared file system)]
+```
+
 **Question 1: Do you need to mount this as a filesystem on EC2?**
 - No, accessing via API is fine: **Use S3**
 - Yes, I need a mounted drive: Continue to Question 2
@@ -226,6 +235,17 @@ Use this decision tree to choose the right storage service:
 | Backup and disaster recovery | S3 Glacier | Low cost, high durability |
 | Container persistent storage | EFS or EBS (via CSI) | Depends on sharing requirements |
 | Big data processing | S3 (source) + EBS (compute) | S3 for data lake, EBS for processing nodes |
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Accidentally public buckets:</strong> A misconfigured bucket policy or ACL is a leading cause of data leaks. Enable S3 Block Public Access at the account level and only relax it deliberately.</li>
+    <li><strong>Detaching the cost of versioning:</strong> Versioning keeps every overwrite and delete marker, so storage grows silently. Pair it with a lifecycle rule to expire noncurrent versions.</li>
+    <li><strong>One Zone-IA for irreplaceable data:</strong> One Zone-IA stores data in a single AZ. Use it only for data you can regenerate; an AZ loss destroys it.</li>
+    <li><strong>Deleting EBS volumes with the instance:</strong> Root volumes default to <code>DeleteOnTermination=true</code>. Set it to false (or snapshot first) for volumes holding data you need to keep.</li>
+    <li><strong>EFS for low-latency single-instance workloads:</strong> EFS adds network latency versus a local EBS volume. Reach for it only when files genuinely must be shared across instances.</li>
+  </ul>
+</div>
 
 ## Key Takeaways
 
