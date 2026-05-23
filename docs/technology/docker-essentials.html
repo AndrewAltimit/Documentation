@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -1958,6 +1962,57 @@ docker run <span class="nt">--rm</span> &lt;image&gt;
 docker run <span class="nt">--name</span> my-container &lt;image&gt;
 </code></pre></div></div>
 
+<p>These flags combine freely. The ones you will reach for constantly:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Does</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-d</code></td>
+      <td>Detached (background)</td>
+      <td>Long-running services</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-it</code></td>
+      <td>Interactive + TTY</td>
+      <td>Shells and REPLs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-p host:container</code></td>
+      <td>Publish a port</td>
+      <td>Expose a web server</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-v host:container</code></td>
+      <td>Mount a volume / bind dir</td>
+      <td>Persist data, live-reload code</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-e KEY=value</code></td>
+      <td>Set an environment variable</td>
+      <td>Config and secrets</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--rm</code></td>
+      <td>Auto-remove on exit</td>
+      <td>Throwaway/test containers</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--name</code></td>
+      <td>Assign a stable name</td>
+      <td>Reference without the ID</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A common all-in-one invocation: <code class="language-plaintext highlighter-rouge">docker run -d --rm --name web -p 8080:80 -e ENV=prod nginx</code>.</p>
+
 <h3 id="managing-containers">Managing Containers</h3>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List running containers</span>
@@ -2052,6 +2107,10 @@ docker search &lt;term&gt;
 </code></pre></div></div>
 
 <h2 id="docker-compose">Docker Compose</h2>
+
+<div class="notice--info">
+  <p><strong><code>docker compose</code> vs <code>docker-compose</code>.</strong> Modern Docker ships Compose v2 as a plugin invoked with a space — <code>docker compose up</code>. The hyphenated <code>docker-compose</code> is the legacy v1 binary, now end-of-life. The commands below are interchangeable in syntax; prefer the spaced form on current installs.</p>
+</div>
 
 <h3 id="basic-operations">Basic Operations</h3>
 

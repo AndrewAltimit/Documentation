@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2315,21 +2319,43 @@ next tokens, a model learns rich representations from raw text without human lab
 
 <h2 id="usage">Usage</h2>
 
+<p>Once a model can generate fluent, contextually-aware text, the same capability spans a surprising range of practical work. Three categories dominate day-to-day use.</p>
+
 <h3 id="code-generation">Code Generation</h3>
 
-<ul>
-  <li>Markdown</li>
-  <li>Terraform</li>
-  <li>Docker</li>
-  <li>Python</li>
-</ul>
+<p>LLMs trained on large code corpora are strong at <em>structured</em> text, where syntax is rigid and patterns repeat. They excel at boilerplate, translation between formats, and explaining unfamiliar code — though output still needs review, since models can produce plausible-looking but subtly wrong code.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Typical asks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Application code (Python, JS, Go, …)</td>
+      <td>Functions from a description, refactors, test scaffolding, bug explanations</td>
+    </tr>
+    <tr>
+      <td>Infrastructure (Terraform, Docker, K8s)</td>
+      <td>Config templates, Dockerfiles, manifest skeletons</td>
+    </tr>
+    <tr>
+      <td>Markup &amp; docs (Markdown, HTML, SQL)</td>
+      <td>Tables, documentation, query drafting from plain English</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="administrative-automation">Administrative Automation</h3>
 
+<p>The same fluency handles routine knowledge work that is high-volume but low-stakes:</p>
+
 <ul>
-  <li>Meeting content summarization</li>
-  <li>Email drafting</li>
-  <li>Creation of various business documents</li>
+  <li><strong>Summarization</strong> — condensing meetings, threads, or long documents into key points</li>
+  <li><strong>Drafting</strong> — first-pass emails, reports, and business documents that a human then edits</li>
+  <li><strong>Transformation</strong> — reformatting, tone adjustment, and translation between styles or languages</li>
 </ul>
 
 <h3 id="productivity">Productivity</h3>
@@ -2500,7 +2526,7 @@ python server.py <span class="nt">--model</span> llama-3-8b
 <ul>
   <li><strong>Multimodal Models</strong>: GPT-4V, Gemini, and Claude 3 can process images, with video capabilities emerging</li>
   <li><strong>Longer Context Windows</strong>: Models now handle 100K-1M tokens (Claude 3: 200K, Gemini 1.5: 1M)</li>
-  <li><strong>Better Reasoning</strong>: O1 and similar models show improved logical reasoning and math capabilities</li>
+  <li><strong>Better Reasoning</strong>: A new class of “reasoning” models (OpenAI’s o1/o3, DeepSeek-R1) spend extra inference-time compute on chained reasoning, sharply improving math and logic</li>
   <li><strong>Open Source Progress</strong>: Llama 3, Mistral, and others rival proprietary models</li>
   <li><strong>AI Agents</strong>: Systems that can use tools, browse the web, and complete complex tasks autonomously</li>
 </ul>

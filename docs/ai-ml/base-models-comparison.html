@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2062,46 +2066,106 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="technical-specifications">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Architecture</span><span class="pi">:</span> <span class="s">U-Net with attention</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">859M</span>
-<span class="na">Training Resolution</span><span class="pi">:</span> <span class="s">512×512</span>
-<span class="na">VAE</span><span class="pi">:</span> <span class="s">KL-f8 autoencoder</span>
-<span class="na">Text Encoder</span><span class="pi">:</span> <span class="s">CLIP ViT-L/14</span>
-<span class="na">Max Tokens</span><span class="pi">:</span> <span class="m">77</span>
-<span class="na">Precision</span><span class="pi">:</span> <span class="s">FP16/FP32</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~2GB (pruned)</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Architecture</td>
+      <td>U-Net with cross-attention</td>
+    </tr>
+    <tr>
+      <td>Parameters</td>
+      <td>~860M</td>
+    </tr>
+    <tr>
+      <td>Training resolution</td>
+      <td>512×512</td>
+    </tr>
+    <tr>
+      <td>Text encoder</td>
+      <td>CLIP ViT-L/14 (77 tokens)</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>KL-f8 autoencoder</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~2 GB (pruned, fp16)</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="strengths">Strengths</h3>
+<h3 id="strengths-and-weaknesses">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Massive ecosystem</strong>: Thousands of LoRAs, embeddings, and tools</li>
-  <li><strong>Low requirements</strong>: Runs on 4GB VRAM GPUs</li>
-  <li><strong>Fast generation</strong>: 20-50 steps typical</li>
-  <li><strong>Highly optimized</strong>: Years of community optimization</li>
-  <li><strong>Versatile</strong>: Works well for most content types</li>
-</ul>
-
-<h3 id="weaknesses">Weaknesses</h3>
-
-<ul>
-  <li><strong>Lower resolution</strong>: Native 512×512</li>
-  <li><strong>Text rendering</strong>: Poor text generation</li>
-  <li><strong>Anatomy</strong>: Struggles with hands/complex poses</li>
-  <li><strong>Modern concepts</strong>: Limited understanding of recent topics</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Massive ecosystem of LoRAs, embeddings, tools</td>
+      <td>Low native resolution (512×512)</td>
+    </tr>
+    <tr>
+      <td>Runs on 4 GB VRAM; fast (20-50 steps)</td>
+      <td>Poor text rendering</td>
+    </tr>
+    <tr>
+      <td>Years of community optimization</td>
+      <td>Struggles with hands and complex poses</td>
+    </tr>
+    <tr>
+      <td>Versatile across most content types</td>
+      <td>Limited grasp of recent/modern concepts</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="optimal-settings">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">512x512</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">20</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">7</span><span class="o">-</span><span class="mi">9</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">euler_a</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">clip_skip</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">vae</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">vae-ft-mse-840000</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>512×512</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>20-30</td>
+    </tr>
+    <tr>
+      <td>CFG scale</td>
+      <td>7-9</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td><code class="language-plaintext highlighter-rouge">euler_a</code> or <code class="language-plaintext highlighter-rouge">dpmpp_2m</code></td>
+    </tr>
+    <tr>
+      <td>CLIP skip</td>
+      <td>1-2 (2 for anime checkpoints)</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td><code class="language-plaintext highlighter-rouge">vae-ft-mse-840000</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="use-cases">Use Cases</h3>
 
@@ -2122,52 +2186,106 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="technical-specifications-1">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Architecture</span><span class="pi">:</span> <span class="s">Improved U-Net</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">865M (2.0), 865M (2.1)</span>
-<span class="na">Training Resolution</span><span class="pi">:</span> <span class="s">768×768</span>
-<span class="na">VAE</span><span class="pi">:</span> <span class="s">Improved KL-f8</span>
-<span class="na">Text Encoder</span><span class="pi">:</span> <span class="s">OpenCLIP ViT-H/14</span>
-<span class="na">Max Tokens</span><span class="pi">:</span> <span class="m">77</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~2.5GB</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Architecture</td>
+      <td>Improved U-Net</td>
+    </tr>
+    <tr>
+      <td>Parameters</td>
+      <td>~865M</td>
+    </tr>
+    <tr>
+      <td>Training resolution</td>
+      <td>768×768</td>
+    </tr>
+    <tr>
+      <td>Text encoder</td>
+      <td>OpenCLIP ViT-H/14 (77 tokens)</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>Improved KL-f8</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~2.5 GB</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="key-differences-from-15">Key Differences from 1.5</h3>
+<h3 id="what-changed-from-15">What Changed from 1.5</h3>
 
-<ul>
-  <li><strong>Different CLIP model</strong>: OpenCLIP vs CLIP</li>
-  <li><strong>Cleaner dataset</strong>: NSFW content filtered</li>
-  <li><strong>Higher resolution</strong>: 768×768 native</li>
-  <li><strong>Better architecture</strong>: Improved attention</li>
-</ul>
+<p>SD 2.x swapped CLIP for <strong>OpenCLIP</strong>, trained on a cleaner (NSFW-filtered) dataset, and raised native resolution to 768×768 with improved attention. The result was <em>technically</em> better but <em>aesthetically</em> divisive — the filtered data and new encoder changed the default “look,” and because it broke compatibility with SD 1.5 add-ons, the community largely skipped it.</p>
 
-<h3 id="strengths-1">Strengths</h3>
+<h3 id="strengths-and-weaknesses-1">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Better quality</strong>: Improved detail and coherence</li>
-  <li><strong>Higher resolution</strong>: Native 768×768</li>
-  <li><strong>Cleaner outputs</strong>: Less prone to artifacts</li>
-  <li><strong>Better concepts</strong>: Improved understanding</li>
-</ul>
-
-<h3 id="weaknesses-1">Weaknesses</h3>
-
-<ul>
-  <li><strong>Limited adoption</strong>: Fewer LoRAs and tools</li>
-  <li><strong>Different aesthetic</strong>: Less “artistic” by default</li>
-  <li><strong>Compatibility</strong>: Not backward compatible with SD 1.5</li>
-  <li><strong>Prompt differences</strong>: Requires different prompting style</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Higher resolution (768×768), cleaner output</td>
+      <td>Sparse ecosystem — few LoRAs/tools</td>
+    </tr>
+    <tr>
+      <td>Improved detail and coherence</td>
+      <td>Different, less “artistic” default aesthetic</td>
+    </tr>
+    <tr>
+      <td>Better concept understanding</td>
+      <td>Not compatible with SD 1.5 add-ons</td>
+    </tr>
+    <tr>
+      <td>Fewer artifacts</td>
+      <td>Requires a different prompting style</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="optimal-settings-1">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">768x768</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">25</span><span class="o">-</span><span class="mi">35</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">6</span><span class="o">-</span><span class="mi">8</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dpm++_2m</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">negative_prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Essential for good results</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>768×768</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>25-35</td>
+    </tr>
+    <tr>
+      <td>CFG scale</td>
+      <td>6-8</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td><code class="language-plaintext highlighter-rouge">dpmpp_2m</code></td>
+    </tr>
+    <tr>
+      <td>Negative prompt</td>
+      <td>Essential for good results</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="sdxl-stable-diffusion-xl">SDXL (Stable Diffusion XL)</h2>
 
@@ -2177,69 +2295,131 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="technical-specifications-2">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Architecture</span><span class="pi">:</span> <span class="s">Enlarged U-Net + Refiner</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">3.5B (base) + 3.5B (refiner)</span>
-<span class="na">Training Resolution</span><span class="pi">:</span> <span class="s">1024×1024</span>
-<span class="na">VAE</span><span class="pi">:</span> <span class="s">SDXL VAE</span>
-<span class="na">Text Encoders</span><span class="pi">:</span> <span class="s">CLIP ViT-L + OpenCLIP ViT-G</span>
-<span class="na">Max Tokens</span><span class="pi">:</span> <span class="s">77 × </span><span class="m">2</span>
-<span class="na">Conditioning</span><span class="pi">:</span> <span class="s">Size + Crop conditioning</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~6.5GB (base only)</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Architecture</td>
+      <td>Enlarged U-Net (+ optional Refiner)</td>
+    </tr>
+    <tr>
+      <td>Parameters</td>
+      <td>~3.5B base (+ ~3.5B refiner)</td>
+    </tr>
+    <tr>
+      <td>Training resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>Text encoders</td>
+      <td>CLIP ViT-L + OpenCLIP ViT-G (77 tokens each)</td>
+    </tr>
+    <tr>
+      <td>Conditioning</td>
+      <td>Size + crop conditioning</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>SDXL VAE (improved color accuracy)</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~6.5 GB (base only)</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="unique-features">Unique Features</h3>
-
-<ol>
-  <li><strong>Two-stage pipeline</strong>:
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Base Model (0.8 denoising) → Refiner Model (0.2 denoising)
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Dual text encoders</strong>: Combines two CLIP models</li>
-  <li><strong>Conditioning augmentation</strong>: Resolution and crop parameters</li>
-  <li><strong>Improved VAE</strong>: Better color accuracy</li>
-</ol>
-
-<h3 id="strengths-2">Strengths</h3>
+<h3 id="what-makes-sdxl-different">What Makes SDXL Different</h3>
 
 <ul>
-  <li><strong>Superior quality</strong>: Photorealistic capabilities</li>
-  <li><strong>High resolution</strong>: Native 1024×1024+</li>
-  <li><strong>Better text</strong>: Improved text rendering</li>
-  <li><strong>Fine details</strong>: Excellent micro-details</li>
-  <li><strong>Versatility</strong>: Works across all styles</li>
+  <li><strong>Dual text encoders.</strong> Two CLIP models read the prompt together, improving composition and prompt comprehension over the single encoder in SD 1.5/2.x.</li>
+  <li><strong>Optional two-stage pipeline.</strong> A base model handles the bulk of denoising and an optional <strong>refiner</strong> finishes the last ~20% to sharpen detail. In practice many users skip the refiner — modern fine-tunes look excellent base-only.</li>
+  <li><strong>Conditioning augmentation.</strong> The model is told the target resolution and crop, which reduces the cropping/zoom artifacts common in earlier models.</li>
 </ul>
 
-<h3 id="weaknesses-2">Weaknesses</h3>
+<h3 id="strengths-and-weaknesses-2">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Resource intensive</strong>: 8GB+ VRAM minimum</li>
-  <li><strong>Slower generation</strong>: 40-50% slower than SD 1.5</li>
-  <li><strong>Complex pipeline</strong>: Two models for best results</li>
-  <li><strong>Large size</strong>: ~13GB for full pipeline</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Photorealistic quality, excellent micro-detail</td>
+      <td>Needs 8 GB+ VRAM</td>
+    </tr>
+    <tr>
+      <td>Native 1024×1024+, strong composition</td>
+      <td>40-50% slower than SD 1.5</td>
+    </tr>
+    <tr>
+      <td>Improved (if imperfect) text rendering</td>
+      <td>Best quality wants the two-model pipeline</td>
+    </tr>
+    <tr>
+      <td>Works across all styles; deepest modern ecosystem</td>
+      <td>~13 GB for the full base + refiner</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="optimal-settings-2">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1024x1024</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">base_steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">25</span><span class="o">-</span><span class="mi">35</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">refiner_steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="o">-</span><span class="mi">15</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="o">-</span><span class="mi">7</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dpm++_2m_sde</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">refiner_switch</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">negative_prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Critical for quality</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>Base steps</td>
+      <td>25-35</td>
+    </tr>
+    <tr>
+      <td>Refiner steps</td>
+      <td>10-15 (if used)</td>
+    </tr>
+    <tr>
+      <td>CFG scale</td>
+      <td>5-7</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td><code class="language-plaintext highlighter-rouge">dpmpp_2m_sde</code> (Karras)</td>
+    </tr>
+    <tr>
+      <td>Refiner switch</td>
+      <td>~0.8</td>
+    </tr>
+    <tr>
+      <td>Negative prompt</td>
+      <td>Critical for quality</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="sdxl-workflow">SDXL Workflow</h3>
+<h3 id="sdxl-refiner-workflow">SDXL Refiner Workflow</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ComfyUI workflow
-</span><span class="n">Base</span> <span class="n">Model</span> <span class="err">→</span> <span class="nc">KSampler </span><span class="p">(</span><span class="n">end_at_step</span><span class="p">:</span> <span class="mi">20</span><span class="p">)</span>
-                <span class="err">↓</span>
-         <span class="n">Latent</span> <span class="n">Output</span>
-                <span class="err">↓</span>
-<span class="n">Refiner</span> <span class="n">Model</span> <span class="err">→</span> <span class="nc">KSampler </span><span class="p">(</span><span class="n">start_at_step</span><span class="p">:</span> <span class="mi">20</span><span class="p">)</span>
-</code></pre></div></div>
+<p>The two-stage handoff is a single latent passed between two samplers — the base stops early and the refiner finishes:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Base["Base model&lt;br/&gt;KSampler (end at ~80%)"] --&gt;|latent| Ref["Refiner model&lt;br/&gt;KSampler (start at ~80%)"]
+    Ref --&gt; Dec["VAE Decode"] --&gt; Img["Final image"]
+</code></pre>
 
 <h2 id="pony-diffusion">Pony Diffusion</h2>
 
@@ -2249,68 +2429,121 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="technical-specifications-3">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Base</span><span class="pi">:</span> <span class="s">SDXL architecture</span>
-<span class="na">Specialization</span><span class="pi">:</span> <span class="s">Anime/Furry/Cartoon</span>
-<span class="na">Training Data</span><span class="pi">:</span> <span class="s">Curated booru datasets</span>
-<span class="na">Special Tokens</span><span class="pi">:</span> <span class="s">Quality tags system</span>
-<span class="na">Resolution</span><span class="pi">:</span> <span class="s">1024×1024</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~6.5GB</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Base</td>
+      <td>SDXL architecture (a fine-tune)</td>
+    </tr>
+    <tr>
+      <td>Specialization</td>
+      <td>Anime / furry / cartoon</td>
+    </tr>
+    <tr>
+      <td>Training data</td>
+      <td>Curated booru datasets</td>
+    </tr>
+    <tr>
+      <td>Prompt system</td>
+      <td><code class="language-plaintext highlighter-rouge">score_*</code> quality tags + danbooru tags</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~6.5 GB</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="unique-features-1">Unique Features</h3>
+<h3 id="what-makes-pony-different">What Makes Pony Different</h3>
 
-<ol>
-  <li><strong>Score-based prompting</strong>:
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>"score_9, score_8_up, score_7_up, [your prompt]"
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Style tags</strong>: Extensive style control</li>
-  <li><strong>Character knowledge</strong>: Recognizes many characters</li>
-  <li><strong>Booru tags</strong>: Uses danbooru-style tagging</li>
-</ol>
+<p>Pony’s defining quirk is <strong>score-based prompting</strong>: it learned a quality ladder (<code class="language-plaintext highlighter-rouge">score_9</code>, <code class="language-plaintext highlighter-rouge">score_8_up</code>, …) that you prepend to steer toward higher-rated output. Combined with deep <strong>danbooru-style tagging</strong> and broad <strong>character knowledge</strong>, this makes it the go-to for anime/cartoon fan art — at the cost of an unusual prompt style and a strong content bias.</p>
 
-<h3 id="strengths-3">Strengths</h3>
+<h3 id="strengths-and-weaknesses-3">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Anime excellence</strong>: Best-in-class for anime</li>
-  <li><strong>Style consistency</strong>: Maintains style well</li>
-  <li><strong>Character accuracy</strong>: Great for fan art</li>
-  <li><strong>Tag system</strong>: Intuitive for booru users</li>
-  <li><strong>Active community</strong>: Regular updates</li>
-</ul>
-
-<h3 id="weaknesses-3">Weaknesses</h3>
-
-<ul>
-  <li><strong>Specialized</strong>: Not ideal for photorealism</li>
-  <li><strong>Learning curve</strong>: Unique prompting style</li>
-  <li><strong>Content bias</strong>: Optimized for specific content</li>
-  <li><strong>NSFW tendency</strong>: Requires careful prompting</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Best-in-class for anime/stylized art</td>
+      <td>Not suited to photorealism</td>
+    </tr>
+    <tr>
+      <td>Strong style consistency and character recall</td>
+      <td>Unusual <code class="language-plaintext highlighter-rouge">score_*</code> prompting to learn</td>
+    </tr>
+    <tr>
+      <td>Intuitive for booru-tag users</td>
+      <td>Heavily biased toward its training content</td>
+    </tr>
+    <tr>
+      <td>Active community, frequent fine-tunes</td>
+      <td>Tends toward NSFW without careful prompting</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="optimal-settings-3">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1024x1024</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">25</span><span class="o">-</span><span class="mi">30</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">6</span><span class="o">-</span><span class="mi">8</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">euler_a</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">clip_skip</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>  <span class="c1"># Important for anime
-</span>    <span class="sh">"</span><span class="s">prompt_prefix</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">score_9, score_8_up, score_7_up, masterpiece</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>25-30</td>
+    </tr>
+    <tr>
+      <td>CFG scale</td>
+      <td>6-8</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td><code class="language-plaintext highlighter-rouge">euler_a</code></td>
+    </tr>
+    <tr>
+      <td>CLIP skip</td>
+      <td>2 (important for anime)</td>
+    </tr>
+    <tr>
+      <td>Prompt prefix</td>
+      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="prompting-guide">Prompting Guide</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Good Pony prompt structure
-score_9, score_8_up, masterpiece, best quality,
-1girl, [character_name], [outfit], [pose], [expression],
-[background], [lighting], [style_tags]
+<p>A workable Pony prompt structure:</p>
 
-# Negative prompt
-score_6, score_5, score_4, worst quality, low quality,
-bad anatomy, bad hands
-</code></pre></div></div>
+<ul>
+  <li><strong>Positive:</strong> <code class="language-plaintext highlighter-rouge">score_9, score_8_up, masterpiece, best quality, 1girl, [character], [outfit], [pose], [expression], [background], [lighting], [style tags]</code></li>
+  <li><strong>Negative:</strong> <code class="language-plaintext highlighter-rouge">score_6, score_5, score_4, worst quality, low quality, bad anatomy, bad hands</code></li>
+</ul>
+
+<p>The leading <code class="language-plaintext highlighter-rouge">score_*</code> tags act as the quality dial; the rest follows ordinary danbooru tagging.</p>
 
 <h3 id="a-note-on-illustrious-and-noobai">A Note on Illustrious and NoobAI</h3>
 
@@ -2351,53 +2584,110 @@ bad anatomy, bad hands
 
 <h3 id="technical-specifications-4">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Architecture</span><span class="pi">:</span> <span class="s">MM-DiT (Multimodal Diffusion Transformer)</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">2B (Medium), 8B (Large)</span>
-<span class="na">Text Encoders</span><span class="pi">:</span> <span class="s">CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL</span>
-<span class="na">Max Tokens</span><span class="pi">:</span> <span class="s">77 + 77 + </span><span class="m">256</span>
-<span class="na">Training</span><span class="pi">:</span> <span class="s">Rectified Flow (like FLUX)</span>
-<span class="na">Resolution</span><span class="pi">:</span> <span class="s">1024×1024 base, up to 2048×2048</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~6GB (Medium), ~18GB (Large)</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Architecture</td>
+      <td>MM-DiT (Multimodal Diffusion Transformer)</td>
+    </tr>
+    <tr>
+      <td>Parameters</td>
+      <td>2B (Medium), 8B (Large)</td>
+    </tr>
+    <tr>
+      <td>Text encoders</td>
+      <td>CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL (77 + 77 + 256 tokens)</td>
+    </tr>
+    <tr>
+      <td>Training</td>
+      <td>Rectified flow (like FLUX)</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024 base, up to 2048×2048</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~6 GB (Medium), ~18 GB (Large)</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="unique-features-2">Unique Features</h3>
+<h3 id="what-makes-sd3-different">What Makes SD3 Different</h3>
 
-<ol>
-  <li><strong>Triple Text Encoding</strong>: Most comprehensive text understanding</li>
-  <li><strong>Improved Architecture</strong>: Better than SDXL, competitive with FLUX</li>
-  <li><strong>Flexible Resolution</strong>: Better handling of various aspect ratios</li>
-  <li><strong>Better Text Rendering</strong>: Can generate readable text in images</li>
-</ol>
+<p>SD3’s headline is <strong>triple text encoding</strong> — two CLIP encoders for visual concepts plus a large <strong>T5</strong> encoder for natural-language understanding. That combination drives its two real advantages over SDXL: notably <strong>stronger prompt adherence</strong> and the ability to <strong>render legible text</strong> in images. Because it uses rectified flow rather than DDPM, it follows prompts harder at a lower CFG.</p>
 
-<h3 id="strengths-4">Strengths</h3>
+<h3 id="strengths-and-weaknesses-4">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Prompt Adherence</strong>: Best-in-class prompt following</li>
-  <li><strong>Text Generation</strong>: Can render words and letters accurately</li>
-  <li><strong>Efficiency</strong>: Medium model runs well on 10GB VRAM</li>
-  <li><strong>Quality</strong>: Comparable to FLUX at lower resource cost</li>
-  <li><strong>Flexibility</strong>: Works with standard diffusion workflows</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Best-in-class prompt following</td>
+      <td>More restrictive licensing than SD 1.5/SDXL</td>
+    </tr>
+    <tr>
+      <td>Can render readable words and letters</td>
+      <td>Smaller ecosystem, fewer fine-tunes</td>
+    </tr>
+    <tr>
+      <td>Medium runs well on ~10 GB VRAM</td>
+      <td>Triple encoder adds setup complexity</td>
+    </tr>
+    <tr>
+      <td>FLUX-class quality at lower cost; standard workflows</td>
+      <td>Large variant is resource-heavy</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="weaknesses-4">Weaknesses</h3>
-
-<ul>
-  <li><strong>Licensing</strong>: More restrictive than SD1.5/SDXL</li>
-  <li><strong>Ecosystem</strong>: Newer, fewer fine-tunes available</li>
-  <li><strong>Complexity</strong>: Triple encoder adds complexity</li>
-  <li><strong>Size</strong>: Large model requires significant resources</li>
-</ul>
+<blockquote>
+  <p><strong>Use SD3.5, not the original SD3 Medium.</strong> The 3.5 Large/Medium refresh fixed much of the launch-day anatomy and licensing criticism and is the practical choice in this family today.</p>
+</blockquote>
 
 <h3 id="optimal-settings-4">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1024x1024</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">28</span><span class="p">,</span>  <span class="c1"># Recommended by Stability
-</span>    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>  <span class="c1"># Lower than traditional
-</span>    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dpmpp_2m</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">shift</span><span class="sh">"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span>  <span class="c1"># Important SD3 parameter
-</span><span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>28 (Stability’s recommendation)</td>
+    </tr>
+    <tr>
+      <td>CFG scale</td>
+      <td>~5 (lower than U-Net models)</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td><code class="language-plaintext highlighter-rouge">dpmpp_2m</code></td>
+    </tr>
+    <tr>
+      <td>Shift</td>
+      <td>~3.0 (important SD3 flow parameter)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="flux">FLUX</h2>
 
@@ -2407,79 +2697,166 @@ bad anatomy, bad hands
 
 <h3 id="technical-specifications-5">Technical Specifications</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Architecture</span><span class="pi">:</span> <span class="s">Transformer-based (DiT)</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">12B</span>
-<span class="na">Training</span><span class="pi">:</span> <span class="s">Flow matching</span>
-<span class="na">Resolution</span><span class="pi">:</span> <span class="s">1024×1024 - 2048×2048</span>
-<span class="na">Text Encoder</span><span class="pi">:</span> <span class="s">T5 XXL + CLIP</span>
-<span class="na">Max Tokens</span><span class="pi">:</span> <span class="m">256</span>
-<span class="na">Guidance</span><span class="pi">:</span> <span class="s">Separate guidance model</span>
-<span class="na">File Size</span><span class="pi">:</span> <span class="s">~24GB (FP16)</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Architecture</td>
+      <td>Transformer-based (DiT), flow matching</td>
+    </tr>
+    <tr>
+      <td>Parameters</td>
+      <td>~12B</td>
+    </tr>
+    <tr>
+      <td>Text encoders</td>
+      <td>T5-XXL + CLIP (256 tokens)</td>
+    </tr>
+    <tr>
+      <td>Guidance</td>
+      <td>Distilled guidance (no traditional CFG)</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024 to 2048×2048</td>
+    </tr>
+    <tr>
+      <td>File size</td>
+      <td>~24 GB (fp16); ~12 GB (fp8)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="model-variants">Model Variants</h3>
 
-<ol>
-  <li><strong>FLUX.1-dev</strong>: Full quality development version</li>
-  <li><strong>FLUX.1-schnell</strong>: Distilled 4-step generation (German for “fast”)</li>
-  <li><strong>FLUX.1-pro</strong>: API-only premium version with best quality</li>
-  <li><strong>FLUX-fp8</strong>: Quantized for lower VRAM (12GB viable)</li>
-  <li><strong>FLUX-gguf</strong>: Further quantized versions (Q4, Q5, Q8)</li>
-</ol>
+<p>Choosing the right FLUX build is mostly a quality-vs-VRAM trade:</p>
 
-<h3 id="revolutionary-features">Revolutionary Features</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>What it is</th>
+      <th>When to use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FLUX.1-dev</td>
+      <td>Full-quality open-weights model</td>
+      <td>Default for local high-quality work</td>
+    </tr>
+    <tr>
+      <td>FLUX.1-schnell</td>
+      <td>Distilled, 1-4 step generation</td>
+      <td>Fast iteration and previews</td>
+    </tr>
+    <tr>
+      <td>FLUX.1-pro</td>
+      <td>API-only premium tier</td>
+      <td>Best quality without local hardware</td>
+    </tr>
+    <tr>
+      <td>FLUX fp8</td>
+      <td>Quantized weights</td>
+      <td>Fits ~12 GB cards with little quality loss</td>
+    </tr>
+    <tr>
+      <td>FLUX GGUF (Q4-Q8)</td>
+      <td>Further quantized</td>
+      <td>Squeezing onto smaller VRAM budgets</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li><strong>No CFG needed</strong>: Uses guidance model instead
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">cfg</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Always 1.0 for FLUX
-</span><span class="n">guidance</span> <span class="o">=</span> <span class="mf">3.5</span>  <span class="c1"># Separate parameter
-</span></code></pre></div>    </div>
-  </li>
-  <li><strong>Better text understanding</strong>: T5 encoder</li>
-  <li><strong>Improved composition</strong>: Better spatial awareness</li>
-  <li><strong>Consistent anatomy</strong>: Rarely fails on hands</li>
-</ol>
-
-<h3 id="strengths-5">Strengths</h3>
+<h3 id="what-makes-flux-different">What Makes FLUX Different</h3>
 
 <ul>
-  <li><strong>Unmatched quality</strong>: Best available quality</li>
-  <li><strong>Text rendering</strong>: Can generate readable text</li>
-  <li><strong>Prompt adherence</strong>: Follows complex prompts</li>
-  <li><strong>Consistency</strong>: Reliable anatomy/physics</li>
-  <li><strong>Modern knowledge</strong>: Trained on recent data</li>
+  <li><strong>No traditional CFG.</strong> FLUX bakes guidance into the model, so <code class="language-plaintext highlighter-rouge">cfg</code> is held at <strong>1.0</strong> and a separate <code class="language-plaintext highlighter-rouge">guidance</code> value (~3.5) controls prompt strength. Setting CFG above 1.0 breaks FLUX output — a common first-time mistake.</li>
+  <li><strong>T5 text understanding.</strong> Like SD3, the T5 encoder handles long natural-language prompts far better than CLIP.</li>
+  <li><strong>Coherence and anatomy.</strong> FLUX rarely botches hands and holds spatial/physical consistency better than prior open models, and it renders legible text.</li>
 </ul>
 
-<h3 id="weaknesses-5">Weaknesses</h3>
+<h3 id="strengths-and-weaknesses-5">Strengths and Weaknesses</h3>
 
-<ul>
-  <li><strong>Resource heavy</strong>: 12GB+ VRAM minimum</li>
-  <li><strong>Slower</strong>: 2-3x slower than SDXL</li>
-  <li><strong>Large size</strong>: 24GB+ for full precision</li>
-  <li><strong>New ecosystem</strong>: Fewer LoRAs initially</li>
-  <li><strong>Different workflow</strong>: Requires adjustment</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>State-of-the-art open-model quality</td>
+      <td>12 GB+ VRAM minimum</td>
+    </tr>
+    <tr>
+      <td>Readable text, strong prompt adherence</td>
+      <td>2-3x slower than SDXL</td>
+    </tr>
+    <tr>
+      <td>Reliable anatomy and physics</td>
+      <td>~24 GB at full precision</td>
+    </tr>
+    <tr>
+      <td>Trained on recent data</td>
+      <td>Newer (if now-mature) ecosystem; different workflow</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="optimal-settings-5">Optimal Settings</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1024x1024</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">20</span><span class="o">-</span><span class="mi">25</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>  <span class="c1"># CRITICAL: Must be 1.0
-</span>    <span class="sh">"</span><span class="s">guidance</span><span class="sh">"</span><span class="p">:</span> <span class="mf">3.5</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">euler</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">simple</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">flux-fp8.safetensors</span><span class="sh">"</span>  <span class="c1"># For lower VRAM
-</span><span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>1024×1024</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>20-25 (1-4 for schnell)</td>
+    </tr>
+    <tr>
+      <td>CFG</td>
+      <td><strong>1.0</strong> (must not change)</td>
+    </tr>
+    <tr>
+      <td>Guidance</td>
+      <td>~3.5 (via FluxGuidance node)</td>
+    </tr>
+    <tr>
+      <td>Sampler / scheduler</td>
+      <td><code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code></td>
+    </tr>
+    <tr>
+      <td>Model</td>
+      <td><code class="language-plaintext highlighter-rouge">flux-fp8</code> for lower-VRAM cards</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="flux-workflow-example">FLUX Workflow Example</h3>
+<h3 id="flux-workflow">FLUX Workflow</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ComfyUI FLUX workflow
-</span><span class="p">[</span><span class="n">FLUX</span> <span class="n">Checkpoint</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">CLIP</span> <span class="n">Encode</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">FLUX</span> <span class="n">Guidance</span><span class="p">]</span>
-                                           <span class="err">↓</span>
-                        <span class="p">[</span><span class="n">KSampler</span><span class="p">:</span> <span class="n">cfg</span><span class="o">=</span><span class="mf">1.0</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">VAE</span> <span class="n">Decode</span><span class="p">]</span>
-</code></pre></div></div>
+<p>FLUX inserts a <strong>FluxGuidance</strong> node before sampling and keeps CFG pinned at 1.0:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Ckpt["FLUX checkpoint"] --&gt; Enc["CLIP/T5 Encode"]
+    Enc --&gt; FG["FluxGuidance (~3.5)"]
+    FG --&gt; KS["KSampler (cfg = 1.0)"]
+    KS --&gt; Dec["VAE Decode"] --&gt; Img["Final image"]
+</code></pre>
 
 <h2 id="model-selection-guide">Model Selection Guide</h2>
 
@@ -2703,27 +3080,15 @@ bad anatomy, bad hands
 
 <h2 id="migration-guide">Migration Guide</h2>
 
+<p>Moving up the lineage means changing both <em>how you prompt</em> and <em>which settings apply</em>.</p>
+
 <h3 id="from-sd-15-to-sdxl">From SD 1.5 to SDXL</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SD 1.5 prompt
-</span><span class="sh">"</span><span class="s">masterpiece, best quality, 1girl, sitting, park bench</span><span class="sh">"</span>
-
-<span class="c1"># SDXL prompt (more natural)
-</span><span class="sh">"</span><span class="s">A young woman sitting on a park bench in a sunny day, 
-professional photography, shallow depth of field</span><span class="sh">"</span>
-</code></pre></div></div>
+<p>The biggest shift is from terse tags to natural description. An SD 1.5 prompt like <code class="language-plaintext highlighter-rouge">masterpiece, best quality, 1girl, sitting, park bench</code> becomes, for SDXL, something closer to a sentence: <em>“a young woman sitting on a park bench on a sunny day, professional photography, shallow depth of field.”</em> SDXL’s dual encoders reward this; quality-spam tags help much less than they did on SD 1.5.</p>
 
 <h3 id="from-sdxl-to-flux">From SDXL to FLUX</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SDXL settings
-</span><span class="n">cfg_scale</span> <span class="o">=</span> <span class="mf">7.5</span>
-<span class="n">steps</span> <span class="o">=</span> <span class="mi">30</span>
-
-<span class="c1"># FLUX settings
-</span><span class="n">cfg</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># MUST be 1.0
-</span><span class="n">guidance</span> <span class="o">=</span> <span class="mf">3.5</span>
-<span class="n">steps</span> <span class="o">=</span> <span class="mi">25</span>
-</code></pre></div></div>
+<p>The trap here is <strong>settings, not prompts</strong>. SDXL uses <code class="language-plaintext highlighter-rouge">cfg_scale ≈ 7.5</code> at ~30 steps. FLUX must run at <strong><code class="language-plaintext highlighter-rouge">cfg = 1.0</code></strong> with a separate <code class="language-plaintext highlighter-rouge">guidance ≈ 3.5</code> at ~25 steps — leaving CFG at an SDXL-style value will wreck FLUX output. Prompts can stay natural-language, which FLUX’s T5 encoder handles well.</p>
 
 <h3 id="prompting-differences">Prompting Differences</h3>
 

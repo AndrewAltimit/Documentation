@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2019,29 +2023,58 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="thermodynamic-processes">Thermodynamic Processes</h2>
 
-<details>
-<summary><b>Interactive P-V Diagram: Thermodynamic Processes</b></summary>
-<br />
+<p>Starting from one initial state, the four idealized processes each travel to a different end state by holding a single variable fixed. The diagram below shows the four “exit routes” and the constraint each one imposes.</p>
 
-```mermaid
-graph TD
-    subgraph "P-V Diagram"
-        A[Initial State<br />P₁, V₁, T₁] --&gt;|Isothermal<br />T = constant| B[State 2<br />P₂, V₂, T₁]
-        A --&gt;|Adiabatic<br />Q = 0| C[State 3<br />P₃, V₃, T₂]
-        A --&gt;|Isobaric<br />P = constant| D[State 4<br />P₁, V₄, T₃]
-        A --&gt;|Isochoric<br />V = constant| E[State 5<br />P₅, V₁, T₄]
-    end
-    
-    F[Legend] --&gt; G[Isothermal: PV = constant]
-    F --&gt; H[Adiabatic: PVᵞ = constant]
-    F --&gt; I[Isobaric: P = constant]
-    F --&gt; J[Isochoric: V = constant]
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#ccf,stroke:#333,stroke-width:2px
-```
+<pre><code class="language-mermaid">graph TD
+    A["Initial state&lt;br/&gt;P1, V1, T1"] --&gt;|"Isothermal: T fixed"| B["State 2&lt;br/&gt;lower P, larger V, same T1"]
+    A --&gt;|"Adiabatic: Q = 0"| C["State 3&lt;br/&gt;lower P and T, larger V"]
+    A --&gt;|"Isobaric: P fixed"| D["State 4&lt;br/&gt;same P, larger V, higher T"]
+    A --&gt;|"Isochoric: V fixed"| E["State 5&lt;br/&gt;lower P and T, same V1"]
 
-</details>
+    A:::start
+    B:::iso
+    C:::adi
+    D:::isob
+    E:::isoc
+
+    classDef start fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef iso fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
+    classDef adi fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
+    classDef isob fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px;
+    classDef isoc fill:#fce4ec,stroke:#ad1457,stroke-width:1px;
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Process</th>
+      <th>Constraint</th>
+      <th>Curve on a $P$-$V$ diagram</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Isothermal</td>
+      <td>$T$ constant</td>
+      <td>$PV = \text{const}$ (hyperbola)</td>
+    </tr>
+    <tr>
+      <td>Adiabatic</td>
+      <td>$Q = 0$</td>
+      <td>$PV^{\gamma} = \text{const}$ (steeper hyperbola)</td>
+    </tr>
+    <tr>
+      <td>Isobaric</td>
+      <td>$P$ constant</td>
+      <td>horizontal line</td>
+    </tr>
+    <tr>
+      <td>Isochoric</td>
+      <td>$V$ constant</td>
+      <td>vertical line</td>
+    </tr>
+  </tbody>
+</table>
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon" /><a href="https://phet.colorado.edu/en/simulation/gas-properties"> Interactive: <b><i>Gas Properties Simulation</i></b></a></p>
 
@@ -2477,6 +2510,13 @@ Console output shows:
   <li>Heat treatment of materials</li>
 </ul>
 
+<h2 id="advanced-topics-a-graduate-reference">Advanced Topics: A Graduate Reference</h2>
+
+<div class="tip-card">
+  <h4>How to read the rest of this page</h4>
+  <p>Everything above is the working core of classical thermodynamics. The sections that follow are a denser, graduate-level reference: the formal Legendre-transform structure, critical phenomena and the renormalization group, the statistical-mechanical foundations, and modern research directions (stochastic, quantum, and information thermodynamics). They are formula-forward by design — for the microscopic story behind the statistical sections, see <a href="statistical-mechanics.html">Statistical Mechanics</a>, which develops ensembles and the partition function in full.</p>
+</div>
+
 <h2 id="legendre-transformations-and-thermodynamic-potentials">Legendre Transformations and Thermodynamic Potentials</h2>
 
 <h3 id="mathematical-framework">Mathematical Framework</h3>
@@ -2506,124 +2546,121 @@ where $p = df/dx$</p>
 
 <h3 id="maxwell-relations-extended">Maxwell Relations Extended</h3>
 
-<p>From the exactness of differentials:</p>
+<p>Each potential is an exact differential, so its mixed second partials are equal. Reading off the equality for every potential gives the full set of Maxwell relations — note the sign flips, which track whether the conjugate pair appears with a $+$ or $-$ in the differential.</p>
 
 <table>
   <thead>
     <tr>
       <th>Potential</th>
-      <th>Variables</th>
-      <th>Maxwell Relations</th>
+      <th>Natural variables</th>
+      <th>Maxwell relation</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>U</td>
-      <td>S,V,N</td>
-      <td>(∂T/∂V)<em>{S,N} = -(∂P/∂S)</em>{V,N}</td>
+      <td>$U$</td>
+      <td>$S, V, N$</td>
+      <td>$\left(\dfrac{\partial T}{\partial V}\right)<em>{S,N} = -\left(\dfrac{\partial P}{\partial S}\right)</em>{V,N}$</td>
     </tr>
     <tr>
-      <td>H</td>
-      <td>S,P,N</td>
-      <td>(∂T/∂P)<em>{S,N} = (∂V/∂S)</em>{P,N}</td>
+      <td>$H$</td>
+      <td>$S, P, N$</td>
+      <td>$\left(\dfrac{\partial T}{\partial P}\right)<em>{S,N} = \left(\dfrac{\partial V}{\partial S}\right)</em>{P,N}$</td>
     </tr>
     <tr>
-      <td>F</td>
-      <td>T,V,N</td>
-      <td>(∂S/∂V)<em>{T,N} = (∂P/∂T)</em>{V,N}</td>
+      <td>$F$</td>
+      <td>$T, V, N$</td>
+      <td>$\left(\dfrac{\partial S}{\partial V}\right)<em>{T,N} = \left(\dfrac{\partial P}{\partial T}\right)</em>{V,N}$</td>
     </tr>
     <tr>
-      <td>G</td>
-      <td>T,P,N</td>
-      <td>(∂S/∂P)<em>{T,N} = -(∂V/∂T)</em>{P,N}</td>
+      <td>$G$</td>
+      <td>$T, P, N$</td>
+      <td>$\left(\dfrac{\partial S}{\partial P}\right)<em>{T,N} = -\left(\dfrac{\partial V}{\partial T}\right)</em>{P,N}$</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="thermodynamic-square">Thermodynamic Square</h3>
+<h3 id="the-thermodynamic-square">The Thermodynamic Square</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    U -------- H
-    |          |
-    |          |
-    F -------- G
-</code></pre></div></div>
+<p>A classic mnemonic packs all four potentials and their natural variables into a single square. Each potential sits between its two natural variables, and the Maxwell relations are read off the corners.</p>
 
-<p>Diagonal relationships:</p>
-<ul>
-  <li>U + G = H + F = TS + μN</li>
-</ul>
+<pre><code class="language-mermaid">graph LR
+    U["U (S, V)"] --- H["H (S, P)"]
+    F["F (T, V)"] --- G["G (T, P)"]
+    U --- F
+    H --- G
+    U:::pot
+    H:::pot
+    F:::pot
+    G:::pot
+    classDef pot fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+</code></pre>
+
+<p>The two diagonals of the square satisfy</p>
+
+\[U + G = H + F = TS + \mu N,\]
+
+<p>which is just the Euler relation re-expressed through the four potentials.</p>
 
 <h2 id="critical-phenomena-and-phase-transitions">Critical Phenomena and Phase Transitions</h2>
 
 <h3 id="critical-exponents">Critical Exponents</h3>
 
-<p>Near the critical point (T_c), thermodynamic quantities follow power laws:</p>
+<p>Approaching a continuous (second-order) phase transition, thermodynamic quantities diverge or vanish as power laws in the reduced temperature $t = (T - T_c)/T_c$. The exponents are remarkably <em>universal</em>: wildly different systems sharing the same dimensionality and symmetry collapse onto the same set of values.</p>
 
 <table>
   <thead>
     <tr>
       <th>Quantity</th>
-      <th>Definition</th>
+      <th>Power law</th>
       <th>Exponent</th>
-      <th> </th>
-      <th> </th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Specific heat</td>
-      <td>C ∼</td>
-      <td>t</td>
-      <td>^{-α}</td>
-      <td>α</td>
+      <td>$C \sim \lvert t \rvert^{-\alpha}$</td>
+      <td>$\alpha$</td>
     </tr>
     <tr>
       <td>Order parameter</td>
-      <td>m ∼</td>
-      <td>t</td>
-      <td>^β</td>
-      <td>β</td>
+      <td>$m \sim \lvert t \rvert^{\beta}$</td>
+      <td>$\beta$</td>
     </tr>
     <tr>
       <td>Susceptibility</td>
-      <td>χ ∼</td>
-      <td>t</td>
-      <td>^{-γ}</td>
-      <td>γ</td>
+      <td>$\chi \sim \lvert t \rvert^{-\gamma}$</td>
+      <td>$\gamma$</td>
     </tr>
     <tr>
       <td>Correlation length</td>
-      <td>ξ ∼</td>
-      <td>t</td>
-      <td>^{-ν}</td>
-      <td>ν</td>
+      <td>$\xi \sim \lvert t \rvert^{-\nu}$</td>
+      <td>$\nu$</td>
     </tr>
     <tr>
       <td>Critical isotherm</td>
-      <td>m ∼ H^{1/δ}</td>
-      <td>δ</td>
-      <td> </td>
-      <td> </td>
+      <td>$m \sim H^{1/\delta}$</td>
+      <td>$\delta$</td>
     </tr>
     <tr>
       <td>Correlation function</td>
-      <td>G(r) ∼ r^{-(d-2+η)}</td>
-      <td>η</td>
-      <td> </td>
-      <td> </td>
+      <td>$G(r) \sim r^{-(d-2+\eta)}$</td>
+      <td>$\eta$</td>
     </tr>
   </tbody>
 </table>
 
-<p>Where t = (T - T_c)/T_c is the reduced temperature.</p>
-
 <h3 id="scaling-relations">Scaling Relations</h3>
 
-<p><strong>Rushbrooke:</strong> α + 2β + γ = 2
-<strong>Griffiths:</strong> α + β(1 + δ) = 2
-<strong>Widom:</strong> γ = β(δ - 1)
-<strong>Fisher:</strong> γ = ν(2 - η)
-<strong>Josephson:</strong> dν = 2 - α (hyperscaling)</p>
+<p>The six exponents are not independent — scaling theory links them through equalities that hold across all universality classes:</p>
+
+\[\begin{aligned}
+&amp;\text{Rushbrooke:} &amp;&amp; \alpha + 2\beta + \gamma = 2 \\
+&amp;\text{Griffiths:} &amp;&amp; \alpha + \beta(1 + \delta) = 2 \\
+&amp;\text{Widom:} &amp;&amp; \gamma = \beta(\delta - 1) \\
+&amp;\text{Fisher:} &amp;&amp; \gamma = \nu(2 - \eta) \\
+&amp;\text{Josephson (hyperscaling):} &amp;&amp; d\nu = 2 - \alpha
+\end{aligned}\]
 
 <h3 id="landau-theory">Landau Theory</h3>
 
@@ -2892,11 +2929,9 @@ Maxwell’s demon, Szilard engine, feedback control</p>
 
 <p><strong>Negative temperature systems:</strong> Population inversion</p>
 
-<p><strong>Black hole thermodynamics:</strong></p>
-<ul>
-  <li>Bekenstein-Hawking entropy: S = k_B A/(4l_P²)</li>
-  <li>Hawking temperature: T = ℏc³/(8πGMk_B)</li>
-</ul>
+<p><strong>Black hole thermodynamics:</strong> A black hole behaves as a thermal object — it carries entropy proportional to its horizon <em>area</em> (not its volume) and radiates at a temperature inversely proportional to its mass:</p>
+
+\[S_{BH} = \frac{k_B A}{4 \ell_P^2}, \qquad T_H = \frac{\hbar c^3}{8\pi G M k_B}.\]
 
 <h3 id="biological-systems">Biological Systems</h3>
 
@@ -2957,9 +2992,9 @@ Maxwell’s demon, Szilard engine, feedback control</p>
 
 <p><strong>Thermodynamic stability requires:</strong></p>
 <ol>
-  <li>C_V &gt; 0 (thermal stability)</li>
-  <li>κ_T &gt; 0 (mechanical stability)</li>
-  <li>(∂μ/∂N)_{T,V} &gt; 0 (diffusive stability)</li>
+  <li>$C_V &gt; 0$ (thermal stability — adding heat raises temperature)</li>
+  <li>$\kappa_T &gt; 0$ (mechanical stability — compressing raises pressure)</li>
+  <li>$(\partial \mu / \partial N)_{T,V} &gt; 0$ (diffusive stability)</li>
 </ol>
 
 <p><strong>Convexity of thermodynamic potentials:</strong></p>

@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -1994,8 +1998,36 @@ git switch -                         <span class="c"># Switch to previous branch
 <h3 id="merging">Merging</h3>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge &lt;branch-name&gt;              <span class="c"># Merge branch into current</span>
 git merge <span class="nt">--no-ff</span> &lt;branch-name&gt;      <span class="c"># Force merge commit</span>
+git merge <span class="nt">--squash</span> &lt;branch-name&gt;     <span class="c"># Combine all branch work into one staged change</span>
 git merge <span class="nt">--abort</span>                    <span class="c"># Abort conflicted merge</span>
 </code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Style</th>
+      <th>Result</th>
+      <th>Good for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fast-forward (default when possible)</td>
+      <td>No merge commit; branch pointer just advances</td>
+      <td>Tidy linear history</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--no-ff</code></td>
+      <td>Always records a merge commit</td>
+      <td>Preserving that a feature was a discrete unit</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--squash</code></td>
+      <td>Flattens the branch into one new commit you commit yourself</td>
+      <td>A single clean commit per feature on <code class="language-plaintext highlighter-rouge">main</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="remote-operations">Remote Operations</h2>
 
@@ -2016,6 +2048,11 @@ git push                             <span class="c"># Upload local changes</spa
 git push &lt;remote&gt; &lt;branch&gt;           <span class="c"># Push specific branch</span>
 git push <span class="nt">-u</span> origin &lt;branch&gt;          <span class="c"># Set upstream and push</span>
 </code></pre></div></div>
+
+<div class="tip-card">
+  <h4>fetch vs pull</h4>
+  <p><code>git fetch</code> downloads remote changes but leaves your working branch untouched — you inspect, then merge or rebase deliberately. <code>git pull</code> is just <code>fetch</code> + <code>merge</code> (or <code>fetch</code> + <code>rebase</code> with <code>--rebase</code>) in one step. When in doubt, <code>fetch</code> first and look before you integrate.</p>
+</div>
 
 <h2 id="undoing-changes">Undoing Changes</h2>
 
@@ -2038,6 +2075,47 @@ git revert &lt;commit&gt;                  <span class="c"># Create new commit u
 git revert <span class="nt">--no-commit</span> &lt;commit&gt;      <span class="c"># Revert without committing</span>
 git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;       <span class="c"># Revert a merge commit</span>
 </code></pre></div></div>
+
+<p>The three <code class="language-plaintext highlighter-rouge">reset</code> modes differ only in how far back they roll the changes — choose by what you want to keep:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th style="text-align: center">Moves branch</th>
+      <th style="text-align: center">Staging area</th>
+      <th style="text-align: center">Working files</th>
+      <th>Use when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--soft</code></td>
+      <td style="text-align: center">yes</td>
+      <td style="text-align: center">kept</td>
+      <td style="text-align: center">kept</td>
+      <td>Re-commit differently (e.g. squash, reword)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--mixed</code> (default)</td>
+      <td style="text-align: center">yes</td>
+      <td style="text-align: center">reset</td>
+      <td style="text-align: center">kept</td>
+      <td>Unstage and rework before committing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--hard</code></td>
+      <td style="text-align: center">yes</td>
+      <td style="text-align: center">reset</td>
+      <td style="text-align: center"><strong>discarded</strong></td>
+      <td>Throw the work away entirely</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notice--warning">
+  <p><strong><code>reset</code> vs <code>revert</code>.</strong> <code>reset</code> rewrites history by moving the branch pointer — safe on local, unpushed commits only. To undo something already pushed and shared, use <code>git revert</code>, which records a <em>new</em> commit that cancels the old one and leaves history intact.</p>
+</div>
 
 <h2 id="stashing">Stashing</h2>
 
@@ -2119,14 +2197,16 @@ git push
 
 <h2 id="best-practices">Best Practices</h2>
 
-<ol>
-  <li><strong>Commit Messages</strong>: Use clear, descriptive messages in imperative mood</li>
-  <li><strong>Atomic Commits</strong>: Each commit should represent one logical change</li>
-  <li><strong>Branch Naming</strong>: Use descriptive names (feature/, bugfix/, hotfix/)</li>
-  <li><strong>Regular Commits</strong>: Commit frequently but meaningfully</li>
-  <li><strong>Pull Before Push</strong>: Always sync with remote before pushing</li>
-  <li><strong>Review Before Commit</strong>: Use <code class="language-plaintext highlighter-rouge">git diff --staged</code> before committing</li>
-</ol>
+<div class="takeaway-card">
+  <ul>
+    <li><strong>Write messages in the imperative mood</strong> ("Add", "Fix", "Remove") with a concise first line under ~50 characters.</li>
+    <li><strong>Keep commits atomic</strong> — one logical change each, so they can be reviewed, reverted, or cherry-picked independently.</li>
+    <li><strong>Name branches descriptively</strong> with a type prefix (<code>feature/</code>, <code>bugfix/</code>, <code>hotfix/</code>).</li>
+    <li><strong>Sync before you push</strong> — <code>git pull --rebase</code> keeps history linear and avoids surprise conflicts.</li>
+    <li><strong>Review before you commit</strong> with <code>git diff --staged</code>, and stage selectively with <code>git add -p</code>.</li>
+    <li><strong>Prefer <code>--force-with-lease</code> over <code>--force</code></strong> so you never clobber a teammate's pushed work.</li>
+  </ul>
+</div>
 
 <h2 id="advanced-features-2023-2024">Advanced Features (2023-2024)</h2>
 

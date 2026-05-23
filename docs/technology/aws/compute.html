@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2565,6 +2569,186 @@ aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcd
     <span class="nf">process_line</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>  <span class="c1"># Process one line at a time
 </span></code></pre></div></div>
 
+<hr />
+
+<h2 id="auto-scaling-capacity-that-tracks-demand">Auto Scaling: Capacity That Tracks Demand</h2>
+
+<p>A single EC2 instance forces an uncomfortable choice: size it for peak traffic and waste money during quiet hours, or size it for average load and fall over during spikes. <strong>EC2 Auto Scaling</strong> removes the choice by adding and removing instances automatically based on demand.</p>
+
+<p>The mechanism has three parts working together:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Launch Template</strong></td>
+      <td>The blueprint for new instances (AMI, instance type, security groups, user data)</td>
+    </tr>
+    <tr>
+      <td><strong>Auto Scaling Group (ASG)</strong></td>
+      <td>Maintains a desired count of instances across multiple AZs, replacing any that fail health checks</td>
+    </tr>
+    <tr>
+      <td><strong>Scaling Policy</strong></td>
+      <td>The rule that changes the desired count (for example, “keep average CPU near 50%”)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The most robust everyday choice is a <strong>target tracking</strong> policy: you name a metric and a target value, and AWS adds or removes capacity to hold it there.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Maintain 2-10 instances, scaling to keep average CPU around 50%</span>
+aws autoscaling put-scaling-policy <span class="se">\</span>
+  <span class="nt">--auto-scaling-group-name</span> my-asg <span class="se">\</span>
+  <span class="nt">--policy-name</span> cpu-target-tracking <span class="se">\</span>
+  <span class="nt">--policy-type</span> TargetTrackingScaling <span class="se">\</span>
+  <span class="nt">--target-tracking-configuration</span> <span class="s1">'{
+    "PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageCPUUtilization"},
+    "TargetValue": 50.0
+  }'</span>
+</code></pre></div></div>
+
+<div class="tip-card">
+  <h4>Pair Auto Scaling with a load balancer</h4>
+  <p>An ASG decides <em>how many</em> instances run; a load balancer decides <em>how traffic reaches them</em>. Register the ASG with an Application Load Balancer's target group and enable ELB health checks so the group replaces instances the balancer reports as unhealthy — not just ones that fail the basic EC2 system check.</p>
+</div>
+
+<p><strong>Scaling policy types at a glance:</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Policy type</th>
+      <th>How it decides</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Target tracking</strong></td>
+      <td>Holds a metric at a target value</td>
+      <td>Most workloads — the sensible default</td>
+    </tr>
+    <tr>
+      <td><strong>Step scaling</strong></td>
+      <td>Adds/removes capacity in tiers as a metric breaches thresholds</td>
+      <td>Fine-grained control over large, bursty changes</td>
+    </tr>
+    <tr>
+      <td><strong>Scheduled</strong></td>
+      <td>Changes capacity at set times</td>
+      <td>Predictable patterns (business hours, batch windows)</td>
+    </tr>
+    <tr>
+      <td><strong>Predictive</strong></td>
+      <td>ML forecasts demand and pre-scales</td>
+      <td>Recurring daily/weekly cycles with long warm-up times</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="containers-on-aws-ecs-and-fargate">Containers on AWS: ECS and Fargate</h2>
+
+<p>Many teams package applications as containers (see <a href="../docker/">Docker</a>) rather than managing whole servers. AWS offers two main ways to run them.</p>
+
+<p><strong>Amazon ECS (Elastic Container Service)</strong> is AWS’s native container orchestrator. You define a <strong>task definition</strong> (which container images to run, with how much CPU and memory), and ECS schedules those tasks onto compute capacity.</p>
+
+<p>That capacity comes in two <strong>launch types</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Launch type</th>
+      <th>You manage</th>
+      <th>AWS manages</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>EC2 launch type</strong></td>
+      <td>The EC2 instances in the cluster</td>
+      <td>Container scheduling</td>
+      <td>Fine control over the host, GPU/specialized instances, steady high utilization</td>
+    </tr>
+    <tr>
+      <td><strong>Fargate</strong></td>
+      <td>Nothing below the container</td>
+      <td>Servers, patching, scaling of the underlying host</td>
+      <td>Most workloads — no servers to manage, pay per task</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Fargate</strong> is serverless compute for containers: you specify CPU and memory per task and AWS runs it without any EC2 instances for you to patch or scale. It is to containers what Lambda is to functions — zero host management, pay only for what runs.</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">A</span><span class="w"> </span><span class="err">minimal</span><span class="w"> </span><span class="err">Fargate</span><span class="w"> </span><span class="err">task</span><span class="w"> </span><span class="err">definition</span><span class="w"> </span><span class="err">(excerpt)</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"family"</span><span class="p">:</span><span class="w"> </span><span class="s2">"web-app"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"networkMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awsvpc"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"requiresCompatibilities"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"FARGATE"</span><span class="p">],</span><span class="w">
+  </span><span class="nl">"cpu"</span><span class="p">:</span><span class="w"> </span><span class="s2">"256"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"memory"</span><span class="p">:</span><span class="w"> </span><span class="s2">"512"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"containerDefinitions"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
+    </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"web"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"image"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123456789012.dkr.ecr.us-east-1.amazonaws.com/web-app:latest"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"portMappings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"containerPort"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="w"> </span><span class="p">}]</span><span class="w">
+  </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="choosing-among-the-compute-options">Choosing Among the Compute Options</h3>
+
+<p>By now you have four ways to run code on AWS. This table ties them together:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Unit of deployment</th>
+      <th>Server management</th>
+      <th>Reach for it when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>EC2</strong></td>
+      <td>A virtual machine</td>
+      <td>You manage the OS</td>
+      <td>You need full host control or are migrating existing apps</td>
+    </tr>
+    <tr>
+      <td><strong>ECS on EC2</strong></td>
+      <td>A container</td>
+      <td>You manage the cluster hosts</td>
+      <td>You run containers and want control over the underlying instances</td>
+    </tr>
+    <tr>
+      <td><strong>Fargate</strong></td>
+      <td>A container</td>
+      <td>None</td>
+      <td>You run containers and want zero host management</td>
+    </tr>
+    <tr>
+      <td><strong>Lambda</strong></td>
+      <td>A function</td>
+      <td>None</td>
+      <td>Event-driven, short, bursty work that should cost nothing when idle</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notice--info">
+  <p>For full Kubernetes instead of ECS, AWS offers <strong>EKS</strong> (Elastic Kubernetes Service) — also available with a Fargate data plane. See the <a href="../kubernetes/">Kubernetes guide</a> for orchestration concepts that apply across EKS, ECS, and self-managed clusters.</p>
+</div>
+
 <h2 id="key-takeaways">Key Takeaways</h2>
 
 <div class="takeaway-grid">
@@ -2583,6 +2767,10 @@ aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcd
   <div class="takeaway-card">
     <h4>Mind Lambda's Limits</h4>
     <p>Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Fargate for Containers Without Servers</h4>
+    <p>Run containers on ECS (or EKS) with Fargate to skip host patching and scaling entirely — choose the EC2 launch type only when you need control over the underlying instances.</p>
   </div>
 </div>
 

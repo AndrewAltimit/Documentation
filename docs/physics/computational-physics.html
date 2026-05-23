@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -1863,8 +1867,8 @@ document.addEventListener('DOMContentLoaded', function () {
 </span><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 
-<span class="k">def</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">angle</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Simulate projectile motion with quadratic air resistance</span><span class="sh">"""</span>
+<span class="k">def</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">angle</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Simulate projectile motion with optional quadratic air resistance</span><span class="sh">"""</span>
     <span class="c1"># Constants
 </span>    <span class="n">g</span> <span class="o">=</span> <span class="mf">9.81</span>  <span class="c1"># gravity (m/s^2)
 </span>    <span class="n">rho</span> <span class="o">=</span> <span class="mf">1.225</span>  <span class="c1"># air density (kg/m^3)
@@ -1881,13 +1885,13 @@ document.addEventListener('DOMContentLoaded', function () {
 </span>    <span class="n">trajectory</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)]</span>
     
     <span class="k">while</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Calculate drag force
+        <span class="c1"># Calculate drag force (zero if drag disabled)
 </span>        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">vx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">vy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">Fd</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">Cd</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">Fd</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">Cd</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span> <span class="k">if</span> <span class="n">drag</span> <span class="k">else</span> <span class="mf">0.0</span>
         
         <span class="c1"># Update velocities
-</span>        <span class="n">ax</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vx</span><span class="o">/</span><span class="n">v</span><span class="p">)</span>
-        <span class="n">ay</span> <span class="o">=</span> <span class="o">-</span><span class="n">g</span> <span class="o">-</span> <span class="p">(</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vy</span><span class="o">/</span><span class="n">v</span><span class="p">)</span>
+</span>        <span class="n">ax</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vx</span><span class="o">/</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+        <span class="n">ay</span> <span class="o">=</span> <span class="o">-</span><span class="n">g</span> <span class="o">-</span> <span class="p">((</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vy</span><span class="o">/</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
         
         <span class="n">vx</span> <span class="o">+=</span> <span class="n">ax</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="n">vy</span> <span class="o">+=</span> <span class="n">ay</span> <span class="o">*</span> <span class="n">dt</span>
@@ -1901,10 +1905,11 @@ document.addEventListener('DOMContentLoaded', function () {
     <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span>
 
 <span class="c1"># Compare with and without air resistance
-</span><span class="n">trajectory_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">)</span>
-<span class="n">trajectory_no_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">)</span>  <span class="c1"># Modify to remove drag
-</span>
+</span><span class="n">trajectory_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">trajectory_no_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
 <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">trajectory_drag</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">trajectory_drag</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">With air resistance</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">trajectory_no_drag</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">trajectory_no_drag</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="sh">'</span><span class="s">--</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Vacuum (no drag)</span><span class="sh">'</span><span class="p">)</span>
 <span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Distance (m)</span><span class="sh">'</span><span class="p">)</span>
 <span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Height (m)</span><span class="sh">'</span><span class="p">)</span>
 <span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
@@ -1917,6 +1922,53 @@ document.addEventListener('DOMContentLoaded', function () {
 <h2 id="fundamental-numerical-methods">Fundamental Numerical Methods</h2>
 
 <h3 id="numerical-integration">Numerical Integration</h3>
+
+<p>Numerical integration (quadrature) replaces an integral with a weighted sum of function values. The methods differ in how fast the error shrinks as you add sample points — captured by the <strong>order of convergence</strong>. Higher order means fewer evaluations for the same accuracy, which matters enormously when each evaluation is expensive.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Idea</th>
+      <th>Error scaling</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Midpoint / rectangle</td>
+      <td>flat-top strips</td>
+      <td>$O(h^2)$</td>
+      <td>quick estimates</td>
+    </tr>
+    <tr>
+      <td>Trapezoidal</td>
+      <td>straight-line tops</td>
+      <td>$O(h^2)$</td>
+      <td>smooth 1D functions</td>
+    </tr>
+    <tr>
+      <td>Simpson’s rule</td>
+      <td>parabolic tops</td>
+      <td>$O(h^4)$</td>
+      <td>smooth 1D functions, cheap accuracy</td>
+    </tr>
+    <tr>
+      <td>Gaussian quadrature</td>
+      <td>optimal node placement</td>
+      <td>spectral (very fast)</td>
+      <td>smooth integrands, few points</td>
+    </tr>
+    <tr>
+      <td>Monte Carlo</td>
+      <td>random sampling</td>
+      <td>$O(N^{-1/2})$</td>
+      <td>high dimensions</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Note the punchline of the last row: Monte Carlo’s error falls only as $N^{-1/2}$ regardless of dimension, while grid methods like Simpson’s degrade as $O(h^4) = O(N^{-4/d})$ in $d$ dimensions. So in low dimensions deterministic rules win easily, but above $d \approx 4$–$8$ Monte Carlo becomes the only practical choice — the reason it dominates statistical and quantum many-body physics.</p>
 
 <h4 id="riemann-sums-to-sophisticated-quadrature">Riemann Sums to Sophisticated Quadrature</h4>
 
@@ -1999,7 +2051,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="ordinary-differential-equations-odes">Ordinary Differential Equations (ODEs)</h3>
 
+<p>Most of physics is differential equations: Newton’s laws, Maxwell’s equations, the Schrödinger equation. Solving them numerically means stepping the state forward in small increments and accepting some error per step. The art is choosing a scheme that is <em>accurate</em> (small error per step), <em>stable</em> (errors don’t blow up over many steps), and <em>cheap</em> (few function evaluations).</p>
+
 <h4 id="the-runge-kutta-family">The Runge-Kutta Family</h4>
+
+<p>The workhorse explicit method is <strong>fourth-order Runge-Kutta (RK4)</strong>. Rather than using the slope only at the start of a step (as the crude Euler method does), it samples the derivative at four points across the step and takes a weighted average, cancelling error terms up to fourth order. The result: error per step of $O(h^5)$ and global error $O(h^4)$ — halving the step size cuts the error roughly sixteen-fold, for only four derivative evaluations.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">rk4_step</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Fourth-order Runge-Kutta step</span><span class="sh">"""</span>
@@ -2174,6 +2230,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="monte-carlo-methods">Monte Carlo Methods</h2>
 
+<p>Monte Carlo methods trade exactness for scalability: instead of evaluating a sum or integral over every point in a vast space, they <em>sample</em> it randomly and average. The estimate’s error falls as $1/\sqrt{N}$ no matter how many dimensions the space has — the property that makes Monte Carlo indispensable for statistical mechanics (summing over $2^N$ spin configurations), quantum field theory (path integrals), and Bayesian inference. The trade-off is statistical noise: to halve the error you must quadruple the samples.</p>
+
+<div class="insight-card">
+  <h4>The curse — and blessing — of dimensionality</h4>
+  <p>A grid with 100 points per axis needs $100^d$ evaluations in $d$ dimensions: hopeless beyond a handful of axes. Monte Carlo sidesteps this entirely — its $1/\sqrt{N}$ error is <em>independent of dimension</em>. This is why simulating $10^{23}$-particle systems is even thinkable.</p>
+</div>
+
 <h3 id="basic-monte-carlo-principles">Basic Monte Carlo Principles</h3>
 
 <p>Monte Carlo methods use random sampling to solve problems that might be deterministic in principle:</p>
@@ -2215,6 +2278,8 @@ document.addEventListener('DOMContentLoaded', function () {
 </code></pre></div></div>
 
 <h3 id="markov-chain-monte-carlo-mcmc">Markov Chain Monte Carlo (MCMC)</h3>
+
+<p>Plain Monte Carlo needs you to draw samples directly from the target distribution — easy for a uniform square, impossible for the Boltzmann distribution $e^{-\beta E}$ over $10^{23}$ interacting particles. <strong>MCMC</strong> solves this by constructing a random walk whose <em>stationary distribution</em> is the target: take many small, correlated steps, and the chain spends time in each state in proportion to its probability. The <strong>Metropolis-Hastings</strong> rule makes this concrete — propose a move, then accept it with probability $\min(1, p_{\text{new}}/p_{\text{old}})$. Moves to more probable states are always accepted; moves to less probable ones are accepted just often enough to sample the tails correctly, never requiring the (usually intractable) normalization constant.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MetropolisHastings</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Metropolis-Hastings algorithm for sampling from complex distributions</span><span class="sh">"""</span>

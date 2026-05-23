@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2040,203 +2044,178 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The result is a knight standing with arms crossed. Ending control at 80% (<code class="language-plaintext highlighter-rouge">end_percent: 0.8</code>) lets the final steps add armor detail the skeleton never specified. If the pose drifts, raise strength toward 1.0; if the armor looks stiff or traced, lower strength or pull <code class="language-plaintext highlighter-rouge">end_percent</code> down to 0.6.</p>
 
-<h2 id="controlnet-types">ControlNet Types</h2>
+<h2 id="controlnet-types-in-depth">ControlNet Types in Depth</h2>
+
+<p>Each control type pairs a <strong>preprocessor</strong> (which extracts a specific structure from your reference) with a <strong>ControlNet model</strong> (which conditions on that structure). The sections below group them by what they capture. You rarely need more than one or two.</p>
 
 <h3 id="pose-control">Pose Control</h3>
 
-<h4 id="openpose">OpenPose</h4>
-<p>Detects human body keypoints and skeleton structure.</p>
+<p>Pose controls extract a human skeleton from a reference and transfer it to your generated subject — the workhorse for character work.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Human pose transfer</span>
-<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">18-25 body points</span>
-<span class="na">Includes</span><span class="pi">:</span> <span class="s">Body, hands, face</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Character consistency, pose reference</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Preprocessor</th>
+      <th>What it captures</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>OpenPose</td>
+      <td>18-25 body keypoints; optional hands and face</td>
+      <td>The original standard; variants are <code class="language-plaintext highlighter-rouge">openpose_body</code>, <code class="language-plaintext highlighter-rouge">openpose_full</code>, <code class="language-plaintext highlighter-rouge">openpose_hand</code>, <code class="language-plaintext highlighter-rouge">openpose_face</code></td>
+    </tr>
+    <tr>
+      <td>DWPose</td>
+      <td>Whole-body skeleton including detailed hands/face</td>
+      <td>More accurate than OpenPose with better occlusion handling; the current recommended default</td>
+    </tr>
+    <tr>
+      <td>Animal OpenPose</td>
+      <td>Quadruped skeletons</td>
+      <td>For animals rather than humans</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Preprocessor Options</strong>:</p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">openpose_full</code>: Body + hands + face</li>
-  <li><code class="language-plaintext highlighter-rouge">openpose_body</code>: Body only</li>
-  <li><code class="language-plaintext highlighter-rouge">openpose_hand</code>: Hands focus</li>
-  <li><code class="language-plaintext highlighter-rouge">openpose_face</code>: Face landmarks</li>
-</ul>
+<p>Pose is keypoint-based, so it constrains <em>posture</em> but not silhouette or clothing — leave those to the prompt. If hands come out malformed, prefer a <code class="language-plaintext highlighter-rouge">full</code>/DWPose variant so the hand keypoints are detected and conditioned.</p>
 
-<p><strong>Example Workflow</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">Reference</span> <span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">OpenPose</span> <span class="n">Preprocessor</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Pose</span> <span class="n">Skeleton</span><span class="p">]</span>
-                                                    <span class="err">↓</span>
-<span class="sh">"</span><span class="s">A warrior in armor</span><span class="sh">"</span> <span class="err">→</span> <span class="p">[</span><span class="n">ControlNet</span> <span class="n">OpenPose</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Posed</span> <span class="n">Character</span><span class="p">]</span>
-</code></pre></div></div>
+<h3 id="edge-and-line-control">Edge and Line Control</h3>
 
-<h4 id="dwpose">DWPose</h4>
-<p>More accurate pose estimation with better occlusion handling.</p>
+<p>Edge controls preserve outlines and structure. They differ mainly in how <em>literal</em> the lines are — hard binary edges versus soft, artistic ones.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Advantages</span><span class="pi">:</span> <span class="s">Better accuracy, stable tracking</span>
-<span class="na">Keypoints</span><span class="pi">:</span> <span class="s">More detailed skeleton</span>  
-<span class="na">Performance</span><span class="pi">:</span> <span class="s">Slower but more reliable</span>
-<span class="na">Use case</span><span class="pi">:</span> <span class="s">Complex poses, partial visibility</span>
-<span class="na">New</span><span class="pi">:</span> <span class="s">Whole-body estimation including hands/face</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Preprocessor</th>
+      <th>Edge style</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Canny</td>
+      <td>Hard binary edges from a classic algorithm</td>
+      <td>Architecture, products, anything with clean outlines</td>
+    </tr>
+    <tr>
+      <td>SoftEdge (HED / PiDiNet)</td>
+      <td>Soft, natural edges</td>
+      <td>Organic subjects, artistic restyles where hard lines look traced</td>
+    </tr>
+    <tr>
+      <td>MLSD</td>
+      <td>Straight lines only</td>
+      <td>Buildings, interiors, technical drawings</td>
+    </tr>
+    <tr>
+      <td>Lineart / Anime Lineart</td>
+      <td>Clean extracted line art</td>
+      <td>Coloring/restyling line drawings, manga</td>
+    </tr>
+    <tr>
+      <td>Scribble</td>
+      <td>Tolerant of rough, sketchy input</td>
+      <td>Turning a quick doodle into finished art</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="rtmpose">RTMPose</h4>
-<p>Real-time pose estimation with good accuracy.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Speed</span><span class="pi">:</span> <span class="s">Fastest option available</span>
-<span class="na">Accuracy</span><span class="pi">:</span> <span class="s">Good balance</span>
-<span class="na">Use case</span><span class="pi">:</span> <span class="s">Real-time applications</span>
-<span class="na">Platforms</span><span class="pi">:</span> <span class="s">Mobile-friendly</span>
-</code></pre></div></div>
-
-<h3 id="edge-detection">Edge Detection</h3>
-
-<h4 id="canny-edge">Canny Edge</h4>
-<p>Classic edge detection algorithm for clean line extraction.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Preserve shapes and outlines</span>
-<span class="na">Parameters</span><span class="pi">:</span> <span class="s">Low/High threshold</span>
-<span class="na">Output</span><span class="pi">:</span> <span class="s">Binary edge map</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Architecture, objects, clean lines</span>
-</code></pre></div></div>
-
-<p><strong>Parameter Guide</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">low_threshold</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>   <span class="c1"># Lower = more edges
-</span>    <span class="sh">"</span><span class="s">high_threshold</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>  <span class="c1"># Higher = fewer edges
-</span><span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="mlsd-m-lsd">MLSD (M-LSD)</h4>
-<p>Detects straight lines and geometric structures.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Architectural elements</span>
-<span class="na">Specialty</span><span class="pi">:</span> <span class="s">Straight line detection</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Buildings, interiors, technical drawings</span>
-</code></pre></div></div>
-
-<h4 id="softedge-hedpidi">SoftEdge (HED/PIDI)</h4>
-<p>Preserves more subtle edge information.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Methods</span><span class="pi">:</span> <span class="s">HED, PIDI, PidiNet</span>
-<span class="na">Purpose</span><span class="pi">:</span> <span class="s">Artistic edge preservation</span>  
-<span class="na">Quality</span><span class="pi">:</span> <span class="s">Softer, more natural edges</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Organic subjects, artistic styles</span>
-</code></pre></div></div>
+<p>Canny exposes low/high thresholds: a lower <strong>low threshold</strong> keeps more (fainter) edges, a higher <strong>high threshold</strong> keeps only the strongest. The practical rule is to pick by how literal you want the structure — Canny for “trace this exactly,” SoftEdge for “follow these shapes loosely,” Scribble for “use this as a hint.”</p>
 
 <h3 id="depth-control">Depth Control</h3>
 
-<h4 id="midas">MiDaS</h4>
-<p>Monocular depth estimation for general scenes.</p>
+<p>Depth controls capture the 3D layout of a scene as a grayscale map (near = bright, far = dark), constraining spatial arrangement without locking exact outlines. This makes depth the most forgiving general-purpose control.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Versions</span><span class="pi">:</span> <span class="s">MiDaS v2.1, v3.0</span>
-<span class="na">Resolution</span><span class="pi">:</span> <span class="s">Multiple model sizes</span>
-<span class="na">Output</span><span class="pi">:</span> <span class="s">Relative depth map</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">General depth control</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Preprocessor</th>
+      <th>Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Depth Anything (v1/v2)</td>
+      <td>Relative depth</td>
+      <td>Current default — fast, robust, trained on a very large dataset; good for batch and video</td>
+    </tr>
+    <tr>
+      <td>MiDaS</td>
+      <td>Relative depth</td>
+      <td>The long-standing baseline; still fine for general use</td>
+    </tr>
+    <tr>
+      <td>ZoeDepth</td>
+      <td>Metric depth</td>
+      <td>Estimates actual distances; better for realistic outdoor scenes</td>
+    </tr>
+    <tr>
+      <td>LeReS</td>
+      <td>Relative depth</td>
+      <td>Higher quality on complex scenes, slower</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="zoe-depth">Zoe Depth</h4>
-<p>More accurate depth estimation with metric depth.</p>
+<p>Start with <strong>Depth Anything</strong>. Depth pairs especially well with a second control (e.g. OpenPose) because it adds spatial grounding without fighting the pose.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Accuracy</span><span class="pi">:</span> <span class="s">Superior to MiDaS</span>
-<span class="na">Type</span><span class="pi">:</span> <span class="s">Metric depth (actual distances)</span>
-<span class="na">Training</span><span class="pi">:</span> <span class="s">NYU Depth v2, KITTI</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Realistic depth, outdoor scenes</span>
-</code></pre></div></div>
+<h3 id="semantic-and-surface-control">Semantic and Surface Control</h3>
 
-<h4 id="leres">LeReS</h4>
-<p>Learning to Recover 3D Scene Shape.</p>
+<p>These conditions describe <em>what</em> occupies each region or <em>how surfaces face</em>, rather than edges or skeletons.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Quality</span><span class="pi">:</span> <span class="s">High quality depth</span>
-<span class="na">Features</span><span class="pi">:</span> <span class="s">Handles complex scenes</span>
-<span class="na">Speed</span><span class="pi">:</span> <span class="s">Slower than MiDaS</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Complex compositions</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Preprocessor</th>
+      <th>Captures</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Segmentation (ADE20K)</td>
+      <td>A color-coded map of 150+ object classes</td>
+      <td>Laying out scenes (“sky here, building there”)</td>
+    </tr>
+    <tr>
+      <td>Normal map</td>
+      <td>Surface orientation as RGB-encoded normals</td>
+      <td>Lighting/relief consistency on products and sculptures</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="depth-anything">Depth Anything</h4>
-<p>The current default for most workflows — fast, robust monocular depth trained on a very large dataset.</p>
+<p>With segmentation you can hand-paint the control map directly: each class has a fixed color (sky, building, tree, person, ground, etc.), so painting blocks of those colors dictates where each kind of object appears.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Quality</span><span class="pi">:</span> <span class="s">State-of-the-art relative depth</span>
-<span class="na">Versions</span><span class="pi">:</span> <span class="s">Depth Anything v1, v2</span>
-<span class="na">Speed</span><span class="pi">:</span> <span class="s">Fast, suitable for batch/video</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">General-purpose depth control (recommended starting point)</span>
-</code></pre></div></div>
+<h3 id="utility-controls">Utility Controls</h3>
 
-<h3 id="semantic-control">Semantic Control</h3>
+<p>A few controls solve specific production problems rather than transferring structure from a reference:</p>
 
-<h4 id="segmentation">Segmentation</h4>
-<p>Uses semantic segmentation maps for region-based control.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Models</span><span class="pi">:</span> <span class="s">ADE20K, COCO, custom</span>
-<span class="na">Classes</span><span class="pi">:</span> <span class="s">150+ object categories</span>
-<span class="na">Control</span><span class="pi">:</span> <span class="s">Per-region styling</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Scene composition</span>
-</code></pre></div></div>
-
-<p><strong>Color Mapping Example</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">segmentation_colors</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">sky</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">134</span><span class="p">,</span> <span class="mi">193</span><span class="p">,</span> <span class="mi">249</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">building</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">tree</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">person</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">ground</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">139</span><span class="p">,</span> <span class="mi">69</span><span class="p">,</span> <span class="mi">19</span><span class="p">]</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="normal-maps">Normal Maps</h4>
-<p>Surface normal information for 3D-aware generation.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">3D surface orientation</span>
-<span class="na">Format</span><span class="pi">:</span> <span class="s">RGB encoded normals</span>
-<span class="na">Use case</span><span class="pi">:</span> <span class="s">3D consistency, lighting</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Products, sculptures</span>
-</code></pre></div></div>
-
-<h3 id="line-art-control">Line Art Control</h3>
-
-<h4 id="anime-line-art">Anime Line Art</h4>
-<p>Extracts clean lines suitable for anime/manga style.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Anime/manga line extraction</span>
-<span class="na">Cleanliness</span><span class="pi">:</span> <span class="s">Very clean lines</span>
-<span class="na">Style</span><span class="pi">:</span> <span class="s">Manga-appropriate</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Anime characters, manga</span>
-</code></pre></div></div>
-
-<h4 id="scribble">Scribble</h4>
-<p>Converts rough sketches to control inputs.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Modes</span><span class="pi">:</span> <span class="s">Scribble, Fake Scribble</span>
-<span class="na">Input</span><span class="pi">:</span> <span class="s">Hand-drawn sketches</span>
-<span class="na">Tolerance</span><span class="pi">:</span> <span class="s">High noise tolerance</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Quick ideation</span>
-</code></pre></div></div>
-
-<h3 id="special-controls">Special Controls</h3>
-
-<h4 id="shuffle">Shuffle</h4>
-<p>Rearranges image content while preserving style.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Style transfer with layout change</span>
-<span class="na">Method</span><span class="pi">:</span> <span class="s">Spatial shuffling</span>
-<span class="na">Randomness</span><span class="pi">:</span> <span class="s">Controllable</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Creative variations</span>
-</code></pre></div></div>
-
-<h4 id="tile">Tile</h4>
-<p>Enables tiled/seamless generation and upscaling.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Purpose</span><span class="pi">:</span> <span class="s">Seamless textures, upscaling</span>
-<span class="na">Method</span><span class="pi">:</span> <span class="s">Overlapping tiles</span>
-<span class="na">Quality</span><span class="pi">:</span> <span class="s">Maintains consistency</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Patterns, super-resolution</span>
-</code></pre></div></div>
-
-<h4 id="inpaint">Inpaint</h4>
-<p>Specialized control for masked region generation.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Input</span><span class="pi">:</span> <span class="s">Image + Mask</span>
-<span class="na">Control</span><span class="pi">:</span> <span class="s">Only masked areas</span>
-<span class="na">Blending</span><span class="pi">:</span> <span class="s">Seamless integration</span>
-<span class="na">Best for</span><span class="pi">:</span> <span class="s">Object removal, editing</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tile</td>
+      <td>Adds coherent detail during upscaling and enables seamless tiled generation — the backbone of high-res “Ultimate SD Upscale” workflows</td>
+    </tr>
+    <tr>
+      <td>Inpaint</td>
+      <td>Restricts generation to a masked region for clean object removal or editing</td>
+    </tr>
+    <tr>
+      <td>Shuffle</td>
+      <td>Reshuffles content spatially while preserving style — for creative variations</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="installation-and-setup">Installation and Setup</h2>
 
@@ -2259,49 +2238,84 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <h3 id="required-components">Required Components</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Core</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="s">ComfyUI-ControlNet-Aux (preprocessors)</span>
-<span class="pi">-</span> <span class="s">ControlNet models (specific to base model)</span>
-<span class="pi">-</span> <span class="s">Base diffusion model (SD 1.5, SDXL, etc.)</span>
+<p>You need three things to run ControlNet, plus optional extras:</p>
 
-<span class="na">Optional</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="s">Custom preprocessors</span>
-<span class="pi">-</span> <span class="s">Additional ControlNet models</span>
-</code></pre></div></div>
+<ul>
+  <li><strong>Preprocessor nodes</strong> — <code class="language-plaintext highlighter-rouge">comfyui_controlnet_aux</code> provides the OpenPose, Canny, Depth, and other extractors.</li>
+  <li><strong>ControlNet model(s)</strong> — one per control type, matched to your base-model family.</li>
+  <li><strong>A base diffusion model</strong> — your SD 1.5, SDXL, or FLUX checkpoint.</li>
+</ul>
+
+<p>Optionally, add custom preprocessors or additional ControlNet models as your workflows grow.</p>
 
 <h2 id="basic-workflows">Basic Workflows</h2>
 
-<h3 id="simple-controlnet-workflow">Simple ControlNet Workflow</h3>
+<h3 id="the-single-controlnet-graph">The Single-ControlNet Graph</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ComfyUI nodes
-</span><span class="p">[</span><span class="n">Load</span> <span class="n">Image</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">ControlNet</span> <span class="n">Preprocessor</span><span class="p">]</span> <span class="err">→</span> <span class="n">Control</span> <span class="n">Image</span>
-                                               <span class="err">↓</span>
-<span class="p">[</span><span class="n">Load</span> <span class="n">ControlNet</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span><span class="p">]</span> <span class="err">←</span> <span class="p">[</span><span class="n">Positive</span> <span class="n">Prompt</span><span class="p">]</span>
-                            <span class="err">↓</span>
-                    <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">VAE</span> <span class="n">Decode</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Save</span><span class="p">]</span>
-</code></pre></div></div>
+<p>A ControlNet workflow extends the standard text-to-image graph by inserting one node between the text conditioning and the sampler. The control map flows in alongside the prompt:</p>
 
-<h3 id="multi-controlnet-setup">Multi-ControlNet Setup</h3>
+<pre><code class="language-mermaid">flowchart LR
+    LI["LoadImage&lt;br/&gt;(reference)"] --&gt; Pre["Preprocessor&lt;br/&gt;(pose / canny / depth)"]
+    Pre --&gt; Apply["Apply ControlNet"]
+    Pos["CLIPTextEncode&lt;br/&gt;(positive)"] --&gt; Apply
+    CN["Load ControlNet model"] --&gt; Apply
+    Apply --&gt;|conditioning| KS["KSampler"]
+    KS --&gt; VD["VAE Decode"] --&gt; SI["SaveImage"]
+</code></pre>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Stack multiple ControlNets
-</span><span class="p">[</span><span class="n">OpenPose</span> <span class="n">Control</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span> <span class="mi">1</span><span class="p">]</span>
-                            <span class="err">↓</span>
-<span class="p">[</span><span class="n">Depth</span> <span class="n">Control</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Apply</span> <span class="n">ControlNet</span> <span class="mi">2</span><span class="p">]</span>
-                            <span class="err">↓</span>
-                    <span class="p">[</span><span class="n">KSampler</span><span class="p">]</span>
-</code></pre></div></div>
+<p>Everything before <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> is the new branch; everything after is the ordinary sampler-to-image path. <strong>Preview the preprocessor output</strong> before sampling — most pose, edge, and depth failures are visible in the control map itself.</p>
 
-<h3 id="controlnet-parameters">ControlNet Parameters</h3>
+<h3 id="stacking-two-controls">Stacking Two Controls</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
-    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># 0-2, control influence
-</span>    <span class="sh">"</span><span class="s">start_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># When to start applying
-</span>    <span class="sh">"</span><span class="s">end_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>     <span class="c1"># When to stop applying
-</span>    <span class="sh">"</span><span class="s">control_mode</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">balanced</span><span class="sh">"</span><span class="p">,</span> <span class="c1"># balanced/prompt/control
-</span><span class="p">}</span>
-</code></pre></div></div>
+<p>To combine controls (for example, a pose plus its scene depth), chain the <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> nodes — the conditioning flows through each in turn:</p>
 
-<p>The two most useful dials beyond <code class="language-plaintext highlighter-rouge">strength</code> are <code class="language-plaintext highlighter-rouge">start_percent</code> and <code class="language-plaintext highlighter-rouge">end_percent</code>. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. <code class="language-plaintext highlighter-rouge">end_percent: 0.7</code>) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.</p>
+<pre><code class="language-mermaid">flowchart LR
+    P1["OpenPose map"] --&gt; A1["Apply ControlNet&lt;br/&gt;(pose, strength 0.9)"]
+    Pos["Positive conditioning"] --&gt; A1
+    A1 --&gt; A2["Apply ControlNet&lt;br/&gt;(depth, strength 0.5)"]
+    P2["Depth map"] --&gt; A2
+    A2 --&gt; KS["KSampler"]
+</code></pre>
+
+<p>Keep the <em>secondary</em> control weaker than the primary so they cooperate rather than fight. Two is plenty; three or more usually conflict.</p>
+
+<h3 id="the-parameters-that-matter">The Parameters That Matter</h3>
+
+<p>Every <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> node exposes the same handful of dials:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Range</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">strength</code></td>
+      <td>0-2 (use ~0.6-1.0)</td>
+      <td>How hard the control map pushes the result toward its structure</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">start_percent</code></td>
+      <td>0.0-1.0</td>
+      <td>Fraction of sampling at which control begins (usually 0.0)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">end_percent</code></td>
+      <td>0.0-1.0</td>
+      <td>Fraction at which control stops (lower it to free up late detail)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">control_mode</code></td>
+      <td>balanced / prompt / control</td>
+      <td>Whether to favor the prompt or the control map when they disagree</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The two most useful beyond <code class="language-plaintext highlighter-rouge">strength</code> are <code class="language-plaintext highlighter-rouge">start_percent</code> and <code class="language-plaintext highlighter-rouge">end_percent</code>. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. <code class="language-plaintext highlighter-rouge">end_percent: 0.7</code>) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.</p>
 
 <div class="tip-card">
   <p><strong>Common pitfalls</strong></p>
@@ -2317,165 +2331,123 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <h2 id="advanced-techniques">Advanced Techniques</h2>
 
-<h3 id="strength-scheduling">Strength Scheduling</h3>
+<h3 id="combining-controls-deliberately">Combining Controls Deliberately</h3>
 
-<p>Vary ControlNet influence during generation:</p>
+<p>Two controls work best when each owns a different job. Give the <em>primary</em> control (the one carrying your main intent) full strength and the <em>secondary</em> one a supporting weight:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reduce control over time for more creativity
-</span><span class="n">strength_schedule</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="mi">0</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>    <span class="c1"># Full control at start
-</span>    <span class="mf">0.5</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Reduce midway  
-</span>    <span class="mf">0.8</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>  <span class="c1"># Minimal at end
-</span><span class="p">}</span>
+<table>
+  <thead>
+    <tr>
+      <th>Combination</th>
+      <th>Roles</th>
+      <th>Suggested strengths</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pose + Depth</td>
+      <td>Pose owns posture; depth grounds spatial layout</td>
+      <td>OpenPose ~0.9, Depth ~0.5</td>
+    </tr>
+    <tr>
+      <td>Canny + Segmentation</td>
+      <td>Edges own outlines; segmentation owns region content</td>
+      <td>Canny ~0.8, Seg ~0.6</td>
+    </tr>
+    <tr>
+      <td>Depth + SoftEdge</td>
+      <td>Depth owns 3D layout; soft edges add gentle shape</td>
+      <td>Depth ~0.7, SoftEdge ~0.4</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Advanced scheduling with curves
-</span><span class="k">def</span> <span class="nf">cosine_schedule</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">):</span>
-    <span class="n">progress</span> <span class="o">=</span> <span class="n">step</span> <span class="o">/</span> <span class="n">total_steps</span>
-    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">progress</span><span class="p">))</span>
-</code></pre></div></div>
+<p>If a stacked result looks muddy, lower the secondary control before touching the primary one.</p>
 
-<h3 id="multiple-control-combinations">Multiple Control Combinations</h3>
+<h3 id="strength-scheduling-with-end_percent">Strength Scheduling with <code class="language-plaintext highlighter-rouge">end_percent</code></h3>
 
-<h4 id="pose--depth">Pose + Depth</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Character in specific pose with depth
-</span><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">openpose</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">},</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>
-<span class="p">]</span>
-</code></pre></div></div>
-
-<h4 id="edge--segmentation">Edge + Segmentation</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Precise shapes with semantic regions
-</span><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">canny</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">segmentation</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">}</span>
-<span class="p">]</span>
-</code></pre></div></div>
+<p>You do not need per-step strength curves — the built-in <code class="language-plaintext highlighter-rouge">start_percent</code>/<code class="language-plaintext highlighter-rouge">end_percent</code> window is the practical version of scheduling. Holding control through the first ~70% of steps locks composition, then releasing it lets the model add detail freely. Reach for an early <code class="language-plaintext highlighter-rouge">end_percent</code> (0.5-0.7) whenever a result looks traced or stiff.</p>
 
 <h3 id="control-mode-selection">Control Mode Selection</h3>
+
+<p>When the prompt and the control map disagree, <code class="language-plaintext highlighter-rouge">control_mode</code> decides who wins:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
-      <th>Description</th>
-      <th>Use Case</th>
+      <th>Behavior</th>
+      <th>Use case</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Balanced</td>
-      <td>Equal weight to prompt and control</td>
-      <td>General use</td>
+      <td>Weighs prompt and control roughly equally</td>
+      <td>General use (default)</td>
     </tr>
     <tr>
-      <td>Prompt</td>
-      <td>Prioritize text prompt</td>
-      <td>Creative freedom</td>
+      <td>Prompt (My prompt is more important)</td>
+      <td>Lets the prompt override structure when they conflict</td>
+      <td>Creative freedom, looser adherence</td>
     </tr>
     <tr>
-      <td>Control</td>
-      <td>Prioritize ControlNet</td>
-      <td>Exact matching</td>
+      <td>Control (ControlNet is more important)</td>
+      <td>Enforces the structure even against the prompt</td>
+      <td>Exact composition matching</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="resolution-considerations">Resolution Considerations</h3>
+<h3 id="resolution-matching">Resolution Matching</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ControlNet resolution tips
-</span><span class="k">if</span> <span class="n">base_model</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SD1.5</span><span class="sh">"</span><span class="p">:</span>
-    <span class="n">control_res</span> <span class="o">=</span> <span class="mi">512</span>
-<span class="k">elif</span> <span class="n">base_model</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">:</span>
-    <span class="n">control_res</span> <span class="o">=</span> <span class="mi">1024</span>
-    
-<span class="c1"># Preprocess to match
-</span><span class="n">control_image</span> <span class="o">=</span> <span class="nf">resize_image</span><span class="p">(</span><span class="n">input_image</span><span class="p">,</span> <span class="n">control_res</span><span class="p">)</span>
-</code></pre></div></div>
+<p>Always preprocess at your base model’s native resolution — <strong>512 for SD 1.5, 1024 for SDXL/FLUX</strong> — so the control map aligns with the latent grid. A mismatch shifts the structure relative to the image and is one of the most common causes of “the pose is slightly off.”</p>
 
 <h2 id="preprocessing-best-practices">Preprocessing Best Practices</h2>
 
-<h3 id="image-preparation">Image Preparation</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">prepare_control_image</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">control_type</span><span class="p">):</span>
-    <span class="c1"># Ensure correct resolution
-</span>    <span class="n">image</span> <span class="o">=</span> <span class="nf">resize_to_model_resolution</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-    
-    <span class="c1"># Enhance contrast for edge detection
-</span>    <span class="k">if</span> <span class="n">control_type</span> <span class="ow">in</span> <span class="p">[</span><span class="sh">"</span><span class="s">canny</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mlsd</span><span class="sh">"</span><span class="p">]:</span>
-        <span class="n">image</span> <span class="o">=</span> <span class="nf">enhance_contrast</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-    
-    <span class="c1"># Denoise for cleaner extraction
-</span>    <span class="k">if</span> <span class="n">control_type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">openpose</span><span class="sh">"</span><span class="p">:</span>
-        <span class="n">image</span> <span class="o">=</span> <span class="nf">denoise</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="n">image</span>
-</code></pre></div></div>
-
-<h3 id="preprocessor-selection">Preprocessor Selection</h3>
+<p>The control map is only as good as the preprocessor that made it. Two habits prevent most problems: <strong>preview every control map</strong> before sampling, and <strong>match the preprocessor to the input</strong>, not just to the control type you want.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Input Quality</th>
-      <th>Recommended Preprocessor</th>
+      <th>Input quality</th>
+      <th>Recommended choice</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Clean photo</td>
-      <td>Standard preprocessor</td>
+      <td>Standard preprocessor for the type (Canny, OpenPose, Depth Anything)</td>
     </tr>
     <tr>
-      <td>Noisy image</td>
-      <td>Robust variants (DW, LeReS+)</td>
+      <td>Noisy or low-light</td>
+      <td>Robust variants — DWPose for pose, ZoeDepth/LeReS for depth</td>
     </tr>
     <tr>
-      <td>Artistic</td>
-      <td>Soft variants (HED, PIDI)</td>
+      <td>Artistic / painterly</td>
+      <td>Soft variants — SoftEdge (HED/PiDiNet) instead of Canny</td>
     </tr>
     <tr>
-      <td>Technical</td>
-      <td>Precise variants (MLSD)</td>
+      <td>Technical drawing</td>
+      <td>Precise variants — MLSD for straight lines</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="custom-preprocessing">Custom Preprocessing</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Create custom control maps
-</span><span class="kn">import</span> <span class="n">cv2</span>
-<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-
-<span class="k">def</span> <span class="nf">custom_edge_detection</span><span class="p">(</span><span class="n">image</span><span class="p">):</span>
-    <span class="c1"># Combine multiple edge detectors
-</span>    <span class="n">canny</span> <span class="o">=</span> <span class="n">cv2</span><span class="p">.</span><span class="nc">Canny</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">150</span><span class="p">)</span>
-    <span class="n">laplacian</span> <span class="o">=</span> <span class="n">cv2</span><span class="p">.</span><span class="nc">Laplacian</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">cv2</span><span class="p">.</span><span class="n">CV_64F</span><span class="p">)</span>
-    
-    <span class="c1"># Weighted combination
-</span>    <span class="n">combined</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">canny</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">laplacian</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">combined</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">uint8</span><span class="p">)</span>
-</code></pre></div></div>
+<p>You can also <strong>author or edit a control map by hand</strong>. Because the ControlNet only sees the map (not your reference), you can clean up a misdetected pose skeleton, paint a segmentation layout directly, or composite two maps together before sampling — often faster than rerolling preprocessor settings.</p>
 
 <h2 id="model-compatibility">Model Compatibility</h2>
 
-<h3 id="recent-developments">Recent Developments</h3>
+<p>A ControlNet is built for one base-model family and only works there. Support and maturity vary widely across families:</p>
 
-<h4 id="new-control-types">New Control Types</h4>
-<ul>
-  <li><strong>QR Code Control</strong>: Generate scannable QR codes in artistic styles</li>
-  <li><strong>Illumination Control</strong>: Precise lighting direction control</li>
-  <li><strong>Recolor</strong>: Change colors while preserving structure</li>
-  <li><strong>Blur Control</strong>: Depth-of-field and focus control</li>
-</ul>
-
-<h4 id="model-support">Model Support</h4>
 <ul>
   <li><strong>SD 1.5 ControlNet</strong>: The most mature ecosystem — every control type, heavily optimized</li>
   <li><strong>SDXL ControlNet</strong>: Full support at higher resolution and quality</li>
   <li><strong>SD3 ControlNet</strong>: Available (Canny, Depth, and others released by Stability AI)</li>
-  <li><strong>FLUX Support</strong>: Available — multiple options now ship, including <strong>ControlNet Union</strong> (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs</li>
+  <li><strong>FLUX</strong>: Available — multiple options now ship, including <strong>ControlNet Union</strong> (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs</li>
 </ul>
+
+<p>Beyond the structural controls, the ecosystem has added more specialized conditions over time — for example <strong>Recolor</strong> (change colors while preserving structure), <strong>Brightness/Illumination</strong> (steer lighting), and <strong>QR/pattern</strong> controls that hide scannable codes or shapes inside artistic images. Availability differs by base model; the structural types above are the universally supported core.</p>
 
 <h3 id="controlnet-versions">ControlNet Versions</h3>
 
@@ -2567,145 +2539,121 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
 
 <h3 id="t2i-adapter">T2I-Adapter</h3>
 
-<p>Alternative to ControlNet with different characteristics:</p>
+<p>T2I-Adapter is a lighter alternative that conditions on the same kinds of maps (pose, edge, depth) but with a much smaller model. It trades a little precision for speed and low VRAM:</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Advantages</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="s">Smaller model size (~80MB vs ~1.4GB)</span>
-<span class="pi">-</span> <span class="s">Faster inference</span>
-<span class="pi">-</span> <span class="s">Multiple adapters combinable</span>
-<span class="pi">-</span> <span class="s">Lower VRAM usage</span>
-<span class="pi">-</span> <span class="s">Better for real-time applications</span>
+<ul>
+  <li><strong>Advantages:</strong> tiny model (~80 MB vs ~1.4 GB), faster inference, lower VRAM, several adapters combine cleanly — good for real-time and batch.</li>
+  <li><strong>Trade-offs:</strong> sometimes less precise than ControlNet, fewer available types, and may need more prompt help to lock the result.</li>
+</ul>
 
-<span class="na">Disadvantages</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="s">Sometimes less precise</span>
-<span class="pi">-</span> <span class="s">Fewer available types</span>
-<span class="pi">-</span> <span class="s">May require more prompt engineering</span>
-</code></pre></div></div>
+<p>Reach for T2I-Adapter when throughput or memory matters more than pixel-exact structure.</p>
 
 <h3 id="ip-adapter-integration">IP-Adapter Integration</h3>
 
-<p>Combine ControlNet with IP-Adapter:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">ControlNet</span> <span class="n">Depth</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">IP</span><span class="o">-</span><span class="n">Adapter</span> <span class="n">Style</span><span class="p">]</span> <span class="o">=</span> <span class="n">Precise</span> <span class="n">structure</span> <span class="k">with</span> <span class="n">reference</span> <span class="n">style</span>
-</code></pre></div></div>
+<p>IP-Adapter and ControlNet condition on different things, so they layer naturally: ControlNet from a <strong>depth map</strong> fixes the 3D structure, while IP-Adapter from a <strong>reference image</strong> supplies the style and palette. The result is precise composition wearing the look of your reference — neither alone achieves both.</p>
 
 <h2 id="common-workflows">Common Workflows</h2>
 
-<h3 id="character-consistency">Character Consistency</h3>
+<p>A few recurring jobs and the control setup each calls for:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Maintain character across poses
-</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">reference_image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">character_reference.png</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">preprocessor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">openpose_full</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">prompt_template</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">character_name, {pose_description}</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">fixed_for_consistency</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Goal</th>
+      <th>Reference</th>
+      <th>Preprocessor</th>
+      <th>Strength</th>
+      <th>Prompt handles</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Character in a chosen pose</td>
+      <td>Pose photo</td>
+      <td>OpenPose / DWPose</td>
+      <td>~0.9</td>
+      <td>Outfit, style, setting</td>
+    </tr>
+    <tr>
+      <td>Render from a floor plan / line drawing</td>
+      <td>Technical drawing</td>
+      <td>MLSD (straight lines)</td>
+      <td>~1.0</td>
+      <td>Materials, lighting, mood</td>
+    </tr>
+    <tr>
+      <td>Restyle a photo, keep composition</td>
+      <td>The photo</td>
+      <td>Depth (+ SoftEdge)</td>
+      <td>Depth ~0.7, SoftEdge ~0.5</td>
+      <td>The new style</td>
+    </tr>
+    <tr>
+      <td>Sketch to finished art</td>
+      <td>Rough sketch</td>
+      <td>Scribble</td>
+      <td>~0.7</td>
+      <td>Subject details, finish</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="architecture-visualization">Architecture Visualization</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Technical drawing to render
-</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">line_drawing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">floor_plan.png</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">preprocessor</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mlsd</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">modern house interior, photorealistic</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">control_strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mf">7.5</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="style-transfer-with-structure">Style Transfer with Structure</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Preserve composition, change style
-</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">content_image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">photo.jpg</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">preprocessors</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">softedge</span><span class="sh">"</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">style_prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">oil painting in the style of van gogh</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">control_balance</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">softedge</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>For <strong>character consistency across many images</strong>, fix the seed and pair a character LoRA (subject) with a pose ControlNet (posture) — the LoRA keeps the identity stable while the control map varies the pose.</p>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
 
-<h3 id="common-issues">Common Issues</h3>
+<p>Most ControlNet problems trace back to a bad control map or too-aggressive strength. Diagnose by previewing the map first, then adjust strength and the control window:</p>
 
-<h4 id="preprocessor-not-detecting-features">Preprocessor Not Detecting Features</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Solutions
-</span><span class="o">-</span> <span class="n">Increase</span> <span class="n">image</span> <span class="n">contrast</span>
-<span class="o">-</span> <span class="n">Try</span> <span class="n">different</span> <span class="n">preprocessor</span> <span class="n">variant</span>
-<span class="o">-</span> <span class="n">Adjust</span> <span class="n">detection</span> <span class="n">thresholds</span>
-<span class="o">-</span> <span class="n">Use</span> <span class="n">manual</span> <span class="n">annotation</span> <span class="n">tools</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely cause</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Preprocessor misses the subject (no skeleton/edges)</td>
+      <td>Low contrast, wrong preprocessor, low-res input</td>
+      <td>Raise contrast, switch to a robust variant (DWPose, SoftEdge), or hand-edit the map</td>
+    </tr>
+    <tr>
+      <td>Result looks traced or stiff</td>
+      <td>Strength too high, control runs too late</td>
+      <td>Lower <code class="language-plaintext highlighter-rouge">strength</code> toward 0.6, pull <code class="language-plaintext highlighter-rouge">end_percent</code> to ~0.7, optionally raise CFG</td>
+    </tr>
+    <tr>
+      <td>Harsh artifacts along edges</td>
+      <td>Canny on a soft/organic subject</td>
+      <td>Use SoftEdge instead, or lightly blur the control map</td>
+    </tr>
+    <tr>
+      <td>Structure is slightly misaligned</td>
+      <td>Control map resolution ≠ model resolution</td>
+      <td>Preprocess at 512 (SD 1.5) or 1024 (SDXL/FLUX)</td>
+    </tr>
+    <tr>
+      <td>Control silently does nothing / corrupts output</td>
+      <td>ControlNet built for a different base family</td>
+      <td>Use a ControlNet matching your checkpoint’s family</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="over-controlling-generation">Over-controlling Generation</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reduce control influence
-</span><span class="p">{</span>
-    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>  <span class="c1"># Lower from 1.0
-</span>    <span class="sh">"</span><span class="s">end_percent</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>  <span class="c1"># Stop control early
-</span>    <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span>  <span class="c1"># Increase prompt importance
-</span><span class="p">}</span>
-</code></pre></div></div>
+<h3 id="performance-and-vram">Performance and VRAM</h3>
 
-<h4 id="artifacts-at-edges">Artifacts at Edges</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Edge artifact mitigation
-</span><span class="o">-</span> <span class="n">Use</span> <span class="n">softedge</span> <span class="n">instead</span> <span class="n">of</span> <span class="n">canny</span>
-<span class="o">-</span> <span class="n">Blur</span> <span class="n">control</span> <span class="nb">map</span> <span class="n">slightly</span>
-<span class="o">-</span> <span class="n">Reduce</span> <span class="n">control</span> <span class="n">strength</span> <span class="n">at</span> <span class="n">boundaries</span>
-<span class="o">-</span> <span class="n">Enable</span> <span class="sh">"</span><span class="s">soft</span><span class="sh">"</span> <span class="n">control</span> <span class="n">mode</span>
-</code></pre></div></div>
-
-<h3 id="performance-optimization">Performance Optimization</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Memory-efficient ControlNet
-</span><span class="p">{</span>
-    <span class="sh">"</span><span class="s">low_vram_mode</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">preprocessor_device</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cpu</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">control_net_device</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">offload_when_unused</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>ControlNet adds a second pass over the encoder, so it costs memory and time. To keep it light: run the <strong>preprocessor on CPU</strong> (it is a one-time analysis pass and rarely the bottleneck), keep the <strong>ControlNet model on GPU</strong>, enable your tool’s <strong>low-VRAM / offload</strong> mode so unused models leave VRAM, and prefer <strong>T2I-Adapter</strong> when you need many controls cheaply.</p>
 
 <h2 id="creative-applications">Creative Applications</h2>
 
-<h3 id="hybrid-controls">Hybrid Controls</h3>
+<p>ControlNet’s value compounds once you stop treating the control map as fixed:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Combine photo and sketch
-</span><span class="n">photo_depth</span> <span class="o">=</span> <span class="nf">extract_depth</span><span class="p">(</span><span class="n">photo</span><span class="p">)</span>
-<span class="n">sketch_lines</span> <span class="o">=</span> <span class="nf">process_sketch</span><span class="p">(</span><span class="n">drawing</span><span class="p">)</span>
-<span class="n">combined_control</span> <span class="o">=</span> <span class="nf">blend_controls</span><span class="p">(</span><span class="n">photo_depth</span><span class="p">,</span> <span class="n">sketch_lines</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="temporal-consistency">Temporal Consistency</h3>
-
-<p>For animations:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Frame-to-frame consistency
-</span><span class="n">previous_control</span> <span class="o">=</span> <span class="bp">None</span>
-<span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">video_frames</span><span class="p">:</span>
-    <span class="n">current_control</span> <span class="o">=</span> <span class="nf">extract_pose</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">previous_control</span><span class="p">:</span>
-        <span class="c1"># Smooth between frames
-</span>        <span class="n">current_control</span> <span class="o">=</span> <span class="nf">interpolate_controls</span><span class="p">(</span>
-            <span class="n">previous_control</span><span class="p">,</span> <span class="n">current_control</span><span class="p">,</span> <span class="mf">0.3</span>
-        <span class="p">)</span>
-    <span class="nf">generate_frame</span><span class="p">(</span><span class="n">current_control</span><span class="p">)</span>
-    <span class="n">previous_control</span> <span class="o">=</span> <span class="n">current_control</span>
-</code></pre></div></div>
-
-<h3 id="interactive-control">Interactive Control</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Real-time adjustment
-</span><span class="k">class</span> <span class="nc">InteractiveControl</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">update_strength</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">control_strength</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="n">self</span><span class="p">.</span><span class="nf">regenerate</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">switch_preprocessor</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">new_type</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">control_map</span> <span class="o">=</span> <span class="nf">preprocess</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nb">input</span><span class="p">,</span> <span class="n">new_type</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="nf">regenerate</span><span class="p">()</span>
-</code></pre></div></div>
+<ul>
+  <li><strong>Hybrid maps.</strong> Because the model only sees the map, you can composite two sources — e.g. take depth from a photo and edges from a separate sketch, blend them, and feed the combination — to borrow structure from multiple references at once.</li>
+  <li><strong>Restyle while preserving layout.</strong> Run Depth (and optionally SoftEdge) on a photo, then prompt for a completely different style (“oil painting in the style of Van Gogh”). The scene’s geometry survives while the look changes entirely.</li>
+  <li><strong>Animation consistency.</strong> For video, extract a control map per frame and blend each frame’s map slightly toward the previous one, so the conditioning evolves smoothly instead of jumping — a simple but effective way to reduce flicker. See <a href="output-formats.html">Output Formats</a> and <a href="advanced-techniques.html">Advanced Techniques</a> for full temporal workflows.</li>
+</ul>
 
 <h2 id="best-practices">Best Practices</h2>
 
@@ -2729,31 +2677,18 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
   <li>Overstacking controls (3+ is rarely helpful)</li>
 </ul>
 
-<h2 id="future-developments">Future Developments</h2>
+<h2 id="where-controlnet-is-heading">Where ControlNet Is Heading</h2>
 
-<h3 id="emerging-controlnet-technologies">Emerging ControlNet Technologies</h3>
-
-<ol>
-  <li><strong>3D-Aware Control</strong>: Full 3D scene understanding with depth and normals</li>
-  <li><strong>Video ControlNet</strong>: Temporal consistency across frames</li>
-  <li><strong>Semantic Editing</strong>: Natural language region control</li>
-  <li><strong>Adaptive Control</strong>: AI-driven strength adjustment</li>
-  <li><strong>Neural Controls</strong>: Learned control patterns from examples</li>
-  <li><strong>Diffusion Illusions</strong>: Optical illusion generation</li>
-  <li><strong>Multi-Subject Control</strong>: Individual control over multiple subjects</li>
-  <li><strong>Mesh Control</strong>: Direct 3D mesh conditioning</li>
-</ol>
-
-<h3 id="integration-trends">Integration Trends</h3>
+<p>A few directions are already shipping or clearly underway, rather than speculative:</p>
 
 <ul>
-  <li><strong>Real-time Preview</strong>: See control effects instantly</li>
-  <li><strong>Mobile Optimization</strong>: On-device control processing</li>
-  <li><strong>Cloud Preprocessing</strong>: Offload heavy computation</li>
-  <li><strong>AI Control Generation</strong>: Generate control maps from prompts</li>
-  <li><strong>Cross-Model Support</strong>: Universal control formats</li>
-  <li><strong>Community Controls</strong>: User-created control types</li>
+  <li><strong>Union models</strong> that fold many control types into one file (SDXL and FLUX) are becoming the norm, replacing the old one-file-per-type sprawl.</li>
+  <li><strong>Better, faster preprocessors</strong> — Depth Anything for depth and DWPose for pose are recent examples — keep raising control-map quality, which matters more than new control types.</li>
+  <li><strong>Temporal/video control</strong> is maturing alongside video diffusion, addressing the frame-to-frame flicker that frame-by-frame ControlNet causes.</li>
+  <li><strong>Optical-illusion and pattern controls</strong> (hidden text, QR codes, spiral illusions) show how creatively the conditioning map can be repurposed.</li>
 </ul>
+
+<p>The durable takeaway: invest in understanding the preprocessor-plus-model split and strength tuning, since those skills carry over to whatever control types arrive next.</p>
 
 <h2 id="conclusion">Conclusion</h2>
 
@@ -2767,7 +2702,7 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
   <ul>
     <li><strong>ControlNet adds spatial control</strong> to diffusion by injecting a structural “control map” (pose, edge, depth, segmentation) into every denoising step.</li>
     <li><strong>The preprocessor matters as much as the model</strong> — choose it to match your input (OpenPose for figures, Canny for edges, Depth for 3D structure).</li>
-    <li><strong>Strength is a dial, not a switch.</strong> Rarely use 100%; tune it (and consider strength scheduling) so structure guides without overriding the prompt.</li>
+    <li><strong>Strength is a dial, not a switch.</strong> Rarely use 100%; tune <code class="language-plaintext highlighter-rouge">strength</code> and pull <code class="language-plaintext highlighter-rouge">end_percent</code> back so structure guides the layout without overriding the prompt’s detail.</li>
     <li><strong>Combine deliberately:</strong> ControlNet for structure + IP-Adapter for style + a LoRA for subject — but stacking 3+ ControlNets rarely helps.</li>
     <li><strong>Match versions and resolution.</strong> Use ControlNets built for your base family (SD1.5/SDXL/FLUX) and align control resolution with generation resolution.</li>
   </ul>

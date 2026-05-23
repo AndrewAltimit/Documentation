@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -1799,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">Every expert was once a beginner. This interactive map helps you navigate from wherever you are to wherever you want to be. Find your starting point, explore connections, and chart your own learning journey. Prefer a plain list? See the <a href="./">complete documentation index</a>.</p>
+  <p class="lead-text">Every expert was once a beginner. This interactive map helps you navigate from wherever you are to wherever you want to be — drag the nodes, follow the connections, and chart your own route through the documentation. Prefer a plain list? See the <a href="./">complete documentation index</a>. Already know the topic? <a href="../search.html">Search</a> jumps you straight there.</p>
 </div>
 
 <div class="topic-map-container">
@@ -2655,23 +2659,26 @@ html[data-theme="dark"] .topic-details-panel {
 }
 </style>
 
-<h2 id="quick-start-guides">Quick Start Guides</h2>
+<h2 id="pick-your-level">Pick Your Level</h2>
+
+<p>Not sure where to jump in? Each track below collects a handful of pages at the right depth. Start anywhere — the map above shows how they connect.</p>
 
 <div class="quick-start-grid">
   <div class="quick-start-card">
     <h3>Complete Beginner</h3>
-    <p>Start with our 5-minute crash courses:</p>
+    <p>No prior experience needed — short, friendly crash courses:</p>
     <ul>
       <li><a href="technology/git-reference.html">Git Quick Start</a></li>
       <li><a href="technology/docker-essentials.html">Docker Quick Start</a></li>
       <li><a href="technology/database-design.html">Database Basics</a></li>
-      <li><a href="technology/ai-fundamentals-simple.html">AI for Beginners</a></li>
+      <li>
+<a href="technology/ai-fundamentals-simple.html">AI for Beginners</a> (no math)</li>
     </ul>
   </div>
 
   <div class="quick-start-card">
     <h3>Intermediate</h3>
-    <p>Explore intermediate topics:</p>
+    <p>You know the basics — build real working knowledge:</p>
     <ul>
       <li><a href="technology/branching.html">Git Branching Strategies</a></li>
       <li><a href="technology/docker/">Docker Deep Dive</a></li>
@@ -2682,12 +2689,12 @@ html[data-theme="dark"] .topic-details-panel {
 
   <div class="quick-start-card">
     <h3>Advanced</h3>
-    <p>Dive into research-level content:</p>
+    <p>Comfortable already — dive into theory and research:</p>
     <ul>
       <li><a href="technology/git.html">Git Internals &amp; Theory</a></li>
       <li><a href="technology/kubernetes/">Kubernetes Architecture</a></li>
-      <li><a href="advanced/distributed-systems-theory/">Distributed Systems</a></li>
-      <li><a href="technology/ai-lecture-2023.html">Advanced AI Theory</a></li>
+      <li><a href="advanced/distributed-systems-theory/">Distributed Systems Theory</a></li>
+      <li><a href="advanced/ai-mathematics/">AI Mathematics</a></li>
     </ul>
   </div>
 </div>
@@ -2726,45 +2733,89 @@ html[data-theme="dark"] .topic-details-panel {
 
 <h2 id="suggested-learning-paths">Suggested Learning Paths</h2>
 
-<h3 id="path-1-full-stack-developer-journey">Path 1: Full-Stack Developer Journey</h3>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Git Basics → Docker → Databases → AWS → Kubernetes
-     ↓           ↓          ↓        ↓         ↓
-Branching    Compose    Design   Terraform  Helm
-</code></pre></div></div>
+<p>Three example routes through the site. Each top row is the spine; the row beneath lists the deeper companion topic for each step.</p>
 
-<h3 id="path-2-aiml-engineer-journey">Path 2: AI/ML Engineer Journey</h3>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>AI Basics → Python → Neural Networks → Deep Learning → MLOps
-     ↓         ↓            ↓               ↓           ↓
-  Math    Libraries    TensorFlow       Research    Production
-</code></pre></div></div>
+<h3 id="path-1-full-stack--cloud-developer">Path 1: Full-Stack / Cloud Developer</h3>
 
-<h3 id="path-3-devops-engineer-journey">Path 3: DevOps Engineer Journey</h3>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Linux → Git → Docker → CI/CD → Kubernetes → Monitoring
-   ↓      ↓       ↓       ↓         ↓           ↓
-Shell  Branching Compose Jenkins   Helm    Prometheus
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    G["Git Basics"] --&gt; D["Docker"] --&gt; DB["Databases"] --&gt; A["AWS"] --&gt; K["Kubernetes"]
+    G -.-&gt; Gb["Branching"]
+    D -.-&gt; Dc["Compose"]
+    DB -.-&gt; DBd["Schema design"]
+    A -.-&gt; At["Terraform"]
+    K -.-&gt; Kh["Helm / operators"]
+    style G fill:#e3f2fd,stroke:#1565c0
+    style D fill:#e3f2fd,stroke:#1565c0
+    style DB fill:#e3f2fd,stroke:#1565c0
+    style A fill:#e3f2fd,stroke:#1565c0
+    style K fill:#e3f2fd,stroke:#1565c0
+    style Gb fill:#fff3e0,stroke:#e65100
+    style Dc fill:#fff3e0,stroke:#e65100
+    style DBd fill:#fff3e0,stroke:#e65100
+    style At fill:#fff3e0,stroke:#e65100
+    style Kh fill:#fff3e0,stroke:#e65100
+</code></pre>
 
-<h2 id="pro-tips">Pro Tips</h2>
+<h3 id="path-2-ai--ml-engineer">Path 2: AI / ML Engineer</h3>
 
-<ol>
-  <li>
-<strong>Start Small</strong>: Don’t try to learn everything at once</li>
-  <li>
-<strong>Follow Interests</strong>: Let curiosity guide your path</li>
-  <li>
-<strong>Practice Regularly</strong>: Apply concepts in real projects</li>
-  <li>
-<strong>Join Community</strong>: Share your journey with others</li>
-  <li>
-<strong>Review Often</strong>: Revisit topics to reinforce learning</li>
-</ol>
+<pre><code class="language-mermaid">flowchart LR
+    AB["AI Basics&lt;br/&gt;(no math)"] --&gt; NN["Neural Networks"] --&gt; DL["Deep Learning"] --&gt; GEN["Generative AI"] --&gt; TH["AI Mathematics"]
+    AB -.-&gt; M["Linear algebra&lt;br/&gt;&amp; probability"]
+    NN -.-&gt; T["Transformers"]
+    DL -.-&gt; SD["Stable Diffusion"]
+    GEN -.-&gt; LoRA["LoRA / ComfyUI"]
+    style AB fill:#e8f5e9,stroke:#2e7d32
+    style NN fill:#e8f5e9,stroke:#2e7d32
+    style DL fill:#e8f5e9,stroke:#2e7d32
+    style GEN fill:#e8f5e9,stroke:#2e7d32
+    style TH fill:#e8f5e9,stroke:#2e7d32
+    style M fill:#fff3e0,stroke:#e65100
+    style T fill:#fff3e0,stroke:#e65100
+    style SD fill:#fff3e0,stroke:#e65100
+    style LoRA fill:#fff3e0,stroke:#e65100
+</code></pre>
+
+<h3 id="path-3-devops-engineer">Path 3: DevOps Engineer</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    GG["Git"] --&gt; DD["Docker"] --&gt; CI["CI/CD"] --&gt; KK["Kubernetes"] --&gt; OBS["Observability"]
+    GG -.-&gt; Br["Branching strategy"]
+    DD -.-&gt; Cmp["Compose"]
+    CI -.-&gt; Pipe["Pipelines"]
+    KK -.-&gt; Helm2["Helm"]
+    OBS -.-&gt; Prom["Prometheus / Grafana"]
+    style GG fill:#ede7f6,stroke:#5e35b1
+    style DD fill:#ede7f6,stroke:#5e35b1
+    style CI fill:#ede7f6,stroke:#5e35b1
+    style KK fill:#ede7f6,stroke:#5e35b1
+    style OBS fill:#ede7f6,stroke:#5e35b1
+    style Br fill:#fff3e0,stroke:#e65100
+    style Cmp fill:#fff3e0,stroke:#e65100
+    style Pipe fill:#fff3e0,stroke:#e65100
+    style Helm2 fill:#fff3e0,stroke:#e65100
+    style Prom fill:#fff3e0,stroke:#e65100
+</code></pre>
+
+<div class="tip-card">
+  <h4 id="getting-the-most-from-these-paths">Getting the most from these paths</h4>
+  <ul>
+    <li>
+<strong>Start small.</strong> Pick one spine and follow it; resist learning five things at once.</li>
+    <li>
+<strong>Follow the dotted lines later.</strong> The companion topics deepen each step once the basics click.</li>
+    <li>
+<strong>Build as you go.</strong> Apply each topic to a tiny real project before moving on.</li>
+    <li>
+<strong>Revisit.</strong> The advanced pages reward a second read after you’ve used the basics in anger.</li>
+  </ul>
+</div>
 
 <hr>
 
 <div class="cta-section">
   <h2>Ready to Start Your Journey?</h2>
   <p>Pick a topic that interests you and dive in. Remember, every expert started exactly where you are now.</p>
-  <a href="#quick-start-guides" class="btn btn-primary">Choose Your Starting Point</a>
+  <a href="#pick-your-level" class="btn btn-primary">Choose Your Starting Point</a>
   <a href="/" class="btn btn-secondary">Back to Documentation Home</a>
 </div>
 

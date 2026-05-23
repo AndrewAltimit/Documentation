@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -2046,28 +2050,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="hierarchical-pathfinding">Hierarchical Pathfinding</h3>
 
-<p>For large worlds:</p>
+<p>Searching a single huge graph node-by-node is too slow for open worlds. Hierarchical pathfinding searches a coarse graph first, then refines only the part of the path the agent is about to walk:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Level 3: Region graph (countries/zones)
-    │
-Level 2: Cluster graph (neighborhoods)
-    │
-Level 1: NavMesh polygons (rooms)
-    │
-Level 0: Detailed path (within polygon)
+<pre><code class="language-mermaid">flowchart TD
+    L3["Region graph&lt;br/&gt;(zones)"] --&gt; L2["Cluster graph&lt;br/&gt;(neighborhoods)"]
+    L2 --&gt; L1["NavMesh polygons&lt;br/&gt;(rooms)"]
+    L1 --&gt; L0["Detailed path&lt;br/&gt;(within polygon)"]
+</code></pre>
 
-Search: Top-down refinement
-1. Find path through regions
-2. Refine through clusters
-3. Detailed path in NavMesh
-</code></pre></div></div>
-
-<p><strong>Benefits:</strong></p>
-<ul>
-  <li>O(log n) instead of O(n) searches</li>
-  <li>Memory-efficient for huge worlds</li>
-  <li>Natural for streaming worlds</li>
-</ul>
+<p>The agent plans a route through regions, refines it through clusters, and only computes the fine path for the immediate stretch. This keeps searches small even on massive maps, uses far less memory than one flat graph, and fits naturally with streaming worlds where distant regions aren’t loaded yet.</p>
 
 <h3 id="path-smoothing">Path Smoothing</h3>
 
@@ -2178,54 +2169,66 @@ Search: Top-down refinement
 
 <h3 id="hierarchical-fsms-hfsm">Hierarchical FSMs (HFSM)</h3>
 
-<p>Nested states reduce complexity:</p>
+<p>Plain FSMs suffer <strong>state explosion</strong>: every new behavior risks new transitions to every existing state. HFSMs tame this by nesting states — a high-level state (e.g. <em>Combat</em>) contains its own sub-machine, and transitions can be defined once at the parent level instead of duplicated on every child.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[Combat]
-├── [Melee]
-│   ├── [Approach]
-│   ├── [Attack]
-│   └── [Retreat]
-└── [Ranged]
-    ├── [Find Cover]
-    ├── [Aim]
-    └── [Fire]
+<pre><code class="language-mermaid">flowchart TD
+    Root --&gt; Combat
+    Root --&gt; NonCombat["Non-Combat"]
+    Combat --&gt; Melee
+    Combat --&gt; Ranged
+    Melee --&gt; M1["Approach → Attack → Retreat"]
+    Ranged --&gt; R1["Find Cover → Aim → Fire"]
+    NonCombat --&gt; N1["Patrol / Idle"]
+</code></pre>
 
-[Non-Combat]
-├── [Patrol]
-└── [Idle]
-</code></pre></div></div>
+<p>A single “enemy lost” transition on <em>Combat</em> now pulls the agent out of any combat sub-state at once — no need to wire it to Approach, Attack, Aim, and Fire individually.</p>
 
 <h3 id="behavior-trees">Behavior Trees</h3>
 
-<p>Modern industry standard:</p>
+<p>The modern industry standard. A tree of nodes is “ticked” every frame; each node returns <strong>Success</strong>, <strong>Failure</strong>, or <strong>Running</strong>, and its parent reacts to that result. The power comes from a small node vocabulary:</p>
 
-<p><strong>Node Types:</strong></p>
-<ul>
-  <li><strong>Composite</strong>: Sequence, Selector, Parallel</li>
-  <li><strong>Decorator</strong>: Inverter, Repeater, Succeeder</li>
-  <li><strong>Leaf</strong>: Action, Condition</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Nodes</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Composite</td>
+      <td>Sequence, Selector, Parallel</td>
+      <td>Combine children — Sequence needs all to succeed, Selector tries until one does</td>
+    </tr>
+    <tr>
+      <td>Decorator</td>
+      <td>Inverter, Repeater, Succeeder, Cooldown</td>
+      <td>Wrap a child to modify its result or timing</td>
+    </tr>
+    <tr>
+      <td>Leaf</td>
+      <td>Action, Condition</td>
+      <td>Do the actual work or test the world</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Example Tree:</strong></p>
+<p>The tree reads as prioritized behavior — a Selector tries each branch in order until one succeeds:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Selector (try until success)
-├── Sequence (all must succeed)
-│   ├── [Condition] Is Enemy Visible?
-│   ├── [Condition] Has Ammo?
-│   └── [Action] Shoot Enemy
-├── Sequence
-│   ├── [Condition] Is Enemy Visible?
-│   ├── [Condition] Is Low Health?
-│   └── [Action] Flee
-└── [Action] Patrol
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TD
+    Sel["Selector&lt;br/&gt;(first to succeed wins)"] --&gt; Atk["Sequence: Attack"]
+    Sel --&gt; Flee["Sequence: Flee"]
+    Sel --&gt; Pat["Action: Patrol"]
+    Atk --&gt; A1{"Enemy visible?"}
+    Atk --&gt; A2{"Has ammo?"}
+    Atk --&gt; A3["Shoot enemy"]
+    Flee --&gt; F1{"Enemy visible?"}
+    Flee --&gt; F2{"Low health?"}
+    Flee --&gt; F3["Flee"]
+</code></pre>
 
-<p><strong>Execution:</strong></p>
-<ul>
-  <li>Tick tree every frame</li>
-  <li>Return: Success, Failure, or Running</li>
-  <li>Parent nodes respond to child results</li>
-</ul>
+<p>Because each branch is self-contained, behavior trees scale to complex agents far more gracefully than FSMs: adding a behavior is adding a branch, not rewiring a web of transitions.</p>
 
 <h3 id="utility-ai">Utility AI</h3>
 
@@ -2269,7 +2272,7 @@ Search: Top-down refinement
 
 <h3 id="goal-oriented-action-planning-goap">Goal-Oriented Action Planning (GOAP)</h3>
 
-<p>AI plans sequences of actions:</p>
+<p>Where behavior trees and FSMs are <em>authored</em>, GOAP lets the agent <strong>plan</strong>. You define a goal and a library of actions, each with preconditions and effects; the planner searches (typically A* over world states) for the cheapest action sequence that reaches the goal. Designers add actions, not transitions — the agent figures out how to chain them.</p>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>World State: {has_weapon: false, enemy_dead: false, in_cover: false}
 Goal State: {enemy_dead: true}
@@ -2300,19 +2303,17 @@ Planner finds: pickup_weapon → attack
 
 <h3 id="influence-maps">Influence Maps</h3>
 
-<p>Spatial reasoning for AI:</p>
+<p>An influence map turns spatial reasoning into a grid lookup. Each cell accumulates a value from nearby entities, falling off with distance, so the map summarizes “who controls where.” For a cell $c$:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>For each cell in grid:
-    influence = 0
-    for each entity:
-        distance = dist(cell, entity)
-        influence += entity.strength / (1 + distance * decay)
+\[I(c) = \sum_{e \in \text{entities}} \frac{\text{strength}(e)}{1 + \text{decay}\cdot \text{dist}(c, e)}\]
 
-Uses:
-- Find safe areas (low enemy influence)
-- Identify strategic positions
-- Territory control visualization
-</code></pre></div></div>
+<p>Computed once per update (often at coarse resolution), the resulting field answers tactical questions cheaply:</p>
+
+<ul>
+  <li><strong>Safe areas</strong> — cells where enemy influence is low.</li>
+  <li><strong>Frontlines and choke points</strong> — where friendly and enemy influence balance.</li>
+  <li><strong>Strategic positions</strong> — local maxima of friendly control, or flanking routes through low-influence gaps.</li>
+</ul>
 
 <h3 id="cover-system">Cover System</h3>
 

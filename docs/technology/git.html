@@ -768,10 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
      collect the raw text, replace the wrapper with a <div class="mermaid">,
      then run mermaid on those nodes. */
   if (typeof mermaid !== 'undefined') {
-    var mermaidDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
     mermaid.initialize({
       startOnLoad: false,
-      theme: mermaidDark ? 'dark' : 'neutral',
+      theme: 'neutral',
       securityLevel: 'loose'
     });
 
@@ -1949,39 +1953,46 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="object-model">Object Model</h3>
 
-<p>Git implements a content-addressable filesystem with four fundamental object types:</p>
+<p>At its core, Git is a content-addressable filesystem: a simple key-value store where the <em>key</em> is the SHA hash of the content and the <em>value</em> is the content itself. Everything else — branches, tags, history — is built from just four object types layered on top of that store.</p>
 
-<p><strong>Blob Objects</strong></p>
-<ul>
-  <li>Store file contents without metadata</li>
-  <li>Identified by SHA-1 hash of content</li>
-  <li>Immutable once created</li>
-  <li>Shared across identical files</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Represents</th>
+      <th>Points to</th>
+      <th>Key properties</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Blob</strong></td>
+      <td>File contents</td>
+      <td>Nothing</td>
+      <td>Raw bytes only, no filename or metadata; identical files share one blob</td>
+    </tr>
+    <tr>
+      <td><strong>Tree</strong></td>
+      <td>A directory</td>
+      <td>Blobs and other trees</td>
+      <td>Stores names and file modes — gives blobs their structure</td>
+    </tr>
+    <tr>
+      <td><strong>Commit</strong></td>
+      <td>A snapshot in time</td>
+      <td>One tree + parent commit(s)</td>
+      <td>Adds author, committer, timestamp, and message</td>
+    </tr>
+    <tr>
+      <td><strong>Tag</strong></td>
+      <td>A named, signable pointer</td>
+      <td>Any object (usually a commit)</td>
+      <td>Annotated tags carry a tagger, message, and optional GPG/SSH signature</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Tree Objects</strong></p>
-<ul>
-  <li>Represent directory structures</li>
-  <li>Contain references to blobs and other trees</li>
-  <li>Store file modes and names</li>
-  <li>Form hierarchical structure</li>
-</ul>
-
-<p><strong>Commit Objects</strong></p>
-<ul>
-  <li>Point to tree object (snapshot)</li>
-  <li>Reference parent commit(s)</li>
-  <li>Include author, committer, timestamp</li>
-  <li>Store commit message</li>
-</ul>
-
-<p><strong>Tag Objects</strong></p>
-<ul>
-  <li>Annotated tags with metadata</li>
-  <li>Point to any Git object</li>
-  <li>Include tagger information</li>
-  <li>Cryptographically signable</li>
-</ul>
+<p>The objects nest predictably: a <strong>commit</strong> names one <strong>tree</strong> (the whole project at that moment) plus its parent commit(s); each <strong>tree</strong> lists <strong>blobs</strong> (file contents) and sub-trees. Because every object is keyed by the hash of its content, two things follow for free — identical content is stored once (deduplication), and altering any byte changes the hash all the way up the chain (tamper-evidence).</p>
 
 <p>These objects compose into a graph: each <strong>commit</strong> points to one <strong>tree</strong> (the project snapshot) and to its <strong>parent</strong> commit(s). Trees point to <strong>blobs</strong> (file contents) and nested trees. Following parent links backward traces the full history as a directed acyclic graph (DAG).</p>
 
