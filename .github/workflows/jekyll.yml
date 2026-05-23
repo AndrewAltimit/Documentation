@@ -27,14 +27,23 @@ jobs:
           mkdir -p github-pages/assets/css
           cp -r assets/css/* github-pages/assets/css/ || true
 
+      # Build with a multi-arch ruby image rather than the amd64-only
+      # jekyll/jekyll image, so the publish runs natively on any self-hosted
+      # runner architecture (the host pool includes arm64).
       - name: Build Jekyll site
         run: |
-          cd github-pages
           docker run --rm \
             -v "${{ github.workspace }}/github-pages:/srv/jekyll" \
             -v "${{ github.workspace }}/_site:/srv/jekyll/_site" \
-            jekyll/jekyll:4.2.2 \
-            /bin/bash -c "bundle install && jekyll build"
+            -w /srv/jekyll \
+            ruby:3.2-slim \
+            /bin/bash -c "apt-get update -qq && apt-get install -y -qq build-essential git >/dev/null && gem install bundler -q && bundle install && bundle exec jekyll build"
+
+      - name: Fix build artifact ownership
+        if: always()
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/workspace" busybox:1.36.1 \
+            chown -Rh "$(id -u):$(id -g)" /workspace/_site 2>/dev/null || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

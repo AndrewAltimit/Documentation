@@ -6,23 +6,23 @@ Technical documentation repository hosting a GitHub Pages site covering physics,
 
 ## Overview
 
-This repository contains:
+This repository is the source for a public-facing technical wiki covering quantum
+computing, AI/ML, containerization, cloud infrastructure, and more. It is built
+with Jekyll (minimal-mistakes theme) and deployed to GitHub Pages by a self-hosted
+GitHub Actions runner.
 
-- **GitHub Pages Site** - Public-facing technical wiki covering quantum computing, AI/ML, containerization, cloud infrastructure, and more
-- **MCP Tools** - Model Context Protocol servers for code quality, content creation, and AI integration
-- **CI/CD Infrastructure** - Container-first automation with self-hosted GitHub Actions runners
+Shared CI/automation tooling (link checking, etc.) is maintained centrally and
+installed on the self-hosted runner, so it is not vendored in this repository.
 
 ## Repository Structure
 
 ```
 Documentation/
-├── github-pages/          # Jekyll site source (docs, layouts, assets)
-├── tools/mcp/             # MCP server implementations
-├── automation/            # CI/CD scripts and analysis tools
-├── docker/                # Dockerfiles for all services
-├── development-docs/      # Internal docs for AI agents and processes
-├── examples/              # Example scripts and demos
-└── config/                # Configuration files
+├── github-pages/          # Jekyll site source (docs, code-examples, layouts, assets)
+├── _config.yml            # Jekyll config (assembled into github-pages/ at build time)
+├── Gemfile                # Ruby/Jekyll dependencies
+├── assets/css/            # Source CSS assembled into github-pages/ at build time
+└── images/                # Shared images referenced by docs
 ```
 
 ## Quick Start
@@ -30,24 +30,26 @@ Documentation/
 ### Build the Site Locally
 
 ```bash
-# Using docker-compose (recommended)
-docker-compose run --rm jekyll
+# Assemble config + assets, then build/serve from github-pages/
+cp _config.yml Gemfile Gemfile.lock github-pages/ 2>/dev/null || true
+mkdir -p github-pages/assets/css && cp -r assets/css/* github-pages/assets/css/
 
-# Serve locally at http://localhost:4000
 cd github-pages
 docker run --rm \
   --volume="$PWD:/srv/jekyll:Z" \
   --volume="$PWD/vendor/bundle:/usr/local/bundle:Z" \
   -p 4000:4000 \
   jekyll/jekyll:4.2.2 \
-  jekyll serve --host 0.0.0.0
+  /bin/bash -c "bundle install && jekyll serve --host 0.0.0.0"
+# Site at http://localhost:4000
 ```
 
-### Run Code Quality Checks
+## Continuous Integration
 
-```bash
-./automation/ci-cd/run-ci.sh full
-```
+- **Pull requests** run an internal markdown link check and a Jekyll build smoke
+  test on the self-hosted runner (`.github/workflows/pr-validation.yml`).
+- **Pushes to `main`** build the site and deploy it to the `gh-pages` branch
+  (`.github/workflows/jekyll.yml`).
 
 ## Documentation Topics
 
@@ -70,25 +72,11 @@ docker run --rm \
 - LoRA Training
 - Transformer Architectures
 
-## MCP Tools
-
-FastAPI-based Model Context Protocol servers providing:
-
-| Tool | Description |
-|------|-------------|
-| mcp_core | Base MCP server framework |
-| mcp_content_creation | Manim animations and LaTeX compilation |
-| mcp_gemini | Gemini AI integration |
-| mcp_code_quality | Linting and formatting tools |
-
-## Development
-
-This project follows a container-first philosophy. All Python operations run in Docker containers to ensure consistency and reproducibility.
+## Contributing
 
 Key files for contributors:
-- `CLAUDE.md` - Instructions for Claude Code AI assistant
-- `development-docs/` - Internal documentation and guides
-- `pyproject.toml` - Python tool configurations (black, ruff, mypy, etc.)
+- `CLAUDE.md` - Instructions for the Claude Code AI assistant
+- `github-pages/` - All site content and layout
 
 ## License
 
