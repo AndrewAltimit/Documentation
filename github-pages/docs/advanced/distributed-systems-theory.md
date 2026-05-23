@@ -194,6 +194,17 @@ deliver(p, m) ∧ deliver(q, m') ∧ m ≠ m' →
 
 ## Consistency Models
 
+Consensus tells us *how* replicas agree; consistency models specify *what* that agreement looks like to a client. The models form a strict hierarchy — each one below is strictly weaker (permits more behaviors) than the one above it, and weaker models can be implemented with less coordination and therefore lower latency. The formal definitions below make precise the intuitive ordering: linearizable implies sequential implies causal, and all three imply eventual.
+
+```mermaid
+flowchart TD
+    Lin["Linearizable<br/>real-time atomic order"] --> Seq["Sequential<br/>some global order, per-process order kept"]
+    Seq --> Cau["Causal<br/>causally-related ops ordered"]
+    Cau --> Eve["Eventual<br/>converges if updates stop"]
+```
+
+The key formal distinction is whether the model constrains *real time* (linearizability does; sequential consistency does not) and whether it constrains *all* operation pairs (linearizable, sequential) or only *causally related* ones (causal).
+
 ### Linearizability
 
 **Definition**: Execution history H is linearizable if:

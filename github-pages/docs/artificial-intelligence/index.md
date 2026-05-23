@@ -70,6 +70,18 @@ Our comprehensive [AI/ML Documentation](../ai-ml/) covers:
 
 ## Core AI Domains
 
+AI is not one field but several overlapping ones, each defined by the *kind* of data it works with and the structure it exploits. The table below is a quick orientation; the sections that follow go into each domain and link to the relevant guides.
+
+| Domain | What it does | Defining method | On this site |
+|--------|--------------|-----------------|--------------|
+| Machine Learning | Learn patterns from data to predict or decide | Statistical models, gradient descent | [AI Fundamentals](../technology/ai.html) |
+| Deep Learning | Learn hierarchical features from raw input | Multi-layer neural networks | [AI Deep Dive](../technology/ai-lecture-2023.html) |
+| Natural Language Processing | Understand and generate human language | Transformers, large language models | [AI Deep Dive](../technology/ai-lecture-2023.html) |
+| Computer Vision | Interpret and generate visual information | CNNs, diffusion models | [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html) |
+| Generative AI | Create new images, text, audio, and video | Diffusion, GANs, autoregressive LLMs | [ComfyUI Guide](../ai-ml/comfyui-guide.html) |
+
+Deep learning is a subset of machine learning; NLP, computer vision, and most of generative AI are in turn powered by deep learning today. Understanding that nesting is the fastest way to navigate the field.
+
 ### Machine Learning
 Machine Learning enables computers to learn from data without being explicitly programmed. It forms the foundation of modern AI systems.
 
@@ -218,15 +230,9 @@ Choose a path based on your goals:
 - AI-assisted Scientific Discovery
 - Autonomous Systems
 
-## Community & Resources
+## Contributing
 
-### Getting Help
-- Start with our beginner-friendly guides
-- Progress through intermediate tutorials
-- Tackle advanced topics when ready
-
-### Contributing
-This documentation is continuously evolving. If you notice areas for improvement or have expertise to share, we welcome contributions through our GitHub repository.
+This documentation is continuously evolving. If you notice areas for improvement or have expertise to share, we welcome contributions through our [GitHub repository](https://github.com/AndrewAltimit/Documentation).
 
 ## Next Steps
 

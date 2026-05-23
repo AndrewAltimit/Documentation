@@ -35,15 +35,25 @@ Distributed systems form the backbone of modern computing infrastructure, enabli
 
 Whether you're building microservices, implementing consensus algorithms, or deploying container orchestration platforms, you'll find detailed guides, theoretical foundations, and practical examples here.
 
-## Recent Updates (2025)
+**What you'll get:** a working mental model of why distributed systems are hard (failure, partial knowledge, no global clock), the patterns that tame that difficulty, and curated links into the deeper theory and the concrete technologies that implement it.
 
-The distributed systems landscape continues to evolve rapidly. Key developments in 2025:
+**Assumed background:** comfort with networking basics, concurrency, and at least one programming language. No prior distributed-systems experience required — we build up from first principles.
 
-- **Consensus Algorithm Improvements**: Enhanced Raft implementations with adaptive quorum optimization and Paxos variants optimized for geo-distributed deployments
-- **Cloud-Native Distributed Patterns**: Service mesh evolution with eBPF-based observability, WASM-based edge computing, and serverless distributed architectures
-- **Modern Distributed Databases**: Next-generation consistency models, distributed SQL with global transactions, and NewSQL systems achieving linearizability at scale
-- **Observability and Service Mesh**: Advanced distributed tracing with continuous profiling, AI-powered anomaly detection, and zero-trust security patterns
-- **Quantum-Safe Cryptography**: Preparing distributed systems for post-quantum security with lattice-based and hash-based cryptographic primitives
+### How the Pieces Fit Together
+
+A distributed system is a stack of decisions. The physical reality at the bottom (unreliable networks, independent failures) forces theoretical limits (CAP, FLP), which the consensus and consistency layers work around, which in turn are packaged into the patterns and technologies you actually deploy. Reading top-down tells you *what to build*; reading bottom-up tells you *why it has to be that way*.
+
+```mermaid
+flowchart TD
+    Reality["Physical reality<br/>unreliable network, partial failure, no global clock"] --> Limits["Theoretical limits<br/>CAP, FLP, Two Generals"]
+    Limits --> Coord["Coordination layer<br/>consensus (Raft/Paxos), consistency models"]
+    Coord --> Patterns["Design patterns<br/>leader election, sagas, sharding, event-driven"]
+    Patterns --> Tech["Technologies<br/>Kubernetes, Kafka, Istio, distributed DBs"]
+    Limits -.->|formal treatment| Theory["Distributed Systems Theory →"]
+    Tech -.->|orchestration| K8s["Kubernetes →"]
+```
+
+Start anywhere that matches your goal: jump to the [patterns](#common-patterns-and-solutions) if you're building today, or to [Distributed Systems Theory](../advanced/distributed-systems-theory/) if you want the impossibility proofs behind the limits.
 
 ## Quick Navigation
 
@@ -198,17 +208,16 @@ The Fischer-Lynch-Paterson theorem proves that deterministic consensus is imposs
 
 ### Consistency Models
 
-Different applications require different consistency guarantees:
+Consistency is a spectrum, not a switch. The stronger the guarantee, the more coordination (and latency) it costs — so the rule of thumb is to pick the *weakest* model your application can tolerate. The models below are ordered from strongest to weakest:
 
-1. **Strong Consistency**:
-   - **Linearizability**: Operations appear atomic and instantaneous
-   - **Sequential Consistency**: Operations appear in program order
-   - **Causal Consistency**: Causally related operations are ordered
+| Model | Guarantee | Cost | Typical use |
+|-------|-----------|------|-------------|
+| **Linearizable** | Operations appear atomic and instantaneous, in real-time order | Highest (cross-node coordination per op) | Locks, leader election, financial ledgers |
+| **Sequential** | A single global order consistent with each process's program order | High | Replicated state machines |
+| **Causal** | Causally related operations seen in the same order everywhere | Moderate | Collaborative editing, comment threads |
+| **Eventual** | Replicas converge if updates stop; readers may see stale data | Lowest (no coordination on the write path) | Shopping carts, DNS, social feeds |
 
-2. **Weak Consistency**:
-   - **Eventual Consistency**: System converges to consistent state
-   - **Read Your Writes**: Process sees its own writes
-   - **Monotonic Reads**: Once seen, data doesn't go backwards
+Weaker models add *session guarantees* — read-your-writes (a process always sees its own updates) and monotonic reads (data never appears to go backwards) — to make eventual consistency tolerable for users. For the formal definitions and the happens-before relation that underpins causal ordering, see [Distributed Systems Theory](../advanced/distributed-systems-theory/#consistency-models).
 
 ## Architecture Patterns
 
@@ -1076,14 +1085,5 @@ class SecureClient:
 ---
 
 *Building distributed systems is a journey of continuous learning. Start with the fundamentals, practice with real implementations, and always be prepared for the unexpected failures that make distributed systems both challenging and fascinating.*
-
-## Updates and Contributions
-
-This documentation is actively maintained and updated with the latest distributed systems patterns and technologies. Recent additions include:
-
-- **2025 Updates**: Service mesh patterns with Istio 1.21+
-- **WASM Integration**: Edge computing with WebAssembly
-- **eBPF Observability**: Kernel-level monitoring without overhead
-- **Quantum-Safe Cryptography**: Preparing for post-quantum distributed systems
 
 For contributions or corrections, please visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation).

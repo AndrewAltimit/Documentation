@@ -40,6 +40,12 @@ hide_title: true
 
 ## Fundamental Concepts
 
+<div class="principle-card">
+  <h4>Why replace particles with strings?</h4>
+  <p>The motivation is a crisis at the meeting point of our two best theories. Quantum field theory treats particles as <em>points</em>, and general relativity treats gravity as <em>spacetime curvature</em>. Try to combine them — to quantize gravity the way we quantized electromagnetism — and the calculations spew uncontrollable infinities. A point particle has zero size, so interactions happen at a single spacetime point where field strengths blow up; for gravity these divergences cannot be renormalized away.</p>
+  <p>String theory's one radical move fixes this: smear the point out into a tiny one-dimensional <strong>string</strong> roughly $10^{-35}$ m long. Interactions are now spread over the smooth tube of a worldsheet rather than crammed into a single point, and the infinities soften into finite answers. The unexpected bonus: one of the string's natural vibration modes is a massless spin-2 particle with exactly the properties of the <strong>graviton</strong>. String theory does not just <em>tolerate</em> gravity — it predicts it.</p>
+</div>
+
 <div class="concepts-section">
   <div class="string-types">
     <h3><i class="fas fa-circle-notch"></i> From Points to Strings</h3>
@@ -1125,6 +1131,8 @@ Challenging due to high energy scale:
 
 ## Criticisms and Challenges
 
+String theory is genuinely contested science, and it is worth being clear-eyed about both the legitimate scientific objections and the popular misconceptions that cloud the debate.
+
 ### Lack of Uniqueness
 
 - Many consistent vacua
@@ -1142,6 +1150,19 @@ Challenging due to high energy scale:
 - Non-perturbative definition needed
 - Background independence
 - Off-shell formulation
+
+### Common Misconceptions
+
+<div class="principle-card">
+  <h4>Setting the record straight</h4>
+  <ul>
+    <li><strong>"String theory has been proven."</strong> No. It has produced no confirmed experimental prediction; the string scale lies roughly $10^{15}$ times beyond current colliders. It is a mathematically rich framework, not an established theory of nature.</li>
+    <li><strong>"String theory has been ruled out."</strong> Also no. The non-observation of supersymmetry at the LHC weakens some <em>specific</em> low-energy models but does not falsify the framework, whose characteristic effects sit far above accessible energies.</li>
+    <li><strong>"The extra dimensions are just a mathematical trick."</strong> They are taken as physically real but <em>compactified</em> — curled up so small (near the Planck length) that they are invisible at everyday scales, much as a garden hose looks one-dimensional from afar.</li>
+    <li><strong>"The landscape of $\sim 10^{500}$ vacua means the theory predicts nothing."</strong> The landscape is a serious challenge, but the complementary <em>Swampland</em> program argues that most conceivable low-energy theories are <em>not</em> consistent with quantum gravity — turning "anything goes" into sharp, in-principle-testable constraints.</li>
+    <li><strong>"It's purely abstract with no impact."</strong> Even absent experimental confirmation, string theory has delivered concrete tools used elsewhere: AdS/CFT now models quark–gluon plasma and strange metals, and microstate counting gave the first statistical derivation of black-hole entropy.</li>
+  </ul>
+</div>
 
 ## Current Research
 

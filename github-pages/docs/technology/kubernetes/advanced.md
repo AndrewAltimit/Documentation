@@ -62,6 +62,8 @@ spec:
 
 #### Building an Operator
 
+A CRD on its own only teaches the API server a new *noun* — it stores `Database` objects but does nothing with them. The verb comes from an **operator**: a controller that watches for those objects and drives the cluster toward the state they describe. This is the same reconcile loop that powers built-in controllers, applied to your custom type. The simplified `Reconcile` below shows the core idea — fetch the desired object, then create or update the real resources (a StatefulSet, a backup CronJob) to match it.
+
 ```go
 // Simplified operator logic
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -96,7 +98,9 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 As microservices architectures grow, managing service-to-service communication becomes complex. Service meshes like Istio provide a dedicated infrastructure layer for handling service communications, offering features like traffic management, security, and observability without changing application code.
 
-#### Istio Architecture
+#### Traffic Management
+
+A service mesh injects a sidecar proxy next to every pod and routes all traffic through it. Because the proxy sees every request, you can shift, split, and inspect traffic with configuration rather than code. The `VirtualService` below does a **canary release**: requests from the user `jason` go to `v2`, while everyone else is split 75/25 between `v1` and `v2`. Shifting the weights gradually rolls the canary out (or rolls it back) with no redeploy.
 
 ```yaml
 # Virtual Service for canary deployment
@@ -127,7 +131,9 @@ spec:
       weight: 25
 ```
 
-#### Circuit Breaking and Retry Logic
+#### Resilience: Circuit Breaking and Outlier Detection
+
+The other half of mesh traffic policy is keeping a struggling service from taking down its callers. A `DestinationRule` caps how many connections and pending requests pile up (the connection pool), and **outlier detection** ejects an instance from the load-balancing pool after it returns too many consecutive errors — the mesh's version of a circuit breaker. The settings below eject a backend for 30 seconds after 5 consecutive errors, while never ejecting more than half the pool.
 
 ```yaml
 apiVersion: networking.istio.io/v1beta1
@@ -257,6 +263,8 @@ profiles:
 
 #### Pod Topology Spread Constraints
 
+Most teams never write a custom scheduler — instead they nudge the default one with constraints. **Topology spread constraints** are the most useful: they tell the scheduler to spread replicas evenly across a failure domain (nodes, then zones) so a single node or zone outage cannot take down a disproportionate share of your pods. The `maxSkew: 1` below means no domain may hold more than one extra pod versus the least-loaded one, and `DoNotSchedule` makes that a hard requirement.
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -376,20 +384,30 @@ spec:
      --ttl 720h
    ```
 
-2. **Multi-Region Failover**:
+2. **Multi-Region Failover**: The older KubeFed (Federation v2) project is effectively retired; the modern pattern is **independent clusters per region**, each reconciled from the same Git repo, with a global load balancer steering traffic. Fleet/multi-cluster managers such as Karmada, Open Cluster Management, or a hub-and-spoke Argo CD coordinate placement and failover across them.
+
    ```yaml
-   # Federation v2 example
-   apiVersion: types.kubefed.io/v1beta1
-   kind: FederatedDeployment
+   # Argo CD ApplicationSet fans the same app out to every regional cluster
+   apiVersion: argoproj.io/v1alpha1
+   kind: ApplicationSet
    metadata:
-     name: app
-     namespace: production
+     name: app-all-regions
+     namespace: argocd
    spec:
-     placement:
-       clusters:
-       - name: us-east-1
-       - name: us-west-2
-       - name: eu-west-1
+     generators:
+     - clusters: {}          # one Application per registered cluster
+     template:
+       metadata:
+         name: 'app-{% raw %}{{name}}{% endraw %}'
+       spec:
+         project: default
+         source:
+           repoURL: https://github.com/myorg/app
+           targetRevision: HEAD
+           path: k8s
+         destination:
+           server: '{% raw %}{{server}}{% endraw %}'
+           namespace: production
    ```
 
 ## Common Pitfalls and How to Avoid Them
@@ -523,24 +541,25 @@ hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
 ```
 
-## Kubernetes Updates: Latest Features and Best Practices
+## Modern Capabilities Worth Knowing
 
-### What's New in Kubernetes v1.29 (Mandala)
-1. **ReadinessGates for Jobs**: Better job lifecycle management
-2. **Sidecar Containers**: Native support for sidecar patterns
-3. **In-Place Pod Vertical Scaling**: Resize pods without restart
-4. **CEL for Admission Control**: Common Expression Language support
-5. **Structured Authentication Configuration**: Enhanced security
+Kubernetes ships a new minor release roughly every four months, so "latest features" age quickly. The capabilities below have stabilized in recent releases and are worth reaching for once you are past the basics — they change how you handle sidecars, resizing, security, and ingress.
 
-### What's New in Kubernetes v1.28 (Planternetes)
-1. **Cgroups v2 GA**: Better resource isolation
-2. **Mixed CPUs Support**: Heterogeneous CPU architectures
-3. **Persistent Volume Last Phase Transition Time**: Better storage monitoring
-4. **Non-Graceful Node Shutdown**: Improved failure handling
+| Capability | What it changes | Why it matters |
+|------------|-----------------|----------------|
+| **Native sidecar containers** | Sidecars declared as restartable init containers | Sidecars start before and stop after the main container, fixing log/proxy lifecycle bugs |
+| **In-place pod vertical scaling** | Resize CPU/memory requests without restarting the pod | Right-size live workloads with no disruption |
+| **CEL admission policies** | Validate/mutate objects with Common Expression Language | Policy enforcement without a webhook server to operate |
+| **cgroups v2** | Unified resource hierarchy on the node | More accurate memory accounting and pressure handling |
+| **Gateway API** | Role-oriented successor to Ingress | Richer, portable L4/L7 routing (see below) |
 
-### Enhanced Security Features
+### Hardening Namespaces with Pod Security Standards
+
+Pod Security Standards are applied per namespace through labels, in three independent modes: `enforce` rejects non-compliant pods, `warn` lets them through with a warning, and `audit` records a violation in the audit log. A common rollout is to start with `warn`/`audit` to find offenders, then flip `enforce` once the namespace is clean.
+
 ```yaml
-# Pod Security Standards (enforced by default)
+# Enforce the Restricted profile; warn and audit on the same standard
+apiVersion: v1
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -551,9 +570,12 @@ metadata:
     pod-security.kubernetes.io/warn: restricted
 ```
 
-### AI/ML Workload Support
+### Scheduling GPU Workloads
+
+GPUs are exposed as a schedulable [extended resource](https://kubernetes.io/docs/concepts/scheduling-eviction/) named `nvidia.com/gpu` (installed by the GPU device plugin). You request whole GPUs the same way you request CPU or memory — fractional GPUs are not supported by the standard plugin, so a request and limit of `2` reserves two entire devices for the pod.
+
 ```yaml
-# GPU scheduling improvements
+# Request whole GPUs via the device-plugin extended resource
 apiVersion: v1
 kind: Pod
 metadata:
@@ -572,9 +594,11 @@ spec:
       value: "all"
 ```
 
-### Gateway API v1.0 (GA)
+### Gateway API: The Successor to Ingress
+
+The Gateway API is the long-term replacement for Ingress. It splits responsibilities by role: a cluster operator owns the `Gateway` (the listener, ports, and TLS), while application teams attach `HTTPRoute` objects to it for their own routing — without touching shared infrastructure. It also handles protocols Ingress never did cleanly (gRPC, TCP, UDP). The `Gateway` below just declares an HTTPS listener; routes are defined separately and bound to it.
+
 ```yaml
-# Modern ingress replacement
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -590,19 +614,14 @@ spec:
       - name: prod-cert
 ```
 
-### Performance Improvements
-- **Improved etcd performance**: 30% faster for large clusters
-- **API Priority and Fairness**: Better request handling
-- **Efficient SELinux relabeling**: Faster pod startup
-- **Memory manager improvements**: Better NUMA awareness
-
 ## Future of Kubernetes: What's Next?
 
-### Emerging Trends (2024-2025)
-1. **Serverless on Kubernetes**: Knative 1.12+, OpenFaaS, KEDA 2.13
-2. **Edge Computing**: K3s, KubeEdge, Akri for leaf devices
-3. **WebAssembly**: Running Wasm workloads with runwasi
-4. **AI/ML Workloads**: Kubeflow 1.8, MLOps pipelines, Ray on K8s
+Several ecosystems are maturing on top of Kubernetes rather than changing the core. These are the directions worth watching:
+
+1. **Serverless on Kubernetes**: Knative, OpenFaaS, and KEDA for scale-to-zero and event-driven workloads
+2. **Edge Computing**: K3s, KubeEdge, and Akri for resource-constrained and leaf devices
+3. **WebAssembly**: Running Wasm workloads alongside containers via runwasi
+4. **AI/ML Workloads**: Kubeflow, MLOps pipelines, and Ray on Kubernetes
 5. **eBPF Integration**: Cilium, Pixie for advanced observability
 6. **Platform Engineering**: Backstage, Crossplane for developer portals
 7. **FinOps**: Cost optimization with Kubecost, OpenCost

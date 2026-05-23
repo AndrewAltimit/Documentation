@@ -125,20 +125,20 @@ td {
     --map-border: #e0e0e0;
 }
 
-/* Dark mode support for cross-linking */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --skill-nav-bg: #1a1a1a;
-        --skill-nav-border: #333;
-        --helper-bg: #1a1a1a;
-        --helper-border: #333;
-        --disclosure-bg: #1a1a1a;
-        --disclosure-border: #333;
-        --breadcrumb-bg: #1a1a1a;
-        --breadcrumb-border: #333;
-        --map-bg: #1a1a1a;
-        --map-border: #333;
-    }
+/* Dark mode support for cross-linking (driven by the explicit theme toggle,
+   set on <html data-theme>, so an explicit Light choice always wins even when
+   the OS prefers dark). */
+html[data-theme="dark"] {
+    --skill-nav-bg: #161b22;
+    --skill-nav-border: #30363d;
+    --helper-bg: #161b22;
+    --helper-border: #30363d;
+    --disclosure-bg: #161b22;
+    --disclosure-border: #30363d;
+    --breadcrumb-bg: #161b22;
+    --breadcrumb-border: #30363d;
+    --map-bg: #161b22;
+    --map-border: #30363d;
 }
 .advanced-note {
 	border: 2px solid #f39c12;
@@ -995,4 +995,193 @@ button:focus-visible,
 @media (max-width: 768px) {
   .category-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   DARK MODE
+   Driven by <html data-theme="dark"> (set before paint by the
+   no-flash script in custom-head.html, toggled by the floating
+   theme button). Strategy:
+     1. Redefine the design-system CSS variables — this instantly
+        re-themes everything that already consumes them (links,
+        tables, inline code, blockquotes, <hr>, h2 rule, category
+        cards) via the rules earlier in this file.
+     2. Override the surfaces that were written with literal light
+        colors (sidebar, content canvas, cards, pastel callouts,
+        right-hand TOC, copy buttons). Some upstream rules use
+        !important, so a few overrides must match that weight.
+   Colorful hero banners and gradient footers keep their own
+   palettes — they read fine on a dark page.
+   ============================================================ */
+
+html[data-theme="dark"] {
+  --color-accent: #58a6ff;
+  --color-accent-dark: #79b8ff;
+  --color-text: #c9d1d9;
+  --color-text-muted: #8b949e;
+  --color-border: #30363d;
+  --color-surface: #161b22;
+  --color-code-bg: #161b22;
+
+  --db-bg: #0d1117;        /* page canvas */
+  --db-surface: #161b22;   /* cards / sidebar */
+  --db-elevated: #1c2128;  /* hover / elevated */
+  --db-border: #30363d;
+  --db-text: #c9d1d9;
+  --db-heading: #e6edf3;
+  --db-muted: #8b949e;
+}
+
+html[data-theme="dark"] body {
+  background-color: var(--db-bg);
+  color: var(--db-text);
+}
+
+/* Content canvas + sidebar */
+html[data-theme="dark"] article.page { background: var(--db-bg); }
+html[data-theme="dark"] .sidebar.sticky {
+  background-color: var(--db-surface);
+  border-right-color: var(--db-border);
+}
+html[data-theme="dark"] .sidebar__brand { color: var(--db-heading); border-bottom-color: var(--db-border); }
+html[data-theme="dark"] .nav__title { color: var(--db-muted); border-bottom-color: var(--db-border); }
+html[data-theme="dark"] .nav__items a,
+html[data-theme="dark"] .nav__item--collapsible summary { color: var(--db-text); }
+html[data-theme="dark"] .nav__subitems { border-left-color: var(--db-border); }
+html[data-theme="dark"] .nav__subitems a { color: var(--db-muted); }
+html[data-theme="dark"] .nav__items a:hover,
+html[data-theme="dark"] .nav__item--collapsible summary:hover,
+html[data-theme="dark"] .nav__subitems a:hover { background-color: rgba(88,166,255,0.12); color: var(--color-accent); }
+html[data-theme="dark"] .nav__items a.active,
+html[data-theme="dark"] .nav__subitems a.active { background-color: rgba(88,166,255,0.15); color: var(--color-accent); }
+
+/* Headings + body text */
+html[data-theme="dark"] .page__content h1,
+html[data-theme="dark"] .page__content h2,
+html[data-theme="dark"] .page__content h3,
+html[data-theme="dark"] .page__content h4,
+html[data-theme="dark"] .page__title { color: var(--db-heading); }
+html[data-theme="dark"] .page__content,
+html[data-theme="dark"] .page__content > p,
+html[data-theme="dark"] .page__content > ul,
+html[data-theme="dark"] .page__content > ol,
+html[data-theme="dark"] .page__content li { color: var(--db-text); }
+
+/* Code: blocks + inline */
+html[data-theme="dark"] pre,
+html[data-theme="dark"] .page__content pre { background: var(--db-surface); }
+html[data-theme="dark"] code { background: #21262d; }
+html[data-theme="dark"] .page__content code { background: #21262d; border-color: #30363d; color: #ffa7c4; }
+html[data-theme="dark"] .page__content pre code { background: transparent; color: #c9d1d9; }
+
+/* Tables (override the literal light header/zebra/hover) */
+html[data-theme="dark"] .page__content table th { background: #21262d; border-bottom-color: var(--db-border); }
+html[data-theme="dark"] .page__content table tr:nth-child(even) td { background: #12171e; }
+html[data-theme="dark"] .page__content table tr:hover td { background: #1c2433; }
+html[data-theme="dark"] .page__content table th,
+html[data-theme="dark"] .page__content table td { border-bottom-color: #262c34; }
+
+/* MathJax equations inherit text color */
+html[data-theme="dark"] mjx-container { color: var(--db-text); }
+
+/* Right-hand "On This Page" TOC */
+html[data-theme="dark"] .doc-toc { background: #11151b; border-left-color: var(--db-border); }
+html[data-theme="dark"] .doc-toc__title { color: var(--db-muted); }
+html[data-theme="dark"] .doc-toc a { color: var(--db-muted); }
+html[data-theme="dark"] .doc-toc a:hover,
+html[data-theme="dark"] .doc-toc a.is-active { color: var(--color-accent); background: rgba(88,166,255,0.1); }
+
+/* Copy-to-clipboard button */
+html[data-theme="dark"] .code-copy-btn { background: rgba(33,38,45,0.92); color: #c9d1d9; border-color: #30363d; }
+
+/* Generic neutral cards */
+html[data-theme="dark"] .feature-card,
+html[data-theme="dark"] .driver-card,
+html[data-theme="dark"] .principle-card,
+html[data-theme="dark"] .phenomenon-card,
+html[data-theme="dark"] .pattern-card,
+html[data-theme="dark"] .example-card,
+html[data-theme="dark"] .exponent-card,
+html[data-theme="dark"] .nav-card,
+html[data-theme="dark"] .theory-card,
+html[data-theme="dark"] .transition-card,
+html[data-theme="dark"] .string-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .step-card,
+html[data-theme="dark"] .algorithm-card,
+html[data-theme="dark"] .ai-type-card,
+html[data-theme="dark"] .ml-type-card,
+html[data-theme="dark"] .arch-card,
+html[data-theme="dark"] .insight-card,
+html[data-theme="dark"] .intro-card,
+html[data-theme="dark"] .quick-start-card {
+  background: var(--db-surface);
+  border-color: var(--db-border);
+}
+html[data-theme="dark"] .feature-card h4,
+html[data-theme="dark"] .nav-card h4,
+html[data-theme="dark"] .pattern-card h4,
+html[data-theme="dark"] .example-card h4,
+html[data-theme="dark"] .principle-card h4,
+html[data-theme="dark"] .stat-card h4,
+html[data-theme="dark"] .step-card h4,
+html[data-theme="dark"] .algorithm-card h4,
+html[data-theme="dark"] .insight-card h4,
+html[data-theme="dark"] .quick-start-card h3,
+html[data-theme="dark"] .intro-card .lead-text { color: var(--db-heading); }
+html[data-theme="dark"] .insight-card p,
+html[data-theme="dark"] .feature-card p { color: var(--db-muted); }
+
+/* Pastel callout cards -> dark tinted equivalents */
+html[data-theme="dark"] .tip-card { background: #0e2a33; border-left-color: #17a2b8; }
+html[data-theme="dark"] .takeaway-card { background: #0f2a18; border-left-color: #28a745; }
+html[data-theme="dark"] .postulate-card { background: #0d1f33; border-left-color: #2f81f7; }
+html[data-theme="dark"] .challenge-card,
+html[data-theme="dark"] .example-section,
+html[data-theme="dark"] .troubleshooting-section { background: #2a2410; border-color: #6a5510; }
+html[data-theme="dark"] .storage-section,
+html[data-theme="dark"] .see-also-card,
+html[data-theme="dark"] .reference-intro { background: #0d1f33; border-color: #1f4b7a; }
+html[data-theme="dark"] .see-also-card h4 { color: var(--color-accent); }
+
+/* Pros/Cons + problem/solution (these use !important upstream) */
+html[data-theme="dark"] .pros-section { background: #0f2a18 !important; }
+html[data-theme="dark"] .cons-section { background: #2c1416 !important; }
+html[data-theme="dark"] .problem-item { background: var(--db-surface) !important; border-color: var(--db-border) !important; }
+html[data-theme="dark"] .solution-item { background: var(--db-surface) !important; border-color: var(--db-border) !important; }
+html[data-theme="dark"] .pro-item, html[data-theme="dark"] .con-item { border-bottom-color: var(--db-border) !important; }
+html[data-theme="dark"] .pro-item p, html[data-theme="dark"] .con-item p { color: var(--db-muted) !important; }
+html[data-theme="dark"] .problem-item i, html[data-theme="dark"] .solution-item i { color: var(--db-muted) !important; }
+
+/* Reference cards (use !important upstream) */
+html[data-theme="dark"] .reference-card { background: var(--db-surface) !important; border-color: var(--db-border) !important; }
+html[data-theme="dark"] .reference-card h4 { color: var(--db-heading) !important; border-bottom-color: var(--color-accent) !important; }
+
+/* Notice / advanced-note boxes */
+html[data-theme="dark"] .notice--warning { background-color: #2a2410; }
+html[data-theme="dark"] .advanced-note { background-color: #2a2410; border-color: #8a5a12; }
+html[data-theme="dark"] .advanced-note p { color: #e0c08a; }
+
+/* Floating theme toggle button (created by custom-head.html) */
+.theme-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 200;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border, #e1e4e8);
+  background: #fff;
+  color: #0066cc;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.theme-toggle:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.22); }
+.theme-toggle:focus-visible { outline: 2px solid #0066cc; outline-offset: 2px; }
+html[data-theme="dark"] .theme-toggle { background: #21262d; color: #f0b429; border-color: #30363d; }
 

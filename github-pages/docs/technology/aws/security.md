@@ -17,40 +17,133 @@ toc_icon: "shield-alt"
   <p class="lead-text">Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.</p>
 </div>
 
-## Security: Your First and Constant Priority
+## The Problem Security Solves
 
-Security in AWS isn't a feature you add later - it's woven into every decision from day one. The good news? AWS provides powerful tools that make security easier than traditional on-premise setups.
+In an on-premises data center, a locked door and a firewall went a long way: an attacker had to physically reach the building or breach the network perimeter. In the cloud, every resource has a public API endpoint, and a single leaked access key or an over-permissive policy can expose your entire account from anywhere on the internet. Security in AWS is therefore less about a perimeter and more about *who can do what to which resource* — and proving it.
 
-### The Security Mindset Evolution
+The good news: AWS gives you fine-grained controls for exactly this, and most of them cost nothing to turn on. The hard part is knowing which control addresses which risk. This guide is organized around four questions:
 
-Your security journey typically progresses through these stages:
+| Question | Risk it addresses | Primary services |
+|----------|-------------------|------------------|
+| **Who can act, and on what?** | Stolen credentials, privilege escalation | IAM, IAM Identity Center, Organizations |
+| **Is the data readable if stolen?** | Data exfiltration, lost disks | KMS, encryption defaults |
+| **Are we being attacked right now?** | Active intrusion, misconfiguration | GuardDuty, Security Hub, Config |
+| **Can attacker traffic even reach us?** | DDoS, injection, scraping | WAF, Shield, Security Groups |
 
-1. **Basic Protection**: Strong passwords, MFA, and basic IAM policies
-2. **Defense in Depth**: Network isolation, encryption, and logging
-3. **Automated Compliance**: Continuous monitoring and automated remediation
-4. **Zero Trust Architecture**: Assume breach, verify everything
+### Where the Line Is Drawn: Shared Responsibility
 
-### Core Security Principles That Save You Later
+AWS secures the cloud (physical data centers, hypervisors, the network backbone). You secure what is *in* the cloud (identities, configuration, data, application code). Almost every breach you read about lives on the customer side of that line — a public S3 bucket, a hardcoded key, an `0.0.0.0/0` rule. Internalizing this division tells you where to spend your effort.
 
-#### Principle of Least Privilege
-Give users and services only the permissions they need, nothing more. It's tempting to grant broad permissions for convenience, but this creates massive risk.
+### The Security Maturity Path
 
-**Example progression**:
-- Bad: Give developers AdministratorAccess
-- Better: Create a PowerUserAccess role without IAM permissions
-- Best: Custom policies granting exactly what each team needs
+Most teams progress through these stages. You do not need to reach the end on day one, but you should know what each stage protects against:
 
-#### Encryption Everywhere
-AWS makes encryption easy - use it for everything:
-- **At Rest**: S3, EBS, RDS all support transparent encryption
-- **In Transit**: TLS/SSL for all communications
-- **Key Management**: AWS KMS handles the complexity of key rotation
+1. **Basic protection**: MFA on the root account, individual IAM users/roles, no long-lived keys in code.
+2. **Defense in depth**: Private subnets, encryption at rest and in transit, CloudTrail logging on.
+3. **Automated compliance**: Config rules and Security Hub flag drift; GuardDuty watches for active threats.
+4. **Zero trust**: Assume breach. Verify every request, scope every credential, segment every network.
 
-**Real-world scenario**: A healthcare startup encrypts patient data by default. When they undergo HIPAA compliance audit, encryption is already in place, saving months of remediation work.
+---
+
+## IAM: Who Can Do What
+
+IAM (Identity and Access Management) is the foundation everything else rests on. Get IAM wrong and no amount of encryption or threat detection will save you. Get it right and most attacks have nowhere to go.
+
+### The Four IAM Building Blocks
+
+| Concept | What it is | When to use it |
+|---------|-----------|----------------|
+| **User** | A long-lived identity for a human or legacy app | Rare today — prefer Identity Center for humans |
+| **Group** | A collection of users sharing permissions | Apply policies to many users at once (e.g. `Developers`) |
+| **Role** | A temporary identity that anything can assume | The default for applications, EC2, Lambda, cross-account access |
+| **Policy** | A JSON document granting or denying actions | Attached to users, groups, or roles to define permissions |
+
+**The single most important rule:** prefer **roles** over **users with access keys**. A role hands out short-lived, automatically-rotated credentials; a user's access key sits in a config file or environment variable indefinitely, waiting to leak. EC2 instances, Lambda functions, and CI/CD pipelines should all assume roles, never carry static keys.
+
+### Anatomy of an IAM Policy
+
+Every permission decision comes down to a policy document. Read this one as "allow reading objects from a specific bucket, but only over TLS":
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "ReadAppBucketOverTLS",
+    "Effect": "Allow",
+    "Action": ["s3:GetObject"],
+    "Resource": "arn:aws:s3:::my-app-bucket/*",
+    "Condition": {
+      "Bool": { "aws:SecureTransport": "true" }
+    }
+  }]
+}
+```
+
+- **Effect**: `Allow` or `Deny`. An explicit `Deny` always wins over any `Allow`.
+- **Action**: The API calls being permitted (`service:Operation`). Resist `s3:*`.
+- **Resource**: The exact ARNs the actions apply to. Resist `"Resource": "*"`.
+- **Condition**: Extra constraints — source IP, MFA present, encryption in transit, etc.
+
+### Least Privilege in Practice
+
+Least privilege means granting only the permissions actually needed, then widening only when something breaks. The progression below shows the journey teams typically take:
+
+| Stage | What it looks like | Why it is risky / better |
+|-------|--------------------|--------------------------|
+| **Bad** | Every developer has `AdministratorAccess` | One leaked key compromises everything |
+| **Better** | A shared `PowerUserAccess` role (no IAM rights) | Limits self-escalation, but still broad |
+| **Best** | Per-team policies scoped to specific services and resources | Blast radius of any one credential stays small |
+
+<div class="tip-card">
+  <h4>Tighten policies with real usage data</h4>
+  <p>Do not guess at permissions. IAM Access Analyzer can generate a least-privilege policy from the actual CloudTrail history of what a role used. Start broad in dev, then let the data tell you what to remove before production.</p>
+</div>
+
+### Common IAM Pitfalls
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Using the root account for daily work:</strong> The root user can do anything, including closing the account. Lock it behind MFA, create an admin role, and never use root again except for the handful of tasks that require it.</li>
+    <li><strong>Long-lived access keys in code:</strong> Keys committed to git or baked into AMIs are the #1 source of breaches. Use roles; if you must use keys, rotate them and scan repos with tools like git-secrets.</li>
+    <li><strong>Wildcards everywhere:</strong> <code>"Action": "*"</code> on <code>"Resource": "*"</code> is administrator access by another name. Scope both.</li>
+    <li><strong>Forgetting MFA:</strong> A password alone is one phished email away from compromise. Enforce MFA on all human identities via an IAM policy condition.</li>
+  </ul>
+</div>
+
+---
+
+## Encryption: Unreadable If Stolen
+
+Encryption is your fallback for when a control fails — if a disk, snapshot, or bucket leaks, encrypted data is just noise without the key. AWS makes this nearly free to enable, so the only wrong choice is leaving it off.
+
+| Layer | What to enable | How |
+|-------|----------------|-----|
+| **At rest** | Default encryption on S3, EBS, RDS, DynamoDB | Toggle in console/IaC; transparent to your app |
+| **In transit** | TLS for every connection | Enforce with the `aws:SecureTransport` condition shown above |
+| **Key management** | KMS keys with automatic rotation | Use AWS-managed keys to start; customer-managed keys when you need control over policy and rotation |
+
+**Why KMS instead of managing keys yourself?** KMS handles generation, storage, rotation, and access logging of keys, and integrates directly with S3/EBS/RDS so encryption is transparent. Every use of a key is recorded in CloudTrail, giving you an audit trail of who decrypted what.
+
+**Real-world scenario**: A healthcare startup turns on default encryption and KMS rotation from day one. When the HIPAA audit arrives, encryption-at-rest is already in place across every store — turning what is often months of remediation into a checkbox.
+
+---
+
+## Detection: Are We Being Attacked?
+
+Prevention is never perfect, so you also need to *see* what is happening. Three services cover the spectrum, and they complement rather than replace each other:
+
+| Service | What it answers | What it watches |
+|---------|-----------------|-----------------|
+| **GuardDuty** | "Is something malicious happening?" | CloudTrail, VPC flow, DNS logs analyzed by ML for threats |
+| **Config** | "Did a resource drift from policy?" | Resource configuration changes against rules (e.g. "no public buckets") |
+| **Security Hub** | "What is my overall posture?" | Aggregates GuardDuty + Config + standards (CIS, PCI-DSS) into one score |
+
+Think of it as layers: **Config** catches misconfiguration, **GuardDuty** catches active intrusion, and **Security Hub** is the dashboard that rolls both up against a compliance benchmark so you get a single prioritized findings list instead of scattered alarms.
 
 ### Security Hub: Your Compliance Command Center
 
-Security Hub continuously monitors your AWS environment against industry standards (CIS, PCI-DSS, HIPAA). Instead of manual security reviews, you get real-time compliance scores.
+Security Hub continuously evaluates your environment against industry standards (CIS, PCI-DSS, AWS Foundational Security Best Practices) and produces a real-time compliance score, so manual quarterly security reviews become continuous automated ones. The Terraform below shows the core wiring — enabling Security Hub, subscribing to standards, and routing high-severity findings to an automated remediation Lambda. The full configuration (GuardDuty, Macie, Inspector, Config rules, WAF) follows; treat it as a reference you adapt, not a block to copy wholesale.
 
 ```hcl
 # security-hub.tf - Security Hub configuration and custom checks
@@ -464,6 +557,39 @@ resource "aws_wafv2_web_acl" "main" {
   }
 }
 ```
+
+---
+
+## Edge Protection: Can Attacker Traffic Reach Us?
+
+The final layer filters traffic before it touches your application. The `aws_wafv2_web_acl` above sits in front of CloudFront or an ALB and drops bad requests at the edge:
+
+| Control | Protects against | Where it sits |
+|---------|------------------|---------------|
+| **WAF** | SQL injection, XSS, bot scraping, request floods | CloudFront / ALB / API Gateway |
+| **Shield Standard** | Common network/transport DDoS (free, always on) | Edge, automatic |
+| **Shield Advanced** | Large/sophisticated DDoS, with cost protection | Edge, paid |
+| **Security Groups** | Unwanted inbound/outbound to a resource | Per ENI (stateful firewall) |
+
+The WAF rules above combine a **rate-based rule** (block any IP exceeding 2,000 requests in the evaluation window — a cheap defense against scraping and brute force) with an **AWS-managed rule group** (`KnownBadInputs`) that catches common exploit payloads without you maintaining signatures. Start with managed rule groups; write custom rules only for application-specific patterns.
+
+## How the Layers Fit Together
+
+Security is not one control but a stack — a request must clear every layer, and a breach of one is contained by the next:
+
+```mermaid
+flowchart TB
+    Req([Incoming request]) --> WAF["WAF + Shield<br/>filter malicious traffic"]
+    WAF --> SG["Security Group<br/>allow only expected ports"]
+    SG --> App["Application / EC2 / Lambda"]
+    App --> IAM["IAM role<br/>scoped, temporary credentials"]
+    IAM --> Data["Encrypted data<br/>KMS keys, TLS in transit"]
+    GD["GuardDuty + Config + Security Hub"] -. "watch every layer" .-> WAF
+    GD -. .-> App
+    GD -. .-> Data
+```
+
+If WAF misses something, the security group still limits exposure. If a credential leaks, IAM scoping limits the blast radius. If data is exfiltrated, encryption renders it useless. And throughout, the detection services watch every layer for anomalies.
 
 ## Key Takeaways
 

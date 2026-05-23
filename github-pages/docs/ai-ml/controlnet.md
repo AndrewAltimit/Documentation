@@ -66,6 +66,25 @@ flowchart LR
 
 ControlNet creates a trainable copy of the diffusion model's encoder blocks, which learns to respond to specific spatial conditions while preserving the original model's generation capabilities. The preprocessor extracts a structural "control map" (a stick-figure pose, an edge outline, a depth gradient) from your reference image; ControlNet then injects that structure into every denoising step.
 
+The split between *preprocessor* and *model* is the key idea: the preprocessor is a one-time analysis pass that turns your reference into a control map, and the ControlNet model is what conditions generation on that map. The same depth map can feed any depth ControlNet, and you can hand-author or edit a control map directly when a preprocessor gets it wrong.
+
+## Control Types at a Glance
+
+Most workflows only need one control type. Pick it by what you want to preserve from the reference, not by what the reference *is*:
+
+| You want to preserve... | Use | Preprocessor | Typical strength |
+|-------------------------|-----|--------------|------------------|
+| A character's pose | OpenPose / DWPose | `dw_openpose_full` | 0.8-1.0 |
+| Exact edges and outlines | Canny | `canny` | 0.7-1.0 |
+| Soft/organic shapes | SoftEdge | `hed` / `pidinet` | 0.5-0.8 |
+| 3D spatial layout / depth | Depth | `depth_anything` / `zoe` | 0.5-0.8 |
+| Straight architectural lines | MLSD | `mlsd` | 0.7-1.0 |
+| A rough sketch → finished art | Scribble | `scribble` | 0.6-0.9 |
+| Per-region scene semantics | Segmentation | `seg_ofade20k` | 0.5-0.8 |
+| Structure during upscaling | Tile | `tile_resample` | 0.5-1.0 |
+
+If you are unsure, **Depth** is the most forgiving general-purpose control (it constrains layout without locking in exact lines), and **Canny** is the most precise.
+
 ## ControlNet Types
 
 ### Pose Control
@@ -183,6 +202,16 @@ Quality: High quality depth
 Features: Handles complex scenes
 Speed: Slower than MiDaS
 Best for: Complex compositions
+```
+
+#### Depth Anything
+The current default for most workflows — fast, robust monocular depth trained on a very large dataset.
+
+```yaml
+Quality: State-of-the-art relative depth
+Versions: Depth Anything v1, v2
+Speed: Fast, suitable for batch/video
+Best for: General-purpose depth control (recommended starting point)
 ```
 
 ### Semantic Control
@@ -340,6 +369,18 @@ Optional:
 }
 ```
 
+The two most useful dials beyond `strength` are `start_percent` and `end_percent`. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. `end_percent: 0.7`) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.
+
+<div class="tip-card" markdown="1">
+**Common pitfalls**
+
+- **Mismatched ControlNet and base model.** An SD 1.5 ControlNet silently fails or corrupts output on SDXL/FLUX. Match the family first.
+- **Strength pinned at 1.0.** Full strength makes results look traced and fights the prompt. Start around 0.7 and raise only if structure drifts.
+- **Wrong preprocessor for the input.** Running Canny on a soft watercolor produces noisy edges; use SoftEdge. Always preview the control map before sampling.
+- **Control resolution mismatch.** Preprocess at the model's native resolution (512 for SD 1.5, 1024 for SDXL) or the map misaligns with the latent.
+- **Stacking too many controls.** Three or more ControlNets usually conflict and degrade quality. Prefer one strong control plus IP-Adapter for style.
+</div>
+
 ## Advanced Techniques
 
 ### Strength Scheduling
@@ -458,19 +499,26 @@ def custom_edge_detection(image):
 - **Blur Control**: Depth-of-field and focus control
 
 #### Model Support
-- **SDXL ControlNet**: Full support with higher quality
-- **SD3 ControlNet**: In development
-- **FLUX Support**: Coming soon with new architecture
+- **SD 1.5 ControlNet**: The most mature ecosystem — every control type, heavily optimized
+- **SDXL ControlNet**: Full support at higher resolution and quality
+- **SD3 ControlNet**: Available (Canny, Depth, and others released by Stability AI)
+- **FLUX Support**: Available — multiple options now ship, including **ControlNet Union** (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs
 
 ### ControlNet Versions
 
-| Base Model | ControlNet Version | File Pattern |
+ControlNets are tied to their base-model family. A control map is portable, but the ControlNet *model* is not — an SD 1.5 ControlNet will not load on SDXL or FLUX.
+
+| Base Model | ControlNet Family | File Pattern |
 |------------|-------------------|--------------|
-| SD 1.5 | v1.1 | control_v11*_sd15_*.pth |
-| SD 2.1 | v1.1 SD2 | control_v11*_sd21_*.pth |
-| SDXL | SDXL v1 | controlnet-*-sdxl-1.0*.safetensors |
-| SD3 | In Development | controlnet-*-sd3-*.safetensors |
-| FLUX | Coming Soon | TBD |
+| SD 1.5 | v1.1 (most complete) | `control_v11*_sd15_*.pth` |
+| SD 2.1 | v1.1 SD2 | `control_v11*_sd21_*.pth` |
+| SDXL | SDXL v1 / Union | `controlnet-*-sdxl-1.0*.safetensors` |
+| SD3 | SD3 (Canny, Depth, ...) | `*controlnet*sd3*.safetensors` |
+| FLUX | FLUX / Union | `*flux*controlnet*.safetensors` |
+
+<div class="tip-card" markdown="1">
+**Union models simplify the mess.** Newer "ControlNet Union" releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, ...) at runtime instead of juggling a separate file per type.
+</div>
 
 ### T2I-Adapter
 

@@ -14,7 +14,9 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Git Flow, GitHub Flow, and team workflow patterns</p>
 </div>
 
-Branching strategies are fundamental to modern software development workflows. This guide covers the most widely adopted approaches, their implementation details, and guidance on selecting the right strategy for your project.
+<div class="intro-card">
+  <p class="lead-text">A branching strategy answers a deceptively simple question: where does work-in-progress live before it ships, and how does it get to production safely? Pick the wrong one and you get merge hell, "it works on my branch" surprises, and release-day panic; pick well and integration becomes routine. This guide compares the widely adopted approaches, shows each as a commit graph, and ends with a decision matrix for choosing one.</p>
+</div>
 
 <div class="tip-card">
   <h4>Where this fits among the Git pages</h4>
@@ -300,14 +302,24 @@ For projects with scheduled releases, a dedicated release branching strategy hel
 
 ### Release Branch Workflow
 
-```
-main         ──●────────────●────────────●──────>
-                │            │            │
-release/1.0     ●────●───●───●            │
-                      \   \               │
-release/1.1           │    ●──●───●───●───●
-                      │        \   \
-hotfix               ●─●        ●───●
+A release branch is cut from the mainline, stabilized with only fixes (no new features), tagged at release, then merged back so those fixes are not lost:
+
+```mermaid
+gitGraph
+    commit
+    commit
+    branch release/1.0
+    checkout release/1.0
+    commit id: "stabilize"
+    commit id: "v1.0" tag: "v1.0"
+    checkout main
+    merge release/1.0
+    commit id: "more features"
+    branch hotfix/1.0.1
+    checkout hotfix/1.0.1
+    commit id: "patch"
+    checkout main
+    merge hotfix/1.0.1 tag: "v1.0.1"
 ```
 
 ### Managing Releases
