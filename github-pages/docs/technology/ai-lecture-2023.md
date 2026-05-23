@@ -30,8 +30,6 @@ The AI revolution is here. The rise of advanced language models is fueling unpre
 **Neural Networks: A Foundation for AI**
 - [Key Components and Architecture](#key-components-and-architecture)
 - [Supervised and Unsupervised Learning](#supervised-and-unsupervised-learning)
-- [Convolutional Neural Networks (CNNs)](#convolutional-neural-networks-cnns)
-- [Recurrent Neural Networks (RNNs)](#recurrent-neural-networks-rnns)
 
 **The Transformer Era: A Turning Point in NLP**
 - [Transformer Architecture: Self-attention mechanisms and positional encoding](#transformers)

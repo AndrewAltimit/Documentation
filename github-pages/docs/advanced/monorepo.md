@@ -900,15 +900,15 @@ Monorepos can significantly improve development workflow for teams working on re
 #### See Also
 
 **Related Advanced Topics**
-- [Distributed Systems Theory](distributed-systems-theory.html) — Distributed and remote build execution
-- [AI Mathematics](ai-mathematics.html) — Managing large ML research codebases
-- [Quantum Algorithms Research](quantum-algorithms-research.html) — Organizing quantum software projects
+- [Distributed Systems Theory](../distributed-systems-theory/) — Distributed and remote build execution
+- [AI Mathematics](../ai-mathematics/) — Managing large ML research codebases
+- [Quantum Algorithms Research](../quantum-algorithms-research/) — Organizing quantum software projects
 
 **Applied Technology**
-- [Git Reference](../technology/git-reference.html) — Sparse checkout, LFS, and large-repo workflows
-- [CI/CD Pipelines](../technology/ci-cd.html) — Affected-only builds in continuous integration
-- [Docker](../technology/docker/) — Containerizing monorepo builds
-- [Performance Optimization](../optimization/) — Build-time and caching optimization
+- [Git Reference](../../technology/git-reference.html) — Sparse checkout, LFS, and large-repo workflows
+- [CI/CD Pipelines](../../technology/ci-cd.html) — Affected-only builds in continuous integration
+- [Docker](../../technology/docker/) — Containerizing monorepo builds
+- [Performance Optimization](../../optimization/) — Build-time and caching optimization
 
 **External Documentation**
 - [Nx](https://nx.dev) · [Turborepo](https://turbo.build) · [Lerna](https://lerna.js.org) · [Rush](https://rushjs.io) · [Bazel](https://bazel.build) · [Monorepo.tools](https://monorepo.tools)

@@ -39,28 +39,7 @@ jobs:
           clean: true
           ref: ${{ github.head_ref }}
 
-      # md-link-checker is a Rust tool installed on the self-hosted runner.
-      # Skip gracefully if it isn't on PATH so the build stays the source of truth.
-      - name: Markdown link check (internal)
-        run: |
-          if ! command -v md-link-checker &>/dev/null; then
-            echo "::warning::md-link-checker not found on PATH - skipping link check"
-            exit 0
-          fi
-          set -o pipefail
-          FAIL=0
-          for target in *.md github-pages/docs/; do
-            [ -e "$target" ] || continue
-            md-link-checker "$target" --internal-only 2>&1 | tee -a link_check_output.txt || FAIL=1
-          done
-          if [ "$FAIL" -ne 0 ]; then
-            echo "### Markdown Link Check" >> "$GITHUB_STEP_SUMMARY"
-            grep -E '(broken link|not found)' link_check_output.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
-          fi
-          exit $FAIL
-
-      # Build the site exactly as the deploy workflow does, to catch
-      # Liquid/front-matter/config breakage before it reaches main.
+      # Assemble the build inputs exactly as the deploy workflow does.
       - name: Assemble Jekyll source
         run: |
           cp _config.yml github-pages/
@@ -69,16 +48,20 @@ jobs:
           mkdir -p github-pages/assets/css
           cp -r assets/css/* github-pages/assets/css/ || true
 
-      # Build with a multi-arch ruby image rather than the amd64-only
-      # jekyll/jekyll image, so the build runs natively on any self-hosted
-      # runner architecture (the host pool includes arm64).
-      - name: Build Jekyll site
+      # Build + link-check in one multi-arch ruby container (avoids the
+      # amd64-only jekyll/jekyll image, which segfaults on arm64 runners).
+      # The Jekyll build catches Liquid/front-matter errors; html-proofer
+      # validates internal links and anchors against the rendered _site.
+      # --swap-urls strips the /Documentation baseurl so root-relative links
+      # resolve; --checks Links scopes it to link integrity (not alt-text);
+      # --disable-external/--no-enforce-https keep CI off the network.
+      - name: Build site and check links
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/github-pages:/srv/jekyll" \
             -w /srv/jekyll \
             ruby:3.2-slim \
-            /bin/bash -c "apt-get update -qq && apt-get install -y -qq build-essential git >/dev/null && gem install bundler -q && bundle install && bundle exec jekyll build"
+            /bin/bash -c "apt-get update -qq && apt-get install -y -qq build-essential git libcurl4 >/dev/null && gem install bundler -q && bundle install && bundle exec jekyll build && bundle exec htmlproofer ./_site --checks Links --disable-external --no-enforce-https --swap-urls '^/Documentation/:/'"
 
       - name: Fix build artifact ownership
         if: always()

@@ -46,8 +46,8 @@ docker run --rm \
 
 ## Continuous Integration
 
-- **Pull requests** run an internal markdown link check and a Jekyll build smoke
-  test on the self-hosted runner (`.github/workflows/pr-validation.yml`).
+- **Pull requests** build the site and run html-proofer link validation against
+  the rendered `_site` on the self-hosted runner (`.github/workflows/pr-validation.yml`).
 - **Pushes to `main`** build the site and deploy it to the `gh-pages` branch
   (`.github/workflows/jekyll.yml`).
 

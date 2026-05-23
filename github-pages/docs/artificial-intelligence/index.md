@@ -81,7 +81,7 @@ Machine Learning enables computers to learn from data without being explicitly p
 - Model Evaluation and Validation
 
 **Resources:**
-- [AI Fundamentals](../technology/ai.html#machine-learning)
+- [AI Fundamentals](../technology/ai.html#machine-learning-teaching-computers-to-learn)
 - [Base Models Comparison](../ai-ml/base-models-comparison.html)
 
 ### Deep Learning

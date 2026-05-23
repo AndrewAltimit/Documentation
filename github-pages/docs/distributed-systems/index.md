@@ -1042,7 +1042,7 @@ class SecureClient:
 - **Network Optimization** - Reducing latency and improving throughput in distributed systems
 
 ### Related Concepts
-- **[Quantum Distributed Systems](../quantum-computing/#quantum-networking)** - Quantum networking and distributed quantum computing
+- **[Quantum Distributed Systems](../quantum-computing/)** - Quantum networking and distributed quantum computing
 - **Blockchain and Consensus** - Distributed ledgers and cryptocurrencies
 - **Edge Computing** - Pushing computation to the network edge
 - **Serverless Architectures** - Function-as-a-Service patterns and distributed serverless systems

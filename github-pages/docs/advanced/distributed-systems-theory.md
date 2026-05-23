@@ -481,7 +481,7 @@ where p = honest mining power, q = attacker power, z = confirmations
 
 ---
 
-*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](../distributed-systems/).*
+*Note: This page contains advanced theoretical content for distributed systems researchers. For practical implementations, see our [main distributed systems documentation](../../distributed-systems/).*
 
 ## Key Takeaways
 
@@ -497,15 +497,15 @@ where p = honest mining power, q = attacker power, z = confirmations
 ## See Also
 
 ### Distributed Systems Documentation
-- **[Distributed Systems Hub](../distributed-systems/)** - Comprehensive practical guide to building distributed systems
-- **[Kubernetes](../technology/kubernetes/)** - Container orchestration implementation
-- **[Docker](../technology/docker/)** - Containerization for distributed applications
-- **[AWS Cloud Services](../technology/aws/)** - Cloud infrastructure for distributed systems
+- **[Distributed Systems Hub](../../distributed-systems/)** - Comprehensive practical guide to building distributed systems
+- **[Kubernetes](../../technology/kubernetes/)** - Container orchestration implementation
+- **[Docker](../../technology/docker/)** - Containerization for distributed applications
+- **[AWS Cloud Services](../../technology/aws/)** - Cloud infrastructure for distributed systems
 
 ### Related Advanced Topics
-- **[AI Mathematics](ai-mathematics.html)** - Mathematical foundations for distributed machine learning systems
-- **[Quantum Algorithms](quantum-algorithms-research.html)** - Quantum distributed computing and Byzantine agreement
-- **[Monorepo Strategies](monorepo.html)** - Managing distributed system codebases at scale
+- **[AI Mathematics](../ai-mathematics/)** - Mathematical foundations for distributed machine learning systems
+- **[Quantum Algorithms](../quantum-algorithms-research/)** - Quantum distributed computing and Byzantine agreement
+- **[Monorepo Strategies](../monorepo/)** - Managing distributed system codebases at scale
 
 ### Theoretical Foundations
 - **CAP Theorem** - Consistency, availability, and partition tolerance trade-offs
@@ -514,6 +514,6 @@ where p = honest mining power, q = attacker power, z = confirmations
 - **Consensus Algorithms** - Paxos, Raft, and modern variants
 
 ### Performance and Optimization
-- **[Performance Optimization](../optimization/)** - Optimizing distributed systems
+- **[Performance Optimization](../../optimization/)** - Optimizing distributed systems
 - **Complexity Analysis** - Time and message complexity bounds
 - **Scalability Theory** - Theoretical limits of distributed coordination

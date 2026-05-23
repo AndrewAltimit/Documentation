@@ -300,7 +300,7 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ---
 
-*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../artificial-intelligence/).*
+*Note: This page contains advanced mathematical content intended for researchers and graduate students. For practical implementations and intuitive explanations, see our [main AI documentation](../../artificial-intelligence/).*
 
 ## Key Takeaways
 
@@ -319,14 +319,14 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 #### See Also
 
 **Related Advanced Topics**
-- [Quantum Algorithms Research](quantum-algorithms-research.html) — Quantum machine learning and kernel methods
-- [Distributed Systems Theory](distributed-systems-theory.html) — Foundations for distributed/federated ML training
-- [Monorepo Strategies](monorepo.html) — Managing large ML research codebases
+- [Quantum Algorithms Research](../quantum-algorithms-research/) — Quantum machine learning and kernel methods
+- [Distributed Systems Theory](../distributed-systems-theory/) — Foundations for distributed/federated ML training
+- [Monorepo Strategies](../monorepo/) — Managing large ML research codebases
 
 **Applied & Foundational**
-- [AI/ML Documentation](../ai-ml/) — Practical model training, architectures, and tooling
-- [Model Types Reference](../ai-ml/model-types.html) — Architectures explained without heavy formalism
-- [Statistical Mechanics](../physics/statistical-mechanics.html) — Partition functions and the physics roots of learning theory
-- [Computational Physics](../physics/computational-physics.html) — Numerical optimization and simulation methods
-- [Mathematical Reference](../reference/) — Linear algebra and calculus quick reference
+- [AI/ML Documentation](../../ai-ml/) — Practical model training, architectures, and tooling
+- [Model Types Reference](../../ai-ml/model-types.html) — Architectures explained without heavy formalism
+- [Statistical Mechanics](../../physics/statistical-mechanics.html) — Partition functions and the physics roots of learning theory
+- [Computational Physics](../../physics/computational-physics.html) — Numerical optimization and simulation methods
+- [Mathematical Reference](../../reference/) — Linear algebra and calculus quick reference
 </div>

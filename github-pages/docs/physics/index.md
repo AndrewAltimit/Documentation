@@ -135,8 +135,8 @@ graph TD
   <h4>Cross-Disciplinary Links</h4>
   <ul>
     <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> — where quantum mechanics meets information processing.</li>
-    <li><a href="../advanced/quantum-algorithms-research.html">Quantum Algorithms Research</a> — advanced quantum information and algorithms.</li>
-    <li><a href="../advanced/ai-mathematics.html">AI Mathematics</a> — statistical-mechanics connections to machine learning.</li>
+    <li><a href="../advanced/quantum-algorithms-research/">Quantum Algorithms Research</a> — advanced quantum information and algorithms.</li>
+    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — statistical-mechanics connections to machine learning.</li>
     <li><a href="../advanced/">Advanced Research Topics</a> — graduate-level physics and mathematics.</li>
     <li><a href="../reference/#physics-formulas--constants">Physics Reference</a> — CODATA constants, key equations, and unit conversions.</li>
   </ul>

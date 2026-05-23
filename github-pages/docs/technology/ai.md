@@ -381,7 +381,7 @@ Imagine you're trying to predict temperature throughout the day, but you only ha
 
 <div class="advanced-note">
   <i class="fas fa-graduation-cap"></i>
-  <p><strong>Ready for the math?</strong> Dive into the <a href="/docs/advanced/ai-mathematics/#gaussian-processes">formal treatment of GPs</a> including prior/posterior distributions and marginal likelihood optimization.</p>
+  <p><strong>Ready for the math?</strong> Dive into the <a href="/docs/advanced/ai-mathematics/">formal treatment of GPs</a> including prior/posterior distributions and marginal likelihood optimization.</p>
 </div>
 
 <div class="code-reference">
@@ -421,7 +421,7 @@ Think of it like trying to describe the shape of a cloud. The exact shape is too
 
 <div class="advanced-note">
   <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the technical details?</strong> Learn about <a href="/docs/advanced/ai-mathematics/#variational-inference">ELBO derivation, mean-field approximation, and normalizing flows</a> in our advanced section.</p>
+  <p><strong>Want the technical details?</strong> Learn about <a href="/docs/advanced/ai-mathematics/">ELBO derivation, mean-field approximation, and normalizing flows</a> in our advanced section.</p>
 </div>
 
 <div class="code-reference">

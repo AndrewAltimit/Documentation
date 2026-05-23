@@ -465,7 +465,7 @@ Error: O(t²/n) for first-order Trotter.
 
 ---
 
-*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../quantum-computing/).*
+*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../../quantum-computing/).*
 
 ## Key Takeaways
 
@@ -484,14 +484,14 @@ Error: O(t²/n) for first-order Trotter.
 #### See Also
 
 **Related Advanced Topics**
-- [AI Mathematics](ai-mathematics.html) — Kernel theory underlying quantum machine learning
-- [Distributed Systems Theory](distributed-systems-theory.html) — Quantum Byzantine agreement and distributed quantum computing
-- [Monorepo Strategies](monorepo.html) — Managing quantum software projects
+- [AI Mathematics](../ai-mathematics/) — Kernel theory underlying quantum machine learning
+- [Distributed Systems Theory](../distributed-systems-theory/) — Quantum Byzantine agreement and distributed quantum computing
+- [Monorepo Strategies](../monorepo/) — Managing quantum software projects
 
 **Foundations & Applied**
-- [Quantum Mechanics](../physics/quantum-mechanics.html) — Wave functions, operators, and measurement
-- [Quantum Field Theory](../physics/quantum-field-theory.html) — Deeper theoretical framework
-- [Quantum Computing Hub](../quantum-computing/) — Programming with Qiskit and Cirq
-- [Quantum Computing (Technology)](../technology/quantumcomputing.html) — Practical introduction
-- [Mathematical Reference](../reference/) — Linear algebra and complexity quick reference
+- [Quantum Mechanics](../../physics/quantum-mechanics.html) — Wave functions, operators, and measurement
+- [Quantum Field Theory](../../physics/quantum-field-theory.html) — Deeper theoretical framework
+- [Quantum Computing Hub](../../quantum-computing/) — Programming with Qiskit and Cirq
+- [Quantum Computing (Technology)](../../technology/quantumcomputing.html) — Practical introduction
+- [Mathematical Reference](../../reference/) — Linear algebra and complexity quick reference
 </div>

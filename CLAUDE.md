@@ -60,21 +60,31 @@ docker run --rm \
 
 ### Link Checking
 
-`md-link-checker` is a Rust tool installed on the self-hosted runner and used by
-PR validation. If it is available locally you can run it directly:
+Links are validated with **html-proofer** against the built `_site` (not the raw
+`.md` sources), so it understands Jekyll's `.md`→`.html` permalinks. It runs as
+part of the Jekyll build container:
 
 ```bash
-md-link-checker github-pages/docs/ --internal-only
-md-link-checker README.md --internal-only
+cd github-pages
+bundle exec jekyll build
+bundle exec htmlproofer ./_site \
+  --checks Links --disable-external --no-enforce-https \
+  --swap-urls '^/Documentation/:/'
 ```
+
+`--swap-urls` strips the `/Documentation` baseurl so root-relative links resolve;
+`--checks Links` scopes it to link/anchor integrity (not image alt-text or
+HTTPS-enforcement). Note: the site's `advanced/` pages use directory-style
+permalinks (`/docs/advanced/foo/`), so links to them must be `../foo/`, and links
+out of them need an extra `../`.
 
 ## GitHub Actions Integration
 
 Two workflows, both on self-hosted runners:
 
-- **`pr-validation.yml`** — on PRs: internal markdown link check (via `md-link-checker`,
-  skipped gracefully if it is not on the runner) and a Jekyll build smoke test.
-  No AI/agent code review runs in this pipeline.
+- **`pr-validation.yml`** — on PRs: builds the site and runs html-proofer link
+  validation against the rendered `_site`. No AI/agent code review runs in this
+  pipeline.
 - **`jekyll.yml`** — on push to `main`/`update-docs`: builds the site and deploys
   the output to the `gh-pages` branch.
 
