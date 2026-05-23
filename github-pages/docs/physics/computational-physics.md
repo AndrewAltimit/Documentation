@@ -2537,14 +2537,14 @@ Remember: computational physics is not just about writing code—it's about unde
 
 ## See Also
 
-### Core Physics Topics:
-- [Classical Mechanics](classical-mechanics.html) - Symplectic integrators and chaos
-- [Quantum Mechanics](quantum-mechanics.html) - Numerical solutions to Schrödinger equation
-- [Statistical Mechanics](statistical-mechanics.html) - Monte Carlo and molecular dynamics
-- [Thermodynamics](thermodynamics.html) - Computational thermodynamics
-- [Quantum Field Theory](quantum-field-theory.html) - Lattice field theory simulations
-
-### Related Computational Topics:
-- [Condensed Matter Physics](condensed-matter.html) - Band structure calculations
-- [String Theory](string-theory.html) - Numerical relativity and AdS/CFT
-- [Relativity](relativity.html) - Gravitational wave simulations
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — symplectic integrators, $N$-body problems, and chaos.</li>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — numerical solutions of the Schrödinger equation.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — Monte Carlo sampling and molecular dynamics.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — density-functional theory and band-structure calculations.</li>
+    <li><a href="relativity.html">Relativity</a> — numerical relativity and gravitational-wave simulations.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

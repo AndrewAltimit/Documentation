@@ -31,6 +31,24 @@ Comprehensive comparison of popular diffusion models: SD 1.5, SD 2.x, SDXL, Pony
 
 The landscape of diffusion models has evolved rapidly, with each generation bringing improvements in quality, capabilities, and efficiency. This guide compares the major base models to help you choose the right one for your needs.
 
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-balance-scale"></i>
+    <h4>No Single Winner</h4>
+    <p>Match the model to your task, hardware, and ecosystem — SDXL is the safest all-rounder.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-code-branch"></i>
+    <h4>Two Lineages</h4>
+    <p>U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). Add-ons don't cross between them.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-memory"></i>
+    <h4>VRAM Decides</h4>
+    <p>4-6 GB favors SD 1.5; 8-12 GB suits SDXL; FLUX wants 12 GB+ (or a quantized build).</p>
+  </div>
+</div>
+
 ## Quick Comparison Table
 
 | Model | Resolution | VRAM (Min) | Quality | Speed | Flexibility | Release |
@@ -570,13 +588,15 @@ The rapid evolution continues with models like Stable Cascade, Würstchen, and P
 
 ---
 
-## See Also
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
 - [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
+- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
 - [LoRA Training](lora-training.html) - Train custom models
 - [ControlNet](controlnet.html) - Precise control over generation
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

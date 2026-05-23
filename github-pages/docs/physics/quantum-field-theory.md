@@ -740,15 +740,14 @@ Quantum Field Theory represents our deepest understanding of the fundamental for
 
 ## See Also
 
-### Foundational Topics:
-- [Quantum Mechanics](quantum-mechanics.html) - The non-relativistic foundation for QFT
-- [Relativity](relativity.html) - Special relativity underpins Lorentz-invariant field theories
-- [Classical Mechanics](classical-mechanics.html) - Lagrangian and Hamiltonian formulations
-
-### Applications and Extensions:
-- [Condensed Matter Physics](condensed-matter.html) - Field theoretic methods in many-body systems
-- [Statistical Mechanics](statistical-mechanics.html) - Finite temperature field theory and phase transitions
-- [String Theory](string-theory.html) - Extensions beyond point particles to quantum gravity
-
-### Computational Methods:
-- [Computational Physics](computational-physics.html) - Lattice QCD and numerical field theory methods
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
+    <li><a href="relativity.html">Relativity</a> — special relativity is what makes field theories Lorentz-invariant.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — finite-temperature field theory and the path-integral connection.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — field-theoretic methods in many-body systems.</li>
+    <li><a href="string-theory.html">String Theory</a> — extending point particles to strings for quantum gravity.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

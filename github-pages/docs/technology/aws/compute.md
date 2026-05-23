@@ -491,6 +491,29 @@ for line in s3_object['Body'].iter_lines():
     process_line(line)  # Process one line at a time
 ```
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>EC2 for Control, Lambda for Scale-to-Zero</h4>
+    <p>Choose EC2 when you need a long-running server you fully control; choose Lambda for event-driven, bursty work that should cost nothing when idle.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Auto Scaling + Load Balancing</h4>
+    <p>Pair an Auto Scaling group with a load balancer so capacity tracks demand and unhealthy instances are replaced automatically.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Spot Instances Cut Cost</h4>
+    <p>Use Spot for fault-tolerant, interruptible workloads to save up to 90%; keep baseline capacity on On-Demand or Reserved.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Mind Lambda's Limits</h4>
+    <p>Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.</p>
+  </div>
+</div>
+
+---
+
 ## See Also
 
 - [AWS Hub](./) - Overview of all AWS documentation

@@ -365,3 +365,34 @@ spec:
 
 **What to monitor**: Request rate, error rate, latency (the "RED" method), plus resource usage (CPU, memory, network).
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Decouple Storage from Pods</h4>
+    <p>A PVC requests storage; a StorageClass provisions it; the data outlives the pod. Use <code>volumeClaimTemplates</code> in StatefulSets for per-replica disks.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Always Set Limits</h4>
+    <p>Requests drive scheduling; limits cap usage. Set memory limits to avoid hard-to-debug OOM kills, and right-size from real <code>kubectl top</code> data.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Least-Privilege RBAC</h4>
+    <p>Give each app a dedicated ServiceAccount with the narrowest Role, run as non-root, and apply the Restricted Pod Security Standard where you can.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Probes Reflect Real Health</h4>
+    <p>Readiness gates traffic; liveness restarts. Keep liveness timeouts generous and use startup probes for slow-booting apps.</p>
+  </div>
+</div>
+
+---
+
+## See Also
+
+- [Fundamentals](fundamentals.html) - Pods, Deployments, Services, and cluster architecture
+- [Operations](operations.html) - kubectl, Helm, and a systematic troubleshooting guide
+- [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, and GitOps
+- [Docker Storage &amp; Security](../docker/storage-security.html) - Volumes and hardening at the container level
+- [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
+

@@ -33,11 +33,11 @@ Diffusion models work by gradually denoising random data into coherent outputs. 
 
 ### What You'll Master
 
-📝 **Text Diffusion**: From Gemini to specialized language models  
-🎨 **Image Diffusion**: Stable Diffusion, FLUX, and beyond  
-🎵 **Audio Diffusion**: Music, speech, and sound effects  
-🎬 **Video Diffusion**: AnimateDiff, SVD, and emerging models  
-🔮 **3D Diffusion**: Point clouds, meshes, and neural fields  
+**Text Diffusion**: From Gemini to specialized language models  
+**Image Diffusion**: Stable Diffusion, FLUX, and beyond  
+**Audio Diffusion**: Music, speech, and sound effects  
+**Video Diffusion**: AnimateDiff, SVD, and emerging models  
+**3D Diffusion**: Point clouds, meshes, and neural fields  
 
 ### The Unified Diffusion Pipeline
 
@@ -222,11 +222,11 @@ Stable Diffusion and its variants have become the cornerstone of AI image genera
 
 | Format | Quality | File Size | Use Case | Pro Tip |
 |--------|---------|-----------|----------|----------|
-| **PNG** | Lossless ✓✓✓ | Large | Portfolio, Editing | Best for further processing |
-| **JPEG** | Good ✓✓ | Small | Social Media | 85% quality sweet spot |
-| **WebP** | Great ✓✓✓ | Tiny | Modern Web | 25-35% smaller than JPEG |
-| **AVIF** | Excellent ✓✓✓ | Smallest | Cutting Edge | HDR support built-in |
-| **EXR** | Perfect ✓✓✓✓ | Huge | Compositing | Stores multiple passes |
+| **PNG** | Lossless | Large | Portfolio, Editing | Best for further processing |
+| **JPEG** | Good | Small | Social Media | 85% quality sweet spot |
+| **WebP** | Great | Tiny | Modern Web | 25-35% smaller than JPEG |
+| **AVIF** | Excellent | Smallest | Cutting Edge | HDR support built-in |
+| **EXR** | Perfect | Huge | Compositing | Stores multiple passes |
 
 #### PNG: The Gold Standard
 ```yaml
@@ -431,10 +431,10 @@ Video diffusion models extend the denoising process across time, creating tempor
 
 | Method | Input | Output | Quality | Speed | Best For |
 |--------|-------|--------|---------|--------|----------|
-| **AnimateDiff** | Text prompt | 16-32 frames | Great ✓✓✓ | Fast | Seamless loops |
-| **SVD** | Single image | 14-25 frames | Excellent ✓✓✓✓ | Medium | Image animation |
-| **SORA-style** | Text prompt | 60+ seconds | Pro ✓✓✓✓✓ | Slow | Full videos |
-| **Frame Interp** | Image sequence | Smooth video | Good ✓✓ | Fast | Enhancing output |
+| **AnimateDiff** | Text prompt | 16-32 frames | Great | Fast | Seamless loops |
+| **SVD** | Single image | 14-25 frames | Excellent | Medium | Image animation |
+| **SORA-style** | Text prompt | 60+ seconds | Pro | Slow | Full videos |
+| **Frame Interp** | Image sequence | Smooth video | Good | Fast | Enhancing output |
 
 ### AnimateDiff: The Motion Module
 
@@ -612,10 +612,10 @@ Audio diffusion models like AudioLDM and Stable Audio generate sound by denoisin
 
 | What do you need? | Best Model | Quality | Speed | Example Use |
 |-------------------|------------|---------|-------|-------------|
-| **Music** | Stable Audio | Studio ✓✓✓✓ | Fast | Background tracks |
-| **Sound Effects** | AudioLDM 2 | Pro ✓✓✓ | Fast | Game/video SFX |
-| **Voice/Speech** | Bark | Natural ✓✓✓ | Medium | Narration |
-| **Custom Music** | MusicGen | Good ✓✓✓ | Fast | With melody input |
+| **Music** | Stable Audio | Studio | Fast | Background tracks |
+| **Sound Effects** | AudioLDM 2 | Pro | Fast | Game/video SFX |
+| **Voice/Speech** | Bark | Natural | Medium | Narration |
+| **Custom Music** | MusicGen | Good | Fast | With melody input |
 
 ### Quick Start: Your First AI Sound
 
@@ -731,10 +731,10 @@ Modern diffusion models have solved the text rendering challenge through better 
 
 | Model | Text Quality | Best For | Pro Tip |
 |-------|-------------|----------|----------|
-| **FLUX** | Perfect ✓✓✓✓ | Logos, signs, any text | Just write naturally |
-| **SD3** | Excellent ✓✓✓ | Book covers, posters | Use quotes around text |
-| **SDXL** | Good with LoRA ✓✓ | Simple text | Use text LoRAs |
-| **SD 1.5** | Poor ✗ | Avoid text | Use ControlNet instead |
+| **FLUX** | Perfect | Logos, signs, any text | Just write naturally |
+| **SD3** | Excellent | Book covers, posters | Use quotes around text |
+| **SDXL** | Good with LoRA | Simple text | Use text LoRAs |
+| **SD 1.5** | Poor | Avoid text | Use ControlNet instead |
 
 ### Creating Perfect Text: A Practical Guide
 
@@ -941,10 +941,10 @@ result = game_export.process(ai_generation)
 
 | Method | Speed | Quality | Best For | Try This First |
 |--------|-------|---------|----------|----------------|
-| **TripoSR** | <1 second ⚡ | Good ✓✓ | Quick prototypes | ✓ Yes |
-| **DreamGaussian** | 1-2 min | Great ✓✓✓ | Real-time viewing | For quality |
-| **One-2-3-45** | 45 seconds | Great ✓✓✓ | Textured models | For games |
-| **NeRF** | 30+ min | Best ✓✓✓✓ | Film quality | For pros |
+| **TripoSR** | <1 second | Good | Quick prototypes | Yes |
+| **DreamGaussian** | 1-2 min | Great | Real-time viewing | For quality |
+| **One-2-3-45** | 45 seconds | Great | Textured models | For games |
+| **NeRF** | 30+ min | Best | Film quality | For pros |
 
 ### Quick Start: Image to 3D Model
 
@@ -1530,7 +1530,7 @@ As diffusion models evolve, new output formats and modalities emerge. Understand
 
 | Format | Status | When to Adopt | Why It Matters |
 |--------|--------|---------------|----------------|
-| **AVIF** | Ready Now ✓ | Today | 50% smaller, HDR support |
+| **AVIF** | Ready Now | Today | 50% smaller, HDR support |
 | **JXL** | Almost There | 2024 Q4 | JPEG replacement |
 | **Gaussian Splats** | Experimental | For R&D | Real-time 3D revolution |
 | **Neural Fields** | Research | Watch closely | Scene representation |
@@ -1723,13 +1723,14 @@ Remember: **All diffusion models share core principles** – master these, and y
 
 ---
 
-## See Also
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
+<div class="see-also-card" markdown="1">
+#### See Also
+
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The denoising principle shared by every modality
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
+- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
-- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [ControlNet](controlnet.html) - Precise control over generation
-- [LoRA Training](lora-training.html) - Train custom models
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

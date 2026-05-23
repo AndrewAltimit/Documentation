@@ -11,7 +11,9 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous quantum complexity theory, error correction codes, and cutting-edge algorithmic developments</p>
 </div>
 
-**Prerequisites**: Linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals.
+<div class="advanced-note" markdown="1">
+**Graduate-level research page.** This is a rigorous treatment of quantum complexity, error correction, and algorithm design aimed at quantum computing researchers and physicists. **Prerequisites:** linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals. For an accessible, hands-on introduction with runnable circuits instead, start at the [Quantum Computing Hub](../../quantum-computing/).
+</div>
 
 <div class="intro-card" markdown="1">
 <p class="lead-text">Quantum computing is often mis-described as "trying all answers in parallel." The truth is subtler and more interesting: a quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one. Quantum <em>advantage</em> comes entirely from <strong>interference</strong> — arranging unitary operations so that the amplitudes of wrong answers cancel while the amplitude of the right answer reinforces. Every algorithm below, from Shor's factoring to Grover's search, is a recipe for engineering that constructive interference.</p>

@@ -15,6 +15,44 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
 </div>
 
+<div class="code-example" markdown="1">
+Stop fighting the prompt for composition. ControlNet lets you *show* the model the pose, edges, or depth you want and have it follow that structure exactly while the prompt handles content and style.
+</div>
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
+
+## Why Use ControlNet?
+
+Prompts are great at describing *what* to generate but poor at controlling *where* things go. ControlNet closes that gap by conditioning generation on a structural reference. Understanding it unlocks several practical wins:
+
+- **Reliable composition** - Reproduce a specific pose, layout, or perspective instead of rerolling seeds
+- **Sketch-to-image** - Turn rough drawings or line art into finished renders
+- **Consistency** - Hold a character's pose or a scene's geometry steady across many generations
+- **Style-preserving structure** - Restyle a photo while keeping its shapes and depth intact
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-vector-square"></i>
+    <h4>Control Maps</h4>
+    <p>A preprocessor turns your reference into a pose skeleton, edge map, or depth gradient that steers every denoising step.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sliders-h"></i>
+    <h4>Strength Is a Dial</h4>
+    <p>Tune control influence (and when it applies) so structure guides the result without overriding the prompt.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-layer-group"></i>
+    <h4>Composable</h4>
+    <p>Combine with IP-Adapter for style and LoRAs for subjects — but stacking many ControlNets rarely helps.</p>
+  </div>
+</div>
 
 ## What is ControlNet?
 
@@ -598,19 +636,21 @@ class InteractiveControl:
 
 ## Best Practices
 
-### Do's
-✓ Match control resolution to model resolution  
-✓ Use appropriate preprocessor for input type  
-✓ Experiment with strength values  
-✓ Combine multiple controls thoughtfully  
-✓ Save successful control maps for reuse  
+### Do
 
-### Don'ts
-✗ Don't use 100% control strength always  
-✗ Don't ignore prompt importance  
-✗ Don't use incompatible model versions  
-✗ Don't expect perfect results immediately  
-✗ Don't overstack controls (3+ rarely helpful)  
+- Match control resolution to model resolution
+- Use the appropriate preprocessor for the input type
+- Experiment with strength values
+- Combine multiple controls thoughtfully
+- Save successful control maps for reuse
+
+### Avoid
+
+- Using 100% control strength by default
+- Ignoring prompt importance
+- Mixing incompatible model versions
+- Expecting perfect results immediately
+- Overstacking controls (3+ is rarely helpful)
 
 ## Future Developments
 
@@ -652,12 +692,14 @@ The key to mastery is experimentation: try different preprocessors, adjust stren
 
 ---
 
-## See Also
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Understanding the base generation process
 - [ComfyUI Guide](comfyui-guide.html) - Integrate ControlNet into advanced workflows
 - [LoRA Training](lora-training.html) - Combine LoRAs with ControlNet for custom styles
 - [Advanced Techniques](advanced-techniques.html) - Multi-control and expert patterns
 - [Model Types](model-types.html) - ControlNet model types and compatibility
 - [Base Models Comparison](base-models-comparison.html) - ControlNet support across models
-- [AI Fundamentals](../technology/ai.html) - Core neural network concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

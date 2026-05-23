@@ -1424,13 +1424,14 @@ Classical mechanics is both an endpoint and a beginning. It's complete in itself
 
 ## See Also
 
-### Natural Next Steps:
-- [Quantum Mechanics](quantum-mechanics.html) - Where classical mechanics meets the microscopic world
-- [Statistical Mechanics](statistical-mechanics.html) - From Newton's laws to thermodynamics
-- [Relativity](relativity.html) - When speeds approach c or gravity gets strong
-
-### Applied Directions:
-- [Computational Physics](computational-physics.html) - Numerical methods for solving complex mechanical systems
-- [Thermodynamics](thermodynamics.html) - Energy and heat in mechanical systems
-- [Condensed Matter Physics](condensed-matter.html) - Mechanics of materials
-- [String Theory](string-theory.html) - Classical mechanics in higher dimensions
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — where classical mechanics meets the microscopic world and emerges as the $\hbar \to 0$ limit.</li>
+    <li><a href="relativity.html">Relativity</a> — what replaces Newtonian mechanics when speeds approach $c$ or gravity gets strong.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — bridging Newton's laws for many particles to thermodynamics.</li>
+    <li><a href="thermodynamics.html">Thermodynamics</a> — energy, work, and heat in mechanical systems.</li>
+    <li><a href="computational-physics.html">Computational Physics</a> — symplectic integrators and numerical methods for complex mechanical systems.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

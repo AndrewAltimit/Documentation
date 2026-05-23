@@ -17,6 +17,26 @@ hide_title: true
 Your guide to creating AI-generated images, training custom models, and building automated workflows. From your first generated image to training your own artistic styles.
 </div>
 
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-wave-square"></i>
+    <h4>Learn the Foundations</h4>
+    <p>How diffusion turns noise into images, the model stack, and how to choose a base model for your task and hardware.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-tools"></i>
+    <h4>Master the Tools</h4>
+    <p>Build node workflows in ComfyUI, train your own LoRAs, and steer composition precisely with ControlNet.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-rocket"></i>
+    <h4>Ship to Production</h4>
+    <p>Export across image, video, audio, and 3D, and push results further with advanced multi-stage techniques.</p>
+  </div>
+</div>
+
+> **Suggested path:** start with the **Foundations**, pick up the **Tools** that match your goal, then move into **Production** workflows. Use the "Choose Your Path" table below to jump straight to your starting point.
+
 ## Table of contents
 {: .no_toc .text-delta }
 
@@ -349,13 +369,16 @@ Based on your goals, here is where to go next:
 
 **Want to create custom styles?** Jump to [LoRA Training](lora-training.html) to learn how to train your own models.
 
-## Related Documentation
+<div class="see-also-card" markdown="1">
+#### Related Documentation
 
-For broader AI and machine learning concepts:
+Broader AI and machine learning concepts beyond image generation:
 
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Conceptual introduction without heavy math
 - [AI Fundamentals - Complete](../technology/ai.html) - Technical deep-dive into AI concepts
 - [AI Documentation Hub](../artificial-intelligence/) - All AI-related documentation
+- [Game AI Systems](game-ai.html) - Real-time AI for NPCs and interactive behaviors
+</div>
 
 <div class="code-example bg-yellow-000" markdown="1">
 **Hardware Note**: This documentation assumes NVIDIA GPU access. AMD and Apple Silicon support is improving but may require additional configuration and have limited feature availability.

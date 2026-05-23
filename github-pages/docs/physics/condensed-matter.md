@@ -1704,14 +1704,14 @@ $$H_F = H_0 + V \cos(\omega t)$$
 
 ## See Also
 
-### Core Physics Topics:
-- [Quantum Mechanics](quantum-mechanics.html) - Quantum foundations and wave functions
-- [Statistical Mechanics](statistical-mechanics.html) - Many-body theory and phase transitions
-- [Quantum Field Theory](quantum-field-theory.html) - Field theoretic methods in condensed matter
-- [Thermodynamics](thermodynamics.html) - Macroscopic properties and phase diagrams
-
-### Related Topics:
-- [Classical Mechanics](classical-mechanics.html) - Lattice dynamics and phonons
-- [Computational Physics](computational-physics.html) - DFT, Monte Carlo, and MD simulations
-- [String Theory](string-theory.html) - AdS/CMT correspondence and holographic duality
-- [Relativity](relativity.html) - Relativistic effects in graphene and Weyl semimetals
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — wave functions and band theory underpin every solid.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — many-body theory and the physics of phase transitions.</li>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>
+    <li><a href="thermodynamics.html">Thermodynamics</a> — macroscopic properties and phase diagrams of materials.</li>
+    <li><a href="computational-physics.html">Computational Physics</a> — DFT, Monte Carlo, and molecular-dynamics simulations.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

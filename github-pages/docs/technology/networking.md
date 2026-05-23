@@ -15,7 +15,29 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Every time you open a web page, send a message, or stream a video, data travels through an intricate network of connections. Understanding how these networks function is essential for anyone working with technology—from developers optimizing applications to administrators ensuring reliable service. With the rise of edge computing, 5G networks, and AI-driven network management, networking knowledge is more crucial than ever.
+<div class="intro-card">
+  <p class="lead-text">Every time you open a web page, send a message, or stream a video, data travels through an intricate network of connections. Understanding how these networks function is essential for anyone working with technology — from developers optimizing applications to administrators ensuring reliable service. With the rise of edge computing, 5G, and AI-driven network management, networking knowledge is more crucial than ever. This page follows a single packet's journey, then builds up the protocol stack, routing, congestion control, and modern architecture beneath it.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-layer-group"></i>
+    <h4>The Stack</h4>
+    <p>How TCP/IP layers cooperate to move bytes across the world</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-route"></i>
+    <h4>Routing &amp; Delivery</h4>
+    <p>How packets find a path hop-by-hop across independent networks</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-tachometer-alt"></i>
+    <h4>Performance</h4>
+    <p>Queueing, latency, and congestion control that shape real speed</p>
+  </div>
+</div>
+
+> **What you'll learn:** start with the end-to-end story of a single packet, then descend into queueing and performance, the protocol layers, addressing and routing, and finish with modern network architecture (edge, 5G, software-defined networking).
 
 ## The Journey of a Network Packet
 
@@ -1912,9 +1934,13 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 - Traffic pattern analysis
 - DDoS detection and mitigation
 
-## See Also
-- [Cybersecurity](cybersecurity.html) - Network security, zero trust architecture
-- [AWS](aws/) - Cloud networking, VPC, Direct Connect
-- [Docker](docker/) - Container networking, overlay networks
-- [Kubernetes](kubernetes/) - Cluster networking, CNI plugins
-- [Quantum Computing](quantumcomputing.html) - Quantum networking and QKD
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="cybersecurity.html">Cybersecurity</a> — network security and zero-trust architecture</li>
+    <li><a href="aws/">AWS</a> — cloud networking, VPC, and Direct Connect</li>
+    <li><a href="docker/">Docker</a> — container networking and overlay networks</li>
+    <li><a href="kubernetes/">Kubernetes</a> — cluster networking and CNI plugins</li>
+    <li><a href="quantumcomputing.html">Quantum Computing</a> — quantum networking and QKD</li>
+  </ul>
+</div>

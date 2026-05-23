@@ -1135,10 +1135,14 @@ Remember: CI/CD is a journey, not a destination. Start simple, measure everythin
 
 ---
 
-## See Also
-- [Git Version Control](git.html) - Distributed version control system fundamentals
-- [Docker](docker/) - Containerization for consistent build environments
-- [Kubernetes](kubernetes/) - Container orchestration and automated deployments
-- [Terraform](terraform/) - Infrastructure as code for automated provisioning
-- [AWS](aws/) - Cloud deployment platforms and services
-- [Cybersecurity](cybersecurity.html) - Security best practices for CI/CD pipelines
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git.html">Git Version Control</a> — the commits that trigger every pipeline</li>
+    <li><a href="branching.html">Branching Strategies</a> — workflow patterns that shape your pipeline</li>
+    <li><a href="docker/">Docker</a> — containerization for consistent build environments</li>
+    <li><a href="kubernetes/">Kubernetes</a> — orchestration and automated deployments</li>
+    <li><a href="terraform/">Terraform</a> — infrastructure as code for automated provisioning</li>
+    <li><a href="cybersecurity.html">Cybersecurity</a> — securing the pipeline and its secrets</li>
+  </ul>
+</div>

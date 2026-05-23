@@ -11,7 +11,9 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Fundamental impossibility results, consensus algorithms, and formal verification for distributed computing</p>
 </div>
 
-**Prerequisites**: Formal methods, temporal logic, graph theory, probability theory, and complexity theory.
+<div class="advanced-note" markdown="1">
+**Graduate-level research page.** This page develops the formal theory — impossibility proofs, consensus correctness, and verification — for distributed systems researchers and formal-methods practitioners. **Prerequisites:** formal methods, temporal logic, graph theory, probability theory, and complexity theory. For practical patterns and working code instead, see the [Distributed Systems Hub](../../distributed-systems/).
+</div>
 
 <div class="intro-card" markdown="1">
 <p class="lead-text">Distributed systems theory is, at its core, the study of what is <em>impossible</em> and how to get arbitrarily close to it anyway. A single computer has a global clock, shared memory, and fail-stop behavior; the moment you split computation across machines connected by an unreliable network, every one of those guarantees evaporates. This page develops the formal machinery — impossibility results, consensus protocols, consistency models, and verification techniques — that explains why distributed coordination is hard and what design space remains.</p>

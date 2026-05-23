@@ -15,7 +15,41 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Techniques and systems for creating intelligent, responsive NPCs and game behaviors that prioritize engaging gameplay over optimal decision-making.</p>
 </div>
 
-Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike traditional AI research focused on optimal decision-making, game AI prioritizes creating engaging, entertaining, and appropriately challenging experiences while maintaining performance constraints of real-time applications.
+<div class="code-example" markdown="1">
+How games make characters feel alive: pathfinding, decision-making, steering, and the performance tricks that keep hundreds of agents thinking inside a single frame.
+</div>
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
+
+<div class="intro-card" markdown="1">
+<p class="lead-text">Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-route"></i>
+    <h4>Pathfinding</h4>
+    <p>NavMeshes and A* find routes through the world; hierarchical search and smoothing keep it fast and natural.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sitemap"></i>
+    <h4>Decision Making</h4>
+    <p>FSMs, behavior trees, utility AI, and GOAP decide what an agent should do next.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-tachometer-alt"></i>
+    <h4>Performance</h4>
+    <p>LOD for AI, time-slicing, and spatial partitioning keep many agents within frame budget.</p>
+  </div>
+</div>
+
+> **Read this as a layered stack.** Decision (*what to do*) feeds steering (*how to move*) feeds animation (*how to look*). Each section below maps to one of these layers, progressing from movement up to learned behavior.
 
 ## Foundations of Game AI
 
@@ -556,21 +590,14 @@ Efficient queries:
 - **Performance is a first-class concern:** LOD for AI, time-slicing, and spatial partitioning keep hundreds of agents within frame budget.
 </div>
 
-## Related Documentation
-
-- [Game Development](../gamedev/) - Game development fundamentals
-- [AI Fundamentals](../technology/ai.html) - Machine learning foundations
-- [Unreal Engine](../technology/unreal.html) - UE5 AI systems
-- [Performance Optimization](../optimization/) - Optimization techniques
-
 ---
 
-## See Also
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
-- [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
-- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
-- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
+<div class="see-also-card" markdown="1">
+#### See Also
+
 - [Game Development](../gamedev/) - Game development fundamentals
-- [AI Fundamentals](../technology/ai.html) - Core AI/ML concepts
+- [Unreal Engine](../technology/unreal.html) - UE5 AI systems and behavior frameworks
+- [Performance Optimization](../optimization/) - Optimization techniques for real-time systems
+- [AI Fundamentals](../technology/ai.html) - Machine learning foundations behind ML-driven NPCs
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

@@ -556,9 +556,9 @@ data:
         <!-- kube-system namespace -->
         <rect x="210" y="40" width="150" height="80" fill="#e74c3c" opacity="0.2" stroke="#e74c3c" stroke-width="2" />
         <text x="285" y="60" text-anchor="middle" font-size="11" font-weight="bold">kube-system</text>
-        <rect cx="240" cy="85" width="12" height="12" fill="#c0392b" />
-        <rect cx="270" cy="85" width="12" height="12" fill="#c0392b" />
-        <rect cx="300" cy="85" width="12" height="12" fill="#c0392b" />
+        <rect x="234" y="79" width="12" height="12" fill="#c0392b" />
+        <rect x="264" y="79" width="12" height="12" fill="#c0392b" />
+        <rect x="294" y="79" width="12" height="12" fill="#c0392b" />
         <text x="270" y="110" text-anchor="middle" font-size="9">System Pods</text>
         
         <!-- Development namespace -->

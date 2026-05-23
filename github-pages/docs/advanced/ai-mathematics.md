@@ -11,7 +11,9 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Statistical learning theory, optimization landscapes, and rigorous mathematical foundations for machine learning</p>
 </div>
 
-**Prerequisites**: Graduate-level mathematics including measure theory, functional analysis, and probability theory.
+<div class="advanced-note" markdown="1">
+**Graduate-level research page.** This is a rigorous, proof-oriented treatment intended for ML researchers, theoretical computer scientists, and mathematicians. **Prerequisites:** measure theory, functional analysis, and probability theory. For an intuitive, code-first introduction instead, start with [AI Fundamentals — Complete](../../technology/ai.html) or the [Artificial Intelligence Hub](../../artificial-intelligence/).
+</div>
 
 <div class="intro-card" markdown="1">
 <p class="lead-text">Machine learning works in practice — but <em>why</em>? This page develops the mathematics that explains when learning from finite data generalizes to unseen examples, why gradient-based optimization of wildly non-convex networks succeeds, and what fundamental limits constrain any learning algorithm. The throughline is a single question: <strong>given finitely many samples, when can we trust a model on data it has never seen?</strong></p>

@@ -15,15 +15,36 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
----
+<div class="intro-card">
+  <p class="lead-text"><strong>Unraveling the AI revolution: the rise of advanced language models.</strong> This is the <em>deep dive</em> — a research-level tour of neural network foundations, the transformer architecture, the major LLM families (BERT, GPT, Llama, and friends), real-world usage, and the security and ethics that come with them. It assumes you are comfortable with the basics; if not, start with the gentler pages below.</p>
+</div>
 
-**Unraveling the AI Revolution: The Rise of Advanced Language Models**
+<div class="tip-card">
+  <h4>The three AI pages, in recommended reading order</h4>
+  <ul>
+    <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — plain-English, no-math intuition. Start here.</li>
+    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics.</li>
+    <li><strong>This page (Deep Dive)</strong> — transformers, LLM internals, and current research.</li>
+  </ul>
+</div>
 
-*Journey through the latest AI breakthroughs fueling unprecedented growth and innovation*
-
-The AI revolution is here. The rise of advanced language models is fueling unprecedented growth and innovation.  These models are capable of performing a wide range of tasks, from text and image recognition to speech synthesis and translation. Let's explore the latest breakthroughs in AI and dive into the details of these powerful models. We will also discuss the security concerns surrounding these models and how they can be used to build more secure systems.
-
----
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-network-wired"></i>
+    <h4>Architectures</h4>
+    <p>From neural network foundations to self-attention transformers</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-robot"></i>
+    <h4>LLM Families</h4>
+    <p>BERT, GPT, Llama, and the techniques that distinguish them</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-balance-scale"></i>
+    <h4>Security &amp; Ethics</h4>
+    <p>Prompt attacks, bias, privacy, and responsible deployment</p>
+  </div>
+</div>
 
 ## Overview 
 
@@ -487,7 +508,7 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/greshake/llm-security"> Git: <b><i>Attack Vectors with LLM Apps</i></b></a></p>
 
 #### Bing Chat
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://archive.today/2AQCo"> Article: <b><i> Bing’s A.I. Chat: ‘I Want to Be Alive.’ </i></b> 😈</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://archive.today/2AQCo"> Article: <b><i> Bing’s A.I. Chat: ‘I Want to Be Alive.’ </i></b> </a></p>
 
 <br>
 
@@ -565,10 +586,13 @@ Finally, it's important for us to advocate for the responsible development and i
 
 ---
 
-## See Also
-- [AI Fundamentals - Complete](ai.html) - Foundation concepts and comprehensive overview
-- [AI Fundamentals - Simplified](ai-fundamentals-simple.html) - Beginner introduction without math
-- [AI Mathematics](../advanced/ai-mathematics/) - Theoretical foundations and proofs
-- [AI/ML Documentation Hub](../ai-ml/) - Generative AI guides and workflows
-- [Quantum Computing](quantumcomputing.html) - Quantum machine learning
-- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) - Image generation with diffusion models
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
+    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with core mathematics</li>
+    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
+    <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — generative AI guides and workflows</li>
+    <li><a href="../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — image generation with diffusion models</li>
+  </ul>
+</div>

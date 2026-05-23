@@ -15,6 +15,30 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
+<div class="intro-card">
+  <p class="lead-text">Quantum computing harnesses superposition, entanglement, and interference to process information in ways classical machines cannot — solving certain problems exponentially faster. This page builds from qubits and gates up through the landmark algorithms (Shor, Grover), the practical realities of the noisy NISQ era, and the platforms you can program today.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-atom"></i>
+    <h4>Qubits</h4>
+    <p>Superposition and entanglement replace deterministic 0/1 bits</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-calculator"></i>
+    <h4>Algorithms</h4>
+    <p>Shor and Grover show where quantum beats classical — and where it doesn't</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-microchip"></i>
+    <h4>NISQ Reality</h4>
+    <p>Noise and error correction define what hardware can do today</p>
+  </div>
+</div>
+
+> **For the physics underneath this, see the [Quantum Mechanics](../physics/quantum-mechanics.html) page; for rigorous complexity theory, see [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/).**
+
 ## What is Quantum Computing?
 
 Imagine if a computer could explore multiple solutions to a problem simultaneously, rather than checking each possibility one by one. This is the fundamental promise of quantum computing - a revolutionary approach that harnesses the strange behaviors of quantum mechanics to process information in ways classical computers cannot.

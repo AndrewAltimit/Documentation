@@ -348,12 +348,14 @@ Start with a small dataset and simple settings. If results are not quite right, 
 
 ---
 
-## See Also
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Understanding the base models you'll train on
+<div class="see-also-card" markdown="1">
+#### See Also
+
+- [Model Types](model-types.html) - How LoRAs, checkpoints, and embeddings relate
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The base models you'll train on
+- [Base Models Comparison](base-models-comparison.html) - Choosing the right base for training
 - [ComfyUI Guide](comfyui-guide.html) - Use trained LoRAs in advanced workflows
 - [ControlNet](controlnet.html) - Combine LoRAs with ControlNet for precision control
-- [Model Types](model-types.html) - Understanding LoRAs, checkpoints, and embeddings
-- [Base Models Comparison](base-models-comparison.html) - Choosing the right base for training
 - [Advanced Techniques](advanced-techniques.html) - Expert LoRA usage patterns
-- [AI Fundamentals](../technology/ai.html) - Neural network training concepts
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+</div>

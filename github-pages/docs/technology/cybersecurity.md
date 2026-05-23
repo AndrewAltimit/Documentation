@@ -15,7 +15,29 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. It encompasses a wide range of technologies, processes, and practices designed to safeguard digital assets.
+<div class="intro-card">
+  <p class="lead-text">Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. It spans a wide range of technologies, processes, and practices designed to safeguard digital assets. This page builds from everyday risks (passwords, public WiFi) up through cryptography, web and cloud security, attack techniques, and incident response.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-key"></i>
+    <h4>Cryptography</h4>
+    <p>Hashing, salting, and encryption that protect secrets at rest and in transit</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-bug"></i>
+    <h4>Attack Techniques</h4>
+    <p>How injection, phishing, and lateral movement actually work</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-shield-alt"></i>
+    <h4>Defense &amp; Response</h4>
+    <p>Defense-in-depth, zero trust, and what to do when prevention fails</p>
+  </div>
+</div>
+
+> **Threat model first.** Security is about reducing risk against a realistic set of attackers, not achieving perfection. Every control below is a trade-off between protection, cost, and usability.
 
 ## Your Digital Life Under Attack
 
@@ -1453,9 +1475,13 @@ class BlockchainCA:
   - Advanced: OSCP, OSCE, SANS expert tracks
 - **Build your own lab**: Docker containers for safe practice
 
-## See Also
-- [Networking](networking.html) - Network fundamentals
-- [AWS](aws/) - Cloud security specifics
-- [Docker](docker/) - Container security
-- [Kubernetes](kubernetes/) - Orchestration security
-- [Quantum Computing](quantumcomputing.html) - Quantum algorithms and cryptography
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="networking.html">Networking</a> — the protocols and routing security defends</li>
+    <li><a href="aws/">AWS</a> — cloud security controls and the shared-responsibility model</li>
+    <li><a href="docker/">Docker</a> — container isolation and image security</li>
+    <li><a href="kubernetes/">Kubernetes</a> — orchestration and workload security</li>
+    <li><a href="quantumcomputing.html">Quantum Computing</a> — post-quantum cryptography and quantum threats</li>
+  </ul>
+</div>

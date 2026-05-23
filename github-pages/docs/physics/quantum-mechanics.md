@@ -1341,28 +1341,28 @@ $$
 ### Conceptual Pitfalls
 
 1. **Confusing Uncertainty with Ignorance**
-   - ❌ Wrong: "We just don't know both position and momentum"
-   - ✅ Right: "Position and momentum don't have simultaneous definite values"
+   - Wrong: "We just don't know both position and momentum"
+   - Right: "Position and momentum don't have simultaneous definite values"
    - Key insight: Quantum properties are fundamentally indefinite, not just unknown
 
 2. **Misunderstanding Wave Function Collapse**
-   - ❌ Wrong: "Consciousness causes collapse"
-   - ✅ Right: "Any interaction that distinguishes quantum states causes apparent collapse"
+   - Wrong: "Consciousness causes collapse"
+   - Right: "Any interaction that distinguishes quantum states causes apparent collapse"
    - Remember: Decoherence explains why we see definite outcomes
 
 3. **Treating Quantum Systems Classically**
-   - ❌ Wrong: "The electron orbits the nucleus"
-   - ✅ Right: "The electron exists in orbital probability distributions"
+   - Wrong: "The electron orbits the nucleus"
+   - Right: "The electron exists in orbital probability distributions"
    - Visualization tip: Think clouds, not trajectories
 
 4. **Misinterpreting Entanglement**
-   - ❌ Wrong: "Information travels faster than light"
-   - ✅ Right: "Correlations exist, but no usable information transfers"
+   - Wrong: "Information travels faster than light"
+   - Right: "Correlations exist, but no usable information transfers"
    - No-communication theorem prevents FTL signaling
 
 5. **Confusing Virtual Particles with Real Ones**
-   - ❌ Wrong: "Virtual particles pop in and out of existence"
-   - ✅ Right: "Virtual particles are calculation tools in perturbation theory"
+   - Wrong: "Virtual particles pop in and out of existence"
+   - Right: "Virtual particles are calculation tools in perturbation theory"
    - They're mathematical, not physical
 
 ### Mathematical Pitfalls
@@ -1588,9 +1588,15 @@ Quantum mechanics remains one of the most successful theories in physics, provid
 </div>
 
 ## See Also
-- [Classical Mechanics](classical-mechanics.html) - The classical limit of quantum mechanics
-- [Statistical Mechanics](statistical-mechanics.html) - Quantum statistics and many-body systems
-- [Condensed Matter Physics](condensed-matter.html) - Applications to solid state physics
-- [Quantum Field Theory](quantum-field-theory.html) - Relativistic quantum mechanics
-- [Quantum Computing](../technology/quantumcomputing.html) - Technological applications
-- [Computational Physics](computational-physics.html) - Numerical methods for quantum systems
+
+<div class="see-also-card">
+  <h4>Where to go next</h4>
+  <ul>
+    <li><a href="classical-mechanics.html">Classical Mechanics</a> — the classical limit recovered as $\hbar \to 0$.</li>
+    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — quantum mechanics made relativistic, with particles as field excitations.</li>
+    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — quantum statistics (Bose–Einstein, Fermi–Dirac) and many-body systems.</li>
+    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — quantum mechanics applied to solids and emergent phases.</li>
+    <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> — superposition and entanglement as a computational resource.</li>
+    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  </ul>
+</div>

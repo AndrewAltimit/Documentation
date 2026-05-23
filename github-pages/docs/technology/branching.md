@@ -555,7 +555,12 @@ Choosing the right branching strategy depends on your team's needs, project requ
 
 ---
 
-## See Also
-- [Git Version Control](git.html) - Git internals, architecture, and distributed version control fundamentals
-- [Git Command Reference](git-reference.html) - Complete command syntax for branch operations and workflows
-- [CI/CD](ci-cd.html) - Integrating branching strategies with continuous integration pipelines
+<div class="see-also-card">
+  <h4>See Also</h4>
+  <ul>
+    <li><a href="git-crash-course.html">Git Crash Course</a> — branching basics if you are new to Git</li>
+    <li><a href="git.html">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
+    <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch operations</li>
+    <li><a href="ci-cd.html">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
+  </ul>
+</div>
