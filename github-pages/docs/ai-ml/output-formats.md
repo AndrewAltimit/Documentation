@@ -19,15 +19,7 @@ hide_title: true
 Diffusion models have revolutionized content generation across every medium – from Stable Diffusion's stunning visuals to Gemini's text generation, from AudioLDM's soundscapes to 3D Gaussian Splatting. This guide covers the complete spectrum of diffusion model outputs and how to work with them professionally.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
-## The Diffusion Revolution: Every Medium, One Principle
+## Every Medium, One Principle
 
 Diffusion models work by gradually denoising random data into coherent outputs. This elegant principle now powers generation across text, images, audio, video, and even 3D. Let's explore how to harness each modality.
 
@@ -522,7 +514,7 @@ loop_settings = {
 }
 ```
 
-#### Workflow 2: Image-to-Video Magic
+#### Workflow 2: Image-to-Video
 ```python
 # SVD Pipeline for Dynamic Scenes
 step1_generate = {
@@ -545,7 +537,7 @@ step3_enhance = {
 }
 ```
 
-### Making Videos That Actually Work
+### Platform Export Requirements
 
 <div class="code-example" markdown="1">
 **Pro Reality Check**: Different platforms have different requirements. One size does NOT fit all.
@@ -561,7 +553,7 @@ step3_enhance = {
 | Discord | GIF/MP4 | 800×600 | H.264 | 3 Mbps | <8MB for free |
 | Game Engine | PNG Seq | Original | None | Lossless | Import as frames |
 
-### Smooth Criminal: Frame Interpolation Done Right
+### Frame Interpolation
 
 <div class="code-example" markdown="1">
 **Transform**: 8fps AI output → 60fps butter-smooth video
@@ -589,7 +581,7 @@ film_interpolate(
 # Use After Effects, DaVinci Resolve, or Premiere
 ```
 
-### Export Formats: Choose Your Fighter
+### Choosing a Video Export Format
 
 ```yaml
 Quick Decision Guide:
@@ -1246,7 +1238,7 @@ processor = ProPostProcessor()
 final_image = processor.process(raw_ai_output, generation_settings)
 ```
 
-### Video Post-Processing Magic
+### Video Post-Processing
 
 <div class="code-example" markdown="1">
 **Level Up**: Make your AI videos broadcast-ready
@@ -1282,7 +1274,7 @@ video_enhancement = {
 }
 ```
 
-### Metadata: Never Lose Your Magic Again
+### Metadata: Make Outputs Reproducible
 
 <div class="code-example" markdown="1">
 **Scenario**: "How did I make that amazing image 3 months ago?"

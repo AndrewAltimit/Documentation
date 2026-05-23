@@ -19,14 +19,6 @@ hide_title: true
 How games make characters feel alive: pathfinding, decision-making, steering, and the performance tricks that keep hundreds of agents thinking inside a single frame.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 <div class="intro-card" markdown="1">
 <p class="lead-text">Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.</p>
 </div>

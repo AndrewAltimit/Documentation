@@ -434,40 +434,40 @@ while Frontier ≠ ∅:
 
 ### Latency Bounds
 
-**Theorem**: In synchronous system with diameter D:
-- Lower bound for agreement: D rounds
-- Upper bound with f failures: min(f+1, D) rounds
+**Theorem**: in a synchronous system with diameter $D$:
+- Lower bound for agreement: $D$ rounds
+- Upper bound with $f$ failures: $\min(f+1, D)$ rounds
 
 **Recent Results (2023-2024)**:
-- Expected O(1) latency for optimistic Byzantine consensus
-- Adaptive adversary bounds tightened to O(f·polylog(n))
+- Expected $O(1)$ latency for optimistic Byzantine consensus
+- Adaptive-adversary bounds tightened to $O(f \cdot \mathrm{polylog}(n))$
 
 ### Message Complexity
 
 **Consensus Algorithms**:
-- Paxos: O(n²) messages per decision
-- Raft: O(n) messages in common case
-- PBFT: O(n²) messages per request
+- Paxos: $O(n^2)$ messages per decision
+- Raft: $O(n)$ messages in the common case
+- PBFT: $O(n^2)$ messages per request
 
 ### Scalability Limits
 
-**Theorem (Distributed Coordination)**: For n nodes with failure detector:
-- Detection time: O(log n) with high probability
-- Message complexity: O(n log n) per round
+**Theorem (Distributed Coordination)**: for $n$ nodes with a failure detector:
+- Detection time: $O(\log n)$ with high probability
+- Message complexity: $O(n \log n)$ per round
 
 ## Research Frontiers
 
 ### Blockchain Consensus
 
-**Proof-of-Work Analysis**:
-```
-P(successful attack) = (p/q)^z
-where p = honest mining power, q = attacker power, z = confirmations
-```
+**Proof-of-Work Analysis**: an attacker controlling a $q$ fraction of mining power (with honest fraction $p = 1 - q$) succeeds in overtaking a chain $z$ confirmations deep with probability that decays geometrically when $q < p$:
+
+$$P(\text{successful attack}) \approx \left(\frac{q}{p}\right)^{z}.$$
+
+This is why "wait for $z$ confirmations" is the standard defense — each extra block makes a double-spend exponentially less likely.
 
 ### Quantum Distributed Computing
 
-**Quantum Byzantine Agreement**: Can achieve agreement with n ≥ 2f + 1 using quantum channels.
+**Quantum Byzantine Agreement**: agreement is achievable with $n \geq 2f + 1$ using quantum channels (beating the classical $3f+1$ bound).
 
 ### Machine Learning for Distributed Systems
 

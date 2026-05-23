@@ -93,13 +93,13 @@ This is the load-bearing result of the whole field: it converts the qualitative 
 
 ### Rademacher Complexity
 
-**Definition**: For a function class F and sample S = {x₁, ..., xₘ}:
+**Definition**: For a function class $F$ and sample $S = \{x_1, \ldots, x_m\}$:
 
 $$\mathcal{R}_S(F) = \mathbb{E}_{\sigma}\left[\sup_{f \in F} \frac{1}{m}\sum_{i=1}^m \sigma_i f(x_i)\right]$$
 
-where σᵢ are independent Rademacher random variables.
+where the $\sigma_i$ are independent Rademacher random variables (each $\pm 1$ with equal probability).
 
-**Generalization Bound**: With probability at least 1-δ over S ~ Dᵐ:
+**Generalization Bound**: With probability at least $1-\delta$ over $S \sim D^m$:
 
 $$\sup_{f \in F} |\mathcal{L}_D(f) - \hat{\mathcal{L}}_S(f)| \leq 2\mathcal{R}_m(F) + \sqrt{\frac{\log(2/\delta)}{2m}}$$
 
@@ -107,7 +107,7 @@ $$\sup_{f \in F} |\mathcal{L}_D(f) - \hat{\mathcal{L}}_S(f)| \leq 2\mathcal{R}_m
 
 ### Empirical Risk Minimization
 
-**Theorem (Uniform Convergence)**: If H has finite VC dimension d, then with probability 1-δ:
+**Theorem (Uniform Convergence)**: If $H$ has finite VC dimension $d$, then with probability $1-\delta$:
 
 $$\forall h \in H: |\mathcal{L}_D(h) - \hat{\mathcal{L}}_S(h)| \leq \sqrt{\frac{2d\log(2em/d) + 2\log(4/\delta)}{m}}$$
 
@@ -125,7 +125,7 @@ $$\mathcal{L}_D(h^*) \leq \inf_{h \in H} \mathcal{L}_D(h) + O\left(\sqrt{\frac{\
 
 ### Non-Convex Optimization Landscape
 
-**Theorem (Gradient Flow Dynamics)**: For overparameterized neural networks with width m → ∞:
+**Theorem (Gradient Flow Dynamics)**: For overparameterized neural networks in the infinite-width limit ($m \to \infty$):
 
 $$\frac{d\theta}{dt} = -\nabla_\theta L(\theta)$$
 
@@ -133,7 +133,7 @@ converges to global minimum under Neural Tangent Kernel (NTK) regime.
 
 ### Convergence Analysis
 
-**SGD Convergence**: For L-smooth, μ-strongly convex functions:
+**SGD Convergence**: For $L$-smooth, $\mu$-strongly convex functions:
 
 $$\mathbb{E}[f(w_T) - f(w^*)] \leq \left(1 - \frac{\mu}{L}\right)^T [f(w_0) - f(w^*)] + \frac{\eta L \sigma^2}{2\mu}$$
 
@@ -164,11 +164,11 @@ $$\lim_{t \to \infty} \theta(t) = \arg\min_{\theta: L(\theta)=0} \|\theta - \the
 
 $$\min_{T} I(X; T) - \beta I(T; Y)$$
 
-where T is learned representation.
+where $T$ is the learned representation — it should forget the input ($I(X;T)$ small) while keeping what predicts the label ($I(T;Y)$ large).
 
 ### PAC-Bayes Bounds
 
-**Theorem (McAllester's Bound)**: For any prior P and posterior Q:
+**Theorem (McAllester's Bound)**: For any prior $P$ and posterior $Q$:
 
 $$\mathbb{E}_{h \sim Q}[\mathcal{L}_D(h)] \leq \mathbb{E}_{h \sim Q}[\hat{\mathcal{L}}_S(h)] + \sqrt{\frac{KL(Q||P) + \log(2\sqrt{m}/\delta)}{2m-1}}$$
 
@@ -176,15 +176,15 @@ $$\mathbb{E}_{h \sim Q}[\mathcal{L}_D(h)] \leq \mathbb{E}_{h \sim Q}[\hat{\mathc
 
 **MDL Principle**: Best hypothesis minimizes:
 
-$$L(h) + L(D|h)$$
+$$L(h) + L(D \mid h)$$
 
-where L(h) is description length of hypothesis, L(D|h) is description length of data given hypothesis.
+where $L(h)$ is the description length of the hypothesis and $L(D \mid h)$ is the description length of the data given that hypothesis.
 
 ## Kernel Methods and RKHS
 
 ### Reproducing Kernel Hilbert Spaces
 
-**Definition**: A Hilbert space H of functions f: X → ℝ is an RKHS if evaluation functionals are continuous:
+**Definition**: A Hilbert space $H$ of functions $f: X \to \mathbb{R}$ is an RKHS if its evaluation functionals are continuous:
 
 $$\forall x \in X: |f(x)| \leq C_x \|f\|_H$$
 
@@ -196,11 +196,11 @@ The minimizer has form: $f^*(x) = \sum_{i=1}^m \alpha_i k(x_i, x)$
 
 ### Kernel Approximation Theory
 
-**Mercer's Theorem**: For continuous positive definite kernel k:
+**Mercer's Theorem**: For a continuous positive-definite kernel $k$:
 
 $$k(x, y) = \sum_{i=1}^\infty \lambda_i \phi_i(x)\phi_i(y)$$
 
-**Random Features**: Approximate kernel with:
+**Random Features**: Approximate the kernel with:
 
 $$k(x, y) \approx \frac{1}{D}\sum_{i=1}^D \psi(x; w_i)\psi(y; w_i)$$
 
@@ -208,7 +208,7 @@ $$k(x, y) \approx \frac{1}{D}\sum_{i=1}^D \psi(x; w_i)\psi(y; w_i)$$
 
 ### Neural Tangent Kernel
 
-**Definition**: For neural network f(x; θ):
+**Definition**: For a neural network $f(x; \theta)$:
 
 $$\Theta(x, x') = \lim_{m \to \infty} \langle \nabla_\theta f(x; \theta), \nabla_\theta f(x'; \theta) \rangle$$
 
@@ -221,7 +221,7 @@ $$\Theta(x, x') = \lim_{m \to \infty} \langle \nabla_\theta f(x; \theta), \nabla
 
 ### Mean Field Theory
 
-**Mean Field Limit**: As width → ∞, neurons become independent:
+**Mean Field Limit**: As the width $\to \infty$, neurons become independent and the parameter distribution evolves by a continuity equation:
 
 $$\frac{\partial \rho_t}{\partial t} = -\nabla \cdot \left(\rho_t \nabla_w \mathcal{L}\left[\rho_t\right](w)\right)$$
 
@@ -254,8 +254,7 @@ $$\min_w \max_{\|\epsilon\| \leq \rho} L(w + \epsilon)$$
 
 ### Theoretical Guarantees for Modern Architectures
 
-**Transformer Expressivity**: Can approximate any sequence-to-sequence function with:
-$$O(\log n) \text{ layers, } O(n^2) \text{ parameters}$$
+**Transformer Expressivity**: Transformers can approximate any sequence-to-sequence function using on the order of $O(\log n)$ layers and $O(n^2)$ parameters.
 
 **Recent Architecture Theory (2023-2024)**:
 

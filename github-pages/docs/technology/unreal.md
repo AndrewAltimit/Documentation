@@ -41,6 +41,15 @@ hide_title: true
 
 Unreal Engine 5, released in 2022 and continuously updated, represents a quantum leap in real-time rendering technology. Building on UE4's solid foundation, UE5 introduces game-changing features that eliminate many traditional technical constraints, allowing creators to focus on artistry and design rather than optimization. Let's explore the revolutionary improvements that make UE5 the most advanced real-time 3D creation tool available.
 
+| Area | Unreal Engine 4 | Unreal Engine 5 |
+|------|-----------------|-----------------|
+| Geometry detail | Manual LODs, polygon budgets | Nanite virtualized geometry (millions+ of polys) |
+| Global illumination | Baked lightmaps or limited dynamic GI | Lumen fully dynamic GI and reflections |
+| Large worlds | Manual level streaming volumes | World Partition automatic streaming |
+| Physics | PhysX | Chaos (default, ~3x faster, deterministic) |
+| Upscaling | Vendor-specific (DLSS/FSR) | Temporal Super Resolution (TSR), platform-agnostic |
+| Shadows | Cascaded shadow maps | Virtual Shadow Maps (consistent, high-res) |
+
 ### Nanite Virtualized Geometry
 
 Nanite is a groundbreaking new technology introduced in Unreal Engine 5 that revolutionizes the way 3D assets are handled and rendered. It enables the use of incredibly detailed and complex geometry with minimal impact on performance. The key advantages of Nanite are:
@@ -575,8 +584,39 @@ Unreal Engine 5 represents not just an incremental upgrade but a paradigm shift 
 
 Unreal Engine continues to push the boundaries of what's possible in real-time rendering, making previously impossible creative visions achievable on consumer hardware. Whether you're an indie developer, a AAA studio, or a professional in another industry, UE5 provides the tools to bring your ideas to life with unprecedented fidelity and performance.
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Nanite removes the polygon ceiling</h4>
+    <p>Virtualized geometry streams only the detail each frame needs, so film-quality source assets render directly — no manual LODs.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Lumen makes lighting fully dynamic</h4>
+    <p>Real-time global illumination and reflections react to scene changes instantly, eliminating lightmap baking.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>World Partition scales open worlds</h4>
+    <p>Automatic streaming and One File Per Actor let large teams build vast worlds and merge changes without manual level volumes.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Blueprints and C++ are complementary</h4>
+    <p>Use Blueprints for logic flow and rapid iteration, C++ for heavy computation; nativization narrows the performance gap.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>UE5 reaches far beyond games</h4>
+    <p>Virtual production, architecture, automotive, and film all rely on the same real-time pipeline and USD/Datasmith interchange.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Profile before optimizing</h4>
+    <p>Unreal Insights and the Blueprint profiler reveal real bottlenecks — event-driven design and object pooling beat guesswork.</p>
+  </div>
+</div>
+
+## See Also
+
 <div class="see-also-card">
-  <h4>See Also</h4>
+  <h4>Related pages</h4>
   <ul>
     <li><a href="../gamedev/">Game Development</a> — game design principles and patterns</li>
     <li><a href="../graphics/3d-rendering.html">3D Graphics</a> — the rendering pipeline and techniques</li>

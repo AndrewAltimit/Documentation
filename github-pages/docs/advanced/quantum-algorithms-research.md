@@ -55,7 +55,7 @@ flowchart TD
 
 ### Mathematical Foundations
 
-**Quantum State Space**: n-qubit system lives in ℂ²ⁿ Hilbert space:
+**Quantum State Space**: an $n$-qubit system lives in the $\mathbb{C}^{2^n}$ Hilbert space:
 
 $$|\psi\rangle = \sum_{x \in \{0,1\}^n} \alpha_x |x\rangle$$
 
@@ -81,7 +81,7 @@ The set $\{H, T, \text{CNOT}\}$ is universal, where:
 - T-gate: $T = \begin{pmatrix}1 & 0\\0 & e^{i\pi/4}\end{pmatrix}$
 - CNOT: $|x,y\rangle \mapsto |x, y \oplus x\rangle$
 
-**Solovay-Kitaev Theorem**: Any single-qubit gate can be approximated to precision ε using O(log^c(1/ε)) gates from finite universal set.
+**Solovay–Kitaev Theorem**: Any single-qubit gate can be approximated to precision $\epsilon$ using $O(\log^c(1/\epsilon))$ gates from a finite universal set.
 
 ### Quantum Parallelism
 
@@ -96,9 +96,9 @@ $$U_f\left(\frac{1}{\sqrt{2^n}}\sum_x |x\rangle\right)|0\rangle = \frac{1}{\sqrt
 
 ### Shor's Algorithm
 
-**Problem**: Factor N = pq where p, q are prime.
+**Problem**: Factor $N = pq$ where $p, q$ are prime.
 
-**Quantum Subroutine**: Find period r of f(x) = aˣ mod N.
+**Quantum Subroutine**: Find the period $r$ of $f(x) = a^x \bmod N$.
 
 **Recent Improvements (2023-2024)**:
 - Reduced quantum gate count by 30% using optimized modular arithmetic
@@ -108,26 +108,26 @@ $$U_f\left(\frac{1}{\sqrt{2^n}}\sum_x |x\rangle\right)|0\rangle = \frac{1}{\sqrt
 **Algorithm**:
 1. Create superposition: $\frac{1}{\sqrt{2^n}}\sum_{x=0}^{2^n-1}|x\rangle|0\rangle$
 2. Compute f(x): $\frac{1}{\sqrt{2^n}}\sum_x|x\rangle|a^x \bmod N\rangle$
-3. Measure second register, get state: $\frac{1}{\sqrt{|S|}}\sum_{x \in S}|x\rangle$ where S = {x : aˣ ≡ aˢ mod N}
-4. Apply QFT: $\frac{1}{\sqrt{r}}\sum_{k=0}^{r-1}e^{2\pi i sk/r}|k \cdot 2^n/r\rangle$
-5. Measure, use continued fractions to find r
+3. Measure the second register, obtaining the state $\frac{1}{\sqrt{|S|}}\sum_{x \in S}|x\rangle$ where $S = \{x : a^x \equiv a^s \bmod N\}$
+4. Apply the QFT: $\frac{1}{\sqrt{r}}\sum_{k=0}^{r-1}e^{2\pi i sk/r}|k \cdot 2^n/r\rangle$
+5. Measure, then use continued fractions to recover $r$
 
-**Complexity**: O((log N)³) versus best classical O(exp((log N)^(1/3))).
+**Complexity**: $O((\log N)^3)$ versus the best classical $O\!\left(\exp((\log N)^{1/3})\right)$.
 
 **Period Finding Analysis**:
 
-**Theorem**: Probability of measuring k·2ⁿ/r (rounded) is at least 4/π².
+**Theorem**: The probability of measuring $k \cdot 2^n/r$ (rounded) is at least $4/\pi^2$.
 
-**Proof**: After QFT, amplitude of |y⟩ is:
-$$\alpha_y = \frac{1}{2^n}\sum_{x: a^x = a^s} e^{2\pi i xy/2^n}$$
+**Proof**: After the QFT, the amplitude of $|y\rangle$ is
+$$\alpha_y = \frac{1}{2^n}\sum_{x: a^x = a^s} e^{2\pi i xy/2^n}.$$
 
-For y close to k·2ⁿ/r, |αᵧ|² ≥ 4/(π²r).
+For $y$ close to $k \cdot 2^n/r$, we have $|\alpha_y|^2 \geq 4/(\pi^2 r)$.
 
 ### Grover's Algorithm
 
 **Problem**: Search unsorted database of N items.
 
-**Oracle Model**: Black box Uₓ with Uₓ|x⟩ = (-1)^f(x)|x⟩.
+**Oracle Model**: A black box $U_f$ acting as $U_f|x\rangle = (-1)^{f(x)}|x\rangle$.
 
 **Intuition**: Grover's iteration is a geometric rotation. Start with an equal superposition; the oracle flips the sign of the target state (a reflection), and the diffusion operator reflects about the average amplitude. Each oracle+diffusion pair rotates the state vector by $2\theta$ toward the solution subspace. After $\approx \frac{\pi}{4}\sqrt{N}$ rotations the state nearly coincides with the solution — overshoot it and the amplitude rotates back down.
 
@@ -142,16 +142,16 @@ flowchart LR
 
 **Algorithm**:
 1. Initialize: $|\psi\rangle = \frac{1}{\sqrt{N}}\sum_{x=0}^{N-1}|x\rangle$
-2. Repeat O(√N) times:
-   - Apply oracle: $U_x|\psi\rangle$
+2. Repeat $O(\sqrt{N})$ times:
+   - Apply the oracle: $U_f|\psi\rangle$
    - Apply diffusion: $D = 2|\psi\rangle\langle\psi| - I$
 
-**Amplitude Analysis**: Let |α⟩ = uniform superposition of non-solutions, |β⟩ = uniform superposition of solutions.
+**Amplitude Analysis**: Let $|\alpha\rangle$ be the uniform superposition of non-solutions and $|\beta\rangle$ the uniform superposition of solutions.
 
-After k iterations:
-$$|\psi_k\rangle = \cos((2k+1)\theta)|α\rangle + \sin((2k+1)\theta)|β\rangle$$
+After $k$ iterations:
+$$|\psi_k\rangle = \cos\!\big((2k+1)\theta\big)\,|\alpha\rangle + \sin\!\big((2k+1)\theta\big)\,|\beta\rangle$$
 
-where $\sin(\theta) = \sqrt{M/N}$, M = number of solutions.
+where $\sin\theta = \sqrt{M/N}$ and $M$ is the number of solutions.
 
 **Optimality**:
 
@@ -168,20 +168,21 @@ This is a crucial reality check: the dramatic exponential speedups (Shor) requir
 
 **Definition**: Maps computational basis to Fourier basis:
 
-$$QFT: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\rangle$$
+$$\mathrm{QFT}: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\rangle$$
 
-**Circuit Construction** (for N = 2ⁿ):
-```
-|x₁x₂...xₙ⟩ → (|0⟩ + e^{2πi[0.xₙ]}|1⟩) ⊗ ... ⊗ (|0⟩ + e^{2πi[0.x₁x₂...xₙ]}|1⟩)
-```
+**Circuit Construction** (for $N = 2^n$): the transform factorizes into a tensor product of single-qubit phases,
 
-**Complexity**: O(n²) gates versus O(n2ⁿ) classical FFT.
+$$|x_1 x_2 \cdots x_n\rangle \;\mapsto\; \bigotimes_{j=1}^{n}\frac{1}{\sqrt{2}}\left(|0\rangle + e^{2\pi i\,(0.x_j x_{j+1}\cdots x_n)}|1\rangle\right),$$
+
+which is exactly why it needs only $O(n^2)$ gates.
+
+**Complexity**: $O(n^2)$ gates versus $O(n 2^n)$ for the classical FFT.
 
 ### HHL Algorithm (Quantum Linear Systems)
 
-**Problem**: Solve Ax = b for x, given Hermitian A.
+**Problem**: Solve $Ax = b$ for $x$, given a Hermitian matrix $A$.
 
-**Key Insight**: Encode solution in quantum state |x⟩.
+**Key Insight**: Encode the solution in the quantum state $|x\rangle$.
 
 **Recent Developments (2023-2024)**:
 - **Quantum Singular Value Transformation**: Generalization of HHL
@@ -189,38 +190,36 @@ $$QFT: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\ra
 - **Applications**: Quantum machine learning, differential equations
 
 **Algorithm Steps**:
-1. Prepare |b⟩ = Σᵢ βᵢ|uᵢ⟩ (eigenbasis of A)
-2. Phase estimation: |uᵢ⟩|0⟩ → |uᵢ⟩|λᵢ⟩
-3. Controlled rotation: |λᵢ⟩|0⟩ → |λᵢ⟩(√(1-C²/λᵢ²)|0⟩ + C/λᵢ|1⟩)
-4. Uncompute phase estimation
-5. Post-select on |1⟩
+1. Prepare $|b\rangle = \sum_i \beta_i |u_i\rangle$ in the eigenbasis of $A$
+2. Phase estimation: $|u_i\rangle|0\rangle \to |u_i\rangle|\lambda_i\rangle$
+3. Controlled rotation: $|\lambda_i\rangle|0\rangle \to |\lambda_i\rangle\!\left(\sqrt{1 - C^2/\lambda_i^2}\,|0\rangle + \tfrac{C}{\lambda_i}|1\rangle\right)$
+4. Uncompute the phase estimation
+5. Post-select on $|1\rangle$
 
-**Complexity**: O(log N κ²/ε) where κ is condition number.
+**Complexity**: $O(\log N \cdot \kappa^2/\epsilon)$ where $\kappa$ is the condition number.
 
 ## Quantum Complexity Theory
 
 ### Complexity Classes
 
 **BQP (Bounded-Error Quantum Polynomial Time)**:
-- Languages decidable by polynomial-time quantum algorithm with error ≤ 1/3
+- Languages decidable by a polynomial-time quantum algorithm with error $\leq 1/3$
 
-**Formal Definition**:
-$$L \in BQP \iff \exists \text{ poly-time quantum algorithm } A:$$
-$$x \in L \Rightarrow \Pr[A(x) = 1] \geq 2/3$$
-$$x \notin L \Rightarrow \Pr[A(x) = 1] \leq 1/3$$
+**Formal Definition**: $L \in \mathrm{BQP}$ iff there is a poly-time quantum algorithm $A$ with
+
+$$x \in L \;\Rightarrow\; \Pr[A(x) = 1] \geq \tfrac{2}{3}, \qquad x \notin L \;\Rightarrow\; \Pr[A(x) = 1] \leq \tfrac{1}{3}.$$
 
 **Relations**:
-- BPP ⊆ BQP ⊆ PP ⊆ PSPACE
-- BQP ⊆ P^#P
+$$\mathrm{BPP} \subseteq \mathrm{BQP} \subseteq \mathrm{PP} \subseteq \mathrm{PSPACE}, \qquad \mathrm{BQP} \subseteq \mathrm{P}^{\#\mathrm{P}}.$$
 
 ### Quantum Advantage (formerly Supremacy)
 
 **Definition**: Computational task performed by quantum computer that classical computers cannot perform in reasonable time.
 
 **Random Circuit Sampling**:
-- Generate random quantum circuit C
-- Sample from distribution |⟨x|C|0ⁿ⟩|²
-- Classical simulation requires ~2ⁿ operations
+- Generate a random quantum circuit $C$
+- Sample from the distribution $|\langle x|C|0^n\rangle|^2$
+- Classical simulation requires $\sim 2^n$ operations
 
 **Recent Milestones (2023-2024)**:
 - **Google Sycamore 2**: 70 qubits, error rates < 0.1%
@@ -236,27 +235,27 @@ $$x \notin L \Rightarrow \Pr[A(x) = 1] \leq 1/3$$
 **Model**: Alice has x, Bob has y, compute f(x,y) with minimal communication.
 
 **Quantum Fingerprinting**:
-- Classical: Ω(√n) bits to test equality
-- Quantum: O(log n) qubits suffice
+- Classical: $\Omega(\sqrt{n})$ bits to test equality
+- Quantum: $O(\log n)$ qubits suffice
 
 **Inner Product mod 2**:
-- Classical: Ω(n) bits
-- Quantum: O(log n) with prior entanglement
+- Classical: $\Omega(n)$ bits
+- Quantum: $O(\log n)$ with prior entanglement
 
 ## Quantum Error Correction
 
 ### Quantum Error Model
 
-**Pauli Errors**: Single-qubit errors form basis:
-- X (bit flip): |0⟩ ↔ |1⟩
-- Z (phase flip): |1⟩ → -|1⟩
-- Y = iXZ (both)
+**Pauli Errors**: Single-qubit errors form a basis:
+- $X$ (bit flip): $|0\rangle \leftrightarrow |1\rangle$
+- $Z$ (phase flip): $|1\rangle \to -|1\rangle$
+- $Y = iXZ$ (both)
 
 **General Error**: $E = \sum_{P \in \{I,X,Y,Z\}^{\otimes n}} \alpha_P P$
 
 ### Stabilizer Codes
 
-**Definition**: Code space is joint +1 eigenspace of abelian group S ⊂ Pₙ.
+**Definition**: The code space is the joint $+1$ eigenspace of an abelian group $S \subset \mathcal{P}_n$ (the $n$-qubit Pauli group).
 
 **Example - 5-qubit code**:
 ```
@@ -265,16 +264,16 @@ S = ⟨XZZXI, IXZZX, XIXZZ, ZXIXZ⟩
 
 Encodes 1 logical qubit in 5 physical qubits, corrects any single-qubit error.
 
-**Quantum Singleton Bound**: [[n,k,d]] code satisfies:
-$$n - k \geq 2(d-1)$$
+**Quantum Singleton Bound**: an $[[n,k,d]]$ code satisfies
+$$n - k \geq 2(d-1).$$
 
 ### Surface Codes
 
-**Definition**: Qubits on vertices of 2D lattice, stabilizers on faces/vertices.
+**Definition**: Qubits on the vertices of a 2D lattice, with stabilizers on faces/vertices.
 
 **Properties**:
-- Distance d requires d×d lattice
-- Threshold error rate ~1%
+- Distance $d$ requires a $d \times d$ lattice
+- Threshold error rate $\sim 1\%$
 - Local stabilizers (4-body)
 
 **Recent Progress (2023-2024)**:
@@ -284,8 +283,8 @@ $$n - k \geq 2(d-1)$$
 - **Floquet codes**: Dynamic error correction protocols
 
 **Logical Operations**:
-- X̄: String of X operators across lattice
-- Z̄: String of Z operators perpendicular
+- $\bar{X}$: a string of $X$ operators across the lattice
+- $\bar{Z}$: a string of $Z$ operators perpendicular to it
 
 ### Fault-Tolerant Computation
 
@@ -305,17 +304,17 @@ In short: if physical error rate $p < p_{\text{th}}$, arbitrarily long quantum c
 
 ### Quantum Kernel Methods
 
-**Feature Map**: x → |φ(x)⟩ in Hilbert space.
+**Feature Map**: $x \mapsto |\phi(x)\rangle$ in Hilbert space.
 
-**Quantum Kernel**: K(x,x') = |⟨φ(x)|φ(x')⟩|²
+**Quantum Kernel**: $K(x,x') = |\langle\phi(x)|\phi(x')\rangle|^2$
 
-**Quantum Advantage**: When classical computation of K(x,x') is #P-hard but quantum circuit efficient.
+**Quantum Advantage**: arises when classically computing $K(x,x')$ is $\#\mathrm{P}$-hard yet the quantum circuit evaluates it efficiently.
 
 ### Variational Quantum Algorithms
 
 **QAOA (Quantum Approximate Optimization Algorithm)**:
 
-Hamiltonian: H = Hc + Hb where Hc encodes problem, Hb is mixing.
+Hamiltonian: $H = H_c + H_b$, where $H_c$ encodes the problem and $H_b$ is the mixing term.
 
 Ansatz: $|\psi(\vec{\gamma}, \vec{\beta})\rangle = \prod_{i=1}^p e^{-i\beta_i H_b}e^{-i\gamma_i H_c}|+\rangle^{\otimes n}$
 
@@ -345,10 +344,10 @@ $$\text{Var}[\partial_i L] \sim O(2^{-n})$$
 
 **2D Anyons**: Particles with fractional statistics.
 
-**Braiding**: Exchange of anyons implements unitary:
+**Braiding**: Exchanging anyons implements a unitary:
 $$U = \exp(i\theta)$$
 
-**Fibonacci Anyons**: Universal for quantum computation.
+**Fibonacci Anyons**: Universal for quantum computation — braiding alone suffices to approximate any gate.
 
 ### Topological Codes
 
@@ -357,19 +356,19 @@ $$U = \exp(i\theta)$$
 - Star operators: $A_s = \prod_{i \in \text{star}(s)} X_i$
 - Plaquette operators: $B_p = \prod_{i \in \text{boundary}(p)} Z_i$
 
-**Ground Space**: 4-fold degenerate on torus, encodes 2 logical qubits.
+**Ground Space**: 4-fold degenerate on the torus, encoding 2 logical qubits.
 
 **Anyonic Excitations**:
-- e-particles: Violate star operators (Z errors)
-- m-particles: Violate plaquette operators (X errors)
-- Fusion rules: e × e = 1, m × m = 1, e × m = ε
+- $e$-particles: violate star operators ($Z$ errors)
+- $m$-particles: violate plaquette operators ($X$ errors)
+- Fusion rules: $e \times e = 1$, $m \times m = 1$, $e \times m = \varepsilon$
 
 ### Kitaev Chain
 
 **Hamiltonian**:
 $$H = -\mu\sum_i c_i^\dagger c_i - t\sum_i(c_i^\dagger c_{i+1} + h.c.) + \Delta\sum_i(c_i c_{i+1} + h.c.)$$
 
-**Topological Phase**: |μ| < 2t, supports Majorana zero modes:
+**Topological Phase**: when $|\mu| < 2t$, the chain supports Majorana zero modes:
 
 $$\gamma_1 = \sum_i \left(\frac{-\mu}{2t}\right)^i (c_i + c_i^\dagger)$$
 
@@ -379,18 +378,17 @@ $$\gamma_1 = \sum_i \left(\frac{-\mu}{2t}\right)^i (c_i + c_i^\dagger)$$
 
 **Quantum Adiabatic Algorithm**:
 
-Start: $H(0) = H_{\text{init}}$ (easy to prepare ground state)
-End: $H(T) = H_{\text{problem}}$ (encodes solution)
+Start: $H(0) = H_{\text{init}}$ (whose ground state is easy to prepare).
+End: $H(T) = H_{\text{problem}}$ (whose ground state encodes the solution).
 
-**Adiabatic Theorem**: If gap Δ(s) ≥ g for all s ∈ [0,1], then:
-$$T = O\left(\frac{\|dH/ds\|}{g^2}\right)$$
+**Adiabatic Theorem**: if the spectral gap satisfies $\Delta(s) \geq g$ for all $s \in [0,1]$, then
+$$T = O\!\left(\frac{\|dH/ds\|}{g^2}\right).$$
 
 ### Post-Quantum Cryptography
 
-**Learning With Errors (LWE)**:
-Given (A, As + e) where e is small error, find s.
+**Learning With Errors (LWE)**: given $(A, As + e)$ where $e$ is a small error, recover $s$.
 
-**Quantum Reduction**: If LWE is easy, then worst-case lattice problems have polynomial quantum algorithms.
+**Quantum Reduction**: if LWE is easy, then worst-case lattice problems admit polynomial-time quantum algorithms.
 
 ### Quantum Shannon Theory
 
@@ -399,8 +397,8 @@ Given (A, As + e) where e is small error, find s.
 **Holevo Bound**: Classical capacity of quantum channel:
 $$C = \max_{\{p_i, \rho_i\}} S\left(\sum_i p_i \rho_i\right) - \sum_i p_i S(\rho_i)$$
 
-**Quantum Capacity**: Uses coherent information:
-$$Q = \max_\rho I(A\rangle B)_{\rho}$$
+**Quantum Capacity**: uses the coherent information,
+$$Q = \max_\rho I(A\rangle B)_{\rho}.$$
 
 ## Current Research Frontiers
 
@@ -419,16 +417,16 @@ $$Q = \max_\rho I(A\rangle B)_{\rho}$$
 
 ### Quantum Simulation
 
-**Digital Quantum Simulation**: Trotter decomposition:
-$$e^{-iHt} \approx \left(\prod_j e^{-iH_j t/n}\right)^n$$
+**Digital Quantum Simulation**: Trotter decomposition,
+$$e^{-iHt} \approx \left(\prod_j e^{-iH_j t/n}\right)^n,$$
 
-Error: O(t²/n) for first-order Trotter.
+with error $O(t^2/n)$ for the first-order Trotter formula.
 
 ### Quantum Error Mitigation
 
 **Zero Noise Extrapolation**:
-- Run circuit at noise levels λ, 2λ, 3λ...
-- Extrapolate to λ = 0
+- Run the circuit at noise levels $\lambda, 2\lambda, 3\lambda, \ldots$
+- Extrapolate to $\lambda = 0$
 
 **Probabilistic Error Cancellation**:
 - Decompose noise as sum of Pauli operations

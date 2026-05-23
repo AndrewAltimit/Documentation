@@ -920,6 +920,18 @@ One of the most important decisions in network programming is choosing between T
 
 **The key insight**: Sometimes "good enough" delivery beats perfect delivery, especially when data becomes stale quickly.
 
+### TCP vs UDP at a Glance
+
+| Property | TCP | UDP |
+|----------|-----|-----|
+| Connection | Connection-oriented (handshake) | Connectionless |
+| Delivery | Guaranteed, retransmits lost data | Best-effort, no retransmission |
+| Ordering | In-order | No ordering |
+| Flow/congestion control | Yes | No |
+| Header overhead | 20+ bytes | 8 bytes |
+| Latency | Higher (acks, setup) | Lower |
+| Typical uses | Web, email, file transfer, SSH | Video/voice, gaming, DNS, IoT |
+
 ## Protocols in Action: How the Internet Works
 
 Let's explore the protocols you use every day, understanding not just what they do, but why they work the way they do.
@@ -1934,8 +1946,39 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 - Traffic pattern analysis
 - DDoS detection and mitigation
 
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Layers separate concerns</h4>
+    <p>The OSI/TCP-IP stack lets each layer evolve independently — the same browser works over Wi-Fi, fiber, or cellular.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>IP routes, TCP/UDP deliver</h4>
+    <p>IP gets packets to the right host hop-by-hop; transport-layer ports and reliability decide which app gets them and how.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Performance is a queueing problem</h4>
+    <p>Latency, jitter, and loss come from queues filling at bottleneck links — congestion control exists to keep them stable.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Congestion control keeps the net alive</h4>
+    <p>Algorithms like Reno (loss-based) and BBR (model-based) continuously match sending rate to available capacity.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Routing scales hierarchically</h4>
+    <p>OSPF optimizes paths inside an organization; BGP exchanges policy-driven routes between the internet's autonomous systems.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Networks are becoming software</h4>
+    <p>SDN, NFV, P4, and eBPF move forwarding logic into programmable software, enabling 5G slicing and in-network computing.</p>
+  </div>
+</div>
+
+## See Also
+
 <div class="see-also-card">
-  <h4>See Also</h4>
+  <h4>Related pages</h4>
   <ul>
     <li><a href="cybersecurity.html">Cybersecurity</a> — network security and zero-trust architecture</li>
     <li><a href="aws/">AWS</a> — cloud networking, VPC, and Direct Connect</li>

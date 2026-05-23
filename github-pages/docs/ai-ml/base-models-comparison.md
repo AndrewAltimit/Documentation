@@ -19,17 +19,9 @@ hide_title: true
 Comprehensive comparison of popular diffusion models: SD 1.5, SD 2.x, SDXL, Pony, and FLUX, with their strengths, requirements, and use cases.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
+## Choosing a Base Model
 
-1. TOC
-{:toc}
-
----
-
-## Overview
-
-The landscape of diffusion models has evolved rapidly, with each generation bringing improvements in quality, capabilities, and efficiency. This guide compares the major base models to help you choose the right one for your needs.
+The base model (checkpoint) is the single most important choice you make — it sets the ceiling for quality, the resolution you work at, the VRAM you need, and which LoRAs and ControlNets you can use. This guide compares the major families so you can match a model to your task, hardware, and ecosystem. If you only remember one thing: **SDXL is the safest all-rounder**, and the rest are specializations around it.
 
 <div class="key-insights">
   <div class="insight-card">
@@ -327,6 +319,58 @@ score_6, score_5, score_4, worst quality, low quality,
 bad anatomy, bad hands
 ```
 
+## Stable Diffusion 3
+
+### Overview
+
+SD3 marks the lineage's shift from U-Net to a Multimodal Diffusion Transformer (MM-DiT) trained with rectified flow — the same family of ideas behind FLUX, but with different design choices and lower resource demands.
+
+### Technical Specifications
+
+```yaml
+Architecture: MM-DiT (Multimodal Diffusion Transformer)
+Parameters: 2B (Medium), 8B (Large)
+Text Encoders: CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL
+Max Tokens: 77 + 77 + 256
+Training: Rectified Flow (like FLUX)
+Resolution: 1024×1024 base, up to 2048×2048
+File Size: ~6GB (Medium), ~18GB (Large)
+```
+
+### Unique Features
+
+1. **Triple Text Encoding**: Most comprehensive text understanding
+2. **Improved Architecture**: Better than SDXL, competitive with FLUX
+3. **Flexible Resolution**: Better handling of various aspect ratios
+4. **Better Text Rendering**: Can generate readable text in images
+
+### Strengths
+
+- **Prompt Adherence**: Best-in-class prompt following
+- **Text Generation**: Can render words and letters accurately
+- **Efficiency**: Medium model runs well on 10GB VRAM
+- **Quality**: Comparable to FLUX at lower resource cost
+- **Flexibility**: Works with standard diffusion workflows
+
+### Weaknesses
+
+- **Licensing**: More restrictive than SD1.5/SDXL
+- **Ecosystem**: Newer, fewer fine-tunes available
+- **Complexity**: Triple encoder adds complexity
+- **Size**: Large model requires significant resources
+
+### Optimal Settings
+
+```python
+{
+    "resolution": "1024x1024",
+    "steps": 28,  # Recommended by Stability
+    "cfg_scale": 5,  # Lower than traditional
+    "sampler": "dpmpp_2m",
+    "shift": 3.0,  # Important SD3 parameter
+}
+```
+
 ## FLUX
 
 ### Overview
@@ -430,58 +474,6 @@ File Size: ~24GB (FP16)
 | 8GB | SDXL | 1024×1024, FP16, no refiner |
 | 12GB | FLUX-fp8 | 1024×1024, optimized |
 | 16GB+ | Any model | Full quality |
-
-## Stable Diffusion 3
-
-### Overview
-
-SD3 represents a major architectural shift from previous versions, adopting a Multimodal Diffusion Transformer (MM-DiT) architecture similar to FLUX but with different design choices.
-
-### Technical Specifications
-
-```yaml
-Architecture: MM-DiT (Multimodal Diffusion Transformer)
-Parameters: 2B (Medium), 8B (Large)
-Text Encoders: CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL
-Max Tokens: 77 + 77 + 256
-Training: Rectified Flow (like FLUX)
-Resolution: 1024×1024 base, up to 2048×2048
-File Size: ~6GB (Medium), ~18GB (Large)
-```
-
-### Unique Features
-
-1. **Triple Text Encoding**: Most comprehensive text understanding
-2. **Improved Architecture**: Better than SDXL, competitive with FLUX
-3. **Flexible Resolution**: Better handling of various aspect ratios
-4. **Better Text Rendering**: Can generate readable text in images
-
-### Strengths
-
-- **Prompt Adherence**: Best-in-class prompt following
-- **Text Generation**: Can render words and letters accurately
-- **Efficiency**: Medium model runs well on 10GB VRAM
-- **Quality**: Comparable to FLUX at lower resource cost
-- **Flexibility**: Works with standard diffusion workflows
-
-### Weaknesses
-
-- **Licensing**: More restrictive than SD1.5/SDXL
-- **Ecosystem**: Newer, fewer fine-tunes available
-- **Complexity**: Triple encoder adds complexity
-- **Size**: Large model requires significant resources
-
-### Optimal Settings
-
-```python
-{
-    "resolution": "1024x1024",
-    "steps": 28,  # Recommended by Stability
-    "cfg_scale": 5,  # Lower than traditional
-    "sampler": "dpmpp_2m",
-    "shift": 3.0,  # Important SD3 parameter
-}
-```
 
 ## Performance Comparison
 

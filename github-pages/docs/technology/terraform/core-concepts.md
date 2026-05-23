@@ -160,6 +160,11 @@ Consider the following approaches to creating a web server:
 
 Terraform's declarative approach means you describe *what* you want, not *how* to get there. This eliminates entire categories of bugs.
 
+<div class="tip-card">
+  <h4>An analogy</h4>
+  <p>An imperative script is like turn-by-turn driving directions — every instruction must be correct and run in order, and a wrong turn leaves you stranded. A Terraform config is like giving a destination address to a GPS: you state where you want to end up, and the system computes the route, reroutes around obstacles, and tells you how far off-course you currently are (that is the <code>plan</code>).</p>
+</div>
+
 ### Why Infrastructure as Code Changes Everything
 
 When infrastructure becomes code, you gain powerful capabilities:
@@ -316,8 +321,6 @@ resource "aws_instance" "web" {
 | `prevent_destroy` | Critical resources | Production databases, S3 buckets with data |
 | `ignore_changes` | Externally managed attributes | Tags set by other tools, autoscaling counts |
 | `replace_triggered_by` | Force replacement | When AMI changes, replace instance |
-
-
 
 ---
 

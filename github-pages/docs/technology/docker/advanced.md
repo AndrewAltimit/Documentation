@@ -12,6 +12,10 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Production-ready architectures, real-world case studies, and cutting-edge container technologies including WebAssembly runtimes.</p>
 </div>
 
+<div class="intro-card">
+  <p class="lead-text">This page assumes you are comfortable with images, containers, and Dockerfiles. It looks at how Docker is used <strong>in production at scale</strong>: real migration case studies, recurring design patterns, performance and security hardening, and where containers are heading next (including WebAssembly). Treat it as a tour of "what good looks like" once the basics are second nature.</p>
+</div>
+
 ## Real-World Examples and Case Studies
 
 <div class="case-studies-section">

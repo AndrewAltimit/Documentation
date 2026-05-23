@@ -129,14 +129,15 @@ toc: false  # Index pages typically don't need TOC
 
 ---
 
-## Recent Additions (2025)
+## Highlights
 
-- **Stable Diffusion 3**: Latest architecture and implementation guides
-- **FLUX Models**: Flow matching and fast generation techniques
-- **Kubernetes v1.30**: Updated production patterns and features
-- **Git Security**: AI-assisted development and security practices
-- **Quantum Cloud Platforms**: Access guides for IBM, AWS, Azure quantum services
-- **Documentation Updates**: Improved navigation, fixed links, and new learning paths
+A few areas that go deeper than a typical reference:
+
+- **Generative AI**: Stable Diffusion 3 and FLUX architectures, flow matching, and production workflows
+- **Kubernetes**: Current production patterns — workloads, storage, operations, and advanced scheduling
+- **Git internals**: How commits, refs, and the object model actually work, plus security practices
+- **Quantum**: A theory-to-hardware path spanning quantum mechanics, algorithms, and cloud platforms
+- **Physics**: First-principles treatments from classical mechanics through quantum field theory
 
 ## Can't Find What You Need?
 

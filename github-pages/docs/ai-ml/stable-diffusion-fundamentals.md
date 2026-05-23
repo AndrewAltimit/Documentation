@@ -19,14 +19,6 @@ hide_title: true
 How AI transforms text descriptions into detailed images, and why understanding the process helps you get better results.
 </div>
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
 ## Why Learn How Stable Diffusion Works?
 
 You can generate images without understanding the underlying technology, but knowing how diffusion models work helps you in practical ways:

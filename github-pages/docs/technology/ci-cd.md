@@ -1125,13 +1125,26 @@ multi-cloud-deploy:
 
 Remember: CI/CD is a journey, not a destination. Start simple, measure everything, and continuously improve your pipeline based on what you learn. The goal isn't perfection—it's progress.
 
-## Related Technology Documentation
+## Key Takeaways
 
-- [Git Version Control](git.html) - Version control fundamentals
-- [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
-- [Docker](docker/) - Containerization for consistent builds
-- [Kubernetes](kubernetes/) - Container orchestration and deployments
-- [Terraform](terraform/) - Infrastructure as code
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>CI and CD Are Distinct</h4>
+    <p>CI integrates and tests every change automatically; CD takes passing builds the rest of the way to staging or production. You can adopt CI long before full CD.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Fast Feedback Is the Point</h4>
+    <p>The value is catching problems in minutes, not days. Parallelize tests, fail fast, and keep pipelines quick enough that developers trust them.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Deploy Strategies Manage Risk</h4>
+    <p>Blue-green, canary, and rolling deployments trade speed for safety in different ways. Pair them with automated rollback so a bad release is reversible.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Secure the Supply Chain</h4>
+    <p>Pipelines hold secrets and ship artifacts. Scan dependencies, sign artifacts, generate SBOMs, and grant least-privilege credentials to runners.</p>
+  </div>
+</div>
 
 ---
 

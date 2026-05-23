@@ -2544,17 +2544,6 @@ class MiniSQL:
 
 Each project builds on the last, gradually introducing complexity!
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="database-crash-course.html">Database Crash Course</a> — the fast on-ramp to tables and SQL</li>
-    <li><a href="aws/">AWS</a> — managed database services and DynamoDB internals</li>
-    <li><a href="docker/">Docker</a> — containerizing databases for local development</li>
-    <li><a href="cybersecurity.html">Cybersecurity</a> — database security and encryption</li>
-    <li><a href="networking.html">Networking</a> — protocols behind distributed databases</li>
-  </ul>
-</div>
-
 ## Summary
 
 Databases are the foundation of modern applications. From simple files to distributed systems spanning the globe, they solve the fundamental challenge of storing and retrieving data reliably at scale. 
@@ -2615,3 +2604,45 @@ Start with the basics, experiment with different databases, and gradually work y
 **Transaction**: Group of operations that succeed or fail together
 
 **WAL**: Write-Ahead Logging - ensures durability by logging before applying changes
+
+## Key Takeaways
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Model for integrity first</h4>
+    <p>Normalization removes redundant data so updates can't leave the database in a contradictory state; denormalize deliberately, for performance.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Indexes trade writes for reads</h4>
+    <p>A B+ tree index turns a full-table scan into a logarithmic lookup, but every index adds cost to inserts, updates, and storage.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>ACID guarantees reliability</h4>
+    <p>Atomicity, consistency, isolation, and durability let many users hit the same data concurrently without corruption or lost work.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>The query planner is your ally</h4>
+    <p>SQL is declarative — you describe the result and the optimizer chooses the access path. Read `EXPLAIN` output to understand and tune it.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Scaling forces trade-offs</h4>
+    <p>Replication and sharding add capacity but invoke the CAP theorem: under a partition you choose between consistency and availability.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Pick the model to fit the access pattern</h4>
+    <p>Relational, document, key-value, graph, and vector stores each optimize different queries. Choose by how the data is read, not by hype.</p>
+  </div>
+</div>
+
+## See Also
+
+<div class="see-also-card">
+  <h4>Related pages</h4>
+  <ul>
+    <li><a href="database-crash-course.html">Database Crash Course</a> — the fast on-ramp to tables and SQL</li>
+    <li><a href="aws/">AWS</a> — managed database services and DynamoDB internals</li>
+    <li><a href="docker/">Docker</a> — containerizing databases for local development</li>
+    <li><a href="cybersecurity.html">Cybersecurity</a> — database security and encryption</li>
+    <li><a href="networking.html">Networking</a> — protocols behind distributed databases</li>
+  </ul>
+</div>
