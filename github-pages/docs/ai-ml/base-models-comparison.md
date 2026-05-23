@@ -73,6 +73,20 @@ flowchart TD
 
 Blue = U-Net diffusion lineage; purple = transformer/flow-matching lineage. LoRAs and ControlNets are tied to their lineage, which is why SD 1.5 add-ons don't work on SDXL or FLUX.
 
+### The Two Architectures Side by Side
+
+The lineage split is not just branding - the two families denoise differently. The U-Net line uses a convolutional encoder/decoder with cross-attention to the text, trained to predict noise. The transformer line replaces the U-Net with a **Diffusion Transformer (DiT)** that processes image and text tokens together (multimodal attention) and is trained with rectified flow.
+
+| Aspect | U-Net line (SD 1.5 / SDXL) | Transformer line (SD3 / FLUX) |
+|--------|----------------------------|-------------------------------|
+| Backbone | Convolutional U-Net | Diffusion Transformer (DiT / MM-DiT) |
+| Text injected via | Cross-attention layers | Joint image+text attention (tokens mixed) |
+| Training objective | Noise prediction (DDPM) | Velocity / rectified flow |
+| Guidance | CFG scale (~5-9) | Distilled/embedded guidance (CFG often 1.0) |
+| Practical effect | Mature add-on ecosystem, fast on low VRAM | Stronger prompt adherence and text rendering, heavier |
+
+If you understand the [forward/reverse diffusion process and flow matching](stable-diffusion-fundamentals.html), this table is the one-line summary of why the newer models behave differently.
+
 ## Stable Diffusion 1.5
 
 ### Overview
@@ -319,6 +333,16 @@ score_6, score_5, score_4, worst quality, low quality,
 bad anatomy, bad hands
 ```
 
+### A Note on Illustrious and NoobAI
+
+Pony is not the only major SDXL anime fine-tune. **Illustrious XL** (and community successors like **NoobAI XL**) trained directly on large booru datasets and have become strong alternatives, often with better native danbooru-tag recognition and without Pony's `score_*` prefix convention. The choice between them is largely community/aesthetic preference - both are SDXL underneath, so they share its LoRAs and ControlNets.
+
+| Fine-tune | Prompt convention | Notable for |
+|-----------|-------------------|-------------|
+| Pony Diffusion V6 | `score_9, score_8_up, ...` prefix | Huge community, strong style control |
+| Illustrious XL | Plain danbooru tags | Accurate character/tag recall |
+| NoobAI XL | Plain danbooru tags | Recent training data, refined Illustrious base |
+
 ## Stable Diffusion 3
 
 ### Overview
@@ -550,10 +574,10 @@ steps = 25
 
 ### Choosing Future-Proof Models
 
-- **FLUX**: Current best for quality and capabilities
-- **SD3**: Excellent balance of quality and efficiency
-- **SDXL**: Stable choice with mature ecosystem
-- **SD 1.5**: Will remain relevant for specialized uses and low-resource scenarios
+- **FLUX**: Current best for quality and capabilities; its LoRA and ControlNet ecosystem has matured rapidly and is no longer a reason to avoid it
+- **SD3.5**: The 3.5 Large/Medium refresh addressed many launch-day criticisms of the original SD3 Medium (anatomy, licensing) and is the practical SD3-family choice today
+- **SDXL**: Stable choice with the deepest mature ecosystem; fine-tunes like Pony and Illustrious keep it highly relevant for stylized art
+- **SD 1.5**: Will remain relevant for specialized uses, fastest iteration, and low-resource scenarios
 
 ## Conclusion
 

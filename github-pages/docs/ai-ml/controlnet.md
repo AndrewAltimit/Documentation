@@ -68,6 +68,17 @@ ControlNet creates a trainable copy of the diffusion model's encoder blocks, whi
 
 The split between *preprocessor* and *model* is the key idea: the preprocessor is a one-time analysis pass that turns your reference into a control map, and the ControlNet model is what conditions generation on that map. The same depth map can feed any depth ControlNet, and you can hand-author or edit a control map directly when a preprocessor gets it wrong.
 
+#### Why ControlNet Doesn't Break the Base Model: Zero Convolutions
+
+The reason you can add ControlNet to a model without retraining or degrading it is a design detail called **zero convolutions**. ControlNet clones the encoder half of the frozen base model and connects that clone back into the original network through 1x1 convolution layers whose weights start at zero. At the very first training step those zero-initialized layers output nothing, so the combined network is *identical* to the original - then they gradually learn to inject the control signal.
+
+This gives two practical guarantees:
+
+- **No catastrophic forgetting.** The base model's weights are frozen; only the trainable copy and the zero-convs learn. The model never "unlearns" what it already knew.
+- **Graceful start.** Training begins from a perfect copy of the base model rather than from noise, so even small datasets produce usable controls.
+
+This is also why a ControlNet is bound to its base family: the trainable copy mirrors that specific U-Net (or DiT), so its connection points only line up with a model of the same architecture.
+
 ## Control Types at a Glance
 
 Most workflows only need one control type. Pick it by what you want to preserve from the reference, not by what the reference *is*:
@@ -84,6 +95,17 @@ Most workflows only need one control type. Pick it by what you want to preserve 
 | Structure during upscaling | Tile | `tile_resample` | 0.5-1.0 |
 
 If you are unsure, **Depth** is the most forgiving general-purpose control (it constrains layout without locking in exact lines), and **Canny** is the most precise.
+
+### A Worked Example: Posing a Character
+
+Suppose you have a reference photo of someone standing with arms crossed, and you want a knight in armor in that exact pose. The end-to-end flow with concrete settings:
+
+1. **Preprocess** the reference with `dw_openpose_full` at 1024px (SDXL). You now have a stick-figure skeleton - preview it and confirm the limbs are detected correctly.
+2. **Prompt** for content and style only: `"a knight in ornate steel armor, dramatic studio lighting, photorealistic"`. Notice the prompt says nothing about pose - the control map handles that.
+3. **Apply** an SDXL OpenPose ControlNet with `strength: 0.85`, `start_percent: 0.0`, `end_percent: 0.8`.
+4. **Sample** normally (e.g. DPM++ 2M, 30 steps, CFG 6).
+
+The result is a knight standing with arms crossed. Ending control at 80% (`end_percent: 0.8`) lets the final steps add armor detail the skeleton never specified. If the pose drifts, raise strength toward 1.0; if the armor looks stiff or traced, lower strength or pull `end_percent` down to 0.6.
 
 ## ControlNet Types
 
@@ -519,6 +541,19 @@ ControlNets are tied to their base-model family. A control map is portable, but 
 <div class="tip-card" markdown="1">
 **Union models simplify the mess.** Newer "ControlNet Union" releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, ...) at runtime instead of juggling a separate file per type.
 </div>
+
+### ControlNet vs. the Alternatives
+
+ControlNet is the most precise spatial conditioner, but it is not always the right tool. Several lighter or differently-focused methods share the space:
+
+| Method | Conditions on | Strength | Best for |
+|--------|---------------|----------|----------|
+| ControlNet | Structural map (pose, edge, depth) | Highest spatial precision | Reproducing exact composition |
+| T2I-Adapter | Same map types, lighter | Fast, low VRAM, less precise | Real-time, batch, mobile |
+| IP-Adapter | A *reference image's* style/content | Transfers look, not layout | "Make it look like this" |
+| InstantID | A reference *face* | Identity-preserving portraits | Consistent faces from one photo |
+
+A common pattern is to combine them: ControlNet for *where* (structure), IP-Adapter for *what it looks like* (style), and a LoRA for *who/what* (subject). They condition on different things, so they cooperate rather than conflict.
 
 ### T2I-Adapter
 

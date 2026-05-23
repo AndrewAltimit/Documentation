@@ -455,6 +455,64 @@ flowchart TB
 
 **Why this matters for builds**: Docker caches each layer. If a layer's inputs are unchanged, Docker reuses the cached layer instead of rebuilding it. Ordering instructions so that rarely-changing steps (installing dependencies) come before frequently-changing steps (copying source code) maximizes cache hits and dramatically speeds up rebuilds.
 
+### The Container Lifecycle
+
+A container is not simply "on" or "off." It moves through a small set of well-defined states, and knowing them explains why a stopped container still occupies disk, and why `docker run` and `docker start` are different operations.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: docker create
+    Created --> Running: docker start
+    [*] --> Running: docker run
+    Running --> Paused: docker pause
+    Paused --> Running: docker unpause
+    Running --> Stopped: docker stop / process exits
+    Stopped --> Running: docker start
+    Stopped --> [*]: docker rm
+```
+
+| State | Meaning | Writable layer kept? |
+|-------|---------|----------------------|
+| Created | Filesystem prepared, process not started | Yes |
+| Running | Main process executing | Yes |
+| Paused | Processes frozen via cgroup freezer | Yes |
+| Stopped (Exited) | Process ended; container retained | Yes (until `docker rm`) |
+| Removed | Container and its writable layer deleted | No |
+
+**Key insight**: `docker run` is shorthand for `docker create` + `docker start`. A stopped container keeps its writable layer and configuration, so `docker start` resumes it with state intact. Only `docker rm` reclaims that space — which is why `docker ps -a` often reveals a long tail of forgotten exited containers.
+
+### Operating a Running Container
+
+A handful of commands cover almost all day-to-day inspection and debugging:
+
+```bash
+docker ps                       # List running containers
+docker ps -a                    # Include stopped containers
+docker logs -f my-web           # Stream a container's stdout/stderr
+docker exec -it my-web bash     # Open a shell inside a running container
+docker inspect my-web           # Full JSON: networks, mounts, env, state
+docker stats                    # Live CPU/memory/IO per container
+docker cp my-web:/app/log.txt . # Copy a file out of a container
+```
+
+`docker exec` is the workhorse for debugging: it starts a *new* process inside an already-running container, unlike `docker run` which creates a fresh container. If `exec` fails with "executable not found," the image is likely a minimal one (e.g. `distroless` or `scratch`) that ships no shell.
+
+### The Build Context and .dockerignore
+
+When you run `docker build .`, the trailing `.` is the **build context** — the entire directory tree is sent to the Docker daemon before the build begins. A bloated context (a stray `node_modules/` or `.git/`) slows every build and can leak secrets into images via a careless `COPY . .`.
+
+A `.dockerignore` file, with the same syntax as `.gitignore`, excludes paths from the context:
+
+```dockerignore
+.git
+node_modules
+*.log
+.env
+Dockerfile
+```
+
+This both speeds uploads and prevents accidental inclusion of credentials or local artifacts in the final image.
+
 ## Docker Network Architecture
 
 Networking is often the trickiest part of containerization. Containers need to communicate with each other, with the host, and with external services, all while maintaining isolation. Docker provides several network drivers for different scenarios.

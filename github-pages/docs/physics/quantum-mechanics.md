@@ -121,7 +121,47 @@ This geometric view helps understand:
 - Pure states: on sphere surface (radius = 1)
 - Mixed states: inside sphere (radius < 1)
 
+### How the Pieces Fit Together
+
+It is easy to lose the forest for the trees in quantum mechanics. The map below organizes the machinery: the state vector sits at the center, observables and dynamics act on it, and the strange phenomena (superposition, entanglement, tunneling) are consequences, not separate rules. Applications and interpretations branch off the same trunk.
+
+```mermaid
+graph TD
+    PSI["State vector |psi&gt;<br/>in Hilbert space"] --> OBS["Observables<br/>(Hermitian operators)"]
+    PSI --> DYN["Dynamics<br/>(Schrodinger equation)"]
+    OBS --> MEAS["Measurement<br/>(Born rule, collapse)"]
+    PSI --> SUP["Superposition"]
+    SUP --> ENT["Entanglement<br/>(composite systems)"]
+    DYN --> TUN["Tunneling"]
+    MEAS --> DEC["Decoherence<br/>(classical limit)"]
+    ENT --> QC["Quantum computing<br/>and information"]
+    DEC --> CL["Classical physics<br/>emerges"]
+    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef phenom fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
+    classDef app fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    class PSI,OBS,DYN,MEAS core;
+    class SUP,ENT,TUN,DEC phenom;
+    class QC,CL app;
+```
+
 ## Fundamental Concepts
+
+### The Postulates of Quantum Mechanics
+
+Beneath the wave functions and operators, the entire theory rests on a short list of postulates. Everything else — uncertainty, quantization, tunneling, entanglement — is a logical consequence. It is worth seeing them assembled in one place; the rest of this page is essentially these five statements worked out in detail.
+
+| # | Postulate | Statement | Where it appears |
+|---|-----------|-----------|------------------|
+| 1 | State | A system is fully described by a normalized vector $\lvert\psi\rangle$ in a Hilbert space | Wave functions, Dirac notation |
+| 2 | Observables | Measurable quantities are Hermitian operators $\hat{A}$; possible results are their eigenvalues | Position, momentum, energy operators |
+| 3 | Measurement (Born rule) | The probability of result $a_n$ is $\lvert\langle a_n\lvert\psi\rangle\rvert^2$, and the state collapses to $\lvert a_n\rangle$ | Measurement and decoherence |
+| 4 | Dynamics | Between measurements the state evolves by the Schrödinger equation, $i\hbar\,\partial_t\lvert\psi\rangle = \hat{H}\lvert\psi\rangle$ | Time evolution |
+| 5 | Composite systems | The state space of a combined system is the tensor product of the parts | Entanglement, many-body QM |
+
+<div class="tip-card">
+  <h4>The two kinds of change</h4>
+  <p>Notice that postulates 4 and 3 describe two utterly different ways a quantum state can change. Schrödinger evolution (postulate 4) is smooth, deterministic, and reversible — given $\lvert\psi(0)\rangle$ the future is fixed. Measurement (postulate 3) is abrupt, probabilistic, and irreversible — the state jumps to an eigenstate and information about the others is lost. Reconciling these two — when and why one becomes the other — is the <em>measurement problem</em>, and decoherence is the modern bridge between them. Hold this tension in mind; it is the conceptual heart of quantum mechanics.</p>
+</div>
 
 ### Wave-Particle Duality
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/de_broglie_thesis.pdf"> Paper: <b><i>On the Theory of Quanta</i></b> - Louis de Broglie</a></p>
@@ -415,6 +455,13 @@ Particles can penetrate classically forbidden regions. For a rectangular barrier
 $$T \approx \frac{16E(V_0-E)}{V_0^2}\, e^{-2\kappa a}$$
 
 Where $\kappa = \sqrt{2m(V_0-E)}/\hbar$ and $a$ is the barrier width.
+
+The physics lives in the exponential. A classical particle with energy $E < V_0$ simply bounces off the wall; quantum mechanically the wave function does not stop dead at the barrier but *decays* inside it as $e^{-\kappa x}$, and if the barrier is thin enough a small amplitude survives on the far side. The transmission probability therefore plummets exponentially with both the barrier width $a$ and the square root of its height — which is why tunneling is dramatic for electrons across an atomic-scale gap yet utterly negligible for a tennis ball against a wall.
+
+<div class="tip-card">
+  <h4>Tunneling in the real world</h4>
+  <p>This single exponential explains a remarkable range of phenomena. <strong>Alpha decay</strong>: an alpha particle escapes a heavy nucleus by tunneling through the Coulomb barrier, and the steep dependence on barrier height is why nuclear half-lives span from microseconds to billions of years. <strong>The scanning tunneling microscope</strong> measures the tunneling current between a sharp tip and a surface; because $T$ changes by a factor of ~10 for every 0.1 nm of gap, it resolves individual atoms. <strong>Fusion in the Sun</strong> proceeds only because protons tunnel through their mutual repulsion — without quantum tunneling, stars could not shine. And <strong>flash memory</strong> stores data by tunneling electrons onto an isolated gate.</p>
+</div>
 
 ### Quantum Entanglement
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://cds.cern.ch/record/111654/files/vol1p195-200_001.pdf"> Paper: <b><i>On the Einstein Podolsky Rosen Paradox</i></b> - John Bell</a></p>
