@@ -2382,7 +2382,15 @@ helm <span class="nb">install </span>mydb bitnami/postgresql <span class="nt">-f
 
 <h2 id="troubleshooting-when-things-go-wrong">Troubleshooting: When Things Go Wrong</h2>
 
-<p>When something breaks, a systematic approach saves time. Start broad, then narrow down.</p>
+<p>When something breaks, a systematic approach saves time. Start broad, then narrow down. The flowchart below maps a pod’s reported status to the command that explains it and the most likely root cause:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Start([Pod not healthy]) --&gt; Status{Pod status?}
+    Status --&gt;|ImagePullBackOff| IP["describe pod →&lt;br/&gt;wrong image / missing&lt;br/&gt;registry credentials"]
+    Status --&gt;|CrashLoopBackOff| CL["logs --previous →&lt;br/&gt;app crash, OOM,&lt;br/&gt;or bad config"]
+    Status --&gt;|Pending| PD["describe pod →&lt;br/&gt;no resources or&lt;br/&gt;PVC unbound"]
+    Status --&gt;|Running but no traffic| SVC["get endpoints →&lt;br/&gt;selector does not&lt;br/&gt;match pod labels"]
+</code></pre>
 
 <h3 id="quick-diagnostic-commands">Quick Diagnostic Commands</h3>
 

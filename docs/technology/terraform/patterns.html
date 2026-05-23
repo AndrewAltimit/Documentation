@@ -2282,6 +2282,19 @@ Layer 3: Applications (app teams)
   <li>Post results as PR comments</li>
 </ul>
 
+<pre><code class="language-mermaid">flowchart LR
+    PR[Pull Request] --&gt; Fmt[fmt + validate]
+    Fmt --&gt; Scan[Checkov / tfsec]
+    Scan --&gt; Plan[terraform plan]
+    Plan --&gt; Comment[Post plan + Infracost&lt;br/&gt;as PR comment]
+    Comment --&gt; Review{Human approval}
+    Review --&gt;|approved + merged| Apply[terraform apply]
+    Review --&gt;|changes requested| PR
+    Apply --&gt; State[(Remote state)]
+</code></pre>
+
+<p>The plan output and cost diff land on the PR before anyone approves, so reviewers see exactly what will change — and what it will cost — without running anything locally.</p>
+
 <p><strong>3. Policy as Code</strong></p>
 
 <p>Use tools like OPA (Open Policy Agent) or Sentinel to enforce rules:</p>
@@ -2416,6 +2429,17 @@ Layer 3: Applications (app teams)
   <li>Run unit tests on every PR</li>
   <li>Run integration tests nightly or before releases (they are slow and cost money)</li>
 </ul>
+
+<div class="notice--warning">
+  <h4>Common Pitfalls at Scale</h4>
+  <ul>
+    <li><strong>One monolithic state file:</strong> A single state for the whole org makes every plan slow and every apply high-risk. Split by blast-radius boundary (account, environment, service) early.</li>
+    <li><strong>Secrets in state:</strong> Even when sourced from Secrets Manager, the resolved value is written to state in plaintext. Encrypt the state backend, lock down access, and prefer dynamic credentials from Vault where possible.</li>
+    <li><strong>Unpinned module and provider versions:</strong> Floating versions turn an unrelated <code>terraform init</code> into a surprise upgrade. Pin module sources to a tag and constrain providers with <code>~&gt;</code>.</li>
+    <li><strong>Overusing <code>-target</code>:</strong> Convenient for debugging, but routine targeted applies drift state from config. Treat it as a break-glass tool, not a workflow.</li>
+    <li><strong>Skipping <code>plan</code> review in CI:</strong> Auto-applying on merge without a reviewed plan removes the last safety gate. Always surface the plan for approval before a production apply.</li>
+  </ul>
+</div>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 

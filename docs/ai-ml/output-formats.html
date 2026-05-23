@@ -1894,20 +1894,63 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 <div class="code-example">
-  <p>Diffusion models have revolutionized content generation across every medium – from Stable Diffusion’s stunning visuals to Gemini’s text generation, from AudioLDM’s soundscapes to 3D Gaussian Splatting. This guide covers the complete spectrum of diffusion model outputs and how to work with them professionally.</p>
+  <p>The same denoising principle behind Stable Diffusion now generates images, audio, video, 3D, and even text. This guide covers the output formats each modality produces, how to choose the right export for your destination, and the workflows that connect them.</p>
 </div>
+
+<h2 id="who-this-is-for-and-what-it-covers">Who This Is For and What It Covers</h2>
+
+<p>This is a reference for choosing <strong>output formats and export workflows</strong> once you can already generate content. It assumes you know the basics from <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>. Use it to answer practical questions: which image format preserves quality, how to get a smooth video out of an 8 fps model, what 3D format your engine wants, and how to keep outputs reproducible.</p>
 
 <h2 id="every-medium-one-principle">Every Medium, One Principle</h2>
 
-<p>Diffusion models work by gradually denoising random data into coherent outputs. This elegant principle now powers generation across text, images, audio, video, and even 3D. Let’s explore how to harness each modality.</p>
+<p>Diffusion models work by gradually denoising random data into coherent outputs. That single principle now spans several modalities, each with its own conditioning, decoder, and native file formats:</p>
 
-<h3 id="what-youll-master">What You’ll Master</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Modality</th>
+      <th>Representative models</th>
+      <th>Native output</th>
+      <th>Typical export</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Image</td>
+      <td>Stable Diffusion, SDXL, FLUX</td>
+      <td>Latent → pixels (VAE)</td>
+      <td>PNG, WebP, JPEG, EXR</td>
+    </tr>
+    <tr>
+      <td>Video</td>
+      <td>AnimateDiff, SVD, Sora-class</td>
+      <td>Frame sequence</td>
+      <td>MP4 (H.264), WebM, PNG sequence</td>
+    </tr>
+    <tr>
+      <td>Audio</td>
+      <td>Stable Audio, AudioLDM 2, MusicGen, Bark</td>
+      <td>Waveform / mel-spectrogram</td>
+      <td>WAV, FLAC, MP3, OGG</td>
+    </tr>
+    <tr>
+      <td>3D</td>
+      <td>TripoSR, DreamGaussian, NeRF</td>
+      <td>Mesh / point cloud / splats</td>
+      <td>glTF, FBX, OBJ, PLY, USDZ</td>
+    </tr>
+    <tr>
+      <td>Text</td>
+      <td>LLaDA, Mercury, Gemini Diffusion (experimental)</td>
+      <td>Token sequence</td>
+      <td>Markdown, JSON, plain text</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Text Diffusion</strong>: From Gemini to specialized language models<br />
-<strong>Image Diffusion</strong>: Stable Diffusion, FLUX, and beyond<br />
-<strong>Audio Diffusion</strong>: Music, speech, and sound effects<br />
-<strong>Video Diffusion</strong>: AnimateDiff, SVD, and emerging models<br />
-<strong>3D Diffusion</strong>: Point clouds, meshes, and neural fields</p>
+<blockquote>
+  <p><strong>A note on text diffusion:</strong> most production language models (including the mainstream Gemini, GPT, and Claude families) are <strong>autoregressive</strong>, not diffusion-based. Text <em>diffusion</em> is a real but still-experimental line of research (LLaDA, Mercury, Google’s Gemini Diffusion preview) that denoises whole token sequences in parallel. Treat it as emerging, not the default way text is generated today.</p>
+</blockquote>
 
 <h3 id="the-unified-diffusion-pipeline">The Unified Diffusion Pipeline</h3>
 
@@ -1921,195 +1964,46 @@ document.addEventListener('DOMContentLoaded', function () {
     Dec --&gt; Out["Output format&lt;br/&gt;(your asset)"]
 </code></pre>
 
-<p>As of 2024, diffusion models dominate generative AI. Understanding their outputs across all modalities – and how to optimize them – is crucial for modern AI workflows. This guide provides comprehensive coverage of every diffusion-powered format.</p>
+<p>Diffusion models now span generative AI well beyond images. The sections below work through each modality’s outputs and the export decisions that matter, starting with images (the most mature) and ending with text (the least).</p>
 
-<h2 id="quick-start-multi-modal-diffusion-outputs">Quick Start: Multi-Modal Diffusion Outputs</h2>
+<h2 id="text-diffusion-experimental">Text Diffusion (Experimental)</h2>
 
-<div class="code-example">
-  <p><strong>Universal Principle</strong>: All diffusion models follow noise → signal, but outputs vary dramatically</p>
-</div>
-
-<h3 id="text-diffusion-output">Text Diffusion Output</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Gemini and text diffusion models
-</span><span class="n">text_output</span> <span class="o">=</span> <span class="n">gemini_diffusion</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">Write a technical blog post about quantum computing</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">max_tokens</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
-    <span class="n">output_format</span><span class="o">=</span><span class="sh">"</span><span class="s">markdown</span><span class="sh">"</span>  <span class="c1"># or "plain", "json", "code"
-</span><span class="p">)</span>
-<span class="c1"># Outputs: Structured text, code, documentation
-</span></code></pre></div></div>
-
-<h3 id="image-diffusion-output">Image Diffusion Output</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Stable Diffusion family
-</span><span class="n">image_output</span> <span class="o">=</span> <span class="n">stable_diffusion</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">ethereal landscape with bioluminescent plants</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>
-    <span class="n">output_format</span><span class="o">=</span><span class="sh">"</span><span class="s">png</span><span class="sh">"</span>  <span class="c1"># or "jpeg", "webp", "exr"
-</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="audio-diffusion-output">Audio Diffusion Output</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># AudioLDM, Stable Audio
-</span><span class="n">audio_output</span> <span class="o">=</span> <span class="n">audio_diffusion</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">jazz piano in a cozy cafe</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">duration</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
-    <span class="n">output_format</span><span class="o">=</span><span class="sh">"</span><span class="s">wav</span><span class="sh">"</span>  <span class="c1"># or "mp3", "flac"
-</span><span class="p">)</span>
-</code></pre></div></div>
-
-<p><strong>Key Insight</strong>: While the diffusion process is similar, each modality requires specific output handling. Let’s explore each in detail.</p>
-
-<h2 id="text-diffusion-the-language-revolution">Text Diffusion: The Language Revolution</h2>
-
-<p>Text diffusion models represent a paradigm shift from autoregressive generation. They generate entire passages by denoising in semantic space.</p>
-
-<div class="code-example">
-  <p><strong>Game Changer</strong>: Gemini’s diffusion approach enables parallel generation and better coherence</p>
-</div>
-
-<h3 id="text-diffusion-models-landscape">Text Diffusion Models Landscape</h3>
+<p>Unlike autoregressive models that emit one token at a time, <strong>text diffusion</strong> models denoise an entire sequence in parallel, refining a noisy draft toward coherent text over a few steps. The appeal is speed (parallel generation) and global coherence; the catch is that the technique is still research-stage and far less mature than image diffusion.</p>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
-      <th>Strengths</th>
-      <th>Output Formats</th>
-      <th>Best Use Cases</th>
+      <th>Status</th>
+      <th>Notable for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Gemini Diffusion</strong></td>
-      <td>Long-form coherence</td>
-      <td>Markdown, JSON, Code</td>
-      <td>Technical writing, documentation</td>
+      <td>LLaDA</td>
+      <td>Open research model</td>
+      <td>Large diffusion language model, openly available</td>
     </tr>
     <tr>
-      <td><strong>Diffusion-LM</strong></td>
-      <td>Controllable generation</td>
-      <td>Plain text, Structured</td>
-      <td>Creative writing</td>
+      <td>Mercury (Inception Labs)</td>
+      <td>Commercial preview</td>
+      <td>Diffusion LLM marketed for low-latency generation</td>
     </tr>
     <tr>
-      <td><strong>DiffuSeq</strong></td>
-      <td>Sequence-to-sequence</td>
-      <td>Translations, Summaries</td>
-      <td>Text transformation</td>
-    </tr>
-    <tr>
-      <td><strong>GENIE</strong></td>
-      <td>Parallel generation</td>
-      <td>Multiple formats</td>
-      <td>Fast bulk generation</td>
+      <td>Gemini Diffusion</td>
+      <td>Google research preview</td>
+      <td>Experimental, separate from the mainstream autoregressive Gemini</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="working-with-text-diffusion-outputs">Working with Text Diffusion Outputs</h3>
-
-<div class="code-example">
-  <p><strong>Practical Example</strong>: Generating technical documentation</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TextDiffusionPipeline</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">gemini-diffusion</span><span class="sh">"</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">output_formats</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">markdown</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">format_markdown</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">json</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">format_json</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">code</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">format_code</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">latex</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">format_latex</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">generate_documentation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="sh">"</span><span class="s">technical</span><span class="sh">"</span><span class="p">):</span>
-        <span class="c1"># Generate with diffusion model
-</span>        <span class="n">raw_output</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">diffusion_generate</span><span class="p">(</span>
-            <span class="n">prompt</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">Create </span><span class="si">{</span><span class="n">style</span><span class="si">}</span><span class="s"> documentation for </span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">structure_tokens</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>  <span class="c1"># Maintain formatting
-</span>            <span class="n">coherence_weight</span><span class="o">=</span><span class="mf">0.8</span>    <span class="c1"># Long-form consistency
-</span>        <span class="p">)</span>
-        
-        <span class="c1"># Post-process for different formats
-</span>        <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">web</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nf">format_markdown</span><span class="p">(</span><span class="n">raw_output</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">pdf</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nf">format_latex</span><span class="p">(</span><span class="n">raw_output</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">api</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nf">format_json</span><span class="p">(</span><span class="n">raw_output</span><span class="p">)</span>
-        <span class="p">}</span>
-        
-        <span class="k">return</span> <span class="n">outputs</span>
-
-<span class="c1"># Example usage
-</span><span class="n">doc_gen</span> <span class="o">=</span> <span class="nc">TextDiffusionPipeline</span><span class="p">()</span>
-<span class="n">docs</span> <span class="o">=</span> <span class="n">doc_gen</span><span class="p">.</span><span class="nf">generate_documentation</span><span class="p">(</span>
-    <span class="n">topic</span><span class="o">=</span><span class="sh">"</span><span class="s">REST API endpoints</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">style</span><span class="o">=</span><span class="sh">"</span><span class="s">developer-friendly</span><span class="sh">"</span>
-<span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="text-output-formats-and-standards">Text Output Formats and Standards</h3>
-
-<div class="code-example">
-  <p><strong>Key Difference</strong>: Text diffusion outputs often need structured formatting</p>
-</div>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Markdown Output</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Headers and sections</span>
-  <span class="pi">-</span> <span class="s">Code blocks with syntax highlighting</span>
-  <span class="pi">-</span> <span class="s">Tables and lists</span>
-  <span class="pi">-</span> <span class="s">Metadata frontmatter</span>
-
-<span class="na">JSON Output</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Structured data</span>
-  <span class="pi">-</span> <span class="s">API responses</span>
-  <span class="pi">-</span> <span class="s">Configuration files</span>
-  <span class="pi">-</span> <span class="s">Semantic annotations</span>
-
-<span class="na">Code Output</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Multiple language support</span>
-  <span class="pi">-</span> <span class="s">Proper indentation</span>
-  <span class="pi">-</span> <span class="s">Comments and docstrings</span>
-  <span class="pi">-</span> <span class="s">Import management</span>
-
-<span class="na">LaTeX Output</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Academic papers</span>
-  <span class="pi">-</span> <span class="s">Mathematical formulas</span>
-  <span class="pi">-</span> <span class="s">Technical reports</span>
-  <span class="pi">-</span> <span class="s">Publication-ready</span>
-</code></pre></div></div>
-
-<h3 id="text-diffusion-best-practices">Text Diffusion Best Practices</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Optimizing text diffusion outputs
-</span><span class="n">text_optimization</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">coherence</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">technique</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">semantic_guidance</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">weight</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Better long-form consistency</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">structure</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">technique</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">format_tokens</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">examples</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">&lt;h1&gt;</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">```code</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">* bullet</span><span class="sh">"</span><span class="p">],</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Maintains formatting</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">quality</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">technique</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">multi_pass_refinement</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">passes</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Reduces errors and improves flow</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>Output handling is the same as any LLM: the model emits tokens, and you format them as Markdown, JSON, code, or plain text downstream. There is nothing format-specific about diffusion here beyond the generation method, so for practical text work the autoregressive models remain the default. The genuinely format-rich modalities are images, video, audio, and 3D, covered next.</p>
 
 <h2 id="image-diffusion-outputs-the-visual-foundation">Image Diffusion Outputs: The Visual Foundation</h2>
 
-<p>Stable Diffusion and its variants have become the cornerstone of AI image generation. Understanding their output formats is crucial for any diffusion pipeline.</p>
+<p>Images are the most mature diffusion output. Because they are decoded from latent space, the format you save in determines how much of that quality you keep — and how large the file gets.</p>
 
-<h3 id="understanding-diffusion-image-outputs">Understanding Diffusion Image Outputs</h3>
-
-<div class="code-example">
-  <p><strong>Diffusion Specific</strong>: Images are decoded from latent space – format choice affects quality preservation</p>
-</div>
+<h3 id="choosing-an-image-format">Choosing an Image Format</h3>
 
 <h4 id="format-comparison-at-a-glance">Format Comparison at a Glance</h4>
 
@@ -2162,84 +2056,25 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<h4 id="png-the-gold-standard">PNG: The Gold Standard</h4>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">When to use</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">You need transparency (characters, objects)</span>
-  <span class="pi">-</span> <span class="s">Further editing in Photoshop/GIMP</span>
-  <span class="pi">-</span> <span class="s">Archival quality matters</span>
-  <span class="pi">-</span> <span class="s">ComfyUI workflows with alpha masks</span>
+<p><strong>Practical defaults:</strong></p>
 
-<span class="na">Pro settings</span><span class="pi">:</span>
-  <span class="na">format</span><span class="pi">:</span> <span class="s2">"</span><span class="s">png"</span>
-  <span class="na">bit_depth</span><span class="pi">:</span> <span class="m">16</span>  <span class="c1"># For maximum color depth</span>
-  <span class="na">compression</span><span class="pi">:</span> <span class="m">9</span>  <span class="c1"># Max compression, lossless</span>
-</code></pre></div></div>
+<ul>
+  <li><strong>PNG</strong> — your working/archival format. Use 16-bit when you will edit further, and it is the only common option that carries an alpha channel for transparent subjects.</li>
+  <li><strong>JPEG</strong> — for sharing and previews where size matters. Quality 85 with progressive encoding is the size/quality sweet spot; never re-save a JPEG repeatedly (generation loss compounds).</li>
+  <li><strong>WebP</strong> — a near-PNG-quality web format 25-35% smaller than JPEG, with optional transparency and animation. Quality ~90, method 6 for best compression.</li>
+  <li><strong>AVIF</strong> — smallest of all at comparable quality, with HDR and wide-gamut support. Browser support is now broad; encoding is slower.</li>
+  <li><strong>EXR</strong> — only for VFX/compositing, where you need 32-bit float and multiple render passes (depth, normals) in one file.</li>
+</ul>
 
-<h4 id="jpeg-the-universal-format">JPEG: The Universal Format</h4>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">When to use</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Social media posting</span>
-  <span class="pi">-</span> <span class="s">Email attachments</span>  
-  <span class="pi">-</span> <span class="s">Quick previews</span>
-  <span class="pi">-</span> <span class="s">Storage is limited</span>
-
-<span class="na">Optimal settings</span><span class="pi">:</span>
-  <span class="na">format</span><span class="pi">:</span> <span class="s2">"</span><span class="s">jpeg"</span>
-  <span class="na">quality</span><span class="pi">:</span> <span class="m">85</span>     <span class="c1"># Best size/quality ratio</span>
-  <span class="na">progressive</span><span class="pi">:</span> <span class="kc">true</span>  <span class="c1"># Better web loading</span>
-</code></pre></div></div>
-
-<h4 id="webp-the-modern-choice">WebP: The Modern Choice</h4>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">When to use</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Website galleries</span>
-  <span class="pi">-</span> <span class="s">Discord/Slack sharing</span>
-  <span class="pi">-</span> <span class="s">Mobile apps</span>
-  <span class="pi">-</span> <span class="s">Animated stickers</span>
-
-<span class="na">Smart settings</span><span class="pi">:</span>
-  <span class="na">format</span><span class="pi">:</span> <span class="s2">"</span><span class="s">webp"</span>
-  <span class="na">quality</span><span class="pi">:</span> <span class="m">90</span>     <span class="c1"># Nearly identical to PNG</span>
-  <span class="na">method</span><span class="pi">:</span> <span class="m">6</span>       <span class="c1"># Best compression</span>
-</code></pre></div></div>
-
-<h4 id="next-gen-formats-avif--jxl">Next-Gen Formats (AVIF &amp; JXL)</h4>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">AVIF advantages</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">50% smaller than JPEG</span>
-  <span class="pi">-</span> <span class="s">HDR and wide color gamut</span>
-  <span class="pi">-</span> <span class="s">Growing browser support</span>
-  
-<span class="na">JXL (JPEG XL) benefits</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Lossless JPEG transcoding</span>
-  <span class="pi">-</span> <span class="s">Progressive decoding</span>
-  <span class="pi">-</span> <span class="s">Future-proof archival</span>
-</code></pre></div></div>
-
-<h3 id="practical-export-workflow">Practical Export Workflow</h3>
-
-<div class="code-example">
-  <p><strong>Real Example</strong>: Creating assets for an indie game</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Step 1: Generate your base asset
-</span><span class="n">base_image</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">fantasy sword, game asset, transparent background</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">width</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
-    <span class="n">height</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
-    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span>  <span class="c1"># Great for detailed objects
-</span><span class="p">)</span>
-
-<span class="c1"># Step 2: Export for different uses
-</span><span class="n">exports</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">game_asset</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bit_depth</span><span class="sh">"</span><span class="p">:</span> <span class="mi">16</span><span class="p">},</span>      <span class="c1"># Full quality
-</span>    <span class="sh">"</span><span class="s">ui_preview</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">webp</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">quality</span><span class="sh">"</span><span class="p">:</span> <span class="mi">85</span><span class="p">},</span>      <span class="c1"># Compressed
-</span>    <span class="sh">"</span><span class="s">icon_set</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">resize</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">256</span><span class="p">]}</span> <span class="c1"># Multiple sizes
-</span><span class="p">}</span>
-</code></pre></div></div>
+<blockquote>
+  <p><strong>JPEG XL (JXL)</strong> offers lossless JPEG transcoding and progressive decoding, but browser support stalled, so it remains an archival-only choice for now.</p>
+</blockquote>
 
 <h3 id="resolution-sweet-spots-by-platform">Resolution Sweet Spots by Platform</h3>
 
-<div class="code-example">
-  <p><strong>Pro Tip</strong>: Always generate at the highest resolution your model supports, then downscale for specific uses.</p>
-</div>
+<blockquote>
+  <p><strong>Generate at your model’s native resolution, then downscale</strong> for a specific target — downscaling a clean high-res image beats generating directly at an odd small size.</p>
+</blockquote>
 
 <table>
   <thead>
@@ -2290,91 +2125,46 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<h3 id="smart-generation-parameters">Smart Generation Parameters</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Optimized for quality AND efficiency
-</span><span class="n">generation_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">base_resolution</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>  <span class="c1"># Start here, upscale later if needed
-</span>        <span class="sh">"</span><span class="s">FLUX</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>
-        <span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>
-        <span class="sh">"</span><span class="s">SD1.5</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">batch_strategy</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">variations</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>     <span class="c1"># Generate options
-</span>        <span class="sh">"</span><span class="s">cherry_pick</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span> <span class="c1"># Select best
-</span>        <span class="sh">"</span><span class="s">seed_increment</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span>  <span class="c1"># Consistent variations
-</span>    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">metadata_preservation</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>  <span class="c1"># Never lose your settings!
-</span>        <span class="sh">"</span><span class="s">embed_in_file</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">save_to_json</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">include_workflow</span><span class="sh">"</span><span class="p">:</span> <span class="n">true</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
 <h3 id="scaling-up-from-generation-to-production">Scaling Up: From Generation to Production</h3>
 
-<div class="code-example">
-  <p><strong>Common Scenario</strong>: “I need a 4K wallpaper but my GPU only has 8GB VRAM”</p>
-</div>
+<p>A common constraint is wanting a 4K image on a GPU that cannot generate one directly. The reliable answer is to generate small and upscale, rather than fight VRAM limits up front.</p>
 
-<h4 id="smart-upscaling-strategy">Smart Upscaling Strategy</h4>
+<p><strong>Two-stage upscaling (recommended for limited VRAM):</strong></p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Method 1: Two-Stage Generation (Recommended)
-</span><span class="n">stage1</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">epic landscape</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">),</span>  <span class="c1"># GPU-friendly
-</span>    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">FLUX</span><span class="sh">"</span>
-<span class="p">)</span>
+<ol>
+  <li>Generate at the model’s native resolution (1024×1024 for SDXL/FLUX).</li>
+  <li>Run a dedicated upscaler — <strong>Real-ESRGAN</strong> or <strong>SwinIR</strong> for general images, <strong>4x-UltraSharp</strong> for crisp detail — to 2x-4x.</li>
+  <li>Optionally add a low-denoise (0.3-0.5) img2img/hires-fix pass to introduce genuine detail rather than just enlarging pixels.</li>
+</ol>
 
-<span class="n">stage2</span> <span class="o">=</span> <span class="nf">upscale</span><span class="p">(</span>
-    <span class="n">image</span><span class="o">=</span><span class="n">stage1</span><span class="p">,</span>
-    <span class="n">scale</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>  <span class="c1"># → 4096×4096
-</span>    <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">ESRGAN</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># or "Real-ESRGAN", "SwinIR"
-</span>    <span class="n">enhance</span><span class="o">=</span><span class="bp">True</span>  <span class="c1"># Add details during upscale
-</span><span class="p">)</span>
+<p><strong>Direct high-res</strong> is viable only with 16GB+ VRAM, and even then enabling <strong>tiled VAE</strong> prevents decode-time out-of-memory errors. Use it when you specifically need coherent large-scale composition that tiled upscaling can break apart.</p>
 
-<span class="c1"># Method 2: Direct High-Res (16GB+ VRAM)
-</span><span class="k">if</span> <span class="n">gpu_memory</span> <span class="o">&gt;=</span> <span class="mi">16</span><span class="p">:</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span>
-        <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">epic landscape</span><span class="sh">"</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2048</span><span class="p">,</span> <span class="mi">2048</span><span class="p">),</span>
-        <span class="n">steps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
-        <span class="n">tiled_vae</span><span class="o">=</span><span class="bp">True</span>  <span class="c1"># Memory optimization
-</span>    <span class="p">)</span>
-</code></pre></div></div>
-
-<h4 id="the-upscaling-decision-tree">The Upscaling Decision Tree</h4>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Need higher resolution?
-├── For print/professional → Use AI upscaler + refinement
-├── For web display → Standard upscale is fine
-└── For further editing → Keep native resolution
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Goal</th>
+      <th>Approach</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Print / professional</td>
+      <td>AI upscaler + low-denoise refinement pass</td>
+    </tr>
+    <tr>
+      <td>Web display</td>
+      <td>Standard upscale (no refinement) is fine</td>
+    </tr>
+    <tr>
+      <td>Further editing</td>
+      <td>Keep the native-resolution PNG, upscale later</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="professional-formats-when-png-isnt-enough">Professional Formats: When PNG Isn’t Enough</h3>
 
-<div class="code-example">
-  <p><strong>VFX Pipeline</strong>: Working with compositing software? You need EXR.</p>
-</div>
-
-<h4 id="exr-the-compositors-choice">EXR: The Compositor’s Choice</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Multi-channel export for professional workflows
-</span><span class="n">exr_export</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">exr</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">beauty</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RGBA</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># Final render
-</span>        <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">,</span>          <span class="c1"># Depth information
-</span>        <span class="sh">"</span><span class="s">normals</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">XYZ</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># Surface normals
-</span>        <span class="sh">"</span><span class="s">cryptomatte</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ID</span><span class="sh">"</span>    <span class="c1"># Object selection
-</span>    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">compression</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PIZ</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># Lossless compression
-</span>    <span class="sh">"</span><span class="s">bit_depth</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span>           <span class="c1"># Full float precision
-</span><span class="p">}</span>
-
-<span class="c1"># ComfyUI: Enable multi-pass output
-</span><span class="p">[</span><span class="n">VAE</span> <span class="n">Decode</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Save</span> <span class="n">EXR</span><span class="p">]</span> <span class="k">with</span> <span class="n">channels</span>
-</code></pre></div></div>
+<p>If you composite in software like Nuke or After Effects, you need <strong>EXR</strong> — a 32-bit float format that stores multiple render passes (beauty, depth, normals, cryptomatte) in a single file with lossless compression. A diffusion pipeline can populate these passes by running depth and normal preprocessors alongside the main generation and saving them as named EXR channels.</p>
 
 <h4 id="when-to-use-professional-formats">When to Use Professional Formats</h4>
 
@@ -2412,11 +2202,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="video-diffusion-outputs-temporal-coherence">Video Diffusion Outputs: Temporal Coherence</h2>
 
-<p>Video diffusion models extend the denoising process across time, creating temporally coherent outputs. This fundamentally changes how we handle video formats.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Insight</strong>: Video models denoise entire sequences simultaneously, not frame-by-frame</p>
-</div>
+<p>Video diffusion models extend denoising across time, generating a temporally coherent sequence rather than independent frames. The two practical questions are which model to use for your input, and how to get smooth, platform-ready output from a model that natively produces only a handful of low-fps frames.</p>
 
 <h3 id="video-diffusion-model-comparison">Video Diffusion Model Comparison</h3>
 
@@ -2426,7 +2212,6 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Method</th>
       <th>Input</th>
       <th>Output</th>
-      <th>Quality</th>
       <th>Speed</th>
       <th>Best For</th>
     </tr>
@@ -2436,148 +2221,64 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>AnimateDiff</strong></td>
       <td>Text prompt</td>
       <td>16-32 frames</td>
-      <td>Great</td>
       <td>Fast</td>
-      <td>Seamless loops</td>
+      <td>Seamless loops, stylized motion</td>
     </tr>
     <tr>
-      <td><strong>SVD</strong></td>
+      <td><strong>Stable Video Diffusion (SVD)</strong></td>
       <td>Single image</td>
       <td>14-25 frames</td>
-      <td>Excellent</td>
       <td>Medium</td>
-      <td>Image animation</td>
+      <td>Animating a still image</td>
     </tr>
     <tr>
-      <td><strong>SORA-style</strong></td>
+      <td><strong>Sora-class</strong> (Sora, Veo, Kling)</td>
       <td>Text prompt</td>
-      <td>60+ seconds</td>
-      <td>Pro</td>
-      <td>Slow</td>
-      <td>Full videos</td>
+      <td>Many seconds</td>
+      <td>Slow / API</td>
+      <td>Full clips with scene coherence</td>
     </tr>
     <tr>
-      <td><strong>Frame Interp</strong></td>
-      <td>Image sequence</td>
-      <td>Smooth video</td>
-      <td>Good</td>
+      <td><strong>Frame interpolation</strong> (RIFE, FILM)</td>
+      <td>Frame sequence</td>
+      <td>Smoothed video</td>
       <td>Fast</td>
-      <td>Enhancing output</td>
+      <td>Raising fps of any of the above</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="animatediff-the-motion-module">AnimateDiff: The Motion Module</h3>
+<p>The open, locally-runnable options are <strong>AnimateDiff</strong> (text-driven motion on top of an SD/SDXL checkpoint) and <strong>SVD</strong> (image-to-video). The Sora-class text-to-video models produce far longer, more coherent clips but are API/cloud-only and access is limited; if you are building now, prototype with AnimateDiff/SVD so the rest of your pipeline is ready to swap them in.</p>
 
-<div class="code-example">
-  <p><strong>Perfect for</strong>: Animated logos, seamless loops, character idle animations</p>
-</div>
+<h3 id="animatediff-loops-and-stylized-motion">AnimateDiff: Loops and Stylized Motion</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># ComfyUI Workflow for perfect loops
-</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">checkpoint</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">your_favorite_model.safetensors</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">motion_module</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">animatediff_motion_adapter.ckpt</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">settings</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">frames</span><span class="sh">"</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>        <span class="c1"># Powers of 2 work best
-</span>        <span class="sh">"</span><span class="s">fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>            <span class="c1"># Double in post for smoothness
-</span>        <span class="sh">"</span><span class="s">context_overlap</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span>  <span class="c1"># For seamless loops
-</span>    <span class="p">}</span>
-<span class="p">}</span>
+<p>AnimateDiff adds a <strong>motion module</strong> to a normal checkpoint, so it inherits that checkpoint’s style. Key settings:</p>
 
-<span class="c1"># Pro tip: Generate at 8fps, interpolate to 24fps
-</span></code></pre></div></div>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">frames</code>: 16 is the common baseline; keep it divisible by the context overlap.</li>
+  <li><code class="language-plaintext highlighter-rouge">context_overlap</code>: ~4 — this is what makes a loop seamless, by blending the end back into the start.</li>
+  <li>Generate at a low native fps (8) and <strong>interpolate up to 24-30 fps</strong> in post rather than asking the model for more frames.</li>
+</ul>
 
-<h3 id="svd-from-still-to-story">SVD: From Still to Story</h3>
+<h3 id="svd-animating-a-still-image">SVD: Animating a Still Image</h3>
 
-<div class="code-example">
-  <p><strong>Game Changer</strong>: Turn your best generations into dynamic scenes</p>
-</div>
+<p>SVD takes one image and produces a short (roughly 2-4 second) clip. A typical flow: generate a strong still with FLUX/SDXL at SVD’s preferred ratio (e.g. 1024×576), feed it to <code class="language-plaintext highlighter-rouge">svd_xt</code>, then interpolate to a smooth frame rate.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The SVD Pipeline
-</span><span class="n">Step</span> <span class="mi">1</span><span class="p">:</span> <span class="n">Generate</span> <span class="n">stunning</span> <span class="n">still</span> <span class="nf">image </span><span class="p">(</span><span class="n">FLUX</span><span class="o">/</span><span class="n">SDXL</span><span class="p">)</span>
-    <span class="err">↓</span>
-<span class="n">Step</span> <span class="mi">2</span><span class="p">:</span> <span class="n">Feed</span> <span class="n">to</span> <span class="n">SVD</span>
-    <span class="err">↓</span>
-<span class="n">Step</span> <span class="mi">3</span><span class="p">:</span> <span class="n">Get</span> <span class="mi">4</span><span class="o">-</span><span class="n">second</span> <span class="n">video</span>
-    <span class="err">↓</span>
-<span class="n">Step</span> <span class="mi">4</span><span class="p">:</span> <span class="n">Loop</span> <span class="ow">or</span> <span class="n">extend</span> <span class="k">as</span> <span class="n">needed</span>
+<p>Useful SVD knobs:</p>
 
-<span class="c1"># Optimal settings
-</span><span class="n">svd_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">svd_xt</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># Extended version
-</span>    <span class="sh">"</span><span class="s">frames</span><span class="sh">"</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>          <span class="c1"># Max quality
-</span>    <span class="sh">"</span><span class="s">motion_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>   <span class="c1"># Amount of movement
-</span>    <span class="sh">"</span><span class="s">fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>              <span class="c1"># Native output
-</span>    <span class="sh">"</span><span class="s">decode_chunk</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span>      <span class="c1"># For lower VRAM
-</span><span class="p">}</span>
-</code></pre></div></div>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">motion_bucket_id</code> (0-255): higher means more movement; start around 127.</li>
+  <li><code class="language-plaintext highlighter-rouge">fps</code>: native output is ~6, so plan to interpolate.</li>
+  <li><code class="language-plaintext highlighter-rouge">decode_chunk_size</code>: lower it if VAE decode runs out of VRAM.</li>
+</ul>
 
-<h3 id="the-future-sora-style-generation">The Future: SORA-Style Generation</h3>
+<h3 id="from-low-fps-model-output-to-smooth-video">From Low-fps Model Output to Smooth Video</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="s">What's coming</span><span class="err">:</span>
-  <span class="pi">-</span> <span class="s">Text → 60-second videos</span>
-  <span class="pi">-</span> <span class="s">Cinema-quality output</span>
-  <span class="pi">-</span> <span class="s">Physics understanding</span>
-  <span class="pi">-</span> <span class="s">Currently limited access</span>
-  
-<span class="na">Prepare your workflow</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Start with AnimateDiff/SVD</span>
-  <span class="pi">-</span> <span class="s">Build video pipelines now</span>
-  <span class="pi">-</span> <span class="s">Future models will slot in</span>
-</code></pre></div></div>
-
-<h3 id="real-world-video-workflows">Real-World Video Workflows</h3>
-
-<div class="code-example">
-  <p><strong>Common Request</strong>: “I need a looping animation for my game’s main menu”</p>
-</div>
-
-<h4 id="workflow-1-perfect-seamless-loop">Workflow 1: Perfect Seamless Loop</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The Loop Master Pipeline
-</span><span class="p">[</span><span class="n">Checkpoint</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">AnimateDiff</span><span class="p">]</span> <span class="err">→</span> <span class="p">[</span><span class="n">Context</span> <span class="n">Options</span><span class="p">]</span>
-                                      <span class="err">↓</span>
-                              <span class="n">frames</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="mi">4</span>
-                                      <span class="err">↓</span>
-                              <span class="p">[</span><span class="n">VAE</span> <span class="n">Decode</span><span class="p">]</span> <span class="err">→</span> <span class="n">GIF</span><span class="o">/</span><span class="n">MP4</span>
-
-<span class="c1"># Key settings for loops
-</span><span class="n">loop_settings</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">frame_count</span><span class="sh">"</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>      <span class="c1"># Divisible by overlap
-</span>    <span class="sh">"</span><span class="s">context_overlap</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>    <span class="c1"># Smooth transitions
-</span>    <span class="sh">"</span><span class="s">fps_output</span><span class="sh">"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>       <span class="c1"># Smooth playback
-</span>    <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">gif</span><span class="sh">"</span><span class="p">,</span>        <span class="c1"># or "mp4" with loop flag
-</span><span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="workflow-2-image-to-video">Workflow 2: Image-to-Video</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SVD Pipeline for Dynamic Scenes
-</span><span class="n">step1_generate</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">serene lake at sunset</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">FLUX</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">576</span><span class="p">)</span>  <span class="c1"># SVD optimal ratio
-</span><span class="p">}</span>
-
-<span class="n">step2_animate</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">svd_xt_1_1</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">conditioning_frames</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">motion_bucket</span><span class="sh">"</span><span class="p">:</span> <span class="mi">127</span><span class="p">,</span>  <span class="c1"># 0-255, higher = more motion
-</span>    <span class="sh">"</span><span class="s">augmentation</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0</span>    <span class="c1"># Keep original framing
-</span><span class="p">}</span>
-
-<span class="n">step3_enhance</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">interpolate</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RIFE 4.6</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">target_fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">smoothing</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>Both AnimateDiff and SVD output few frames at low fps. The standard finishing step is <strong>frame interpolation</strong> — RIFE (fast, great quality) or FILM (slower, smoother) synthesize intermediate frames to reach 24-30 fps. After Effects, DaVinci Resolve, and Premiere also offer optical-flow interpolation built in.</p>
 
 <h3 id="platform-export-requirements">Platform Export Requirements</h3>
 
-<div class="code-example">
-  <p><strong>Pro Reality Check</strong>: Different platforms have different requirements. One size does NOT fit all.</p>
-</div>
-
-<h4 id="platform-specific-export-settings">Platform-Specific Export Settings</h4>
+<p>Different platforms expect different containers, codecs, and dimensions — there is no single export that fits all.</p>
 
 <table>
   <thead>
@@ -2634,175 +2335,82 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<h3 id="frame-interpolation">Frame Interpolation</h3>
-
-<div class="code-example">
-  <p><strong>Transform</strong>: 8fps AI output → 60fps butter-smooth video</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The Interpolation Pipeline
-</span><span class="n">original_video</span> <span class="o">=</span> <span class="sh">"</span><span class="s">animatediff_8fps.mp4</span><span class="sh">"</span>  <span class="c1"># Your AI output
-</span>
-<span class="c1"># Option 1: RIFE (Fastest, great quality)
-</span><span class="nf">rife_interpolate</span><span class="p">(</span>
-    <span class="nb">input</span><span class="o">=</span><span class="n">original_video</span><span class="p">,</span>
-    <span class="n">target_fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>  <span class="c1"># 4x interpolation
-</span>    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">rife-v4.6</span><span class="sh">"</span>
-<span class="p">)</span>
-
-<span class="c1"># Option 2: FILM (Best quality, slower)
-</span><span class="nf">film_interpolate</span><span class="p">(</span>
-    <span class="nb">input</span><span class="o">=</span><span class="n">original_video</span><span class="p">,</span>
-    <span class="n">target_fps</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>  <span class="c1"># Film standard
-</span>    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">film_net</span><span class="sh">"</span>
-<span class="p">)</span>
-
-<span class="c1"># Option 3: Optical Flow (Built into most editors)
-# Use After Effects, DaVinci Resolve, or Premiere
-</span></code></pre></div></div>
-
 <h3 id="choosing-a-video-export-format">Choosing a Video Export Format</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Quick Decision Guide</span><span class="pi">:</span>
-  <span class="s">Need a loop? → GIF (small) or MP4 (quality)</span>
-  <span class="s">Web embed? → WebM (modern) or MP4 (compatible)</span>
-  <span class="s">Further editing? → ProRes (Mac) or PNG sequence (universal)</span>
-  <span class="s">Social media? → MP4 H.264 (always works)</span>
-  <span class="s">Game asset? → PNG sequence or sprite sheet</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Short loop</td>
+      <td>GIF (smallest, 256-color) or MP4 (quality)</td>
+    </tr>
+    <tr>
+      <td>Web embed</td>
+      <td>WebM/VP9 (modern, smaller) or MP4/H.264 (compatible)</td>
+    </tr>
+    <tr>
+      <td>Further editing</td>
+      <td>ProRes or a PNG sequence (no generation loss)</td>
+    </tr>
+    <tr>
+      <td>Social media</td>
+      <td>MP4 / H.264 (works everywhere)</td>
+    </tr>
+    <tr>
+      <td>Game asset</td>
+      <td>PNG sequence or a packed sprite sheet</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="audio-diffusion-outputs-sound-from-noise">Audio Diffusion Outputs: Sound from Noise</h2>
 
-<p>Audio diffusion models like AudioLDM and Stable Audio generate sound by denoising in spectral or waveform space, requiring specific output considerations.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Principle</strong>: Audio models work in mel-spectrogram or raw waveform latent spaces</p>
-</div>
+<p>Audio diffusion models generate sound by denoising in waveform or mel-spectrogram latent space. The practical decisions are which model fits your need (music, SFX, or speech) and which container/bitrate your destination expects.</p>
 
 <h3 id="audio-diffusion-models-by-output-type">Audio Diffusion Models by Output Type</h3>
 
 <table>
   <thead>
     <tr>
-      <th>What do you need?</th>
-      <th>Best Model</th>
-      <th>Quality</th>
-      <th>Speed</th>
-      <th>Example Use</th>
+      <th>You need…</th>
+      <th>Common model</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Music</strong></td>
+      <td>Music</td>
       <td>Stable Audio</td>
-      <td>Studio</td>
-      <td>Fast</td>
-      <td>Background tracks</td>
+      <td>Up to ~90s of stereo; can output stems on some versions</td>
     </tr>
     <tr>
-      <td><strong>Sound Effects</strong></td>
+      <td>Sound effects</td>
       <td>AudioLDM 2</td>
-      <td>Pro</td>
-      <td>Fast</td>
-      <td>Game/video SFX</td>
+      <td>Fast, good for short game/video SFX</td>
     </tr>
     <tr>
-      <td><strong>Voice/Speech</strong></td>
-      <td>Bark</td>
-      <td>Natural</td>
-      <td>Medium</td>
-      <td>Narration</td>
+      <td>Music from a melody</td>
+      <td>MusicGen (Meta)</td>
+      <td>Conditions on a hummed/played melody or text</td>
     </tr>
     <tr>
-      <td><strong>Custom Music</strong></td>
-      <td>MusicGen</td>
-      <td>Good</td>
-      <td>Fast</td>
-      <td>With melody input</td>
+      <td>Voice / speech</td>
+      <td>Bark, XTTS</td>
+      <td>Expressive TTS with emotion cues and voice cloning</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="quick-start-your-first-ai-sound">Quick Start: Your First AI Sound</h3>
+<p>A note on capability: expressive TTS models like <strong>Bark</strong> support non-verbal cues in the text (<code class="language-plaintext highlighter-rouge">[laughs]</code>, <code class="language-plaintext highlighter-rouge">[sighs]</code>) and voice cloning, going well beyond flat read-aloud TTS. For looping game ambience, generate slightly long and trim to a clean loop point.</p>
 
-<div class="code-example">
-  <p><strong>Goal</strong>: Create a 10-second ambient sound for a game menu</p>
-</div>
+<h3 id="audio-export-guide">Audio Export Guide</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Using AudioLDM 2 for sound effects
-</span><span class="n">prompt</span> <span class="o">=</span> <span class="sh">"</span><span class="s">peaceful forest ambience, birds chirping, gentle breeze</span><span class="sh">"</span>
-
-<span class="n">sound</span> <span class="o">=</span> <span class="nf">generate_audio</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="n">prompt</span><span class="p">,</span>
-    <span class="n">duration</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>      <span class="c1"># seconds
-</span>    <span class="n">quality</span><span class="o">=</span><span class="sh">"</span><span class="s">high</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># auto-selects optimal settings
-</span>    <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">game</span><span class="sh">"</span>       <span class="c1"># optimizes for game engine
-</span><span class="p">)</span>
-
-<span class="c1"># Result: Perfectly loopable forest ambience
-</span></code></pre></div></div>
-
-<h3 id="music-generation-from-prompt-to-production">Music Generation: From Prompt to Production</h3>
-
-<div class="code-example">
-  <p><strong>Stable Audio</strong>: The musician’s choice - up to 90 seconds of stereo audio</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Creating a complete track
-</span><span class="n">music_prompt</span> <span class="o">=</span> <span class="sh">"""</span><span class="s">
-genre: lo-fi hip hop
-mood: relaxing, study music
-instruments: piano, soft drums, vinyl crackle
-tempo: 70 BPM
-key: C minor
-</span><span class="sh">"""</span>
-
-<span class="n">track</span> <span class="o">=</span> <span class="n">stable_audio</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="n">music_prompt</span><span class="p">,</span>
-    <span class="n">duration</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span>
-    <span class="n">sample_rate</span><span class="o">=</span><span class="mi">44100</span><span class="p">,</span>  <span class="c1"># CD quality
-</span>    <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">stems</span><span class="sh">"</span>      <span class="c1"># Separate instruments!
-</span><span class="p">)</span>
-
-<span class="c1"># Export options
-</span><span class="n">exports</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">master</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">lofi_track.wav</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># Full mix
-</span>    <span class="sh">"</span><span class="s">stems</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>                       <span class="c1"># For remixing
-</span>        <span class="sh">"</span><span class="s">drums</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">drums.wav</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">melody</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">melody.wav</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">bass</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">bass.wav</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="voice-and-speech-beyond-text-to-speech">Voice and Speech: Beyond Text-to-Speech</h3>
-
-<div class="code-example">
-  <p><strong>Bark</strong>: Not your grandmother’s TTS - emotions, accents, even singing!</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Expressive speech generation
-</span><span class="n">narration</span> <span class="o">=</span> <span class="n">bark</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-    <span class="n">text</span><span class="o">=</span><span class="sh">"</span><span class="s">Welcome... to the adventure of a lifetime. [laughs]</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">voice</span><span class="o">=</span><span class="sh">"</span><span class="s">narrator</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># Or clone a voice!
-</span>    <span class="n">emotion</span><span class="o">=</span><span class="sh">"</span><span class="s">mysterious</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">language</span><span class="o">=</span><span class="sh">"</span><span class="s">en</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">output_format</span><span class="o">=</span><span class="p">{</span>
-        <span class="sh">"</span><span class="s">sample_rate</span><span class="sh">"</span><span class="p">:</span> <span class="mi">24000</span><span class="p">,</span>  <span class="c1"># Optimal for speech
-</span>        <span class="sh">"</span><span class="s">encoding</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mp3</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># Compressed for dialogue
-</span>        <span class="sh">"</span><span class="s">bitrate</span><span class="sh">"</span><span class="p">:</span> <span class="mi">128</span>         <span class="c1"># Clear speech quality
-</span>    <span class="p">}</span>
-<span class="p">)</span>
-
-<span class="c1"># Pro tip: Bark understands emotion markers
-# [sighs], [laughs], [gasps], [clears throat]
-</span></code></pre></div></div>
-
-<h3 id="smart-audio-export-guide">Smart Audio Export Guide</h3>
-
-<div class="code-example">
-  <p><strong>Reality Check</strong>: Your perfect audio is useless if it doesn’t work in your target application</p>
-</div>
+<p>The right format depends entirely on the destination — lossless for anything you will mix further, compressed for delivery.</p>
 
 <table>
   <thead>
@@ -2815,396 +2423,196 @@ key: C minor
   </thead>
   <tbody>
     <tr>
-      <td><strong>Music Production</strong></td>
-      <td>WAV/FLAC</td>
-      <td>48kHz, 24-bit</td>
-      <td>Lossless for mixing</td>
+      <td>Music production / mixing</td>
+      <td>WAV or FLAC</td>
+      <td>48 kHz, 24-bit</td>
+      <td>Lossless headroom for editing</td>
     </tr>
     <tr>
-      <td><strong>Podcast/YouTube</strong></td>
+      <td>Podcast / YouTube</td>
       <td>MP3</td>
-      <td>44.1kHz, 192-320kbps</td>
-      <td>Standard compatibility</td>
+      <td>44.1 kHz, 192-320 kbps</td>
+      <td>Universally compatible</td>
     </tr>
     <tr>
-      <td><strong>Game Assets</strong></td>
-      <td>OGG</td>
-      <td>44.1kHz, Variable</td>
-      <td>Small size, loops well</td>
+      <td>Game assets</td>
+      <td>OGG Vorbis</td>
+      <td>44.1 kHz, variable</td>
+      <td>Small, loops cleanly in engines</td>
     </tr>
     <tr>
-      <td><strong>Web Background</strong></td>
-      <td>MP3/M4A</td>
-      <td>44.1kHz, 128kbps</td>
-      <td>Streaming friendly</td>
+      <td>Web background</td>
+      <td>MP3 / M4A</td>
+      <td>44.1 kHz, 128 kbps</td>
+      <td>Streaming-friendly size</td>
     </tr>
     <tr>
-      <td><strong>Professional</strong></td>
+      <td>Mastering target</td>
       <td>WAV</td>
-      <td>48kHz, 32-bit float</td>
-      <td>Maximum headroom</td>
+      <td>48 kHz, 32-bit float</td>
+      <td>Maximum precision before final export</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="the-audio-pipeline">The Audio Pipeline</h3>
+<p>For delivery, normalize loudness to about <strong>-14 LUFS</strong> (the common streaming target) rather than to peak, so playback levels match other content.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Generate → Enhance → Export
-    ↓         ↓         ↓
-  Bark    EQ/Comp   Format
-MusicGen  Normalize  Codec
-AudioLDM  Denoise   Metadata
-</code></pre></div></div>
+<h2 id="rendering-text-inside-images">Rendering Text Inside Images</h2>
 
-<h2 id="hybrid-diffusion-text-in-visual-outputs">Hybrid Diffusion: Text in Visual Outputs</h2>
+<p>Legible text in generated images was a long-standing weakness. The transformer/T5-based models (FLUX, SD3) handle it far better than the older CLIP-based models because their text encoders carry character-level information into the diffusion process.</p>
 
-<p>Modern diffusion models have solved the text rendering challenge through better understanding of character embeddings in latent space.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Breakthrough</strong>: FLUX and SD3 embed text understanding directly in the diffusion process</p>
-</div>
-
-<h3 id="text-rendering-capabilities-by-model">Text Rendering Capabilities by Model</h3>
+<h3 id="text-rendering-by-model">Text Rendering by Model</h3>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
-      <th>Text Quality</th>
-      <th>Best For</th>
-      <th>Pro Tip</th>
+      <th>Text quality</th>
+      <th>Best for</th>
+      <th>Tip</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>FLUX</strong></td>
-      <td>Perfect</td>
-      <td>Logos, signs, any text</td>
-      <td>Just write naturally</td>
-    </tr>
-    <tr>
-      <td><strong>SD3</strong></td>
+      <td>FLUX</td>
       <td>Excellent</td>
-      <td>Book covers, posters</td>
-      <td>Use quotes around text</td>
+      <td>Logos, signs, short phrases</td>
+      <td>Write the exact words naturally in the prompt</td>
     </tr>
     <tr>
-      <td><strong>SDXL</strong></td>
-      <td>Good with LoRA</td>
-      <td>Simple text</td>
-      <td>Use text LoRAs</td>
+      <td>SD3</td>
+      <td>Very good</td>
+      <td>Posters, book covers</td>
+      <td>Put the target text in quotes</td>
     </tr>
     <tr>
-      <td><strong>SD 1.5</strong></td>
+      <td>SDXL</td>
+      <td>Fair, better with a text LoRA</td>
+      <td>Simple words</td>
+      <td>Keep it short; expect retries</td>
+    </tr>
+    <tr>
+      <td>SD 1.5</td>
       <td>Poor</td>
-      <td>Avoid text</td>
-      <td>Use ControlNet instead</td>
+      <td>Avoid — use ControlNet from a rendered text image</td>
+      <td>Composite real type instead</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="creating-perfect-text-a-practical-guide">Creating Perfect Text: A Practical Guide</h3>
+<h3 id="three-ways-to-get-text-right">Three Ways to Get Text Right</h3>
 
-<div class="code-example">
-  <p><strong>Common Task</strong>: Design a logo with company name</p>
-</div>
+<ol>
+  <li><strong>Direct generation (FLUX/SD3).</strong> Write the exact string in quotes: <code class="language-plaintext highlighter-rouge">a minimalist logo for "NEXUS AI", clean typography, white background</code>. Keep it to a few words; long passages still drift.</li>
+  <li><strong>ControlNet from rendered type (any model).</strong> Render the words in a real font, run Canny on it, and use that as a ControlNet — the model styles around exact letterforms.</li>
+  <li><strong>Inpaint the text region.</strong> Generate the background, mask the area for the text, and inpaint just the lettering. This is the reliable path for older models and for precise placement.</li>
+</ol>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Method 1: Direct Generation (FLUX)
-</span><span class="n">logo_prompt</span> <span class="o">=</span> <span class="sh">'''</span><span class="s">
-a modern minimalist logo design for </span><span class="sh">"</span><span class="s">NEXUS AI</span><span class="sh">"</span><span class="s">, 
-clean typography, tech company branding, 
-white background, professional
-</span><span class="sh">'''</span>
+<blockquote>
+  <p><strong>Describe the medium, not just the words.</strong> “neon sign saying OPEN 24/7 on a brick wall, night photography” succeeds far more often than “the text OPEN 24/7” because the model has seen that physical context. The same trick works for carved stone, LED boards, graffiti, embossed metal, and vintage posters.</p>
+</blockquote>
 
-<span class="c1"># Method 2: ControlNet Precision (Any model)
-</span><span class="n">workflow</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">text_image</span><span class="sh">"</span><span class="p">:</span> <span class="nf">create_text_image</span><span class="p">(</span><span class="sh">"</span><span class="s">NEXUS AI</span><span class="sh">"</span><span class="p">,</span> <span class="n">font</span><span class="o">=</span><span class="sh">"</span><span class="s">Arial</span><span class="sh">"</span><span class="p">),</span>
-    <span class="sh">"</span><span class="s">controlnet</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">canny</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">futuristic tech logo, gradient colors</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">strength</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.8</span>
-<span class="p">}</span>
+<p>For something like a book cover, layer the approaches: generate the background art at print resolution, then inpaint the title and author into defined regions, and export to a print-ready format (PDF, CMYK, ~300-400 DPI, with bleed).</p>
 
-<span class="c1"># Method 3: Multi-pass Refinement
-</span><span class="n">pass1</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span><span class="sh">"</span><span class="s">logo shape and colors</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">pass2</span> <span class="o">=</span> <span class="nf">inpaint</span><span class="p">(</span><span class="n">pass1</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">text_area</span><span class="p">,</span> <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">NEXUS AI text</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+<h2 id="multi-pass-and-layered-outputs">Multi-Pass and Layered Outputs</h2>
 
-<h3 id="typography-styles-that-actually-work">Typography Styles That Actually Work</h3>
-
-<div class="code-example">
-  <p><strong>Pro Tip</strong>: Describe the medium, not just the style</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Effective text style prompts
-</span><span class="n">working_styles</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">neon</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">neon sign saying </span><span class="sh">"</span><span class="s">OPEN 24/7</span><span class="sh">"</span><span class="s"> on brick wall, night photography</span><span class="sh">'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">carved</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">ancient stone tablet with carved text </span><span class="sh">"</span><span class="s">WISDOM</span><span class="sh">"</span><span class="s">, archaeological photo</span><span class="sh">'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">handwritten</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">handwritten note saying </span><span class="sh">"</span><span class="s">Thank You</span><span class="sh">"</span><span class="s"> in cursive on paper</span><span class="sh">'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">digital</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">LED display board showing </span><span class="sh">"</span><span class="s">ARRIVAL GATE 5</span><span class="sh">"</span><span class="s"> in airport</span><span class="sh">'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">graffiti</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">street art mural with spray painted text </span><span class="sh">"</span><span class="s">IMAGINE</span><span class="sh">"'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">3D metallic text </span><span class="sh">"</span><span class="s">PREMIUM</span><span class="sh">"</span><span class="s"> with reflections and shadows</span><span class="sh">'</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">vintage</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'</span><span class="s">vintage circus poster with text </span><span class="sh">"</span><span class="s">AMAZING SHOW TONIGHT</span><span class="sh">"'</span>
-<span class="p">}</span>
-
-<span class="c1"># Each style includes context for better results
-</span></code></pre></div></div>
-
-<h3 id="text-integration-workflows">Text Integration Workflows</h3>
-
-<div class="code-example">
-  <p><strong>Real Project</strong>: Creating a book cover with title and author</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Professional Book Cover Pipeline
-</span><span class="n">step1</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Background</span><span class="sh">"</span>
-<span class="n">background</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span>
-    <span class="sh">"</span><span class="s">fantasy landscape, magical forest, ethereal lighting</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1600</span><span class="p">,</span> <span class="mi">2400</span><span class="p">)</span>  <span class="c1"># 6x9 inch at 400 DPI
-</span><span class="p">)</span>
-
-<span class="n">step2</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Add Title</span><span class="sh">"</span>
-<span class="n">title_area</span> <span class="o">=</span> <span class="nf">define_region</span><span class="p">(</span><span class="n">top_third</span><span class="p">)</span>
-<span class="n">titled</span> <span class="o">=</span> <span class="nf">inpaint</span><span class="p">(</span>
-    <span class="n">background</span><span class="p">,</span>
-    <span class="n">mask</span><span class="o">=</span><span class="n">title_area</span><span class="p">,</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">'</span><span class="s">book title </span><span class="sh">"</span><span class="s">THE LAST MAGE</span><span class="sh">"</span><span class="s"> in golden fantasy lettering</span><span class="sh">'</span>
-<span class="p">)</span>
-
-<span class="n">step3</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Add Author</span><span class="sh">"</span>
-<span class="n">author_area</span> <span class="o">=</span> <span class="nf">define_region</span><span class="p">(</span><span class="n">bottom</span><span class="p">)</span>
-<span class="n">final</span> <span class="o">=</span> <span class="nf">inpaint</span><span class="p">(</span>
-    <span class="n">titled</span><span class="p">,</span>
-    <span class="n">mask</span><span class="o">=</span><span class="n">author_area</span><span class="p">,</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">'</span><span class="s">author name </span><span class="sh">"</span><span class="s">Jane Smith</span><span class="sh">"</span><span class="s"> in elegant serif font</span><span class="sh">'</span>
-<span class="p">)</span>
-
-<span class="c1"># Export for print
-</span><span class="n">export_settings</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PDF</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">color_space</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">CMYK</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">bleed</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.125</span>  <span class="c1"># inches
-</span><span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="multimodal-diffusion-outputs">Multimodal Diffusion Outputs</h2>
-
-<p>Multimodal diffusion models can generate synchronized outputs across different modalities from a single denoising process.</p>
-
-<div class="code-example">
-  <p><strong>Unified Diffusion</strong>: Single model, multiple output types through shared latent representations</p>
-</div>
-
-<h3 id="the-multimodal-advantage">The Multimodal Advantage</h3>
+<p>A single generation can yield more than a flat image. By running depth, normal, or segmentation preprocessors alongside the main output, you produce companion data that downstream tools (game engines, compositors, editors) consume directly.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Output Type</th>
-      <th>What You Get</th>
-      <th>Use Cases</th>
-      <th>File Format</th>
+      <th>Output combination</th>
+      <th>What you get</th>
+      <th>Common use</th>
+      <th>File format</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Image + Depth</strong></td>
-      <td>3D scene data</td>
-      <td>AR filters, 3D effects</td>
-      <td>EXR/PNG pair</td>
+      <td>Image + depth</td>
+      <td>2.5D scene data</td>
+      <td>AR filters, parallax, 3D effects</td>
+      <td>EXR channel or PNG pair</td>
     </tr>
     <tr>
-      <td><strong>Image + Segments</strong></td>
+      <td>Image + segmentation</td>
       <td>Editable layers</td>
-      <td>Photoshop work</td>
-      <td>PSD/TIFF</td>
+      <td>Per-object editing in Photoshop</td>
+      <td>PSD / TIFF</td>
     </tr>
     <tr>
-      <td><strong>Image + Normals</strong></td>
-      <td>Surface details</td>
-      <td>Game engines</td>
+      <td>Image + normals</td>
+      <td>Surface detail</td>
+      <td>Game-engine materials</td>
       <td>EXR channels</td>
     </tr>
     <tr>
-      <td><strong>Video + Audio</strong></td>
-      <td>Complete scenes</td>
-      <td>Social media</td>
+      <td>Video + audio</td>
+      <td>Complete clip</td>
+      <td>Social delivery</td>
       <td>MP4 container</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="practical-workflow-ar-ready-assets">Practical Workflow: AR-Ready Assets</h3>
+<p><strong>Depth for AR:</strong> generate the subject, run a depth preprocessor (e.g. Depth Anything / MiDaS), and save image + depth together — that pair is what ARKit, ARCore, and Lens Studio expect.</p>
 
-<div class="code-example">
-  <p><strong>Goal</strong>: Create character with depth for AR application</p>
-</div>
+<p><strong>Segmentation for editing:</strong> run Segment Anything (SAM) over a generated scene and export each segment as its own layer to a PSD, so every object can be moved or restyled independently.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Single generation, multiple outputs
-</span><span class="n">character_gen</span> <span class="o">=</span> <span class="nc">ComfyUIWorkflow</span><span class="p">()</span>
-
-<span class="c1"># Step 1: Generate the character
-</span><span class="n">character_gen</span><span class="p">.</span><span class="nf">add_node</span><span class="p">(</span><span class="sh">"</span><span class="s">CheckpointLoader</span><span class="sh">"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">epicrealism</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">character_gen</span><span class="p">.</span><span class="nf">add_node</span><span class="p">(</span><span class="sh">"</span><span class="s">Prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="sh">"</span><span class="s">fantasy warrior, full body</span><span class="sh">"</span><span class="p">)</span>
-
-<span class="c1"># Step 2: Extract depth information
-</span><span class="n">character_gen</span><span class="p">.</span><span class="nf">add_node</span><span class="p">(</span><span class="sh">"</span><span class="s">MiDaS-DepthMapPreprocessor</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">character_gen</span><span class="p">.</span><span class="nf">add_node</span><span class="p">(</span><span class="sh">"</span><span class="s">SaveEXR</span><span class="sh">"</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">RGB</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Depth</span><span class="sh">"</span><span class="p">])</span>
-
-<span class="c1"># Result: One file with both image and depth
-# Perfect for ARKit, ARCore, or Lens Studio
-</span></code></pre></div></div>
-
-<h3 id="smart-segmentation-pipeline">Smart Segmentation Pipeline</h3>
-
-<div class="code-example">
-  <p><strong>Common Need</strong>: “I need to edit different parts separately”</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Auto-segment for easy editing
-</span><span class="n">segmentation_pipeline</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">generate</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">complex scene with multiple objects</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">segment</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">method</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">SAM</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># Segment Anything Model
-</span>        <span class="sh">"</span><span class="s">granularity</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">object</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># or "part", "material"
-</span>        <span class="sh">"</span><span class="s">output</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">layered_psd</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">export</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PSD</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">layers</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
-            <span class="sh">"</span><span class="s">background</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">foreground_objects</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">characters</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">effects</span><span class="sh">"</span>
-        <span class="p">],</span>
-        <span class="sh">"</span><span class="s">preserve_transparency</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Open in Photoshop: Every object on its own layer!
-</span></code></pre></div></div>
-
-<h3 id="game-engine-integration-pack">Game Engine Integration Pack</h3>
-
-<div class="code-example">
-  <p><strong>Level Up</strong>: Export everything Unity/Unreal needs in one go</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The Game Dev Special
-</span><span class="n">game_export</span> <span class="o">=</span> <span class="nc">MultiChannelExport</span><span class="p">()</span>
-
-<span class="n">game_export</span><span class="p">.</span><span class="nf">configure</span><span class="p">({</span>
-    <span class="sh">"</span><span class="s">base_color</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PNG</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">sRGB</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2048</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">normal_map</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PNG</span><span class="sh">"</span><span class="p">,</span> 
-        <span class="sh">"</span><span class="s">linear</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2048</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">roughness_metallic</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PNG</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RG</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># R=roughness, G=metallic
-</span>        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1024</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">ambient_occlusion</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PNG</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">grayscale</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1024</span>
-    <span class="p">}</span>
-<span class="p">})</span>
-
-<span class="c1"># Generate once, get complete PBR texture set
-</span><span class="n">result</span> <span class="o">=</span> <span class="n">game_export</span><span class="p">.</span><span class="nf">process</span><span class="p">(</span><span class="n">ai_generation</span><span class="p">)</span>
-</code></pre></div></div>
+<p><strong>PBR texture sets for games:</strong> a generated material isn’t just a color map. Engines want a set — base color (sRGB), normal map (linear), and a packed roughness/metallic/AO map (often R=AO, G=roughness, B=metallic) — typically at 2048px for the albedo/normal and 1024px for the packed maps. Generate the base color, derive the rest, and keep them in matching dimensions.</p>
 
 <h2 id="3d-diffusion-outputs-spatial-denoising">3D Diffusion Outputs: Spatial Denoising</h2>
 
-<p>3D diffusion models operate in geometric latent spaces, denoising point clouds, voxels, or implicit representations into 3D assets.</p>
+<p>3D generation methods range from near-instant single-image reconstruction to slow, photoreal scene capture. Pick by how much quality and time you can spend; for most asset work, start fast and only escalate if the result isn’t good enough.</p>
 
-<div class="code-example">
-  <p><strong>3D Diffusion</strong>: Denoising happens in 3D space, not 2D projections</p>
-</div>
-
-<h3 id="3d-generation-methods-ranked">3D Generation Methods Ranked</h3>
+<h3 id="3d-generation-methods">3D Generation Methods</h3>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
       <th>Speed</th>
-      <th>Quality</th>
-      <th>Best For</th>
-      <th>Try This First</th>
+      <th>Output</th>
+      <th>Best for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>TripoSR</strong></td>
-      <td>&lt;1 second</td>
-      <td>Good</td>
-      <td>Quick prototypes</td>
-      <td>Yes</td>
+      <td>TripoSR</td>
+      <td>Seconds</td>
+      <td>Mesh</td>
+      <td>Fast prototypes, single-image to 3D</td>
     </tr>
     <tr>
-      <td><strong>DreamGaussian</strong></td>
+      <td>One-2-3-45</td>
+      <td>~1 min</td>
+      <td>Textured mesh</td>
+      <td>Game-ready assets</td>
+    </tr>
+    <tr>
+      <td>DreamGaussian</td>
       <td>1-2 min</td>
-      <td>Great</td>
-      <td>Real-time viewing</td>
-      <td>For quality</td>
+      <td>Gaussian splats / mesh</td>
+      <td>Real-time viewing, quick quality</td>
     </tr>
     <tr>
-      <td><strong>One-2-3-45</strong></td>
-      <td>45 seconds</td>
-      <td>Great</td>
-      <td>Textured models</td>
-      <td>For games</td>
-    </tr>
-    <tr>
-      <td><strong>NeRF</strong></td>
-      <td>30+ min</td>
-      <td>Best</td>
-      <td>Film quality</td>
-      <td>For pros</td>
+      <td>NeRF (e.g. Instant-NGP)</td>
+      <td>Minutes-plus</td>
+      <td>Radiance field → mesh/video</td>
+      <td>Photoreal capture from many photos</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="quick-start-image-to-3d-model">Quick Start: Image to 3D Model</h3>
+<blockquote>
+  <p><strong>Single-image-to-3D works best with a clean subject:</strong> generate the input with a neutral, plain background and even lighting (<code class="language-plaintext highlighter-rouge">fantasy sword, game asset, neutral lighting, white background</code>). Busy backgrounds confuse reconstruction.</p>
+</blockquote>
 
-<div class="code-example">
-  <p><strong>Project</strong>: Turn character concept into game-ready 3D asset</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Step 1: Generate perfect input image
-</span><span class="n">concept</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span>
-    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">fantasy sword, game asset, neutral lighting, white background</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">,</span>
-    <span class="c1"># Pro tip: Simple backgrounds = better 3D
-</span><span class="p">)</span>
-
-<span class="c1"># Step 2: Convert to 3D (TripoSR for speed)
-</span><span class="n">model_3d</span> <span class="o">=</span> <span class="n">triposr</span><span class="p">.</span><span class="nf">process</span><span class="p">(</span>
-    <span class="n">image</span><span class="o">=</span><span class="n">concept</span><span class="p">,</span>
-    <span class="n">output_format</span><span class="o">=</span><span class="sh">"</span><span class="s">gltf</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># Web and game ready
-</span>    <span class="n">texture_resolution</span><span class="o">=</span><span class="mi">1024</span>
-<span class="p">)</span>
-
-<span class="c1"># Step 3: Export for your platform
-</span><span class="n">exports</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">unity</span><span class="sh">"</span><span class="p">:</span> <span class="nf">export_fbx</span><span class="p">(</span><span class="n">model_3d</span><span class="p">,</span> <span class="n">embed_textures</span><span class="o">=</span><span class="bp">True</span><span class="p">),</span>
-    <span class="sh">"</span><span class="s">web</span><span class="sh">"</span><span class="p">:</span> <span class="nf">export_gltf</span><span class="p">(</span><span class="n">model_3d</span><span class="p">,</span> <span class="n">draco_compression</span><span class="o">=</span><span class="bp">True</span><span class="p">),</span>
-    <span class="sh">"</span><span class="s">blender</span><span class="sh">"</span><span class="p">:</span> <span class="nf">export_obj</span><span class="p">(</span><span class="n">model_3d</span><span class="p">,</span> <span class="n">separate_materials</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>A typical asset flow: generate a clean reference with SDXL/FLUX, run <strong>TripoSR</strong> for a quick mesh (or <strong>DreamGaussian</strong> if you want higher quality), then export to the format your target needs — glTF/GLB for web, FBX for Unity/Unreal, OBJ for Blender.</p>
 
 <h3 id="understanding-3d-formats">Understanding 3D Formats</h3>
 
-<div class="code-example">
-  <p><strong>Pro Navigation</strong>: Pick your format based on destination, not features</p>
-</div>
+<p>Choose the export by destination, not by feature count:</p>
 
 <table>
   <thead>
@@ -3249,751 +2657,191 @@ white background, professional
   </tbody>
 </table>
 
-<h3 id="gaussian-splatting-the-future-is-now">Gaussian Splatting: The Future is Now</h3>
+<h3 id="gaussian-splatting-and-nerf">Gaussian Splatting and NeRF</h3>
 
-<div class="code-example">
-  <p><strong>Game Changer</strong>: View-dependent effects at 100+ FPS on consumer hardware</p>
-</div>
+<p><strong>Gaussian splatting</strong> represents a scene as millions of colored 3D blobs rather than a mesh. It renders view-dependent effects (reflections, fine detail) in real time on consumer hardware and stores as a <code class="language-plaintext highlighter-rouge">.ply</code> point cloud viewable in the browser. DreamGaussian can produce a splat from a single image; full-scene splats come from multi-photo capture.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># DreamGaussian Pipeline
-</span><span class="n">image_to_gaussian</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">character_portrait.png</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">settings</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">elevation</span><span class="sh">"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>      <span class="c1"># Camera angle
-</span>        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">512</span><span class="p">,</span>   <span class="c1"># Training resolution
-</span>        <span class="sh">"</span><span class="s">iterations</span><span class="sh">"</span><span class="p">:</span> <span class="mi">500</span>    <span class="c1"># Quality vs speed
-</span>    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">output</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ply</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># Point cloud format
-</span>        <span class="sh">"</span><span class="s">splat_viewer</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">web</span><span class="sh">"</span>  <span class="c1"># Real-time preview
-</span>    <span class="p">}</span>
-<span class="p">}</span>
+<p><strong>NeRF</strong> (neural radiance fields) reconstructs a scene from many photos (often ~30+ around the subject) into a radiance field you can render from any angle. Fast variants like NVIDIA’s <strong>Instant-NGP</strong> train in minutes; results are photoreal and can be exported as turntable video, a textured mesh, or a point cloud. Use NeRF when capture quality matters more than speed.</p>
 
-<span class="c1"># Result: Photorealistic 3D that runs everywhere
-</span></code></pre></div></div>
+<h3 id="3d-workflow-at-a-glance">3D Workflow at a Glance</h3>
 
-<h3 id="nerf-when-quality-matters-most">NeRF: When Quality Matters Most</h3>
+<pre><code class="language-mermaid">flowchart LR
+    Gen["2D generation&lt;br/&gt;FLUX / SDXL"] --&gt; Conv["3D conversion&lt;br/&gt;TripoSR / DreamGaussian / NeRF"]
+    Conv --&gt; Clean["Cleanup&lt;br/&gt;(Blender, optional)"]
+    Clean --&gt; Exp["Export&lt;br/&gt;glTF / FBX / USDZ"]
+    Exp --&gt; Eng["Game engine / web / AR"]
+</code></pre>
 
-<div class="code-example">
-  <p><strong>Hollywood Grade</strong>: Used in major film productions</p>
-</div>
+<h2 id="choosing-a-format-decision-matrix">Choosing a Format: Decision Matrix</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># NeRF for product visualization
-</span><span class="n">product_nerf</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">capture</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">36 photos around object</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">training</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">instant-ngp</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># NVIDIA's fast NeRF
-</span>        <span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">5-30 minutes</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">quality</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">photorealistic</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">export_options</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
-        <span class="sh">"</span><span class="s">video_turntable.mp4</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">mesh_with_texture.obj</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">voxel_grid.vdb</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">point_cloud.ply</span><span class="sh">"</span>
-    <span class="p">]</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="3d-workflow-integration">3D Workflow Integration</h3>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2D Generation → 3D Conversion → Cleanup → Final Export
-      ↓              ↓              ↓           ↓
-   FLUX/SDXL     TripoSR/DG    Blender    Game Engine
-                              (optional)
-</code></pre></div></div>
-
-<h2 id="optimizing-diffusion-outputs-across-modalities">Optimizing Diffusion Outputs Across Modalities</h2>
-
-<p>Diffusion models share computational patterns that enable unified optimization strategies across all output types.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Efficiency</strong>: Batch denoising works identically for text, image, audio, and 3D</p>
-</div>
-
-<h3 id="unified-diffusion-batching">Unified Diffusion Batching</h3>
-
-<div class="code-example">
-  <p><strong>Diffusion Advantage</strong>: Process multiple modalities in parallel using shared infrastructure</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Multi-Modal Diffusion Pipeline
-</span><span class="n">diffusion_pipeline</span> <span class="o">=</span> <span class="nc">UnifiedDiffusionProcessor</span><span class="p">()</span>
-
-<span class="c1"># Define base and variations
-</span><span class="n">base_prompt</span> <span class="o">=</span> <span class="sh">"</span><span class="s">minimalist {product} on white background, professional lighting</span><span class="sh">"</span>
-<span class="n">products</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">watch</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">headphones</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">smartphone</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">laptop</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">camera</span><span class="sh">"</span><span class="p">]</span>
-<span class="n">angles</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">front</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">side</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">angle</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">detail</span><span class="sh">"</span><span class="p">]</span>
-
-<span class="c1"># Generate all combinations efficiently
-</span><span class="k">for</span> <span class="n">product</span> <span class="ow">in</span> <span class="n">products</span><span class="p">:</span>
-    <span class="k">for</span> <span class="n">angle</span> <span class="ow">in</span> <span class="n">angles</span><span class="p">:</span>
-        <span class="n">product_pipeline</span><span class="p">.</span><span class="nf">add_job</span><span class="p">({</span>
-            <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">base_prompt</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="sh">"</span><span class="s">, </span><span class="si">{</span><span class="n">angle</span><span class="si">}</span><span class="s"> view</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">SDXL</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">batch_size</span><span class="sh">"</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>  <span class="c1"># 4 variations per combo
-</span>            <span class="sh">"</span><span class="s">export</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-                <span class="sh">"</span><span class="s">web</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">webp</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">quality</span><span class="sh">"</span><span class="p">:</span> <span class="mi">85</span><span class="p">},</span>
-                <span class="sh">"</span><span class="s">print</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpi</span><span class="sh">"</span><span class="p">:</span> <span class="mi">300</span><span class="p">},</span>
-                <span class="sh">"</span><span class="s">thumbnail</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="mi">256</span><span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">})</span>
-
-<span class="c1"># Process overnight, wake up to 400+ images
-</span><span class="n">product_pipeline</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="n">parallel</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">gpu_scheduling</span><span class="o">=</span><span class="sh">"</span><span class="s">efficient</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="format-decision-matrix">Format Decision Matrix</h3>
-
-<div class="code-example">
-  <p><strong>Stop Guessing</strong>: Use this flowchart every time</p>
-</div>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">START</span><span class="pi">:</span> <span class="s">What's your priority?</span>
-  <span class="s">│</span>
-  <span class="s">├─ Maximum Quality?</span>
-  <span class="s">│   ├─ Images</span><span class="err">:</span> <span class="s">PNG-16 or EXR</span>
-  <span class="s">│   ├─ Video</span><span class="err">:</span> <span class="s">ProRes 4444 or DNxHR</span>
-  <span class="s">│   ├─ Audio</span><span class="err">:</span> <span class="s">WAV 32-bit float</span>
-  <span class="s">│   └─ 3D</span><span class="err">:</span> <span class="s">USD or FBX with textures</span>
-  <span class="s">│</span>
-  <span class="s">├─ Smallest File Size?</span>
-  <span class="s">│   ├─ Images</span><span class="err">:</span> <span class="s">AVIF &gt; WebP &gt; JPEG</span>
-  <span class="s">│   ├─ Video</span><span class="err">:</span> <span class="s">AV1 &gt; H.265 &gt; H.264</span>  
-  <span class="s">│   ├─ Audio</span><span class="err">:</span> <span class="s">Opus &gt; AAC &gt; MP3</span>
-  <span class="s">│   └─ 3D</span><span class="err">:</span> <span class="s">Draco GLTF or compressed PLY</span>
-  <span class="s">│</span>
-  <span class="s">└─ Maximum Compatibility?</span>
-      <span class="s">├─ Images</span><span class="err">:</span> <span class="s">JPEG (quality 85)</span>
-      <span class="s">├─ Video</span><span class="err">:</span> <span class="s">H.264 MP4</span>
-      <span class="s">├─ Audio</span><span class="err">:</span> <span class="s">MP3 192kbps</span>
-      <span class="s">└─ 3D</span><span class="err">:</span> <span class="s">OBJ with MTL</span>
-</code></pre></div></div>
-
-<h3 id="real-world-optimization-examples">Real-World Optimization Examples</h3>
-
-<div class="code-example">
-  <p><strong>Case Study</strong>: Social media content creator workflow</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The Content Creator's Smart Pipeline
-</span>
-<span class="k">class</span> <span class="nc">ContentPipeline</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">platforms</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">instagram</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1080</span><span class="p">,</span> <span class="mi">1080</span><span class="p">),</span> <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">},</span>
-            <span class="sh">"</span><span class="s">youtube</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1920</span><span class="p">,</span> <span class="mi">1080</span><span class="p">),</span> <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">},</span>
-            <span class="sh">"</span><span class="s">tiktok</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1080</span><span class="p">,</span> <span class="mi">1920</span><span class="p">),</span> <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mp4</span><span class="sh">"</span><span class="p">},</span>
-            <span class="sh">"</span><span class="s">twitter</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="mi">1200</span><span class="p">,</span> <span class="mi">675</span><span class="p">),</span> <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">}</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">process_generation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">base_name</span><span class="p">):</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
-        
-        <span class="c1"># Generate once at high res
-</span>        <span class="n">master</span> <span class="o">=</span> <span class="nf">enhance_to_4k</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-        
-        <span class="c1"># Create platform-specific versions
-</span>        <span class="k">for</span> <span class="n">platform</span><span class="p">,</span> <span class="n">specs</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">platforms</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
-            <span class="n">processed</span> <span class="o">=</span> <span class="n">master</span><span class="p">.</span><span class="nf">resize</span><span class="p">(</span><span class="n">specs</span><span class="p">[</span><span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">])</span>
-            
-            <span class="c1"># Platform-specific optimizations
-</span>            <span class="k">if</span> <span class="n">platform</span> <span class="o">==</span> <span class="sh">"</span><span class="s">instagram</span><span class="sh">"</span><span class="p">:</span>
-                <span class="n">processed</span> <span class="o">=</span> <span class="nf">add_subtle_filter</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">platform</span> <span class="o">==</span> <span class="sh">"</span><span class="s">youtube</span><span class="sh">"</span><span class="p">:</span>
-                <span class="n">processed</span> <span class="o">=</span> <span class="nf">add_thumbnail_text</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-            
-            <span class="c1"># Smart export
-</span>            <span class="n">filename</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s">_</span><span class="si">{</span><span class="n">platform</span><span class="si">}</span><span class="s">.</span><span class="si">{</span><span class="n">specs</span><span class="p">[</span><span class="sh">'</span><span class="s">format</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
-            <span class="n">processed</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">optimize</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-            <span class="n">results</span><span class="p">[</span><span class="n">platform</span><span class="p">]</span> <span class="o">=</span> <span class="n">filename</span>
-        
-        <span class="k">return</span> <span class="n">results</span>
-
-<span class="c1"># Usage: One generation, all platforms covered
-</span><span class="n">pipeline</span> <span class="o">=</span> <span class="nc">ContentPipeline</span><span class="p">()</span>
-<span class="n">ai_image</span> <span class="o">=</span> <span class="nf">generate</span><span class="p">(</span><span class="sh">"</span><span class="s">stunning sunset landscape</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">all_versions</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">.</span><span class="nf">process_generation</span><span class="p">(</span><span class="n">ai_image</span><span class="p">,</span> <span class="sh">"</span><span class="s">sunset_001</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="performance-optimization-tricks">Performance Optimization Tricks</h3>
-
-<div class="code-example">
-  <p><strong>Speed Demons</strong>: Make your pipeline fly</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GPU Memory Management
-</span><span class="n">optimization_tricks</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">batch_processing</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tip</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Process similar resolutions together</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">speedup</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">2-3x</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">vae_tiling</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tip</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Enable for high-res on limited VRAM</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">tradeoff</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Slightly slower, much less memory</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">sequential_offload</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tip</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Move models to CPU between uses</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Run larger models on smaller GPUs</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">attention_slicing</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tip</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Slice attention computation</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">50% memory reduction</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="post-processing-diffusion-outputs">Post-Processing Diffusion Outputs</h2>
-
-<p>Diffusion outputs often contain artifacts from the denoising process. Understanding model-specific post-processing is crucial.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Reality</strong>: Each modality has unique artifacts from the denoising process</p>
-</div>
-
-<h3 id="modality-specific-post-processing">Modality-Specific Post-Processing</h3>
-
-<div class="code-example">
-  <p><strong>Key Insight</strong>: Different diffusion outputs require different artifact removal</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Diffusion-Aware Post-Processing
-</span><span class="k">class</span> <span class="nc">DiffusionPostProcessor</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">processors</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">process_text_diffusion</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">process_image_diffusion</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">audio</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">process_audio_diffusion</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">video</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">process_video_diffusion</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">process_3d_diffusion</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">generation_data</span><span class="p">):</span>
-        <span class="c1"># Each step enhances the image
-</span>        <span class="k">for</span> <span class="n">step_name</span><span class="p">,</span> <span class="n">step_func</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">pipeline</span><span class="p">:</span>
-            <span class="n">image</span> <span class="o">=</span> <span class="nf">step_func</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">generation_data</span><span class="p">)</span>
-            
-        <span class="k">return</span> <span class="n">image</span>
-    
-    <span class="k">def</span> <span class="nf">smart_denoise</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="c1"># Only denoise if high CFG was used
-</span>        <span class="k">if</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">cfg_scale</span><span class="sh">'</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nf">denoise</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">strength</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">img</span>
-    
-    <span class="k">def</span> <span class="nf">color_grade</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="c1"># Subtle enhancements
-</span>        <span class="n">img</span> <span class="o">=</span> <span class="nf">adjust_vibrance</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">)</span>  <span class="c1"># 10% boost
-</span>        <span class="n">img</span> <span class="o">=</span> <span class="nf">adjust_contrast</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">)</span>  <span class="c1"># 5% boost
-</span>        <span class="k">return</span> <span class="n">img</span>
-    
-    <span class="k">def</span> <span class="nf">adaptive_sharpen</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="c1"># Sharpen based on resolution
-</span>        <span class="k">if</span> <span class="n">img</span><span class="p">.</span><span class="n">width</span> <span class="o">&gt;</span> <span class="mi">2048</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nf">unsharp_mask</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">amount</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">img</span>
-
-<span class="c1"># Usage
-</span><span class="n">processor</span> <span class="o">=</span> <span class="nc">ProPostProcessor</span><span class="p">()</span>
-<span class="n">final_image</span> <span class="o">=</span> <span class="n">processor</span><span class="p">.</span><span class="nf">process</span><span class="p">(</span><span class="n">raw_ai_output</span><span class="p">,</span> <span class="n">generation_settings</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="video-post-processing">Video Post-Processing</h3>
-
-<div class="code-example">
-  <p><strong>Level Up</strong>: Make your AI videos broadcast-ready</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># The Cinematic Video Pipeline
-</span><span class="n">video_enhancement</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">step1_stabilize</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">DaVinci Resolve</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">method</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">AI stabilization</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">why</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Remove AI generation jitter</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">step2_interpolate</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RIFE or Topaz</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">from_fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">to_fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">24</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">why</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Smooth motion</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">step3_color</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">lut</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">cinematic_warm.cube</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">adjustments</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">contrast</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">saturation</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">grain</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">film_emulation</span><span class="sh">"</span>
-        <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">step4_audio</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">sync</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">auto_align</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">mix</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">dialogue_norm</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">master</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">-3dB headroom</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="metadata-make-outputs-reproducible">Metadata: Make Outputs Reproducible</h3>
-
-<div class="code-example">
-  <p><strong>Scenario</strong>: “How did I make that amazing image 3 months ago?”</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Complete Metadata System
-</span><span class="k">class</span> <span class="nc">MetadataManager</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">standards</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">png_metadata</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">exif_metadata</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">webp</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">xmp_metadata</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">mp4</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">mp4_metadata</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">embed_complete_metadata</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">generation_data</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Never forget your settings again</span><span class="sh">"""</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="c1"># Generation settings
-</span>            <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">prompt</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">negative_prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">negative</span><span class="sh">'</span><span class="p">,</span> <span class="sh">''</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">model</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">model_hash</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">model_hash</span><span class="sh">'</span><span class="p">,</span> <span class="sh">''</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">sampler</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">sampler</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">steps</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">cfg_scale</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">cfg_scale</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">seed</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">"</span><span class="s">size</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">width</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">x</span><span class="si">{</span><span class="n">generation_data</span><span class="p">[</span><span class="sh">'</span><span class="s">height</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
-            
-            <span class="c1"># Technical details
-</span>            <span class="sh">"</span><span class="s">vae</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">vae</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">default</span><span class="sh">'</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">clip_skip</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">clip_skip</span><span class="sh">'</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">enhancements</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">postprocess</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]),</span>
-            
-            <span class="c1"># Workflow info
-</span>            <span class="sh">"</span><span class="s">workflow</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ComfyUI</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">workflow_version</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">2024.1</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">created</span><span class="sh">"</span><span class="p">:</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">isoformat</span><span class="p">(),</span>
-            
-            <span class="c1"># Custom fields
-</span>            <span class="sh">"</span><span class="s">project</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">project</span><span class="sh">'</span><span class="p">,</span> <span class="sh">''</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">client</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">client</span><span class="sh">'</span><span class="p">,</span> <span class="sh">''</span><span class="p">),</span>
-            <span class="sh">"</span><span class="s">usage_rights</span><span class="sh">"</span><span class="p">:</span> <span class="n">generation_data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">rights</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">all</span><span class="sh">'</span><span class="p">)</span>
-        <span class="p">}</span>
-        
-        <span class="c1"># Embed based on format
-</span>        <span class="n">file_format</span> <span class="o">=</span> <span class="n">file_path</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">'</span><span class="s">.</span><span class="sh">'</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="nf">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">file_format</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">standards</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">standards</span><span class="p">[</span><span class="n">file_format</span><span class="p">](</span><span class="n">file_path</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
-        
-        <span class="c1"># Also save JSON sidecar for safety
-</span>        <span class="n">json_path</span> <span class="o">=</span> <span class="n">file_path</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">.</span><span class="si">{</span><span class="n">file_format</span><span class="si">}</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">_metadata.json</span><span class="sh">'</span><span class="p">)</span>
-        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="sh">'</span><span class="s">w</span><span class="sh">'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">json</span><span class="p">.</span><span class="nf">dump</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-
-<span class="c1"># Never lose settings again!
-</span><span class="n">metadata_mgr</span> <span class="o">=</span> <span class="nc">MetadataManager</span><span class="p">()</span>
-<span class="n">metadata_mgr</span><span class="p">.</span><span class="nf">embed_complete_metadata</span><span class="p">(</span><span class="sh">"</span><span class="s">masterpiece.png</span><span class="sh">"</span><span class="p">,</span> <span class="n">ai_settings</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="audio-mastering-pipeline">Audio Mastering Pipeline</h3>
-
-<div class="code-example">
-  <p><strong>Pro Audio</strong>: From AI generation to Spotify-ready</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Professional Audio Post-Processing
-</span><span class="n">audio_mastering</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">chain</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span>
-        <span class="p">{</span><span class="sh">"</span><span class="s">effect</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">noise_gate</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="p">:</span> <span class="o">-</span><span class="mi">40</span><span class="p">},</span>
-        <span class="p">{</span><span class="sh">"</span><span class="s">effect</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">eq</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">parametric</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">boost_presence</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">},</span>
-        <span class="p">{</span><span class="sh">"</span><span class="s">effect</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">compressor</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">ratio</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">3:1</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">knee</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">soft</span><span class="sh">"</span><span class="p">},</span>
-        <span class="p">{</span><span class="sh">"</span><span class="s">effect</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">limiter</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">ceiling</span><span class="sh">"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.3</span><span class="p">},</span>
-        <span class="p">{</span><span class="sh">"</span><span class="s">effect</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">normalize</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">target</span><span class="sh">"</span><span class="p">:</span> <span class="o">-</span><span class="mi">14</span><span class="p">}</span>  <span class="c1"># LUFS for streaming
-</span>    <span class="p">],</span>
-    <span class="sh">"</span><span class="s">export</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">master</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">wav</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bit_depth</span><span class="sh">"</span><span class="p">:</span> <span class="mi">24</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">streaming</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mp3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bitrate</span><span class="sh">"</span><span class="p">:</span> <span class="mi">320</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">preview</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mp3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bitrate</span><span class="sh">"</span><span class="p">:</span> <span class="mi">128</span><span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="real-time-diffusion-outputs">Real-Time Diffusion Outputs</h2>
-
-<p>Streaming diffusion outputs during the denoising process provides unique insights and interactivity.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Streaming</strong>: Observe the denoising process across all modalities in real-time</p>
-</div>
-
-<h3 id="streaming-generation-setup">Streaming Generation Setup</h3>
-
-<div class="code-example">
-  <p><strong>Use Case</strong>: Live AI art performances, client presentations, stream overlays</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Real-Time Preview System
-</span><span class="k">class</span> <span class="nc">LiveGenerationStream</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">websocket</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">ws</span> <span class="o">=</span> <span class="n">websocket</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">preview_quality</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">interval</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>      <span class="c1"># Show every 5 steps
-</span>            <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="mi">512</span><span class="p">,</span>  <span class="c1"># Fast preview size
-</span>            <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">,</span>   <span class="c1"># Quick transmission
-</span>            <span class="sh">"</span><span class="s">quality</span><span class="sh">"</span><span class="p">:</span> <span class="mi">70</span>       <span class="c1"># Balance speed/quality
-</span>        <span class="p">}</span>
-    
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">stream_generation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">prompt</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
-        <span class="c1"># Initialize generation
-</span>        <span class="n">pipeline</span> <span class="o">=</span> <span class="nc">StableDiffusionPipeline</span><span class="p">()</span>
-        
-        <span class="c1"># Stream previews during generation
-</span>        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">preview_quality</span><span class="p">[</span><span class="sh">'</span><span class="s">interval</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># Decode current latents
-</span>                <span class="n">preview</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">.</span><span class="nf">decode_latents_to_preview</span><span class="p">(</span>
-                    <span class="n">size</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">preview_quality</span><span class="p">[</span><span class="sh">'</span><span class="s">resolution</span><span class="sh">'</span><span class="p">]</span>
-                <span class="p">)</span>
-                
-                <span class="c1"># Send to client
-</span>                <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">ws</span><span class="p">.</span><span class="nf">send</span><span class="p">({</span>
-                    <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">preview</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">step</span><span class="sh">"</span><span class="p">:</span> <span class="n">step</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="p">:</span> <span class="n">steps</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="nf">encode_image</span><span class="p">(</span><span class="n">preview</span><span class="p">)</span>
-                <span class="p">})</span>
-        
-        <span class="c1"># Send final full-quality result
-</span>        <span class="n">final</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">.</span><span class="nf">get_final_image</span><span class="p">()</span>
-        <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">ws</span><span class="p">.</span><span class="nf">send</span><span class="p">({</span>
-            <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">complete</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="nf">encode_image</span><span class="p">(</span><span class="n">final</span><span class="p">)</span>
-        <span class="p">})</span>
-
-<span class="c1"># Usage: Connect to any WebSocket client
-# Perfect for web apps, Discord bots, stream overlays
-</span></code></pre></div></div>
-
-<h3 id="interactive-generation-interfaces">Interactive Generation Interfaces</h3>
-
-<div class="code-example">
-  <p><strong>Next Level</strong>: Let viewers influence generation in real-time</p>
-</div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Twitch/YouTube Integration
-</span><span class="n">interactive_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">platform</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">twitch</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">commands</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">!style</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">change_art_style</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">!color</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">adjust_color_palette</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">!remix</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">variation_seed</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">preview_stream</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">protocol</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RTMP</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1920x1080</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">fps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">keyframe_interval</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="professional-export-strategies">Professional Export Strategies</h2>
-
-<div class="code-example">
-  <p><strong>Reality Check</strong>: Different industries need different deliverables</p>
-</div>
-
-<h3 id="industry-specific-export-pipelines">Industry-Specific Export Pipelines</h3>
-
-<h4 id="film--vfx-pipeline">Film &amp; VFX Pipeline</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Hollywood-Grade Export
-</span><span class="n">vfx_export</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">plates</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">beauty</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">EXR</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bit_depth</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="sh">"</span><span class="s">linear</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">depth</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">EXR</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">motion</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">EXR</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">UV</span><span class="sh">"</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">normal</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">EXR</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">XYZ</span><span class="sh">"</span><span class="p">},</span>
-        <span class="sh">"</span><span class="s">crypto</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">EXR</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">cryptomatte</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">delivery</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">format</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">DPX sequence</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">color_space</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ACEScg</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">naming</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">shot_####.dpx</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="game-development-pipeline">Game Development Pipeline</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Game-Ready Asset Export
-</span><span class="n">game_export</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">textures</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">resolution</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">512</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">2048</span><span class="p">,</span> <span class="mi">4096</span><span class="p">],</span>  <span class="c1"># LODs
-</span>        <span class="sh">"</span><span class="s">compression</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">BC7</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># GPU-friendly
-</span>        <span class="sh">"</span><span class="s">channels</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">albedo</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RGB + Alpha</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">normal</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RG (reconstructed B)</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">orm</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">R=AO, G=Rough, B=Metal</span><span class="sh">"</span>
-        <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">optimization</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">atlas_packing</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">power_of_two</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">mipmaps</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">pregenerated</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="web--mobile-pipeline">Web &amp; Mobile Pipeline</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Responsive Web Export
-</span><span class="n">web_pipeline</span> <span class="o">=</span> <span class="nc">ResponsiveExporter</span><span class="p">()</span>
-
-<span class="c1"># Generate all required formats automatically
-</span><span class="n">web_pipeline</span><span class="p">.</span><span class="nf">export</span><span class="p">(</span>
-    <span class="n">image</span><span class="o">=</span><span class="n">ai_generation</span><span class="p">,</span>
-    <span class="n">formats</span><span class="o">=</span><span class="p">{</span>
-        <span class="sh">"</span><span class="s">modern</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">avif</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">webp</span><span class="sh">"</span><span class="p">],</span>  <span class="c1"># Next-gen
-</span>        <span class="sh">"</span><span class="s">fallback</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">],</span>         <span class="c1"># Compatibility
-</span>        <span class="sh">"</span><span class="s">sizes</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">320</span><span class="p">,</span> <span class="mi">768</span><span class="p">,</span> <span class="mi">1024</span><span class="p">,</span> <span class="mi">1920</span><span class="p">,</span> <span class="mi">3840</span><span class="p">],</span>
-        <span class="sh">"</span><span class="s">pixel_density</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>    <span class="c1"># Retina support
-</span>    <span class="p">},</span>
-    <span class="n">output_pattern</span><span class="o">=</span><span class="sh">"</span><span class="s">{name}-{width}w-{density}x.{format}</span><span class="sh">"</span>
-<span class="p">)</span>
-
-<span class="c1"># Generates srcset-ready images:
-# hero-320w-1x.avif, hero-320w-2x.avif, etc.
-</span></code></pre></div></div>
-
-<h2 id="future-of-diffusion-outputs">Future of Diffusion Outputs</h2>
-
-<p>As diffusion models evolve, new output formats and modalities emerge. Understanding trends helps future-proof your pipeline.</p>
-
-<div class="code-example">
-  <p><strong>Diffusion Evolution</strong>: From discrete modalities to unified multi-modal outputs</p>
-</div>
-
-<h3 id="emerging-format-adoption-timeline">Emerging Format Adoption Timeline</h3>
+<p>When in doubt, decide by your single highest priority — quality, size, or compatibility — then read across:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Format</th>
-      <th>Status</th>
-      <th>When to Adopt</th>
-      <th>Why It Matters</th>
+      <th>Priority</th>
+      <th>Image</th>
+      <th>Video</th>
+      <th>Audio</th>
+      <th>3D</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>AVIF</strong></td>
-      <td>Ready Now</td>
-      <td>Today</td>
-      <td>50% smaller, HDR support</td>
+      <td>Maximum quality</td>
+      <td>PNG-16 / EXR</td>
+      <td>ProRes 4444 / DNxHR</td>
+      <td>WAV 32-bit float</td>
+      <td>USD / FBX with textures</td>
     </tr>
     <tr>
-      <td><strong>JXL</strong></td>
-      <td>Almost There</td>
-      <td>2024 Q4</td>
-      <td>JPEG replacement</td>
+      <td>Smallest size</td>
+      <td>AVIF &gt; WebP &gt; JPEG</td>
+      <td>AV1 &gt; H.265 &gt; H.264</td>
+      <td>Opus &gt; AAC &gt; MP3</td>
+      <td>Draco-compressed glTF / PLY</td>
     </tr>
     <tr>
-      <td><strong>Gaussian Splats</strong></td>
-      <td>Experimental</td>
-      <td>For R&amp;D</td>
-      <td>Real-time 3D revolution</td>
-    </tr>
-    <tr>
-      <td><strong>Neural Fields</strong></td>
-      <td>Research</td>
-      <td>Watch closely</td>
-      <td>Scene representation</td>
-    </tr>
-    <tr>
-      <td><strong>WebGPU</strong></td>
-      <td>Emerging</td>
-      <td>2025</td>
-      <td>Browser 3D acceleration</td>
-    </tr>
-    <tr>
-      <td><strong>OpenUSD</strong></td>
-      <td>Industry Standard</td>
-      <td>ASAP for 3D</td>
-      <td>Pixar’s universal format</td>
+      <td>Maximum compatibility</td>
+      <td>JPEG (q85)</td>
+      <td>H.264 MP4</td>
+      <td>MP3 192 kbps</td>
+      <td>OBJ + MTL</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="preparing-your-pipeline">Preparing Your Pipeline</h3>
+<p>A single high-resolution master can feed every target: keep one lossless original, then derive platform-specific exports (resized, re-encoded) from it rather than re-generating. For a web gallery, generate AVIF/WebP with a JPEG fallback at several widths for a responsive <code class="language-plaintext highlighter-rouge">srcset</code>.</p>
 
-<div class="code-example">
-  <p><strong>Smart Move</strong>: Build format-agnostic pipelines today</p>
-</div>
+<h3 id="output-targets-by-platform">Output Targets by Platform</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Future-Proof Pipeline Architecture
-</span><span class="k">class</span> <span class="nc">FormatAgnosticPipeline</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Register current and future formats
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">formats</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-                <span class="sh">"</span><span class="s">current</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">jpeg</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">png</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">webp</span><span class="sh">"</span><span class="p">],</span>
-                <span class="sh">"</span><span class="s">emerging</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">avif</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">jxl</span><span class="sh">"</span><span class="p">],</span>
-                <span class="sh">"</span><span class="s">future</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">neural_image_format</span><span class="sh">"</span><span class="p">]</span>
-            <span class="p">},</span>
-            <span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-                <span class="sh">"</span><span class="s">current</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">obj</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">fbx</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">gltf</span><span class="sh">"</span><span class="p">],</span>
-                <span class="sh">"</span><span class="s">emerging</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">usd</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">gaussian_splat</span><span class="sh">"</span><span class="p">],</span>
-                <span class="sh">"</span><span class="s">future</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">neural_radiance_format</span><span class="sh">"</span><span class="p">]</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">export</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-        <span class="c1"># Automatically use best available format
-</span>        <span class="nb">format</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">select_optimal_format</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-        
-        <span class="c1"># Fallback chain for compatibility
-</span>        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">export_to</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">FormatNotSupported</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">export_to</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_fallback</span><span class="p">(</span><span class="nb">format</span><span class="p">))</span>
+<table>
+  <thead>
+    <tr>
+      <th>Modality</th>
+      <th>Web</th>
+      <th>Print / production</th>
+      <th>Social</th>
+      <th>Game / engine</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Image</td>
+      <td>WebP / AVIF, progressive</td>
+      <td>PNG-16 / TIFF, color profile embedded</td>
+      <td>JPEG 85%, platform dimensions</td>
+      <td>PNG / packed PBR maps</td>
+    </tr>
+    <tr>
+      <td>Video</td>
+      <td>WebM VP9</td>
+      <td>ProRes / DNxHR</td>
+      <td>MP4 H.264</td>
+      <td>Image sequence + audio</td>
+    </tr>
+    <tr>
+      <td>Audio</td>
+      <td>MP3 / AAC 128-192 kbps</td>
+      <td>WAV 24-bit, 48 kHz</td>
+      <td>MP3, normalized</td>
+      <td>OGG Vorbis, loopable</td>
+    </tr>
+    <tr>
+      <td>3D</td>
+      <td>glTF + Draco</td>
+      <td>USD / Alembic</td>
+      <td>—</td>
+      <td>FBX with textures</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Your pipeline stays relevant as formats evolve
-</span></code></pre></div></div>
+<h2 id="post-processing-diffusion-outputs">Post-Processing Diffusion Outputs</h2>
 
-<h3 id="the-neural-future">The Neural Future</h3>
+<p>A raw generation is rarely the final deliverable. A light, modality-aware finishing pass cleans up denoising artifacts without overworking the result.</p>
 
-<div class="code-example">
-  <p><strong>Mind-Bending</strong>: Formats that learn and adapt</p>
-</div>
+<p><strong>Images</strong> — subtle is the rule. A small vibrance/contrast lift (5-10%) and resolution-aware sharpening (unsharp mask only above ~2K) is usually enough. Only run a denoise pass if you generated at high CFG, which tends to add grain.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Coming Soon: Neural Compression
-</span><span class="n">future_tech</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">neural_compression</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">concept</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">AI learns optimal compression per image</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">90% smaller than JPEG at better quality</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">timeline</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">2025-2026</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">semantic_formats</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">concept</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Store meaning, not pixels</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Infinite resolution, tiny files</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">timeline</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">2026+</span><span class="sh">"</span>
-    <span class="p">},</span>
-    <span class="sh">"</span><span class="s">holographic_formats</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">concept</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Full light field capture</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">benefit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">True 3D from any angle</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">timeline</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">2025+</span><span class="sh">"</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p><strong>Video</strong> — stabilize to remove AI jitter, interpolate up to 24-30 fps (RIFE/FILM), then color-grade with a LUT and add light film grain for cohesion. Sync and mix audio last with headroom to spare.</p>
 
-<h2 id="diffusion-output-best-practices">Diffusion Output Best Practices</h2>
+<p><strong>Audio</strong> — a standard mastering chain (gentle EQ → compression → limiting → loudness normalization to ~-14 LUFS) takes a raw generation to delivery quality. Keep a 24-bit WAV master and export compressed copies from it.</p>
 
-<div class="code-example">
-  <p><strong>Universal Truths</strong>: Principles that apply across all diffusion modalities</p>
-</div>
+<h3 id="metadata-make-outputs-reproducible">Metadata: Make Outputs Reproducible</h3>
 
-<h3 id="core-diffusion-principles">Core Diffusion Principles</h3>
-
-<h4 id="1-preserve-latent-space-quality">1. Preserve Latent Space Quality</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Diffusion models work in latent space
-</span><span class="n">diffusion_quality</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Preserve semantic embeddings</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Maintain VAE precision (16-bit+)</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">audio</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Keep spectral resolution</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">video</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Preserve temporal coherence</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Maintain geometric accuracy</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="2-understand-your-decoders">2. Understand Your Decoders</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Each modality uses different decoders
-</span><span class="n">decoders</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Token decoder → Text formatter</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">image</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">VAE decoder → Pixel space</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">audio</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Vocoder → Waveform</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">video</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Frame decoder → Sequence</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">3d</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Geometry decoder → Mesh/Points</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="3-diffusion-specific-metadata">3. Diffusion-Specific Metadata</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Essential diffusion parameters to preserve
-</span><span class="n">diffusion_metadata</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">"</span><span class="s">num_inference_steps</span><span class="sh">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">guidance_scale</span><span class="sh">"</span><span class="p">:</span> <span class="mf">7.5</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">DPMSolverMultistep</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">latent_shape</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">conditioning</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">prompt_embeddings</span><span class="sh">"</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="diffusion-platform-reference">Diffusion Platform Reference</h3>
-
-<div class="code-example">
-  <p><strong>Quick Reference</strong>: Output requirements by diffusion type and platform</p>
-</div>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">Text Diffusion Outputs</span><span class="pi">:</span>
-  <span class="na">API Response</span><span class="pi">:</span> <span class="s">JSON with embeddings</span>
-  <span class="na">Documentation</span><span class="pi">:</span> <span class="s">Markdown with metadata</span>
-  <span class="na">Code Generation</span><span class="pi">:</span> <span class="s">Language-specific formatting</span>
-  <span class="na">Chat Interface</span><span class="pi">:</span> <span class="s">Streaming text chunks</span>
-
-<span class="na">Image Diffusion Outputs</span><span class="pi">:</span>
-  <span class="na">Web Gallery</span><span class="pi">:</span> <span class="s">WebP/AVIF, progressive loading</span>
-  <span class="na">Print</span><span class="pi">:</span> <span class="s">PNG-16/TIFF, embed color profile</span>
-  <span class="na">Social</span><span class="pi">:</span> <span class="s">JPEG 85%, platform dimensions</span>
-  <span class="na">Professional</span><span class="pi">:</span> <span class="s">EXR with latent data</span>
-
-<span class="na">Audio Diffusion Outputs</span><span class="pi">:</span>
-  <span class="na">Streaming</span><span class="pi">:</span> <span class="s">MP3/AAC, 128-192kbps</span>
-  <span class="na">Production</span><span class="pi">:</span> <span class="s">WAV 24-bit, 48kHz</span>
-  <span class="na">Game Assets</span><span class="pi">:</span> <span class="s">OGG Vorbis, loopable</span>
-  <span class="na">Podcast</span><span class="pi">:</span> <span class="s">MP3 192kbps, normalized</span>
-
-<span class="na">Video Diffusion Outputs</span><span class="pi">:</span>
-  <span class="na">Social Media</span><span class="pi">:</span> <span class="s">MP4 H.264, platform specs</span>
-  <span class="na">Professional</span><span class="pi">:</span> <span class="s">ProRes/DNxHR</span>
-  <span class="na">Web</span><span class="pi">:</span> <span class="s">WebM VP9, adaptive bitrate</span>
-  <span class="na">Game Cutscenes</span><span class="pi">:</span> <span class="s">Image sequence + audio</span>
-
-<span class="na">3D Diffusion Outputs</span><span class="pi">:</span>
-  <span class="na">Real-time</span><span class="pi">:</span> <span class="s">GLTF with Draco</span>
-  <span class="na">Editing</span><span class="pi">:</span> <span class="s">FBX with textures</span>
-  <span class="na">Web Viewer</span><span class="pi">:</span> <span class="s">Gaussian splats</span>
-  <span class="na">Production</span><span class="pi">:</span> <span class="s">USD/Alembic</span>
-</code></pre></div></div>
-
-<h2 id="mastering-diffusion-outputs-your-journey">Mastering Diffusion Outputs: Your Journey</h2>
-
-<div class="code-example">
-  <p><strong>Next Steps</strong>: Apply diffusion principles across all your generative work</p>
-</div>
-
-<h3 id="by-modality">By Modality:</h3>
-
-<ol>
-  <li><strong>Text Diffusion</strong>: Experiment with Gemini’s structured outputs, explore format-preserving generation</li>
-  <li><strong>Image Diffusion</strong>: Master latent space preservation, optimize VAE settings</li>
-  <li><strong>Audio Diffusion</strong>: Understand spectrogram artifacts, perfect your vocoder choices</li>
-  <li><strong>Video Diffusion</strong>: Balance temporal coherence with quality, explore frame interpolation</li>
-  <li><strong>3D Diffusion</strong>: Compare point cloud vs mesh outputs, test real-time formats</li>
-</ol>
-
-<h3 id="universal-skills">Universal Skills:</h3>
+<p>The single most valuable post-step is recording how an output was made. Months later, “how did I generate this?” is unanswerable without it. Embed the generation settings in the file (PNG text chunks, EXIF, or XMP) <strong>and</strong> write a JSON sidecar as a durable backup. Capture at minimum:</p>
 
 <ul>
-  <li><strong>Latent Space Understanding</strong>: The key to all diffusion outputs</li>
-  <li><strong>Decoder Optimization</strong>: Each modality’s final quality gate</li>
-  <li><strong>Metadata Preservation</strong>: Track your diffusion parameters</li>
-  <li><strong>Cross-Modal Workflows</strong>: Combine text + image, audio + video</li>
+  <li>Prompt and negative prompt</li>
+  <li>Model name and hash, plus any LoRAs/VAE</li>
+  <li>Sampler, scheduler, steps, CFG/guidance, seed, and resolution</li>
+  <li>Workflow tool and version (and the workflow file itself for ComfyUI)</li>
 </ul>
 
-<p>Remember: <strong>All diffusion models share core principles</strong> – master these, and you’ll excel across every modality.</p>
+<p>ComfyUI already embeds the full workflow graph in saved PNGs by default — preserve that and you can drag the image back into ComfyUI to recover the exact graph.</p>
+
+<h2 id="real-time-and-streaming-outputs">Real-Time and Streaming Outputs</h2>
+
+<p>Because diffusion is iterative, you can decode and display intermediate latents during generation — useful for live previews, art-stream overlays, and client demos. The pattern is to decode a low-resolution preview every few steps and push it over a WebSocket, then send the full-quality image when sampling completes. LCM/Turbo models (1-8 steps) make this responsive enough for interactive use; see <a href="advanced-techniques.html">Advanced Techniques</a> for the few-step methods behind real-time generation.</p>
+
+<h2 id="industry-specific-export-notes">Industry-Specific Export Notes</h2>
+
+<p>Different deliverables have hard requirements that a generic export will not meet:</p>
+
+<ul>
+  <li><strong>Film / VFX</strong> — multi-pass EXR (beauty, depth, motion, normals, cryptomatte) at 32-bit linear, delivered as a DPX/EXR sequence in a managed color space (e.g. ACEScg). Single flattened PNGs are not enough for compositing.</li>
+  <li><strong>Game development</strong> — a full PBR texture set (albedo, normal, packed ORM) at power-of-two resolutions with mipmaps, exported in a GPU-friendly compression (BC7). Provide LOD resolutions (512-4096) and pack atlases where possible.</li>
+  <li><strong>Web / mobile</strong> — responsive <code class="language-plaintext highlighter-rouge">srcset</code> exports: AVIF/WebP with a JPEG fallback, at multiple widths and pixel densities, named so the markup can select per device.</li>
+</ul>
+
+<h2 id="future-of-diffusion-outputs">Future of Diffusion Outputs</h2>
+
+<p>The output landscape is still moving. A few trends worth tracking:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Trend</th>
+      <th>Status</th>
+      <th>Why it matters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AVIF</td>
+      <td>Production-ready</td>
+      <td>~50% smaller than JPEG with HDR; safe to adopt now</td>
+    </tr>
+    <tr>
+      <td>JPEG XL</td>
+      <td>Stalled browser support</td>
+      <td>Strong format technically, but archival-only for now</td>
+    </tr>
+    <tr>
+      <td>Gaussian splatting</td>
+      <td>Maturing fast</td>
+      <td>Real-time, view-dependent 3D on consumer hardware</td>
+    </tr>
+    <tr>
+      <td>OpenUSD</td>
+      <td>Industry standard for 3D</td>
+      <td>Pixar’s interchange format; the safe long-term 3D choice</td>
+    </tr>
+    <tr>
+      <td>WebGPU</td>
+      <td>Emerging</td>
+      <td>Browser-native GPU access for in-page 3D and inference</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The durable strategy is <strong>format-agnostic pipelines</strong>: keep a high-quality master, generate target formats on demand, and add a fallback chain so a new format slots in without reworking everything. Longer-horizon ideas — neural/learned compression and “semantic” formats that store meaning rather than pixels — are research-stage; design so you can adopt them later, but don’t depend on them today.</p>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
 <div class="takeaway-card">
   <ul>
-    <li><strong>One principle, every medium.</strong> Noise → conditioned denoising → latent → decoder applies whether the output is text, image, audio, video, or 3D — only the conditioning and decoder change.</li>
+    <li><strong>One principle, every medium.</strong> Noise → conditioned denoising → latent → decoder applies across image, audio, video, and 3D (and experimentally, text) — only the conditioning and decoder change.</li>
     <li><strong>The decoder is the final quality gate.</strong> Match it to the modality (image VAE, audio vocoder, mesh extractor) and pick the right export format for your destination.</li>
     <li><strong>Temporal/structural coherence is the hard part</strong> for video and 3D — frame interpolation, motion modules, and consistency techniques exist to address it.</li>
     <li><strong>Preserve metadata.</strong> Recording seeds, prompts, and parameters makes outputs reproducible and workflows debuggable.</li>

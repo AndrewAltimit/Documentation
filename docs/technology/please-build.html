@@ -1893,10 +1893,8 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">High-performance polyglot build system for monorepos</p>
 </div>
 
-<!-- Custom styles are now loaded via main.scss -->
-
 <div class="intro-card">
-  <p class="lead-text">Please Build is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This guide covers everything from basic setup to advanced remote execution.</p>
+  <p class="lead-text">Please (the <code>plz</code> command) is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This guide covers everything from basic setup to advanced remote execution.</p>
 </div>
 
 <div class="key-insights">
@@ -1939,16 +1937,84 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="key-features">Key Features</h2>
 
-<ul>
-  <li><strong>Language Agnostic</strong>: Supports Go, Python, Java, C++, JavaScript, Rust, and more out of the box</li>
-  <li><strong>Hermetic Builds</strong>: Ensures reproducible builds by isolating build environments</li>
-  <li><strong>Parallel Execution</strong>: Automatically parallelizes independent build steps across available cores</li>
-  <li><strong>Incremental Builds</strong>: Content-addressed caching ensures minimal rebuilds</li>
-  <li><strong>Remote Execution</strong>: Distribute builds across multiple machines for massive speedups</li>
-  <li><strong>Extensible</strong>: Write custom build rules in Python-like Starlark language</li>
-  <li><strong>Cross-compilation</strong>: Build for multiple platforms from a single machine</li>
-  <li><strong>Build Graph Visualization</strong>: Understand dependencies with interactive graphs</li>
-</ul>
+<div class="command-grid">
+  <div class="nav-card">
+    <h4><i class="fas fa-language"></i> Language Agnostic</h4>
+    <p>First-class rules for Go, Python, Java, C++, JavaScript, and Rust, with custom rules for anything else.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-cube"></i> Hermetic Builds</h4>
+    <p>Each action runs in an isolated sandbox, so the same inputs always produce the same outputs.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-bolt"></i> Parallel &amp; Incremental</h4>
+    <p>Independent targets build concurrently; content-addressed caching rebuilds only what changed.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-network-wired"></i> Remote Execution</h4>
+    <p>Fan builds out across a worker pool and share a remote cache for team-wide speedups.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-puzzle-piece"></i> Extensible</h4>
+    <p>Write custom rules in <code>build_defs</code> using a Python-like dialect (Starlark-style).</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-diagram-project"></i> Queryable Graph</h4>
+    <p>Inspect, visualize, and reason about dependencies with <code>plz query</code>.</p>
+  </div>
+</div>
+
+<h3 id="how-it-compares">How it compares</h3>
+
+<p>Please occupies the same niche as Bazel and Buck — correct, cached, graph-driven builds — but trades some of Bazel’s ecosystem breadth for a gentler learning curve.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Please</th>
+      <th>Bazel</th>
+      <th>Native tools (<code class="language-plaintext highlighter-rouge">go</code>/<code class="language-plaintext highlighter-rouge">npm</code>/<code class="language-plaintext highlighter-rouge">cargo</code>)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Sweet spot</strong></td>
+      <td>Polyglot monorepos</td>
+      <td>Very large polyglot monorepos</td>
+      <td>Single-language projects</td>
+    </tr>
+    <tr>
+      <td><strong>Learning curve</strong></td>
+      <td>Moderate</td>
+      <td>Steep</td>
+      <td>Low</td>
+    </tr>
+    <tr>
+      <td><strong>Hermeticity</strong></td>
+      <td>Yes (sandboxed)</td>
+      <td>Yes (sandboxed)</td>
+      <td>No (relies on local env)</td>
+    </tr>
+    <tr>
+      <td><strong>Remote cache / exec</strong></td>
+      <td>Built-in (REAPI)</td>
+      <td>Built-in (REAPI)</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td><strong>Rule language</strong></td>
+      <td>Python-like build defs</td>
+      <td>Starlark</td>
+      <td>N/A</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tip-card">
+  <h4>Both Please and Bazel speak REAPI</h4>
+  <p>Remote caching and execution use the <strong>Remote Execution API</strong> standard, so Please can share a cache/executor backend (such as BuildBarn or BuildBuddy) with other REAPI-compatible build tools.</p>
+</div>
 
 <h2 id="installation">Installation</h2>
 
@@ -1957,9 +2023,14 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Latest stable version</span>
 curl <span class="nt">-sSfL</span> https://get.please.build | bash
 
-<span class="c"># Or with specific version</span>
+<span class="c"># Or pin a specific version (recommended for reproducibility)</span>
 curl <span class="nt">-sSfL</span> https://get.please.build | bash <span class="nt">-s</span> <span class="nt">--</span> <span class="nt">--version</span><span class="o">=</span>17.8.0
 </code></pre></div></div>
+
+<div class="tip-card">
+  <h4>Pin the version</h4>
+  <p>Pin a specific release here and in <code>.plzconfig</code> — check the <a href="https://github.com/thought-machine/please/releases">releases page</a> for the current one. Pinning is what keeps every machine on an identical <code>plz</code>.</p>
+</div>
 
 <h3 id="alternative-installation-methods">Alternative Installation Methods</h3>
 
@@ -1986,21 +2057,27 @@ go <span class="nb">install </span>github.com/thought-machine/please@latest
 
 <h3 id="creating-a-new-project">Creating a New Project</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize a new Please project</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize Please in the current repository</span>
 plz init
-
-<span class="c"># With templates for specific languages</span>
-plz init <span class="nt">--template</span><span class="o">=</span>go     <span class="c"># Go project</span>
-plz init <span class="nt">--template</span><span class="o">=</span>python <span class="c"># Python project</span>
-plz init <span class="nt">--template</span><span class="o">=</span>java   <span class="c"># Java project</span>
 </code></pre></div></div>
 
 <p>This creates:</p>
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">.plzconfig</code> - Main configuration file</li>
-  <li><code class="language-plaintext highlighter-rouge">BUILD</code> - Root build file</li>
-  <li><code class="language-plaintext highlighter-rouge">.gitignore</code> - With Please-specific entries</li>
+  <li><code class="language-plaintext highlighter-rouge">.plzconfig</code> — the main configuration file at the repo root</li>
+  <li><code class="language-plaintext highlighter-rouge">pleasew</code> — a wrapper script that bootstraps the pinned Please version, so contributors and CI don’t need Please pre-installed (commit it and run <code class="language-plaintext highlighter-rouge">./pleasew build //...</code>)</li>
 </ul>
+
+<p>Language support is added through <strong>plugins</strong> rather than templates. Pull in the rules for a language with:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz init plugin go
+plz init plugin python
+plz init plugin java
+</code></pre></div></div>
+
+<div class="tip-card">
+  <h4>Plugins, not templates</h4>
+  <p>Older guides reference per-language <code>plz init --template=…</code> flags; current Please uses the plugin system above. Check <code>plz init --help</code> for the options your installed version supports.</p>
+</div>
 
 <h2 id="configuration">Configuration</h2>
 
@@ -2106,6 +2183,11 @@ plz init <span class="nt">--template</span><span class="o">=</span>java   <span 
 <span class="p">)</span>
 </code></pre></div></div>
 
+<div class="tip-card">
+  <h4>Hermeticity gotcha</h4>
+  <p>Because builds run in a sandbox, a target can only see files it explicitly declares as <code>srcs</code> or <code>deps</code>. A build that "works on my machine" but fails under Please is almost always reading an undeclared file. List every input — that strictness is exactly what makes the build reproducible.</p>
+</div>
+
 <h3 id="cross-language-dependencies">Cross-Language Dependencies</h3>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Protocol buffers used by multiple languages
@@ -2176,8 +2258,8 @@ plz <span class="nb">test</span> //..._test
 <span class="c"># Run tests with specific label</span>
 plz <span class="nb">test</span> <span class="nt">--include</span> integration
 
-<span class="c"># Run tests in parallel</span>
-plz <span class="nb">test</span> <span class="nt">--num_test_runs</span><span class="o">=</span>10
+<span class="c"># Run each test multiple times (e.g. to flush out flaky tests)</span>
+plz <span class="nb">test</span> //src:unit_tests <span class="nt">--num_runs</span><span class="o">=</span>10
 
 <span class="c"># Generate coverage report</span>
 plz cover //src:unit_tests
@@ -2208,20 +2290,22 @@ plz cover //src:unit_tests
     <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
     
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install Please</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">curl -sSfL https://get.please.build | bash</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">curl -sSfL https://get.please.build | bash</span>
+        <span class="s"># Make plz available to every subsequent step (PATH set with `export`</span>
+        <span class="s"># only survives within a single `run:` block).</span>
+        <span class="s">echo "$HOME/.please/bin" &gt;&gt; "$GITHUB_PATH"</span>
     
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">export PATH="$HOME/.please/bin:$PATH"</span>
-        <span class="s">plz build //...</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">plz build //...</span>
     
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Test</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">plz test //... --detailed_tests</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">plz test //...</span>
     
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Coverage</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">plz cover --coverage_report=xml //...</span>
+      <span class="na">run</span><span class="pi">:</span> <span class="s">plz cover //... --coverage_results_file=cover.xml</span>
     
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">codecov/codecov-action@v3</span>
+    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">codecov/codecov-action@v4</span>
       <span class="na">with</span><span class="pi">:</span>
         <span class="na">file</span><span class="pi">:</span> <span class="s">./cover.xml</span>
 </code></pre></div></div>
@@ -2244,11 +2328,17 @@ plz cover //src:unit_tests
 
 <span class="na">test</span><span class="pi">:</span>
   <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">plz test //... --log_file=test.log</span>
+    <span class="pi">-</span> <span class="s">plz test //...</span>
   <span class="na">artifacts</span><span class="pi">:</span>
     <span class="na">reports</span><span class="pi">:</span>
-      <span class="na">junit</span><span class="pi">:</span> <span class="s">test.log</span>
+      <span class="c1"># Please writes combined results in xUnit/JUnit format here by default.</span>
+      <span class="na">junit</span><span class="pi">:</span> <span class="s">plz-out/log/test_results.xml</span>
 </code></pre></div></div>
+
+<div class="tip-card">
+  <h4>Pin the version in CI</h4>
+  <p>The <code>version</code> field in <code>.plzconfig</code> makes Please self-bootstrap to that exact release on every machine, so the bootstrap script in CI and every developer's laptop all run the same <code>plz</code>. Combined with a shared remote cache, this is what makes "it builds the same everywhere" true rather than aspirational.</p>
+</div>
 
 <h3 id="remote-caching-for-ci">Remote Caching for CI</h3>
 
@@ -2402,7 +2492,7 @@ plz query alltargets <span class="nt">--include</span> <span class="nb">test</sp
   <li><strong>Use Remote Caching</strong>: Share build artifacts across team</li>
   <li><strong>Minimize Dependencies</strong>: Keep build graphs shallow</li>
   <li><strong>Parallelize Tests</strong>: Use test sharding for large suites</li>
-  <li><strong>Profile Builds</strong>: <code class="language-plaintext highlighter-rouge">plz build --profile_file=profile.json</code></li>
+  <li><strong>Per-environment config</strong>: keep CI-specific overrides in <code class="language-plaintext highlighter-rouge">.plzconfig.ci</code> and select it with <code class="language-plaintext highlighter-rouge">plz build --profile=ci //...</code></li>
   <li><strong>Incremental Builds</strong>: Design rules for maximum incrementality</li>
 </ol>
 
@@ -2410,50 +2500,49 @@ plz query alltargets <span class="nt">--include</span> <span class="nb">test</sp
 
 <h3 id="common-issues">Common Issues</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clean build cache</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clean all cached outputs (forces a full rebuild next time)</span>
 plz clean
 
-<span class="c"># Rebuild specific target</span>
-plz build <span class="nt">--rebuild</span> //src:app
+<span class="c"># Clean and rebuild just one target</span>
+plz clean //src:app <span class="o">&amp;&amp;</span> plz build //src:app
 
-<span class="c"># Debug build rules</span>
-plz build //src:app <span class="nt">--debug</span>
+<span class="c"># Drop into a debugger for a failing test</span>
+plz <span class="nb">test</span> //src:app_test <span class="nt">--debug</span>
 
-<span class="c"># Show build output</span>
+<span class="c"># Stream full subprocess output instead of Please's summary view</span>
 plz build //src:app <span class="nt">--show_all_output</span>
 
-<span class="c"># Trace execution</span>
+<span class="c"># Record a Chrome-tracing timeline of the build</span>
 plz build //src:app <span class="nt">--trace_file</span><span class="o">=</span>trace.json
 </code></pre></div></div>
 
 <h3 id="build-reproducibility">Build Reproducibility</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Verify reproducible builds</span>
-plz build //src:app <span class="nt">--reproducible</span>
-<span class="nb">cp </span>plz-out/gen/src/app app1
+<p>Hermetic, content-addressed builds should be bit-for-bit reproducible: the same inputs produce the same output hash. You can verify this by building, clearing the cache, and rebuilding:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz build //src:app
+<span class="nb">sha256sum </span>plz-out/bin/src/app
+
 plz clean
-plz build //src:app <span class="nt">--reproducible</span>
-diff plz-out/gen/src/app app1  <span class="c"># Should be identical</span>
+plz build //src:app
+<span class="nb">sha256sum </span>plz-out/bin/src/app   <span class="c"># hash should match the first build</span>
 </code></pre></div></div>
 
 <h2 id="migration-guide">Migration Guide</h2>
 
 <h3 id="from-bazel">From Bazel</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel rule
+<p>Core rule names and the <code class="language-plaintext highlighter-rouge">//package:target</code> label syntax are deliberately close to Bazel’s, so simple targets often port verbatim:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel and Please both spell this the same way
 </span><span class="nf">cc_binary</span><span class="p">(</span>
     <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.cc</span><span class="sh">"</span><span class="p">],</span>
     <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
+</code></pre></div></div>
 
-<span class="c1"># Please equivalent
-</span><span class="nf">cc_binary</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.cc</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>  <span class="c1"># Almost identical!
-</span></code></pre></div></div>
+<p>The real differences are in the surrounding ecosystem: Bazel’s <code class="language-plaintext highlighter-rouge">WORKSPACE</code>/<code class="language-plaintext highlighter-rouge">MODULE.bazel</code> and <code class="language-plaintext highlighter-rouge">http_archive</code> become Please’s <code class="language-plaintext highlighter-rouge">.plzconfig</code> plus per-language rules like <code class="language-plaintext highlighter-rouge">pip_library</code> and <code class="language-plaintext highlighter-rouge">go_module</code>, and Please’s rule language is a Python-like dialect rather than strict Starlark. Expect to rewrite third-party dependency declarations rather than your own targets.</p>
 
 <h3 id="from-make">From Make</h3>
 
@@ -2481,7 +2570,7 @@ A: Yes! Please scales from single-file projects to massive monorepos.</p>
 A: Please has experimental Windows support via WSL2.</p>
 
 <p><strong>Q: How do I debug failing builds?</strong>
-A: Use <code class="language-plaintext highlighter-rouge">--debug</code> and <code class="language-plaintext highlighter-rouge">--show_all_output</code> flags, or check <code class="language-plaintext highlighter-rouge">plz-out/log/</code></p>
+A: Run with <code class="language-plaintext highlighter-rouge">--show_all_output</code> to see full subprocess logs, drop into a debugger on a failing test with <code class="language-plaintext highlighter-rouge">plz test //... --debug</code>, or inspect the per-target logs under <code class="language-plaintext highlighter-rouge">plz-out/log/</code>.</p>
 
 <p>For more FAQs, see the <a href="https://please.build/faq.html">official FAQ</a>.</p>
 

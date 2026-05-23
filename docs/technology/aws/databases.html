@@ -1968,6 +1968,21 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
+<p>The flowchart below captures the same decision as a series of questions, starting from the shape of your data and access pattern:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Start([What does your data look like?]) --&gt; Q1{Relational with&lt;br/&gt;JOINs and transactions?}
+    Q1 --&gt;|Yes| Q2{Need 3-5x throughput&lt;br/&gt;or auto-scaling storage?}
+    Q2 --&gt;|No| RDS[(RDS&lt;br/&gt;PostgreSQL / MySQL)]
+    Q2 --&gt;|Yes| Aurora[(Aurora)]
+    Q1 --&gt;|No| Q3{Access pattern?}
+    Q3 --&gt;|Key/value at scale| DDB[(DynamoDB)]
+    Q3 --&gt;|Sub-ms cache| EC[(ElastiCache&lt;br/&gt;Redis)]
+    Q3 --&gt;|Document / MongoDB| DocDB[(DocumentDB)]
+    Q3 --&gt;|Graph traversal| Neptune[(Neptune)]
+    Q3 --&gt;|Time-series| TS[(Timestream)]
+</code></pre>
+
 <hr />
 
 <h2 id="amazon-rds---managed-relational-databases">Amazon RDS - Managed Relational Databases</h2>
@@ -2290,6 +2305,17 @@ aws dynamodb query <span class="nt">--table-name</span> MyTable <span class="se"
   <li><strong>Mobile app</strong>: DynamoDB for user data + S3 for media</li>
   <li><strong>Analytics</strong>: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena</li>
 </ul>
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>Single-AZ production databases:</strong> A non-Multi-AZ RDS instance has no automatic failover. Enable Multi-AZ for any database you cannot afford to lose during a hardware or AZ failure.</li>
+    <li><strong>Public database access:</strong> Never set <code>PubliclyAccessible=true</code>. Place databases in private subnets and reach them from application servers or via a bastion / Session Manager.</li>
+    <li><strong>DynamoDB hot partitions:</strong> Concentrating traffic on a single partition key (for example a sequential timestamp) throttles throughput. Choose high-cardinality partition keys that spread load evenly.</li>
+    <li><strong>Provisioned capacity for spiky traffic:</strong> Provisioned mode throttles requests beyond the set capacity. Use On-Demand until your traffic pattern is well understood, then optimize.</li>
+    <li><strong>Caching without an eviction policy:</strong> An ElastiCache node with no <code>maxmemory-policy</code> can fill and fail writes. Set <code>allkeys-lru</code> (or similar) for cache workloads.</li>
+  </ul>
+</div>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 

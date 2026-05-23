@@ -1935,6 +1935,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The typical workflow: you create a PVC requesting storage, Kubernetes finds or creates a matching PV, and your pod mounts the volume.</p>
 
+<pre><code class="language-mermaid">flowchart LR
+    Pod[Pod] --&gt;|references| PVC[PersistentVolumeClaim&lt;br/&gt;'I need 10Gi fast SSD']
+    PVC --&gt;|selects| SC[StorageClass&lt;br/&gt;fast-ssd]
+    SC --&gt;|provisions via| CSI[CSI Driver]
+    CSI --&gt;|creates| PV[(PersistentVolume&lt;br/&gt;real disk)]
+    PVC -.bound to.-&gt; PV
+    PV -.mounted into.-&gt; Pod
+</code></pre>
+
+<p>With dynamic provisioning (the common case), you never create the PV by hand: the StorageClass and CSI driver create it on demand the moment a Pod claims the PVC.</p>
+
 <h3 id="container-storage-interface-csi">Container Storage Interface (CSI)</h3>
 
 <p>CSI is a standard interface that allows any storage system to work with Kubernetes. You typically do not implement CSI drivers yourself - you use drivers provided by storage vendors (AWS EBS, Google PD, Azure Disk, etc.).</p>
@@ -2436,6 +2447,17 @@ document.addEventListener('DOMContentLoaded', function () {
 </code></pre></div></div>
 
 <p><strong>What to monitor</strong>: Request rate, error rate, latency (the “RED” method), plus resource usage (CPU, memory, network).</p>
+
+<div class="notice--warning">
+  <h4>Common Pitfalls</h4>
+  <ul>
+    <li><strong>No memory limit:</strong> A pod without a memory limit can consume the node and trigger system-level OOM kills that take neighbors down with it. Always set a memory limit.</li>
+    <li><strong>CPU limits causing latency:</strong> Tight CPU limits throttle the container even when the node is idle. Set CPU <em>requests</em> for scheduling; be cautious with CPU <em>limits</em> on latency-sensitive services.</li>
+    <li><strong>Treating Secrets as encrypted:</strong> Kubernetes Secrets are only base64-encoded at rest by default. Enable encryption at rest (or an external vault) and restrict access with RBAC.</li>
+    <li><strong>ReadWriteMany on block storage:</strong> EBS/PD-backed volumes are ReadWriteOnce. RWX needs a file-based backend (EFS, NFS, CephFS) — a PVC requesting RWX against a block StorageClass stays Pending.</li>
+    <li><strong>Default StorageClass reclaim policy:</strong> A <code>Delete</code> reclaim policy destroys the underlying volume when the PVC is deleted. Use <code>Retain</code> for data you cannot afford to lose.</li>
+  </ul>
+</div>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
