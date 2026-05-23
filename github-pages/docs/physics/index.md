@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Physics Documentation Hub
+description: A reference wiki for physics — classical mechanics, quantum theory, relativity, statistical mechanics, and the frontiers, pairing rigorous math with physical intuition.
 hide_title: true
 toc: false  # Index pages typically don't need TOC
 ---

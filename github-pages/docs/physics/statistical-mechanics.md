@@ -702,45 +702,55 @@ hide_title: true
 
 ## Ideal Gases
 
+The ideal gas is the hydrogen atom of statistical mechanics — the one model simple enough to solve completely, yet rich enough to expose the deep difference between classical and quantum statistics. The single control parameter is how the thermal de Broglie wavelength $\lambda$ compares to the inter-particle spacing $n^{-1/3}$:
+
+- When $\lambda \ll n^{-1/3}$ (hot or dilute), wavepackets don't overlap and the gas behaves *classically*.
+- When $\lambda \gtrsim n^{-1/3}$ (cold or dense), wavepackets overlap and quantum statistics — Fermi or Bose — take over.
+
 ### Classical Ideal Gas
-Partition function:
-$$Z = \frac{V^N}{N!\lambda^{3N}}$$
+In the classical regime the partition function factorizes over particles, with the $1/N!$ Gibbs factor for indistinguishability:
 
-Where $\lambda = \sqrt{\frac{2\pi\hbar^2}{mk_BT}}$ is the thermal de Broglie wavelength.
+$$Z = \frac{V^N}{N!\lambda^{3N}}, \qquad \lambda = \sqrt{\frac{2\pi\hbar^2}{mk_BT}}.$$
 
-Equation of state: $PV = Nk_BT$
+Differentiating $\ln Z$ recovers the familiar equation of state $PV = Nk_BT$ — a reassuring check that microstate-counting reproduces 19th-century gas laws.
 
 ### Quantum Ideal Gases
 
+Once $\lambda \gtrsim n^{-1/3}$, the spin-statistics of the particles dominates, and fermions and bosons could hardly behave more differently.
+
 #### Fermi Gas
-At low temperature, forms a Fermi sphere in momentum space.
+The Pauli exclusion principle forbids two fermions from sharing a state, so even at $T = 0$ the particles stack up to the **Fermi energy**, filling a sphere in momentum space:
 
-Fermi energy: $E_F = \frac{\hbar^2}{2m}(3\pi^2n)^{2/3}$
+$$E_F = \frac{\hbar^2}{2m}(3\pi^2 n)^{2/3}.$$
 
-Specific heat at low T: $C_V \propto T$
+Only the thin shell within $\sim k_B T$ of $E_F$ can be excited, giving the characteristic *linear* low-temperature heat capacity $C_V \propto T$. This degeneracy pressure is what holds up white dwarfs and neutron stars against gravity.
 
 #### Bose Gas
-Below critical temperature:
-$$T_c = \frac{2\pi\hbar^2}{mk_B}\left(\frac{n}{2.612}\right)^{2/3}$$
+Bosons have the opposite tendency — they *favor* sharing a state. Below a critical temperature a macroscopic fraction of them collapses into the single ground state, forming a **Bose-Einstein condensate**:
 
-Bose-Einstein condensation occurs.
+$$T_c = \frac{2\pi\hbar^2}{mk_B}\left(\frac{n}{2.612}\right)^{2/3}.$$
+
+This is not ordinary condensation in real space but condensation in *momentum* space, first realized experimentally in dilute atomic gases in 1995.
 
 ## Interacting Systems
 
-### Virial Expansion
-For weakly interacting gas:
-$$\frac{PV}{Nk_BT} = 1 + B_2(T)n + B_3(T)n^2 + ...$$
+Interactions are where statistical mechanics gets hard — and interesting. Once particles influence each other, the partition function no longer factorizes, and exact solutions become rare. Two complementary strategies dominate: expand systematically in the *strength* of interactions (the virial expansion, good for dilute gases), or replace the many-body environment of each particle with a single *average* field (mean-field theory, good for capturing collective ordering).
 
-Second virial coefficient:
-$$B_2(T) = -\frac{1}{2V}\int (e^{-\beta u(r)} - 1)d^3r$$
+### Virial Expansion
+For a weakly interacting gas, corrections to the ideal-gas law come as a power series in density:
+
+$$\frac{PV}{Nk_BT} = 1 + B_2(T)n + B_3(T)n^2 + \dots$$
+
+The second virial coefficient $B_2$ measures the net effect of pairwise interactions — repulsive cores push it positive, attractive tails pull it negative:
+
+$$B_2(T) = -\frac{1}{2V}\int \left(e^{-\beta u(r)} - 1\right)d^3r.$$
 
 ### Mean Field Theory
-Approximate interactions by average field.
+Rather than track every pairwise interaction, mean-field theory lets each particle feel the *average* effect of all the others — a single self-consistent field. For the Ising model, each spin sees an effective field set by the average magnetization $m$ of its $z$ neighbors, giving the self-consistency equation
 
-Example - Ising model magnetization:
-$$m = \tanh\left(\frac{m z J}{k_B T}\right)$$
+$$m = \tanh\!\left(\frac{m z J}{k_B T}\right).$$
 
-Critical temperature: $T_c = \frac{zJ}{k_B}$
+This has only the trivial solution $m = 0$ at high temperature, but a nonzero (spontaneously magnetized) solution appears below the **critical temperature** $T_c = zJ/k_B$ — mean-field theory's prediction of a phase transition. It gets the *existence* of the transition right but the critical *exponents* wrong, because it ignores the fluctuations that dominate near $T_c$ — exactly what the renormalization group was invented to handle.
 
 ### Correlation Functions
 Two-point correlation:

@@ -182,12 +182,13 @@ Graduate-level, proof-oriented material. Each page frames its prerequisites and 
 
 ---
 
-## Highlights
+## Where This Site Goes Deep
 
-A few areas that go deeper than a typical reference:
+Most of the site is reference-grade, but a few areas go well past the usual cheat-sheet treatment. If you want to see what the documentation can do, start here:
 
-- **Generative AI**: Stable Diffusion 3 and FLUX architectures, flow matching, and production workflows
-- **Kubernetes**: Current production patterns — workloads, storage, operations, and advanced scheduling
-- **Git internals**: How commits, refs, and the object model actually work, plus security practices
-- **Quantum**: A theory-to-hardware path spanning quantum mechanics, algorithms, and cloud platforms
-- **Physics**: First-principles treatments from classical mechanics through quantum field theory
+- **Generative AI** — Stable Diffusion 3 and FLUX architectures, flow matching, and production workflows
+- **Kubernetes** — current production patterns: workloads, storage, operations, and advanced scheduling
+- **Git internals** — how commits, refs, and the object model actually work, plus security practices
+- **Quantum** — a theory-to-hardware path spanning quantum mechanics, algorithms, and cloud platforms
+- **Physics** — first-principles treatments from classical mechanics through quantum field theory
+- **Research hub** — proof-oriented pages on [learning theory](advanced/ai-mathematics/), [consensus](advanced/distributed-systems-theory/), and [quantum algorithms](advanced/quantum-algorithms-research/)

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Classical Mechanics
+description: Motion and forces from Newton's laws through the Lagrangian and Hamiltonian formulations — conservation laws, gravitation, chaos, and the bridge to quantum mechanics.
 hide_title: true
 toc: true
 toc_sticky: true

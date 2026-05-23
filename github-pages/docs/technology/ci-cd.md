@@ -77,11 +77,11 @@ flowchart LR
     GATE -->|manual = Delivery| PROD["Deploy to Production"]
     GATE -->|automatic = Deployment| PROD
     PROD --> MON["Monitor and Rollback if needed"]
-    style BUILD fill:#4facfe,color:#fff
-    style TEST fill:#4facfe,color:#fff
-    style SCAN fill:#4facfe,color:#fff
-    style STAGE fill:#00c9a7,color:#fff
-    style PROD fill:#00c9a7,color:#fff
+    style BUILD fill:#e3f2fd,stroke:#1565c0
+    style TEST fill:#e3f2fd,stroke:#1565c0
+    style SCAN fill:#e3f2fd,stroke:#1565c0
+    style STAGE fill:#e8f5e9,stroke:#2e7d32
+    style PROD fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ## CI/CD Crash Course (30 Minutes)

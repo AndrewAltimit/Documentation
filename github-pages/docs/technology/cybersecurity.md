@@ -289,8 +289,8 @@ flowchart TD
     N --> H["Host: patching, EDR, least privilege"]
     H --> APP["Application: input validation, authn/authz"]
     APP --> D["Data: encryption at rest & in transit"]
-    style A fill:#e74c3c,color:#fff
-    style D fill:#27ae60,color:#fff
+    style A fill:#ffebee,stroke:#c62828
+    style D fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ### Firewalls: Your First Line of Defense

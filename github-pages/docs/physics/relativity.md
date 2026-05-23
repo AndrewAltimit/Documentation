@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Relativity
+description: Special and general relativity — spacetime, time dilation, E=mc^2, curved geometry, black holes, and gravitational waves, from intuition to the field equations.
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
@@ -62,6 +63,23 @@ graph TD
     class MM,POST,LT,TD,LC,RS,EMC,ST sr;
     class EP,CURV,EFE,PRED gr;
 ```
+
+### What You'll Find on This Page
+
+| Section | What it covers |
+|---------|----------------|
+| [Special Relativity](#special-relativity) | The two postulates, Lorentz transformations, time dilation, length contraction, $E=mc^2$ |
+| [Four-Vectors](#four-vectors-and-tensor-notation) | Unifying space and time; energy-momentum as one object |
+| [General Relativity](#general-relativity) | The equivalence principle, curvature, and the Einstein field equations |
+| [Schwarzschild & Black Holes](#schwarzschild-solution) | The geometry around a mass; event horizons and time dilation |
+| [Predictions & Tests](#predictions-and-confirmations) | Mercury's precession, lensing, gravitational waves, GPS |
+| [Paradoxes](#paradoxes-and-resolutions) | The twin, ladder, and grandfather puzzles — and why none are real paradoxes |
+| [Graduate Formalism](#graduate-level-mathematical-formalism) | Tensors, the Riemann tensor, Kerr/FLRW solutions, black-hole thermodynamics (reference) |
+
+<div class="tip-card">
+  <h4>Level and prerequisites</h4>
+  <p>The conceptual core — postulates, time dilation, $E=mc^2$, gravity as curvature — needs only algebra and a willingness to abandon "common sense" about absolute time. The Lorentz transformations and four-vectors use a little linear algebra. The graduate formalism (tensor calculus, the Riemann tensor, exact black-hole solutions) is reference material and can be skipped on a first read. Read special relativity first; general relativity assumes it.</p>
+</div>
 
 ## Special Relativity
 
@@ -990,7 +1008,14 @@ $$\frac{d^2x^\mu}{d\tau^2} + \Gamma^\mu_{\alpha\beta} \frac{dx^\alpha}{d\tau}\fr
 
 Where Γ^μ_αβ are the Christoffel symbols describing the connection.
 
+<div class="tip-card">
+  <h4>The whole theory in one sentence</h4>
+  <p>John Wheeler distilled general relativity to its core: <em>"Spacetime tells matter how to move; matter tells spacetime how to curve."</em> The first half is the geodesic equation — free objects follow the straightest available paths through curved spacetime, which we perceive as gravity. The second half is the Einstein field equation — the stress-energy tensor $T_{\mu\nu}$ on the right sources the curvature on the left. Gravity is not a force pulling objects off straight lines; it is the geometry that <em>defines</em> what "straight" means. An orbiting planet and a tossed apple are both simply coasting, force-free, through a spacetime bent by mass.</p>
+</div>
+
 ## Predictions and Confirmations
+
+A theory earns trust by sticking its neck out. Relativity made bold, counterintuitive predictions decades before the technology existed to test them — and it has passed every test, often to extraordinary precision. The two lists below separate predictions of special relativity (high speeds) from those of general relativity (strong gravity).
 
 ### Special Relativity Predictions
 
@@ -1029,7 +1054,16 @@ Where Γ^μ_αβ are the Christoffel symbols describing the connection.
 ## Paradoxes and Resolutions
 
 ### Twin Paradox
-One twin travels at high speed and returns younger than the stationary twin. Resolution: The traveling twin experiences acceleration, breaking the symmetry.
+One twin travels at high speed and returns younger than the stationary twin. Resolution: The traveling twin experiences acceleration, breaking the symmetry — only the traveler changes inertial frames, so the situation was never symmetric.
+
+<div class="example-card">
+  <h4>Worked Example: how much younger?</h4>
+  <p>Suppose Alice flies to a star 4 light-years away at $v = 0.8c$ and returns, while Bob stays on Earth. At this speed the Lorentz factor is</p>
+  $$\gamma = \frac{1}{\sqrt{1 - 0.8^2}} = \frac{1}{\sqrt{0.36}} = 1.667.$$
+  <p>Bob measures the round trip as $\Delta t = 2 \times (4\ \text{ly}) / 0.8c = 10$ years. Alice's clock — her <em>proper time</em> along the traveling worldline — records</p>
+  $$\Delta\tau = \frac{\Delta t}{\gamma} = \frac{10\ \text{years}}{1.667} = 6\ \text{years}.$$
+  <p>Alice returns 4 years younger than Bob. There is no contradiction: Alice cannot turn the argument around, because she had to decelerate and reverse at the star, switching inertial frames, while Bob never did. The asymmetry is physical, not a matter of viewpoint.</p>
+</div>
 
 ### Ladder Paradox
 A ladder moving at high speed appears contracted and fits in a smaller garage. Resolution: Relativity of simultaneity - the front and back of the ladder don't enter simultaneously in all frames.

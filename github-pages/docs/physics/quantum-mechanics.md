@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Quantum Mechanics
+description: The theory of the microscopic world — wave functions, the uncertainty principle, the Schrödinger equation, entanglement, measurement, and the interpretations debate.
 hide_title: true
 toc: true
 toc_sticky: true
@@ -725,6 +726,20 @@ def vqe_iteration(hamiltonian, ansatz, params):
 - IonQ's algorithmic qubits: Error mitigation vs correction trade-offs
 
 ## Interpretations of Quantum Mechanics
+
+The mathematics of quantum mechanics is not in dispute — every interpretation makes the *same* experimental predictions. What they disagree about is what the formalism *means*: is the wave function a real physical object, or just a bookkeeping device for our knowledge? Does collapse actually happen, or only appear to? These are questions about the measurement problem (postulates 3 and 4 above), and they remain genuinely open. The table contrasts the major positions before the descriptions below.
+
+| Interpretation | Is the wave function real? | Does collapse happen? | Determinism | Notable feature |
+|----------------|---------------------------|-----------------------|-------------|-----------------|
+| Copenhagen | Epistemic / agnostic | Yes (on measurement) | No | The orthodox "textbook" view |
+| Many-Worlds | Yes | No — all branches persist | Yes | No collapse; the universe splits |
+| Pilot Wave (de Broglie–Bohm) | Yes, plus hidden particle positions | No | Yes (but nonlocal) | Definite trajectories restored |
+| QBism | No — it encodes an agent's beliefs | Belief update, not physical | No | Observer-centric, subjective |
+
+<div class="tip-card">
+  <h4>Why this debate persists</h4>
+  <p>Because all interpretations agree on every measurable outcome, no experiment yet devised can decisively choose between them — the disagreement is about ontology, not predictions. They are best judged on parsimony, how naturally they handle the measurement problem, and whether they can be extended to relativity and gravity. For doing physics you can stay agnostic; for understanding what quantum mechanics says about reality, the choice matters.</p>
+</div>
 
 ### Copenhagen Interpretation
 - Wave function collapse upon measurement

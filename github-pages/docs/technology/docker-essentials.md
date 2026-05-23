@@ -79,6 +79,20 @@ docker run --rm <image>
 docker run --name my-container <image>
 ```
 
+These flags combine freely. The ones you will reach for constantly:
+
+| Flag | Does | Typical use |
+|------|------|-------------|
+| `-d` | Detached (background) | Long-running services |
+| `-it` | Interactive + TTY | Shells and REPLs |
+| `-p host:container` | Publish a port | Expose a web server |
+| `-v host:container` | Mount a volume / bind dir | Persist data, live-reload code |
+| `-e KEY=value` | Set an environment variable | Config and secrets |
+| `--rm` | Auto-remove on exit | Throwaway/test containers |
+| `--name` | Assign a stable name | Reference without the ID |
+
+A common all-in-one invocation: `docker run -d --rm --name web -p 8080:80 -e ENV=prod nginx`.
+
 ### Managing Containers
 
 ```bash
@@ -177,6 +191,10 @@ docker search <term>
 ```
 
 ## Docker Compose
+
+<div class="notice--info">
+  <p><strong><code>docker compose</code> vs <code>docker-compose</code>.</strong> Modern Docker ships Compose v2 as a plugin invoked with a space — <code>docker compose up</code>. The hyphenated <code>docker-compose</code> is the legacy v1 binary, now end-of-life. The commands below are interchangeable in syntax; prefer the spaced form on current installs.</p>
+</div>
 
 ### Basic Operations
 

@@ -360,18 +360,25 @@ Alpaca demonstrated that smaller models could be fine-tuned to follow instructio
 
 ## Usage
 
+Once a model can generate fluent, contextually-aware text, the same capability spans a surprising range of practical work. Three categories dominate day-to-day use.
+
 ### Code Generation
 
-- Markdown
-- Terraform
-- Docker
-- Python
+LLMs trained on large code corpora are strong at *structured* text, where syntax is rigid and patterns repeat. They excel at boilerplate, translation between formats, and explaining unfamiliar code — though output still needs review, since models can produce plausible-looking but subtly wrong code.
+
+| Domain | Typical asks |
+|--------|--------------|
+| Application code (Python, JS, Go, ...) | Functions from a description, refactors, test scaffolding, bug explanations |
+| Infrastructure (Terraform, Docker, K8s) | Config templates, Dockerfiles, manifest skeletons |
+| Markup & docs (Markdown, HTML, SQL) | Tables, documentation, query drafting from plain English |
 
 ### Administrative Automation
 
-- Meeting content summarization
-- Email drafting
-- Creation of various business documents
+The same fluency handles routine knowledge work that is high-volume but low-stakes:
+
+- **Summarization** — condensing meetings, threads, or long documents into key points
+- **Drafting** — first-pass emails, reports, and business documents that a human then edits
+- **Transformation** — reformatting, tone adjustment, and translation between styles or languages
 
 ### Productivity
 
@@ -512,7 +519,7 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 The AI landscape has evolved dramatically:
 - **Multimodal Models**: GPT-4V, Gemini, and Claude 3 can process images, with video capabilities emerging
 - **Longer Context Windows**: Models now handle 100K-1M tokens (Claude 3: 200K, Gemini 1.5: 1M)
-- **Better Reasoning**: O1 and similar models show improved logical reasoning and math capabilities
+- **Better Reasoning**: A new class of "reasoning" models (OpenAI's o1/o3, DeepSeek-R1) spend extra inference-time compute on chained reasoning, sharply improving math and logic
 - **Open Source Progress**: Llama 3, Mistral, and others rival proprietary models
 - **AI Agents**: Systems that can use tools, browse the web, and complete complex tasks autonomously
 

@@ -739,23 +739,39 @@ hide_title: true
 
 ## Semiconductors
 
+Band theory delivers a strikingly simple classification of solids: it is not *how many* electrons a material has that decides whether it conducts, but *where the Fermi level sits relative to the band gap*. A partly filled band conducts (a metal); a filled band separated from the next empty band by a large gap insulates; a filled band separated by a *small* gap is a semiconductor — an insulator that thermal energy or doping can switch on. This single distinction underpins the entire electronics industry.
+
+| Class | Band filling | Gap $E_g$ | Conductivity vs. $T$ |
+|-------|--------------|-----------|----------------------|
+| Metal | Partly filled band | none (bands overlap) | decreases with $T$ |
+| Semiconductor | Filled valence band | small ($\sim 0.1$–$2$ eV) | increases with $T$ |
+| Insulator | Filled valence band | large ($\gtrsim 4$ eV) | negligible |
+
+<div class="insight-card">
+  <h4>Why semiconductors heat up into conductors</h4>
+  <p>In a metal, conductivity falls as temperature rises because lattice vibrations scatter the already-mobile electrons. A semiconductor does the opposite: its valence band is full and the conduction band empty, so it can only conduct once electrons are thermally promoted across the gap. The number of carriers grows exponentially as $e^{-E_g/2k_BT}$, swamping the scattering effect. That exponential sensitivity is exactly what makes a semiconductor a controllable switch.</p>
+</div>
+
 ### Band Structure
-- Valence band maximum (VBM)
-- Conduction band minimum (CBM)
-- Direct gap: VBM and CBM at same k-point
-- Indirect gap: VBM and CBM at different k-points
+The two band edges that matter are the **valence band maximum (VBM)** and the **conduction band minimum (CBM)**. Their relative position in momentum space sets the optical behavior:
+
+- **Direct gap** — VBM and CBM lie at the same $\mathbf{k}$. An electron can cross the gap by absorbing or emitting a single photon, so direct-gap materials (e.g. GaAs) make efficient LEDs and lasers.
+- **Indirect gap** — VBM and CBM lie at different $\mathbf{k}$. A photon alone cannot conserve momentum, so a phonon must assist; this makes silicon a poor light emitter despite being the workhorse of electronics.
 
 ### Carrier Statistics
-Intrinsic carrier concentration:
-$$n_i = \sqrt{N_c N_v} e^{-E_g/2k_BT}$$
+For an intrinsic (undoped) semiconductor, electrons and holes are created in pairs, and their equilibrium concentration is set by the Boltzmann factor for crossing the gap:
 
-Where $N_c$, $N_v$ are effective densities of states.
+$$n_i = \sqrt{N_c N_v}\, e^{-E_g/2k_BT}$$
+
+where $N_c$ and $N_v$ are the effective densities of states in the conduction and valence bands. The factor of $2$ in the exponent reflects that each promoted electron leaves a hole behind, so the carriers are shared between the two bands.
 
 ### Doping
-- n-type: Donors provide electrons
-- p-type: Acceptors provide holes
+Pure semiconductors carry too few intrinsic carriers to be useful. **Doping** — substituting a few-parts-per-million of a foreign atom — overwhelms the intrinsic population with carriers of one chosen sign:
 
-Mass action law: $np = n_i^2$
+- **n-type**: donor atoms (e.g. phosphorus in silicon) contribute extra electrons to the conduction band.
+- **p-type**: acceptor atoms (e.g. boron) accept electrons, leaving mobile holes in the valence band.
+
+Even when doped, the product of electron and hole concentrations is pinned by the **mass-action law**, $np = n_i^2$ — adding majority carriers necessarily suppresses minority carriers.
 
 ### p-n Junction
 Built-in potential:
@@ -772,47 +788,66 @@ $$W = \sqrt{\frac{2\epsilon_s V_{bi}}{e}\left(\frac{N_A + N_D}{N_A N_D}\right)}$
 
 ## Metals and Fermi Liquids
 
-### Drude Model
-Conductivity: $\sigma = \frac{ne^2\tau}{m}$
+Our picture of a metal evolved in three stages, each fixing a failure of the last: a classical gas of electrons (Drude), then a quantum gas obeying the Pauli principle (Sommerfeld), then an interacting fluid of "dressed" electrons (Landau). Each step kept the successes of the previous one while resolving a glaring discrepancy with experiment.
 
-Hall coefficient: $R_H = -\frac{1}{ne}$
+### Drude Model
+The earliest picture treats conduction electrons as a classical gas of point particles bouncing off the ions, with a mean time $\tau$ between collisions. It gets the form of Ohm's law right:
+
+$$\sigma = \frac{ne^2\tau}{m}, \qquad R_H = -\frac{1}{ne}.$$
+
+The Hall coefficient $R_H$ even gives the carrier density and sign correctly for simple metals. But Drude predicts a huge electronic contribution to the heat capacity that experiments flatly contradict — the model's fatal flaw.
 
 ### Sommerfeld Model
-Free electron gas with Fermi-Dirac statistics.
+The fix is quantum statistics. Electrons are fermions, so they fill states up to the **Fermi energy** rather than sharing energy classically:
 
-Fermi energy: $E_F = \frac{\hbar^2}{2m}(3\pi^2n)^{2/3}$
+$$E_F = \frac{\hbar^2}{2m}(3\pi^2 n)^{2/3}.$$
 
-Electronic specific heat: $C_V = \gamma T$ where $\gamma = \frac{\pi^2 k_B^2 g(E_F)}{3}$
+Only the thin shell of electrons within $\sim k_B T$ of $E_F$ can be thermally excited — the rest are Pauli-blocked. This is why the electronic heat capacity is small and *linear* in temperature, exactly as measured:
+
+$$C_V = \gamma T, \qquad \gamma = \frac{\pi^2 k_B^2 g(E_F)}{3}.$$
 
 ### Fermi Liquid Theory
-Quasiparticles with effective mass $m^*$ and interactions.
+Real electrons repel each other strongly, so why does the free-electron picture work at all? Landau's answer: interactions "dress" each electron into a **quasiparticle** — an electron carrying a cloud of disturbance in the surrounding sea — that behaves like a free particle with a renormalized effective mass $m^*$. The low-energy excitations remain in one-to-one correspondence with the free gas, which is why Sommerfeld's results survive. Residual interactions are encoded in the Landau parameters $f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'}$:
 
-Landau parameters describe quasiparticle interactions:
-$$\delta E = \sum_{k\sigma} \epsilon_k n_{k\sigma} + \frac{1}{2V}\sum_{kk'\sigma\sigma'} f_{kk'}^{\sigma\sigma'} n_{k\sigma} n_{k'\sigma'}$$
+$$\delta E = \sum_{\mathbf{k}\sigma} \epsilon_{\mathbf{k}} n_{\mathbf{k}\sigma} + \frac{1}{2V}\sum_{\mathbf{k}\mathbf{k}'\sigma\sigma'} f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'} n_{\mathbf{k}\sigma} n_{\mathbf{k}'\sigma'}.$$
 
 ## Magnetism
 
-### Paramagnetism
-Curie law: $\chi = \frac{C}{T}$ where $C = \frac{N\mu_0\mu_B^2 g^2 J(J+1)}{3k_B}$
+Magnetism is a purely quantum, purely collective effect — a classical system in thermal equilibrium cannot be magnetic at all (the Bohr–van Leeuwen theorem). The phenomena below differ in *how the atomic moments respond*: independently and weakly (paramagnetism), or by locking into collective order through exchange interactions (ferro- and antiferromagnetism).
 
-Pauli paramagnetism (metals): $\chi = \mu_0\mu_B^2 g(E_F)$
+| Order | Moment arrangement | Net moment | Hallmark temperature |
+|-------|--------------------|------------|----------------------|
+| Paramagnet | random, align weakly with field | zero at $H=0$ | none |
+| Ferromagnet | parallel | large, spontaneous | Curie $T_C$ |
+| Antiferromagnet | alternating up/down | zero (cancels) | Néel $T_N$ |
+
+### Paramagnetism
+Independent atomic moments align only weakly with an applied field, and thermal agitation fights that alignment — so the susceptibility falls off as $1/T$ (the **Curie law**):
+
+$$\chi = \frac{C}{T}, \qquad C = \frac{N\mu_0\mu_B^2 g^2 J(J+1)}{3k_B}.$$
+
+In a metal the story is different: only electrons near the Fermi surface can flip, giving a temperature-independent **Pauli paramagnetism**, $\chi = \mu_0\mu_B^2 g(E_F)$.
 
 ### Ferromagnetism
-Mean field theory:
-$$M = Ng\mu_B J B_J\left(\frac{g\mu_B J(H + \lambda M)}{k_B T}\right)$$
+When the exchange interaction is strong enough, moments align *spontaneously* even with no applied field. Mean-field theory replaces the exchange coupling with an effective internal field $\lambda M$ proportional to the magnetization itself, giving a self-consistent equation:
 
-Curie temperature: $T_C = \frac{g\mu_B J(J+1)\lambda}{3k_B}$
+$$M = Ng\mu_B J\, B_J\!\left(\frac{g\mu_B J(H + \lambda M)}{k_B T}\right).$$
+
+Below the **Curie temperature** $T_C = g\mu_B J(J+1)\lambda / 3k_B$ this equation has a nonzero solution at $H = 0$ — spontaneous magnetization. Above $T_C$ thermal disorder wins and the material reverts to a paramagnet.
 
 ### Antiferromagnetism
-Néel temperature marks onset of staggered magnetization.
+Here the exchange favors *anti*-alignment: neighboring moments point opposite ways, so the net magnetization cancels even though the system is ordered. Order sets in below the **Néel temperature** $T_N$, marking the onset of staggered magnetization. A two-sublattice mean-field model gives
 
-Two-sublattice model gives susceptibility:
-$$\chi = \frac{2C}{T + T_N}$$
+$$\chi = \frac{2C}{T + T_N},$$
+
+with the telltale $T + T_N$ in the denominator — the opposite sign to a ferromagnet's $T - T_C$.
 
 ### Spin Waves
-Low-energy excitations in ordered magnets.
+Just as a crystal's lowest-energy excitations are quantized lattice vibrations (phonons), an ordered magnet's are quantized waves of tilting spins — **magnons**. For a ferromagnet the dispersion is
 
-Dispersion for ferromagnet: $\omega_k = \frac{2JS}{\hbar}(1 - \cos(ka))$
+$$\omega_{\mathbf{k}} = \frac{2JS}{\hbar}(1 - \cos(ka)),$$
+
+which is *quadratic* at long wavelength ($\omega \sim k^2$), in contrast to the linear dispersion of acoustic phonons — a difference that shows up directly in the low-temperature heat capacity.
 
 ## Superconductivity
 
@@ -1103,12 +1138,20 @@ Dispersion for ferromagnet: $\omega_k = \frac{2JS}{\hbar}(1 - \cos(ka))$
 
 ## Quantum Hall Effects
 
-### Integer Quantum Hall Effect
-Quantized Hall conductance: $\sigma_{xy} = \frac{ne^2}{h}$
+Confine electrons to a plane, cool them down, and crank up a perpendicular magnetic field, and something extraordinary happens: the transverse (Hall) conductance locks onto exact multiples of $e^2/h$, reproducible to better than one part in a billion regardless of sample shape or disorder. That precision is no accident — it is the first laboratory signature of **topology** in a material. The conductance counts a topological invariant that cannot change under smooth deformation, which is why it is immune to the messy details of any real sample. (The quantum Hall resistance now defines the SI ohm.)
 
-Landau levels: $E_n = \hbar\omega_c(n + \frac{1}{2})$
+### Integer Quantum Hall Effect
+The magnetic field bunches the electron energies into massively degenerate **Landau levels**:
+
+$$E_n = \hbar\omega_c\left(n + \tfrac{1}{2}\right), \qquad \omega_c = \frac{eB}{m}.$$
+
+When an integer number $n$ of these levels is exactly filled, the bulk is gapped and insulating, while current flows along dissipationless **edge channels**. The Hall conductance is then quantized:
+
+$$\sigma_{xy} = \frac{n e^2}{h}.$$
 
 ### Fractional Quantum Hall Effect
+At *fractional* filling the single-particle picture fails — the plateaus appear only because of strong electron-electron interactions, which organize the electrons into an incompressible quantum fluid with **fractionally charged** excitations.
+
 Occurs at fractional filling $\nu = \frac{1}{3}, \frac{2}{5}, \frac{5}{2}, ...$
 
 Laughlin wavefunction for $\nu = 1/m$:
@@ -1118,8 +1161,12 @@ Composite fermions: electrons bound to flux quanta.
 
 ## Topological Phases
 
+For most of the 20th century, Landau's paradigm classified phases by **symmetry breaking** — a magnet picks a direction, a crystal breaks translation symmetry. Topological phases break this mold: they are distinguished not by any local order parameter but by a *global*, integer-valued invariant of their wavefunctions. Two insulators can look identical locally yet be topologically distinct, and that distinction is robust — it cannot change without closing the energy gap. The price (or the gift) of a nontrivial invariant is protected, conducting states at the boundary.
+
 ### Berry Phase
-$$\gamma = i\oint \langle n|\nabla_{\mathbf{R}}|n\rangle \cdot d\mathbf{R}$$
+The mathematical engine behind topological phases is the **Berry phase** — the geometric phase a quantum state accumulates when its Hamiltonian is carried slowly around a closed loop in parameter space:
+
+$$\gamma = i\oint \langle n|\nabla_{\mathbf{R}}|n\rangle \cdot d\mathbf{R}.$$
 
 Berry curvature:
 $$\Omega_n(\mathbf{k}) = \nabla_k \times \langle n|\nabla_k|n\rangle$$
@@ -1147,20 +1194,20 @@ Non-zero Chern number implies chiral edge states.
 
 ## Strongly Correlated Systems
 
-### Hubbard Model
-$$H = -t\sum_{\langle ij\rangle,\sigma} c_{i\sigma}^\dagger c_{j\sigma} + U\sum_i n_{i\uparrow}n_{i\downarrow}$$
+Band theory quietly assumes electrons move independently in an average potential. That assumption breaks down spectacularly when the Coulomb repulsion between electrons rivals their kinetic energy. In these **strongly correlated** systems, band theory can be qualitatively *wrong* — predicting a metal where experiment finds an insulator — and the richest phenomena in condensed matter (high-$T_c$ superconductivity, heavy fermions, quantum magnetism) live here.
 
-Mott transition occurs when $U \gg t$.
+### Hubbard Model
+The minimal model of correlation keeps just two competing terms: electrons gain energy $t$ by hopping between neighboring sites, but pay an energy penalty $U$ whenever two of them (opposite spins) sit on the same site:
+
+$$H = -t\sum_{\langle ij\rangle,\sigma} c_{i\sigma}^\dagger c_{j\sigma} + U\sum_i n_{i\uparrow}n_{i\downarrow}.$$
+
+When hopping wins ($U \ll t$) the system is a conventional metal. When repulsion wins ($U \gg t$) at half-filling, electrons localize one-per-site to avoid the penalty — a **Mott insulator**, insulating purely because of interactions, not band structure. The competition between these limits drives the **Mott metal–insulator transition** and is widely believed to hold the key to high-temperature superconductivity.
 
 ### Heavy Fermions
-Effective mass $m^* \gg m_e$ due to Kondo effect.
-
-Low-temperature behavior dominated by f-electron hybridization.
+In certain rare-earth and actinide compounds, conduction electrons hybridize with localized $f$-electrons via the **Kondo effect**, dressing them into quasiparticles with enormous effective mass — $m^* \gg m_e$, sometimes by a factor of hundreds. Despite this, they often remain well-described as a (very heavy) Fermi liquid at low temperature, a striking validation of Landau's framework even in a strongly interacting setting.
 
 ### High-Temperature Superconductivity
-Cuprates: quasi-2D systems with d-wave pairing.
-
-Phase diagram includes antiferromagnetic, pseudogap, and superconducting phases.
+The cuprates are quasi-2D copper-oxide layers that superconduct at temperatures far above the BCS expectation, with an unconventional **$d$-wave** pairing symmetry. Their phase diagram is a battleground of competing orders — antiferromagnetic insulator, mysterious pseudogap, and superconducting dome — as a function of doping. Explaining it from a model as simple as the Hubbard Hamiltonian remains one of the central unsolved problems in physics.
 
 ## Soft Condensed Matter
 
