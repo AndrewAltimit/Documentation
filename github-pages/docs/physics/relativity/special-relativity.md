@@ -148,25 +148,25 @@ hide_title: true
   <p><em>Convention note:</em> two metric-signature conventions are in common use. This section writes the interval with the <strong>(+,−,−,−)</strong> ("mostly-minus") convention in its primary algebraic form, then gives the differential form in the <strong>(−,+,+,+)</strong> ("mostly-plus") convention to match the Minkowski metric $\eta_{\mu\nu}$ below. The two differ only by an overall sign and describe identical physics.</p>
 
   <div class="equation-showcase">
-    <div class="equation-box primary">
-      $$(\Delta s)^2 = c^2(\Delta t)^2 - (\Delta x)^2 - (\Delta y)^2 - (\Delta z)^2$$
-    </div>
+    <div class="equation-box primary" markdown="1">
+$$(\Delta s)^2 = c^2(\Delta t)^2 - (\Delta x)^2 - (\Delta y)^2 - (\Delta z)^2$$
+</div>
     
     <p>In differential form (using the (−,+,+,+) convention):</p>
-    <div class="equation-box">
-      $$ds^2 = -c^2 dt^2 + dx^2 + dy^2 + dz^2 = \eta_{\mu\nu}\, dx^\mu dx^\nu$$
-    </div>
+    <div class="equation-box" markdown="1">
+$$ds^2 = -c^2 dt^2 + dx^2 + dy^2 + dz^2 = \eta_{\mu\nu}\, dx^\mu dx^\nu$$
+</div>
     
     <div class="metric-display">
       <p>Where $\eta_{\mu\nu}$ is the Minkowski metric:</p>
-      <div class="matrix-visual">
-        $$\eta_{\mu\nu} = \begin{pmatrix}
-        -1 & 0 & 0 & 0 \\
-        0 & 1 & 0 & 0 \\
-        0 & 0 & 1 & 0 \\
-        0 & 0 & 0 & 1
-        \end{pmatrix}$$
-      </div>
+      <div class="matrix-visual" markdown="1">
+$$\eta_{\mu\nu} = \begin{pmatrix}
+-1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 1
+\end{pmatrix}$$
+</div>
     </div>
   </div>
   
@@ -403,9 +403,9 @@ Where β = v/c.
   </div>
   
   <div class="equation-display">
-    <div class="equation-box highlighted">
-      $$\Delta t = \gamma \Delta t_0$$
-    </div>
+    <div class="equation-box highlighted" markdown="1">
+$$\Delta t = \gamma \Delta t_0$$
+</div>
     <p>Where $\gamma = \frac{1}{\sqrt{1 - v^2/c^2}}$ is the Lorentz factor</p>
   </div>
   
@@ -471,9 +471,9 @@ Where β = v/c.
   </div>
   
   <div class="equation-display">
-    <div class="equation-box highlighted">
-      $$L = \frac{L_0}{\gamma}$$
-    </div>
+    <div class="equation-box highlighted" markdown="1">
+$$L = \frac{L_0}{\gamma}$$
+</div>
   </div>
   
   <div class="variable-definitions">

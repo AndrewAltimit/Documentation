@@ -93,7 +93,7 @@ For practical, hands-on generative-AI guides (Stable Diffusion, ComfyUI, LoRA tr
 
 ## Explore the Reference
 
-<div class="nav-card-grid">
+<div class="command-grid">
   <a class="nav-card" href="architectures.html">
     <h3><i class="fas fa-network-wired"></i> Neural Network Architectures</h3>
     <p>The mathematical foundations of learning, plus CNNs, RNNs/LSTMs, Transformers, Vision Transformers, and CLIP/multimodal models.</p>

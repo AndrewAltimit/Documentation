@@ -511,7 +511,8 @@ Symmetry between bosons and fermions:
 $$Q|\text{boson}\rangle = |\text{fermion}\rangle$$
 $$Q|\text{fermion}\rangle = |\text{boson}\rangle$$
 
-Algebra: $\{Q_\alpha, \bar{Q}_{\dot{\beta}}\} = 2\sigma^\mu_{\alpha\dot{\beta}}P_\mu$
+Algebra:
+$$\lbrace Q_\alpha, \bar{Q}_{\dot\beta} \rbrace = 2\sigma^\mu_{\alpha\dot\beta} P_\mu$$
 
 ## Experimental Tests
 

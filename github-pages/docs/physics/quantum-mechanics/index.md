@@ -40,7 +40,7 @@ hide_title: true
 
 ## Explore Quantum Mechanics
 
-<div class="nav-card-grid">
+<div class="command-grid">
   <a class="nav-card" href="formalism.html">
     <h3>States, Operators &amp; Dynamics</h3>
     <p>The Schrödinger equation, Dirac notation and observables, measurement and decoherence, angular momentum, time evolution, and perturbation theory.</p>

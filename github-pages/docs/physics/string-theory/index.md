@@ -216,13 +216,13 @@ hide_title: true
     <p>The fundamental length scale in string theory:</p>
     
     <div class="scale-equations">
-      <div class="equation-box primary">
-        $$\ell_s = \sqrt{\frac{\hbar}{T}} \approx 10^{-35} \text{ m}$$
-      </div>
+      <div class="equation-box primary" markdown="1">
+$$\ell_s = \sqrt{\frac{\hbar}{T}} \approx 10^{-35} \text{ m}$$
+</div>
       <p>Where T is the string tension. This is near the Planck length:</p>
-      <div class="equation-box">
-        $$\ell_P = \sqrt{\frac{\hbar G}{c^3}} \approx 1.6 \times 10^{-35} \text{ m}$$
-      </div>
+      <div class="equation-box" markdown="1">
+$$\ell_P = \sqrt{\frac{\hbar G}{c^3}} \approx 1.6 \times 10^{-35} \text{ m}$$
+</div>
     </div>
     
     <div class="scale-comparison">
@@ -369,9 +369,9 @@ hide_title: true
       <div class="action-card nambu-goto">
         <h4>Nambu-Goto Action</h4>
         <p>The action for a relativistic string (area of worldsheet):</p>
-        <div class="equation-box">
-          $$S = -T \int dA = -T \int d\tau d\sigma \sqrt{-\det(h_{ab})}$$
-        </div>
+        <div class="equation-box" markdown="1">
+$$S = -T \int dA = -T \int d\tau d\sigma \sqrt{-\det(h_{ab})}$$
+</div>
         <p class="note">Where $h_{ab}$ is the induced metric on the worldsheet</p>
         
         <div class="geometric-interpretation">
@@ -413,9 +413,9 @@ hide_title: true
       <div class="action-card polyakov">
         <h4>Polyakov Action</h4>
         <p>Equivalent formulation with manifest reparametrization invariance:</p>
-        <div class="equation-box">
-          $$S = -\frac{T}{2} \int d^2\sigma \sqrt{-h} h^{ab} \partial_a X^\mu \partial_b X_\mu$$
-        </div>
+        <div class="equation-box" markdown="1">
+$$S = -\frac{T}{2} \int d^2\sigma \sqrt{-h} h^{ab} \partial_a X^\mu \partial_b X_\mu$$
+</div>
         <p class="note">Independent worldsheet metric $h_{ab}$</p>
         
         <div class="advantages">
@@ -431,9 +431,9 @@ hide_title: true
     
     <div class="wave-equation">
       <p>The string satisfies the wave equation:</p>
-      <div class="equation-box highlighted">
-        $$\frac{\partial^2 X^\mu}{\partial \tau^2} - \frac{\partial^2 X^\mu}{\partial \sigma^2} = 0$$
-      </div>
+      <div class="equation-box highlighted" markdown="1">
+$$\frac{\partial^2 X^\mu}{\partial \tau^2} - \frac{\partial^2 X^\mu}{\partial \sigma^2} = 0$$
+</div>
       
       <div class="wave-visualization">
         <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
@@ -485,9 +485,9 @@ hide_title: true
     <div class="bc-grid">
       <div class="bc-card closed-bc">
         <h4>Closed Strings</h4>
-        <div class="equation-box">
-          $$X^\mu(\tau, \sigma + 2\pi) = X^\mu(\tau, \sigma)$$
-        </div>
+        <div class="equation-box" markdown="1">
+$$X^\mu(\tau, \sigma + 2\pi) = X^\mu(\tau, \sigma)$$
+</div>
         <p>Periodic boundary condition</p>
         
         <svg viewBox="0 0 220 180" style="max-width: 500px; width: 100%;">
@@ -523,9 +523,9 @@ hide_title: true
         <div class="bc-types">
           <div class="bc-type neumann">
             <h5>Neumann BC</h5>
-            <div class="equation-box small">
-              $$\frac{\partial X^\mu}{\partial \sigma} = 0$$
-            </div>
+            <div class="equation-box small" markdown="1">
+$$\frac{\partial X^\mu}{\partial \sigma} = 0$$
+</div>
             <p>Free endpoints</p>
             <svg viewBox="0 0 180 110" style="max-width: 500px; width: 100%;">
               <!-- Title -->
@@ -550,9 +550,9 @@ hide_title: true
           
           <div class="bc-type dirichlet">
             <h5>Dirichlet BC</h5>
-            <div class="equation-box small">
-              $$X^\mu = \text{const}$$
-            </div>
+            <div class="equation-box small" markdown="1">
+$$X^\mu = \text{const}$$
+</div>
             <p>Fixed endpoints (D-branes)</p>
             <svg viewBox="0 0 180 120" style="max-width: 500px; width: 100%;">
               <!-- Title -->

@@ -280,7 +280,9 @@ hide_title: true
     
     <div class="ensemble-equations">
       <p><strong>Partition function:</strong></p>
-      <div class="equation-box">$$Z = \sum_i e^{-\beta E_i} = \text{Tr}(e^{-\beta H})$$</div>
+      <div class="equation-box" markdown="1">
+$$Z = \sum_i e^{-\beta E_i} = \text{Tr}(e^{-\beta H})$$
+</div>
       <p>Where $\beta = \frac{1}{k_B T}$</p>
       <p><strong>Helmholtz free energy:</strong> $F = -k_B T \ln Z$</p>
     </div>
@@ -344,7 +346,9 @@ hide_title: true
     
     <div class="ensemble-equations">
       <p><strong>Grand partition function:</strong></p>
-      <div class="equation-box">$$\mathcal{Z} = \sum_{N=0}^{\infty} \sum_i e^{-\beta(E_i - \mu N)}$$</div>
+      <div class="equation-box" markdown="1">
+$$\mathcal{Z} = \sum_{N=0}^{\infty} \sum_i e^{-\beta(E_i - \mu N)}$$
+</div>
       <p><strong>Grand potential:</strong> $\Omega = -k_B T \ln \mathcal{Z}$</p>
     </div>
   </div>

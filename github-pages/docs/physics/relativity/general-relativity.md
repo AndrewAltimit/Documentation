@@ -188,9 +188,9 @@ hide_title: true
   </div>
   
   <div class="main-equation">
-    <div class="equation-box einstein">
-      $$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}$$
-    </div>
+    <div class="equation-box einstein" markdown="1">
+$$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}$$
+</div>
   </div>
   
   <div class="equation-components">
