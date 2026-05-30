@@ -107,6 +107,10 @@ resource "aws_dynamodb_table" "locks" {
 
 **Important:** Create the S3 bucket and DynamoDB table before configuring the backend. You cannot use Terraform to create its own state storage (chicken-and-egg problem).
 
+<div class="notice--info">
+  <p><strong>DynamoDB is no longer the only option for locking.</strong> Since Terraform 1.10 (and GA in 1.11), the S3 backend supports native S3 lockfiles via <code>use_lockfile = true</code>, which stores a lock object alongside the state file. This lets you drop the separate DynamoDB lock table entirely — set <code>use_lockfile = true</code> in the <code>backend "s3"</code> block instead of <code>dynamodb_table</code>.</p>
+</div>
+
 The diagram below shows why remote state with locking is essential for teams: the lock table serializes concurrent `apply` runs so two engineers can never corrupt the state file at the same time.
 
 ```mermaid
@@ -416,7 +420,7 @@ Each module is a self-contained directory of `.tf` files with its own variables 
   <h4>Common Pitfalls</h4>
   <ul>
     <li><strong>Committing state to git:</strong> <code>terraform.tfstate</code> contains secrets in plaintext and causes merge conflicts. Always use a remote backend and add it to <code>.gitignore</code>.</li>
-    <li><strong>No state locking:</strong> Without a lock table, two concurrent applies can corrupt state. Always pair the S3 backend with a DynamoDB lock table.</li>
+    <li><strong>No state locking:</strong> Without locking, two concurrent applies can corrupt state. Enable locking on the S3 backend — either a DynamoDB lock table or the native S3 lockfile (<code>use_lockfile</code>, GA since Terraform 1.11).</li>
     <li><strong>Editing state by hand:</strong> Use <code>terraform state mv/rm/import</code> rather than editing the JSON. Manual edits are easy to get wrong and hard to undo.</li>
     <li><strong>Over-modularizing early:</strong> Premature abstraction makes simple changes painful. Extract a module only once you genuinely reuse the pattern.</li>
   </ul>

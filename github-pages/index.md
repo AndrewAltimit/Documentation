@@ -49,7 +49,7 @@ hide_title: true
       <a href="docs/technology/kubernetes/">Kubernetes</a> &middot;
       <a href="docs/technology/aws/">AWS</a> &middot;
       <a href="docs/technology/terraform/">Terraform</a> &middot;
-      <a href="docs/technology/git.html">Git</a>
+      <a href="docs/technology/git/">Git</a>
     </div>
   </div>
 
@@ -74,9 +74,9 @@ hide_title: true
       <p>From classical mechanics and thermodynamics to quantum field theory and string theory.</p>
     </a>
     <div class="category-links">
-      <a href="docs/physics/classical-mechanics.html">Mechanics</a> &middot;
-      <a href="docs/physics/quantum-mechanics.html">Quantum</a> &middot;
-      <a href="docs/physics/relativity.html">Relativity</a> &middot;
+      <a href="docs/physics/classical-mechanics/">Mechanics</a> &middot;
+      <a href="docs/physics/quantum-mechanics/">Quantum</a> &middot;
+      <a href="docs/physics/relativity/">Relativity</a> &middot;
       <a href="docs/physics/quantum-field-theory.html">QFT</a>
     </div>
   </div>
@@ -130,8 +130,8 @@ hide_title: true
     <ul>
       <li><a href="docs/technology/git-crash-course.html">Git crash course</a></li>
       <li><a href="docs/technology/docker-essentials.html">Docker essentials</a></li>
-      <li><a href="docs/technology/database-design.html">Database design</a></li>
-      <li><a href="docs/technology/ci-cd.html">CI/CD pipelines</a></li>
+      <li><a href="docs/technology/database-design/">Database design</a></li>
+      <li><a href="docs/technology/ci-cd/">CI/CD pipelines</a></li>
     </ul>
   </div>
   <div class="nav-card">
@@ -140,7 +140,7 @@ hide_title: true
       <li><a href="docs/technology/terraform/">Terraform (IaC)</a></li>
       <li><a href="docs/technology/kubernetes/">Kubernetes</a></li>
       <li><a href="docs/technology/aws/">AWS services</a></li>
-      <li><a href="docs/technology/networking.html">Networking</a></li>
+      <li><a href="docs/technology/networking/">Networking</a></li>
     </ul>
   </div>
   <div class="nav-card">
@@ -155,10 +155,10 @@ hide_title: true
   <div class="nav-card">
     <h4><i class="fas fa-microscope"></i> For physics</h4>
     <ul>
-      <li><a href="docs/physics/classical-mechanics.html">Classical mechanics</a></li>
-      <li><a href="docs/physics/quantum-mechanics.html">Quantum mechanics</a></li>
-      <li><a href="docs/physics/relativity.html">Relativity</a></li>
-      <li><a href="docs/physics/string-theory.html">String theory</a></li>
+      <li><a href="docs/physics/classical-mechanics/">Classical mechanics</a></li>
+      <li><a href="docs/physics/quantum-mechanics/">Quantum mechanics</a></li>
+      <li><a href="docs/physics/relativity/">Relativity</a></li>
+      <li><a href="docs/physics/string-theory/">String theory</a></li>
     </ul>
   </div>
 </div>

@@ -453,4 +453,4 @@ The key to Kubernetes mastery is practice. Start with simple deployments, gradua
 - [Workloads &amp; Storage](workloads.html) - StatefulSets, persistent volumes, RBAC, and autoscaling
 - [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, GitOps, and certifications
 - [Docker Essentials](../docker-essentials.html) - Quick container command reference
-- [CI/CD](../ci-cd.html) - Automating deployments into your cluster
+- [CI/CD](../ci-cd/) - Automating deployments into your cluster

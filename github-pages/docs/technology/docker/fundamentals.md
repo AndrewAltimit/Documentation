@@ -576,7 +576,7 @@ flowchart LR
   </div>
   <div class="takeaway-card">
     <h4>Containers Share the Kernel</h4>
-    <p>Unlike VMs, containers share the host kernel — giving them second-startup times and minimal overhead, at the cost of weaker isolation.</p>
+    <p>Unlike VMs, containers share the host kernel — giving them sub-second startup times and minimal overhead, at the cost of weaker isolation.</p>
   </div>
   <div class="takeaway-card">
     <h4>Layers Drive Caching</h4>

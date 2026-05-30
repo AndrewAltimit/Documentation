@@ -17,13 +17,15 @@ hide_title: true
 
 <div class="intro-card">
   <p class="lead-text"><strong>Unraveling the AI revolution: the rise of advanced language models.</strong> This is the <em>deep dive</em> — a research-level tour of neural network foundations, the transformer architecture, the major LLM families (BERT, GPT, Llama, and friends), real-world usage, and the security and ethics that come with them. It assumes you are comfortable with the basics; if not, start with the gentler pages below.</p>
+
+  <p class="lead-text"><em>Note: this page is a historical snapshot from 2023, preserved as-is. Model names, capabilities, and product details reflect the state of the field at that time.</em></p>
 </div>
 
 <div class="tip-card">
   <h4>The three AI pages, in recommended reading order</h4>
   <ul>
     <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — plain-English, no-math intuition. Start here.</li>
-    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics.</li>
+    <li><a href="ai/">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics.</li>
     <li><strong>This page (Deep Dive)</strong> — transformers, LLM internals, and current research.</li>
   </ul>
 </div>
@@ -281,7 +283,7 @@ GPT-2 is an improved version of the original GPT model and contains 1.5 billion 
 
 **GPT-3 (2020)**
 
-GPT-3 contains 175 billion parameters and demonstrates strong performance on a wide range of NLP tasks with minimal fine-tuning. The model is trained on an even larger dataset (WebText 2) than the previous iteration and demonstrates few-shot and zero-shot learning capabilities
+GPT-3 contains 175 billion parameters and demonstrates strong performance on a wide range of NLP tasks with minimal fine-tuning. The model is trained on a much larger corpus (Common Crawl, WebText2, books, Wikipedia) than the previous iteration and demonstrates few-shot and zero-shot learning capabilities
 
 **GPT-4 (2023)**
 
@@ -392,6 +394,8 @@ The same fluency handles routine knowledge work that is high-volume but low-stak
 ### Extending ChatGPT Capabilities
 
 ChatGPT plugins are modular extensions that can enhance the capabilities of ChatGPT by adding new functionality, integrating with external services, or improving the chatbot's overall performance. These plugins enable users to create customized and feature-rich chatbot experiences tailored to their specific needs.
+
+*Note: ChatGPT plugins were retired in 2024 in favor of GPTs and custom Actions, which serve the same extensibility role.*
 
 With ChatGPT plugins, users can:
 
@@ -553,7 +557,7 @@ Finally, it's important for us to advocate for the responsible development and i
   <h4>Related pages</h4>
   <ul>
     <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
-    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with core mathematics</li>
+    <li><a href="ai/">Artificial Intelligence (Complete)</a> — the technical overview with core mathematics</li>
     <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
     <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — generative AI guides and workflows</li>
     <li><a href="../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — image generation with diffusion models</li>

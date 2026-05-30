@@ -174,7 +174,8 @@ Most applications need to store data. Let's add a managed database.
 
 3. **Connect from EC2**
    ```bash
-   sudo yum install mysql -y
+   # On Amazon Linux 2023, use dnf and the mariadb105 client package:
+   sudo dnf install mariadb105 -y
    mysql -h your-rds-endpoint -u admin -p
    ```
 
@@ -465,7 +466,7 @@ def lambda_handler(event, context):
 | Cold Starts | First invocation takes 3-5 seconds | Use Provisioned Concurrency or keep warm with scheduled pings |
 | 15-Minute Timeout | Long processes fail | Break into smaller functions, use Step Functions |
 | Out of Memory | Function crashes on large files | Stream data instead of loading all at once |
-| Package Too Large | Cannot upload (>50MB limit) | Use Lambda Layers or container images (up to 10GB) |
+| Package Too Large | Cannot upload (50MB zipped direct upload / 250MB unzipped) | Use Layers or container images (up to 10GB) |
 | High Costs | Unexpected bills | Optimize memory settings, reduce execution time |
 
 **Reducing cold starts**: Keep deployment packages small. Avoid large libraries like pandas (40MB) when simpler alternatives work.
@@ -618,6 +619,6 @@ By now you have four ways to run code on AWS. This table ties them together:
 - [Database Services](databases.html) - RDS and DynamoDB
 - [Networking & Content Delivery](networking.html) - VPC, load balancers, and CloudFront
 - [Security](security.html) - IAM and security best practices
-- [Infrastructure & Operations](infrastructure.html) - CloudFormation, monitoring, and cost optimization
+- [Infrastructure as Code](iac.html) - CloudFormation, monitoring, and cost optimization
 - [Kubernetes on AWS](../kubernetes/) - Container orchestration with EKS
 - [Docker](../docker/) - Containerization fundamentals

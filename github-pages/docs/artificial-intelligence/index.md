@@ -37,7 +37,7 @@ hide_title: true
 
 ## How These Pages Fit Together
 
-This hub points to three depth levels of AI theory plus the hands-on generative-AI guides. Pick a depth, then branch into practice:
+This hub points to four depth levels of AI theory plus the hands-on generative-AI guides. Pick a depth, then branch into practice:
 
 ```mermaid
 flowchart TD
@@ -58,7 +58,7 @@ Four entry points, ordered by depth. Each builds on the one before, but you can 
 
 <div class="command-grid">
   <a href="../technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> 1. Simplified</h4><p>How AI works, in plain English. No math required.</p></a>
-  <a href="../technology/ai.html" class="nav-card"><h4><i class="fas fa-brain"></i> 2. Complete</h4><p>The full technical overview, with equations and architectures.</p></a>
+  <a href="../technology/ai/" class="nav-card"><h4><i class="fas fa-brain"></i> 2. Complete</h4><p>The full technical overview, with equations and architectures.</p></a>
   <a href="../technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> 3. Deep Dive</h4><p>Transformers, large language models, and research directions.</p></a>
   <a href="../advanced/ai-mathematics/" class="nav-card"><h4><i class="fas fa-square-root-alt"></i> 4. Mathematics</h4><p>Statistical learning theory and proofs &mdash; graduate level.</p></a>
 </div>
@@ -81,7 +81,7 @@ AI is not one field but several overlapping ones, each defined by the *kind* of 
 
 | Domain | What it does | Defining method | On this site |
 |--------|--------------|-----------------|--------------|
-| Machine Learning | Learn patterns from data to predict or decide | Statistical models, gradient descent | [AI Fundamentals](../technology/ai.html) |
+| Machine Learning | Learn patterns from data to predict or decide | Statistical models, gradient descent | [AI Fundamentals](../technology/ai/) |
 | Deep Learning | Learn hierarchical features from raw input | Multi-layer neural networks | [AI Deep Dive](../technology/ai-lecture-2023.html) |
 | Natural Language Processing | Understand and generate human language | Transformers, large language models | [AI Deep Dive](../technology/ai-lecture-2023.html) |
 | Computer Vision | Interpret and generate visual information | CNNs, diffusion models | [Stable Diffusion](../ai-ml/stable-diffusion-fundamentals.html) |
@@ -100,7 +100,7 @@ Machine Learning enables computers to learn from data without being explicitly p
 - Model Evaluation and Validation
 
 **Resources:**
-- [AI Fundamentals](../technology/ai.html#machine-learning-teaching-computers-to-learn)
+- [AI Fundamentals](../technology/ai/#machine-learning-teaching-computers-to-learn)
 - [Base Models Comparison](../ai-ml/base-models-comparison.html)
 
 ### Deep Learning
@@ -166,7 +166,7 @@ Generative AI creates new content including images, text, audio, and video.
 
 ### Foundational Resources
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Core concepts without mathematics
-- [AI Fundamentals - Complete](../technology/ai.html) - Comprehensive technical overview
+- [AI Fundamentals - Complete](../technology/ai/) - Comprehensive technical overview
 - [Model Types](../ai-ml/model-types.html) - Understanding different AI architectures
 
 ### Implementation Guides
@@ -187,7 +187,7 @@ Choose a path based on your goals:
 **For:** Understanding how AI works conceptually and mathematically
 
 1. [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) *(Start here - no math required)*
-2. [AI Fundamentals - Complete](../technology/ai.html) *(Technical deep-dive)*
+2. [AI Fundamentals - Complete](../technology/ai/) *(Technical deep-dive)*
 3. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Transformers, LLMs, research)*
 4. [AI Mathematics](../advanced/ai-mathematics/) *(Statistical learning theory)*
 
@@ -203,7 +203,7 @@ Choose a path based on your goals:
 ### Path 3: Research Track
 **For:** Those pursuing AI research or advanced development
 
-1. [AI Fundamentals - Complete](../technology/ai.html) *(Foundation)*
+1. [AI Fundamentals - Complete](../technology/ai/) *(Foundation)*
 2. [AI Deep Dive](../technology/ai-lecture-2023.html) *(Modern architectures)*
 3. [AI Mathematics](../advanced/ai-mathematics/) *(Theoretical foundations)*
 4. [Quantum Computing](../quantum-computing/) *(Quantum ML)*
@@ -214,12 +214,12 @@ Choose a path based on your goals:
 - [Docker for AI/ML](../technology/docker/)
 - [Docker Essentials](../technology/docker-essentials.html)
 - [Cloud Computing (AWS)](../technology/aws/)
-- [CI/CD for ML Pipelines](../technology/ci-cd.html)
+- [CI/CD for ML Pipelines](../technology/ci-cd/)
 
 ### Theoretical Foundations
 - [Quantum Computing](../technology/quantumcomputing.html)
 - [Quantum Computing Hub](../quantum-computing/)
-- [Statistical Mechanics](../physics/statistical-mechanics.html)
+- [Statistical Mechanics](../physics/statistical-mechanics/)
 
 ## Current Trends & Research
 
@@ -266,7 +266,7 @@ This documentation is continuously evolving. If you notice areas for improvement
 <div class="see-also-card" markdown="1">
 #### See Also
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - No-math starting point
-- [AI Fundamentals - Complete](../technology/ai.html) - Technical reference with equations
+- [AI Fundamentals - Complete](../technology/ai/) - Technical reference with equations
 - [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research
 - [AI/ML Documentation](../ai-ml/) - Hands-on generative AI guides
 - [Quantum Computing Hub](../quantum-computing/) - Where quantum meets machine learning

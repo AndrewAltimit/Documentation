@@ -20,7 +20,7 @@ hide_title: true
   <h4>How the four Git pages fit together</h4>
   <ul>
     <li><strong>This page (Crash Course)</strong> — a guided first walkthrough; read it top to bottom.</li>
-    <li><a href="git.html">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
+    <li><a href="git/">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
     <li><a href="git-reference.html">Git Command Reference</a> — the alphabetical lookup cheat sheet for every command.</li>
     <li><a href="branching.html">Branching Strategies</a> — team workflows: Git Flow, GitHub Flow, trunk-based.</li>
   </ul>
@@ -285,7 +285,7 @@ If it goes sideways, `git merge --abort` returns you to safety.
 <div class="command-grid">
   <div class="step-card">
     <h4>Understand the machinery</h4>
-    <p>Read <a href="git.html">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</p>
+    <p>Read <a href="git/">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</p>
   </div>
   <div class="step-card">
     <h4>Look up a command</h4>
@@ -293,7 +293,7 @@ If it goes sideways, `git merge --abort` returns you to safety.
   </div>
   <div class="step-card">
     <h4>Work on a team</h4>
-    <p>Pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd.html">CI/CD</a>.</p>
+    <p>Pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd/">CI/CD</a>.</p>
   </div>
 </div>
 
@@ -312,10 +312,10 @@ If it goes sideways, `git merge --abort` returns you to safety.
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
-    <li><a href="git.html">Git Version Control</a> — architecture and internals deep dive</li>
+    <li><a href="git/">Git Version Control</a> — architecture and internals deep dive</li>
     <li><a href="git-reference.html">Git Command Reference</a> — complete command cheat sheet</li>
     <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, trunk-based development</li>
-    <li><a href="ci-cd.html">CI/CD</a> — automate testing and deployment from your commits</li>
+    <li><a href="ci-cd/">CI/CD</a> — automate testing and deployment from your commits</li>
   </ul>
 </div>
 

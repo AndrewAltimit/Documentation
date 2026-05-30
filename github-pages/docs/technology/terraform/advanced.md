@@ -349,65 +349,6 @@ Machine learning is beginning to transform infrastructure management:
 
 ### Research Frontiers
 
-#### Quantum-Inspired Optimization
-
-**Note**: This section explores theoretical research - how quantum computing concepts might optimize infrastructure in the future.
-
-Researchers are exploring how quantum algorithms could solve infrastructure optimization problems that are computationally intractable today:
-
-```python
-# Research Concept: Quantum-inspired algorithms for infrastructure optimization
-class QuantumInspiredInfrastructure:
-    """
-    Theoretical exploration: Apply quantum computing concepts to 
-    infrastructure state space exploration and optimization.
-    
-    This is NOT about managing quantum computing infrastructure,
-    but rather using quantum algorithms to optimize classical infrastructure.
-    """
-    
-    def __init__(self):
-        self.state_space = self.define_infrastructure_state_space()
-        self.quantum_inspired_solver = self.initialize_solver()
-    
-    def quantum_annealing_optimization(self, constraints):
-        """
-        Use quantum annealing principles to find optimal configurations.
-        Maps infrastructure optimization to QUBO (Quadratic Unconstrained 
-        Binary Optimization) problems solvable by quantum annealers.
-        """
-        # Convert infrastructure constraints to Ising model
-        H = self.build_hamiltonian(constraints)
-        
-        # Find ground state (optimal configuration)
-        return self.quantum_inspired_solver.minimize(H)
-    
-    def variational_quantum_eigensolver(self, cost_function):
-        """
-        VQE-inspired approach for infrastructure optimization.
-        Uses parameterized circuits concept for exploring configurations.
-        """
-        # Initialize variational parameters
-        theta = self.initialize_parameters()
-        
-        # Optimize using classical-quantum hybrid approach
-        return self.optimize_variational_parameters(theta, cost_function)
-```
-
-#### Potential Applications
-
-1. **Combinatorial Optimization**: Infrastructure placement problems mapped to quantum optimization
-2. **Resource Allocation**: Using quantum algorithms for optimal resource distribution
-3. **Constraint Satisfaction**: Quantum-inspired solvers for complex dependency resolution
-4. **State Space Exploration**: Quantum superposition concepts for exploring configuration spaces
-
-#### Current Research Areas
-
-- **Quantum Approximate Optimization Algorithm (QAOA)**: For infrastructure graph problems
-- **Quantum Machine Learning**: For predicting optimal infrastructure configurations
-- **Hybrid Classical-Quantum Algorithms**: Leveraging near-term quantum devices
-- **Quantum-Inspired Classical Algorithms**: Bringing quantum concepts to classical computing
-
 #### Practical AI Applications Today
 
 While quantum computing remains theoretical, AI is already improving infrastructure management:
@@ -452,9 +393,9 @@ class NeuralInfrastructureOptimizer:
             state = next_state
 ```
 
-## Terraform: Latest Updates and Features
+## Terraform: Notable Releases and Features
 
-### Terraform 1.7 Features
+### Recent Features (Terraform 1.7+)
 - **Test Framework GA**: Native testing framework for modules
 - **Config-driven Import**: Import existing resources using configuration
 - **Enhanced Performance**: Faster plan and apply operations
@@ -472,11 +413,6 @@ OpenTofu, the open-source fork, has introduced:
 #### AWS Provider 5.x
 ```hcl
 # Recent new resources
-resource "aws_bedrock_model" "claude" {
-  model_id = "anthropic.claude-v3"
-  # AI model management
-}
-
 resource "aws_verified_access_instance" "main" {
   # Zero-trust network access
 }
@@ -509,15 +445,21 @@ resource "google_vertex_ai_endpoint" "prediction" {
 ### Modern Best Practices
 
 #### 1. Policy as Code Integration
-```hcl
-# Sentinel policy example
+
+The block below is **pseudocode illustrating a Sentinel policy concept** — it is not
+runnable `.tf`. Sentinel policies live in `.sentinel` files and are wired into
+Terraform Cloud/Enterprise policy sets, not declared as Terraform resources:
+
+```text
+# Conceptual Sentinel policy: enforce a monthly cost ceiling and
+# an allowlist of instance types (illustrative, not runnable HCL)
 policy "cost-control" {
   source = "./policies/cost-control.sentinel"
-  
+
   enforcement_level = "hard-mandatory"
-  
+
   params = {
-    max_monthly_cost = 10000
+    max_monthly_cost       = 10000
     allowed_instance_types = ["t3.*", "m5.*"]
   }
 }
@@ -624,6 +566,6 @@ module "cost_anomaly_detection" {
 - [AWS](../aws/) - Cloud infrastructure and services
 - [Docker](../docker/) - Container fundamentals and deployment
 - [Kubernetes](../kubernetes/) - Container orchestration infrastructure
-- [CI/CD](../ci-cd.html) - Infrastructure automation in pipelines
-- [Cybersecurity](../cybersecurity.html) - Security practices for infrastructure
+- [CI/CD](../ci-cd/) - Infrastructure automation in pipelines
+- [Cybersecurity](../cybersecurity/) - Security practices for infrastructure
 - [Distributed Systems](../../distributed-systems/) - Distributed infrastructure principles

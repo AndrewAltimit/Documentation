@@ -15,7 +15,7 @@ hide_title: true
 
 <div class="tip-card">
   <h4>This is the lookup page</h4>
-  <p>Treat this as a <strong>command cheat sheet</strong> — scan or use your browser's find (Ctrl/Cmd-F) for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git.html">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
+  <p>Treat this as a <strong>command cheat sheet</strong> — scan or use your browser's find (Ctrl/Cmd-F) for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git/">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
 </div>
 
 <div class="tip-card">
@@ -488,10 +488,10 @@ git secrets --scan                  # Scan for secrets
 
 ## Related Git Documentation
 
-- [Git Version Control](git.html) - Deep dive into Git internals and architecture
+- [Git Version Control](git/) - Deep dive into Git internals and architecture
 - [Git Crash Course](git-crash-course.html) - Beginner-friendly introduction
 - [Branching Strategies](branching.html) - Git Flow, GitHub Flow, and team workflows
-- [CI/CD Pipelines](ci-cd.html) - Continuous integration with Git
+- [CI/CD Pipelines](ci-cd/) - Continuous integration with Git
 
 ## Additional Resources
 
@@ -508,8 +508,8 @@ git secrets --scan                  # Scan for secrets
   <h4>See Also</h4>
   <ul>
     <li><a href="git-crash-course.html">Git Crash Course</a> — the guided first walkthrough for newcomers</li>
-    <li><a href="git.html">Git Version Control</a> — architecture, internals, and distributed VCS theory</li>
+    <li><a href="git/">Git Version Control</a> — architecture, internals, and distributed VCS theory</li>
     <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
-    <li><a href="ci-cd.html">CI/CD</a> — automating Git workflows with continuous integration pipelines</li>
+    <li><a href="ci-cd/">CI/CD</a> — automating Git workflows with continuous integration pipelines</li>
   </ul>
 </div>

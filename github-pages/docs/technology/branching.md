@@ -20,7 +20,7 @@ hide_title: true
 
 <div class="tip-card">
   <h4>Where this fits among the Git pages</h4>
-  <p>This page is about <strong>team workflow</strong> — how a group structures branches and releases. For the <em>mechanics</em> of branching commands, see the <a href="git-reference.html">Git Command Reference</a>; for a first walkthrough, the <a href="git-crash-course.html">Git Crash Course</a>; for how branches work internally, <a href="git.html">Git Version Control</a>.</p>
+  <p>This page is about <strong>team workflow</strong> — how a group structures branches and releases. For the <em>mechanics</em> of branching commands, see the <a href="git-reference.html">Git Command Reference</a>; for a first walkthrough, the <a href="git-crash-course.html">Git Crash Course</a>; for how branches work internally, <a href="git/">Git Version Control</a>.</p>
 </div>
 
 ### At a glance
@@ -591,8 +591,8 @@ Choosing the right branching strategy depends on your team's needs, project requ
   <h4>See Also</h4>
   <ul>
     <li><a href="git-crash-course.html">Git Crash Course</a> — branching basics if you are new to Git</li>
-    <li><a href="git.html">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
+    <li><a href="git/">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
     <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch operations</li>
-    <li><a href="ci-cd.html">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
+    <li><a href="ci-cd/">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
   </ul>
 </div>

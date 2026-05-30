@@ -438,40 +438,35 @@ Platform-specific SDKs:
 
 ### Frame Budget
 
-Strict timing requirements:
+Strict timing requirements. At 90 Hz you have just **11.1 ms per frame** to fit everything:
 
-```
-At 90 Hz: 11.1ms per frame budget
+| Stage | Typical budget |
+|-------|----------------|
+| Game logic | 2–3 ms |
+| Physics | 1–2 ms |
+| Animation | 1 ms |
+| Rendering (CPU) | 3–4 ms |
+| Rendering (GPU) | 8–10 ms |
+| OS/Driver overhead | 1–2 ms |
 
-Typical breakdown:
-├── Game logic: 2-3ms
-├── Physics: 1-2ms
-├── Animation: 1ms
-├── Rendering (CPU): 3-4ms
-├── Rendering (GPU): 8-10ms
-└── OS/Driver overhead: 1-2ms
-
-Note: GPU renders previous frame while
-CPU prepares next (pipelining)
-```
+Note: the GPU renders the previous frame while the CPU prepares the next (pipelining), so CPU and GPU budgets overlap rather than simply summing.
 
 ### Foveated Rendering
 
-Reduce peripheral detail:
+Reduce peripheral detail. Shading resolution drops with distance from the center of vision:
 
-```
-Foveation levels:
-- Full resolution: Central 10-15°
-- Medium: 15-45° from center
-- Low: 45°+ periphery
+| Region | Angle from center | Shading |
+|--------|-------------------|---------|
+| Fovea | Central 10–15° | Full resolution |
+| Mid | 15–45° | Medium |
+| Periphery | 45°+ | Low |
 
-Types:
-- Fixed: Static regions (most compatible)
-- Dynamic: Follows gaze (requires eye tracking)
-- Application-based: Content-aware
+**Types:**
+- **Fixed**: Static regions (most compatible)
+- **Dynamic**: Follows gaze (requires eye tracking)
+- **Application-based**: Content-aware
 
-Savings: 30-50% GPU time
-```
+Savings: 30–50% GPU time.
 
 ### Application SpaceWarp (ASW) / Reprojection
 
@@ -657,33 +652,6 @@ XR-specific challenges:
 - RenderDoc (GPU debugging)
 - PIX (Windows)
 - Unity Profiler
-
-## Recent Updates (2025)
-
-### Hardware Developments
-- **Meta Quest 3**: Leading standalone VR/MR headset with color passthrough and improved optics
-- **Apple Vision Pro**: Revolutionary spatial computing platform with unprecedented display quality
-- **PlayStation VR2**: Console VR reaches new performance heights with 4K HDR and adaptive triggers
-- **Mixed Reality Mainstream**: Color passthrough enabling practical MR experiences on consumer devices
-
-### Software & APIs
-- **WebXR Maturity**: Browser-based XR now production-ready with hand tracking and AR features
-- **Unity 6 XR**: Improved XR plugin architecture with better performance and easier multi-platform support
-- **Unreal Engine 5.4**: Enhanced VR template projects with Nanite and Lumen support for VR
-- **ARCore Geospatial API**: Outdoor AR with cm-level accuracy using Visual Positioning Service
-
-### Development Trends
-- **AI-Powered Scene Understanding**: Real-time semantic segmentation and object recognition
-- **Neural Rendering**: Gaussian splatting and NeRF for photorealistic environments
-- **Accessibility Focus**: Industry-wide emphasis on inclusive XR design
-- **Foveated Rendering Standard**: Eye-tracked foveation now common on premium headsets
-- **Cross-Platform Tools**: Easier development for multiple XR platforms simultaneously
-
-### Industry Adoption
-- **Enterprise Training**: VR training programs showing measurable ROI improvements
-- **Healthcare Applications**: Surgical planning, therapy, and rehabilitation expanding rapidly
-- **Architecture & Design**: Real-time collaborative spatial reviews becoming standard practice
-- **Education**: Immersive learning experiences proven effective for STEM subjects
 
 ## Future Directions
 

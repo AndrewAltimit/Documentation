@@ -54,24 +54,24 @@ Infrastructure, DevOps, cloud, security, and game/real-time development.
   <a href="technology/docker-essentials.html" class="nav-card"><h4><i class="fas fa-terminal"></i> Docker Essentials</h4><p>Quick command reference for everyday Docker.</p></a>
   <a href="technology/kubernetes/" class="nav-card"><h4><i class="fas fa-dharmachakra"></i> Kubernetes</h4><p>Production-grade container orchestration.</p></a>
   <a href="technology/aws/" class="nav-card"><h4><i class="fab fa-aws"></i> AWS</h4><p>Amazon Web Services: compute, storage, and networking.</p></a>
-  <a href="technology/ci-cd.html" class="nav-card"><h4><i class="fas fa-sync-alt"></i> CI/CD</h4><p>Continuous integration and deployment pipelines.</p></a>
+  <a href="technology/ci-cd/" class="nav-card"><h4><i class="fas fa-sync-alt"></i> CI/CD</h4><p>Continuous integration and deployment pipelines.</p></a>
   <a href="technology/please-build.html" class="nav-card"><h4><i class="fas fa-hammer"></i> Please Build</h4><p>High-performance polyglot build system.</p></a>
 </div>
 
 ### Development & Version Control
 
 <div class="command-grid">
-  <a href="technology/git.html" class="nav-card"><h4><i class="fab fa-git-alt"></i> Git Version Control</h4><p>Core concepts, the object model, and workflows.</p></a>
+  <a href="technology/git/" class="nav-card"><h4><i class="fab fa-git-alt"></i> Git Version Control</h4><p>Core concepts, the object model, and workflows.</p></a>
   <a href="technology/git-reference.html" class="nav-card"><h4><i class="fas fa-book"></i> Git Command Reference</h4><p>Comprehensive command-by-command guide.</p></a>
   <a href="technology/branching.html" class="nav-card"><h4><i class="fas fa-code-branch"></i> Branching Strategies</h4><p>Git Flow, trunk-based, and release patterns.</p></a>
-  <a href="technology/database-design.html" class="nav-card"><h4><i class="fas fa-database"></i> Database Design</h4><p>Relational and NoSQL modeling patterns.</p></a>
+  <a href="technology/database-design/" class="nav-card"><h4><i class="fas fa-database"></i> Database Design</h4><p>Relational and NoSQL modeling patterns.</p></a>
 </div>
 
 ### Networking & Security
 
 <div class="command-grid">
-  <a href="technology/networking.html" class="nav-card"><h4><i class="fas fa-network-wired"></i> Networking</h4><p>TCP/IP, protocols, DNS, and modern architecture.</p></a>
-  <a href="technology/cybersecurity.html" class="nav-card"><h4><i class="fas fa-shield-alt"></i> Cybersecurity</h4><p>Security principles and threat mitigation.</p></a>
+  <a href="technology/networking/" class="nav-card"><h4><i class="fas fa-network-wired"></i> Networking</h4><p>TCP/IP, protocols, DNS, and modern architecture.</p></a>
+  <a href="technology/cybersecurity/" class="nav-card"><h4><i class="fas fa-shield-alt"></i> Cybersecurity</h4><p>Security principles and threat mitigation.</p></a>
   <a href="technology/quantumcomputing.html" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing</h4><p>From qubits to algorithms and hardware.</p></a>
 </div>
 
@@ -89,7 +89,7 @@ Infrastructure, DevOps, cloud, security, and game/real-time development.
 
 <div class="command-grid">
   <a href="technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> AI Fundamentals — Simplified</h4><p>A no-math introduction to how AI works.</p></a>
-  <a href="technology/ai.html" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence</h4><p>Comprehensive technical overview.</p></a>
+  <a href="technology/ai/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence</h4><p>Comprehensive technical overview.</p></a>
   <a href="technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> AI Deep Dive</h4><p>Advanced concepts and research directions.</p></a>
 </div>
 
@@ -128,25 +128,25 @@ First-principles treatments pairing rigorous math with physical intuition. The [
 ### Classical Physics
 
 <div class="command-grid">
-  <a href="physics/classical-mechanics.html" class="nav-card"><h4><i class="fas fa-atom"></i> Classical Mechanics</h4><p>Newton's laws through Lagrangian and Hamiltonian formalism.</p></a>
+  <a href="physics/classical-mechanics/" class="nav-card"><h4><i class="fas fa-atom"></i> Classical Mechanics</h4><p>Newton's laws through Lagrangian and Hamiltonian formalism.</p></a>
   <a href="physics/thermodynamics.html" class="nav-card"><h4><i class="fas fa-fire"></i> Thermodynamics</h4><p>Heat, work, entropy, and the four laws.</p></a>
-  <a href="physics/statistical-mechanics.html" class="nav-card"><h4><i class="fas fa-dice"></i> Statistical Mechanics</h4><p>From microscopic randomness to macroscopic law.</p></a>
+  <a href="physics/statistical-mechanics/" class="nav-card"><h4><i class="fas fa-dice"></i> Statistical Mechanics</h4><p>From microscopic randomness to macroscopic law.</p></a>
 </div>
 
 ### Modern Physics
 
 <div class="command-grid">
-  <a href="physics/relativity.html" class="nav-card"><h4><i class="fas fa-clock"></i> Relativity</h4><p>Special and general relativity, spacetime, and gravity.</p></a>
-  <a href="physics/quantum-mechanics.html" class="nav-card"><h4><i class="fas fa-wave-square"></i> Quantum Mechanics</h4><p>Wave functions, uncertainty, and entanglement.</p></a>
+  <a href="physics/relativity/" class="nav-card"><h4><i class="fas fa-clock"></i> Relativity</h4><p>Special and general relativity, spacetime, and gravity.</p></a>
+  <a href="physics/quantum-mechanics/" class="nav-card"><h4><i class="fas fa-wave-square"></i> Quantum Mechanics</h4><p>Wave functions, uncertainty, and entanglement.</p></a>
 </div>
 
 ### Advanced & Computational
 
 <div class="command-grid">
-  <a href="physics/condensed-matter.html" class="nav-card"><h4><i class="fas fa-cube"></i> Condensed Matter</h4><p>Solids, superconductors, and topological materials.</p></a>
+  <a href="physics/condensed-matter/" class="nav-card"><h4><i class="fas fa-cube"></i> Condensed Matter</h4><p>Solids, superconductors, and topological materials.</p></a>
   <a href="physics/quantum-field-theory.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> Quantum Field Theory</h4><p>Fields, particles, and the Standard Model.</p></a>
-  <a href="physics/string-theory.html" class="nav-card"><h4><i class="fas fa-infinity"></i> String Theory</h4><p>Extra dimensions and quantum gravity.</p></a>
-  <a href="physics/computational-physics.html" class="nav-card"><h4><i class="fas fa-laptop-code"></i> Computational Physics</h4><p>Numerical methods, Monte Carlo, and simulation.</p></a>
+  <a href="physics/string-theory/" class="nav-card"><h4><i class="fas fa-infinity"></i> String Theory</h4><p>Extra dimensions and quantum gravity.</p></a>
+  <a href="physics/computational-physics/" class="nav-card"><h4><i class="fas fa-laptop-code"></i> Computational Physics</h4><p>Numerical methods, Monte Carlo, and simulation.</p></a>
 </div>
 
 ## Specialized Hubs

@@ -58,7 +58,7 @@ hide_title: true
     <p>Core cloud services — compute, storage, databases, and networking on Amazon Web Services.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="ci-cd.html">CI/CD</a></h4>
+    <h4><a href="ci-cd/">CI/CD</a></h4>
     <p>Pipelines from code to production: testing strategies, deployment patterns, and GitOps.</p>
   </div>
 </div>
@@ -71,7 +71,7 @@ hide_title: true
     <p>Zero-to-productive in version control. The fastest on-ramp if you are new to Git.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="git.html">Git Version Control</a></h4>
+    <h4><a href="git/">Git Version Control</a></h4>
     <p>Architecture and internals: the object model, the DAG, and how Git actually works.</p>
   </div>
   <div class="nav-card">
@@ -100,11 +100,11 @@ hide_title: true
     <p>Core concepts and SQL basics — the quick on-ramp to working with databases.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="database-design.html">Database Design</a></h4>
+    <h4><a href="database-design/">Database Design</a></h4>
     <p>Deep dive: normalization, indexing, query execution, distributed databases, and NoSQL.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="networking.html">Networking</a></h4>
+    <h4><a href="networking/">Networking</a></h4>
     <p>TCP/IP, routing, congestion control, and modern network architecture.</p>
   </div>
 </div>
@@ -113,7 +113,7 @@ hide_title: true
 
 <div class="command-grid">
   <div class="nav-card">
-    <h4><a href="cybersecurity.html">Cybersecurity</a></h4>
+    <h4><a href="cybersecurity/">Cybersecurity</a></h4>
     <p>Cryptography, web/cloud security, attack techniques, and incident response.</p>
   </div>
 </div>
@@ -122,7 +122,7 @@ hide_title: true
 
 <div class="command-grid">
   <div class="nav-card">
-    <h4><a href="ai.html">AI Fundamentals</a></h4>
+    <h4><a href="ai/">AI Fundamentals</a></h4>
     <p>Comprehensive technical overview of modern AI and large language models.</p>
   </div>
   <div class="nav-card">
@@ -177,19 +177,19 @@ Each layer builds on the ones beneath it: code lives in **Git**, is built and te
 <div class="command-grid">
   <div class="step-card">
     <h4>New to the field</h4>
-    <p>Build foundations first: <a href="networking.html">Networking</a> → <a href="database-crash-course.html">Database Crash Course</a> → <a href="git-crash-course.html">Git Crash Course</a>.</p>
+    <p>Build foundations first: <a href="networking/">Networking</a> → <a href="database-crash-course.html">Database Crash Course</a> → <a href="git-crash-course.html">Git Crash Course</a>.</p>
   </div>
   <div class="step-card">
     <h4>Learning DevOps</h4>
-    <p><a href="git.html">Git</a> → <a href="ci-cd.html">CI/CD</a> → <a href="docker/">Docker</a> → <a href="kubernetes/">Kubernetes</a> → <a href="terraform/">Terraform</a>.</p>
+    <p><a href="git/">Git</a> → <a href="ci-cd/">CI/CD</a> → <a href="docker/">Docker</a> → <a href="kubernetes/">Kubernetes</a> → <a href="terraform/">Terraform</a>.</p>
   </div>
   <div class="step-card">
     <h4>Cloud / platform engineer</h4>
-    <p>Focus on <a href="aws/">AWS</a>, <a href="terraform/">Terraform</a>, and <a href="kubernetes/">Kubernetes</a>, with <a href="cybersecurity.html">Cybersecurity</a> throughout.</p>
+    <p>Focus on <a href="aws/">AWS</a>, <a href="terraform/">Terraform</a>, and <a href="kubernetes/">Kubernetes</a>, with <a href="cybersecurity/">Cybersecurity</a> throughout.</p>
   </div>
   <div class="step-card">
     <h4>Backend / data</h4>
-    <p><a href="database-design.html">Database Design</a> for modeling and scaling, plus <a href="networking.html">Networking</a> for performance.</p>
+    <p><a href="database-design/">Database Design</a> for modeling and scaling, plus <a href="networking/">Networking</a> for performance.</p>
   </div>
 </div>
 

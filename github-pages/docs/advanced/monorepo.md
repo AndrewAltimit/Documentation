@@ -13,7 +13,7 @@ hide_title: true
 </div>
 
 <div class="advanced-note" markdown="1">
-**Advanced engineering deep-dive.** This page is written for platform engineers, build engineers, and tech leads evaluating or operating monorepos at scale. **Helpful background:** build systems and dependency graphs, CI/CD pipelines, and Git internals. For day-to-day Git workflows see the [Git Reference](../../technology/git-reference.html); for pipeline fundamentals see [CI/CD Pipelines](../../technology/ci-cd.html).
+**Advanced engineering deep-dive.** This page is written for platform engineers, build engineers, and tech leads evaluating or operating monorepos at scale. **Helpful background:** build systems and dependency graphs, CI/CD pipelines, and Git internals. For day-to-day Git workflows see the [Git Reference](../../technology/git-reference.html); for pipeline fundamentals see [CI/CD Pipelines](../../technology/ci-cd/).
 </div>
 
 ## Introduction
@@ -121,6 +121,8 @@ Nx is a smart, extensible build framework designed for monorepos.
   }
 }
 ```
+
+> **Note:** This config reflects older Nx versions (`npmScope`, the `@nrwl/nx-cloud` runner). Modern Nx centers on `nx.json` with `namedInputs` and `targetDefaults` instead.
 
 **Key Features:**
 - Intelligent build system with computation caching
@@ -240,6 +242,37 @@ Turborepo is a high-performance build system for JavaScript and TypeScript monor
 - Remote caching
 - Parallel execution
 - Zero-config setup
+
+### Bun Workspaces
+
+**New Addition (2023-2024)**: Bun's built-in workspace support
+```json
+// package.json
+{
+  "workspaces": ["packages/*", "apps/*"]
+}
+```
+
+**Key Features**:
+- Native workspace support
+- Fast dependency installation
+- Built-in TypeScript support
+- Compatible with existing tools
+
+### PNPM Catalogs
+
+**Centralized Dependency Management**:
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  react: ^18.2.0
+  typescript: ^5.3.0
+  vite: ^5.0.0
+
+packages:
+  - 'packages/*'
+  - 'apps/*'
+```
 
 ## Repository Structure Best Practices
 
@@ -760,37 +793,6 @@ package-lock.json merge=ours
       --nx-cloud
 ```
 
-### Bun Workspaces
-
-**New Addition (2023-2024)**: Bun's built-in workspace support
-```json
-// package.json
-{
-  "workspaces": ["packages/*", "apps/*"]
-}
-```
-
-**Key Features**:
-- Native workspace support
-- Fast dependency installation
-- Built-in TypeScript support
-- Compatible with existing tools
-
-### PNPM Catalogs
-
-**Centralized Dependency Management**:
-```yaml
-# pnpm-workspace.yaml
-catalog:
-  react: ^18.2.0
-  typescript: ^5.3.0
-  vite: ^5.0.0
-
-packages:
-  - 'packages/*'
-  - 'apps/*'
-```
-
 ## Performance Optimization Techniques
 
 ### File System Optimization
@@ -910,7 +912,7 @@ Monorepos can significantly improve development workflow for teams working on re
 
 **Applied Technology**
 - [Git Reference](../../technology/git-reference.html) — Sparse checkout, LFS, and large-repo workflows
-- [CI/CD Pipelines](../../technology/ci-cd.html) — Affected-only builds in continuous integration
+- [CI/CD Pipelines](../../technology/ci-cd/) — Affected-only builds in continuous integration
 - [Docker](../../technology/docker/) — Containerizing monorepo builds
 - [Performance Optimization](../../optimization/) — Build-time and caching optimization
 

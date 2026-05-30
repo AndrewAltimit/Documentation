@@ -427,6 +427,8 @@ flowchart LR
 
 ### Generation Speed (RTX 4090)
 
+> **Note:** These figures are approximate and highly hardware-dependent (VRAM, precision, attention backend, and software version all matter). Treat them as rough relative comparisons rather than exact benchmarks.
+
 | Model | Resolution | Steps | Time | It/s |
 |-------|------------|-------|------|------|
 | SD 1.5 | 512×512 | 25 | 3s | 8.3 |
@@ -435,9 +437,11 @@ flowchart LR
 | SD3-M | 1024×1024 | 28 | 20s | 1.4 |
 | Pony | 1024×1024 | 25 | 12s | 2.1 |
 | FLUX | 1024×1024 | 25 | 40s | 0.6 |
-| FLUX-schnell | 1024×1024 | 4 | 8s | 0.5 |
+| FLUX-schnell | 1024×1024 | 4 | 2s | 2.0 |
 
 ### Quality Metrics
+
+> **Caveat:** The numbers below are illustrative/approximate for relative comparison only — they are not the result of a controlled benchmark and should not be cited as measured scores.
 
 | Model | FID Score | CLIP Score | User Preference |
 |-------|-----------|------------|-----------------|
@@ -480,7 +484,7 @@ The trap here is **settings, not prompts**. SDXL uses `cfg_scale ≈ 7.5` at ~30
 3. **Multi-modal**: Combined image/video/3D generation
 4. **Real-time generation**: Sub-second inference becoming standard
 5. **Mobile deployment**: On-device generation with quantization
-6. **Open alternatives**: Models like PixArt-α, Würstchen v3
+6. **Open alternatives**: Models like PixArt-α (Würstchen v3 / Stable Cascade was an earlier cascaded approach, now largely superseded)
 
 ### Choosing Future-Proof Models
 
@@ -500,7 +504,7 @@ Each model serves different needs:
 - **Pony**: Specialized excellence for anime/stylized content
 - **FLUX**: Cutting-edge quality and capabilities
 
-The rapid evolution continues with models like Stable Cascade, Würstchen, and PixArt-α exploring alternative architectures. Stay informed about new developments while mastering these foundational models. Choose based on your specific requirements for quality, speed, hardware, and content type.
+The rapid evolution continues, with models like PixArt-α exploring alternative architectures. (Stable Cascade / Würstchen was an earlier cascaded approach that is now largely superseded.) Stay informed about new developments while mastering these foundational models. Choose based on your specific requirements for quality, speed, hardware, and content type.
 
 ## Key Takeaways
 

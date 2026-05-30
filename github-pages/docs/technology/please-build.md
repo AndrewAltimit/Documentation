@@ -711,8 +711,8 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
-    <li><a href="ci-cd.html">CI/CD</a> — wire Please builds into automated pipelines</li>
-    <li><a href="git.html">Git Version Control</a> — monorepo strategies and large-repo tooling</li>
+    <li><a href="ci-cd/">CI/CD</a> — wire Please builds into automated pipelines</li>
+    <li><a href="git/">Git Version Control</a> — monorepo strategies and large-repo tooling</li>
     <li><a href="docker/">Docker</a> — package Please build artifacts into container images</li>
     <li><a href="kubernetes/">Kubernetes</a> — deploy the services Please builds</li>
   </ul>

@@ -609,33 +609,6 @@ Alerts on:
 - Load time increase > 20%
 ```
 
-## Recent Updates (2025)
-
-**GPU Optimization:**
-- Added mesh shader techniques for modern rendering pipelines
-- Updated shader optimization guidelines for latest GPU architectures
-- New section on indirect drawing and GPU-driven rendering
-
-**CPU Optimization:**
-- Enhanced multithreading patterns with modern C++ examples
-- Added data-oriented design best practices
-- Updated cache optimization for current CPU microarchitectures
-
-**Profiling Tools:**
-- Added Superluminal to recommended profiler list
-- Updated platform profiler information for latest versions
-- New continuous performance testing integration examples
-
-**Platform-Specific:**
-- Updated mobile optimization for latest iOS/Android capabilities
-- Enhanced console optimization techniques for current-gen hardware
-- Added dynamic resolution scaling best practices
-
-**Memory Management:**
-- New asset streaming strategies for open-world games
-- Enhanced texture compression format recommendations
-- Updated memory profiling tool coverage
-
 ## Key Takeaways
 
 <div class="takeaway-grid">

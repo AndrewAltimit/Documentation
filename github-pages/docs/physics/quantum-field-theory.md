@@ -399,7 +399,7 @@ $$\Lambda^\mu(p',p) = -ie^2 \int \frac{d^4k}{(2\pi)^4} \frac{\gamma^\nu(\not{p}'
 **QED β-function (one-loop):**
 $$\beta(e) = \frac{e^3}{12\pi^2} + O(e^5)$$
 
-This positive β-function indicates QED is IR-free but has a Landau pole at high energy.
+This positive β-function means the QED coupling decreases toward low energy (in the infrared) and grows toward high energy, eventually hitting a Landau pole. QED is therefore *not* asymptotically free.
 
 ## Path Integral Formulation
 
@@ -434,6 +434,7 @@ $$W[J] = -i \ln Z[J]$$
 $$\langle 0|T[\phi(x_1)\cdots\phi(x_n)]|0\rangle_c = (-i)^{n-1} \frac{\delta^n W[J]}{\delta J(x_1)\cdots\delta J(x_n)}\bigg|_{J=0}$$
 
 **Effective action (1PI generating functional):**
+The effective action is the Legendre transform of $W[J]$:
 $$\Gamma[\phi_c] = W[J] - \int d^4x \, J(x)\phi_c(x)$$
 
 Where $\phi_c = \delta W/\delta J$ is the classical field.
@@ -452,13 +453,6 @@ For interacting theory with $\mathcal{L} = \mathcal{L}_0 + \mathcal{L}_{\text{in
 $$Z[J] = \exp\left[i\int d^4x \, \mathcal{L}_{\text{int}}\left(\frac{1}{i}\frac{\delta}{\delta J(x)}\right)\right] Z_0[J]$$
 
 This generates the perturbation series and Feynman diagrams.
-
-### Effective Action
-
-The Legendre transform of $W[J] = -i \ln Z[J]$:
-$$\Gamma[\phi_c] = W[J] - \int d^4x \, J(x)\phi_c(x)$$
-
-Where $\phi_c = \delta W/\delta J$ is the classical field.
 
 ## Spontaneous Symmetry Breaking
 
@@ -756,11 +750,11 @@ Quantum Field Theory represents our deepest understanding of the fundamental for
 <div class="see-also-card">
   <h4>Where to go next</h4>
   <ul>
-    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
-    <li><a href="relativity.html">Relativity</a> — special relativity is what makes field theories Lorentz-invariant.</li>
-    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — finite-temperature field theory and the path-integral connection.</li>
-    <li><a href="condensed-matter.html">Condensed Matter Physics</a> — field-theoretic methods in many-body systems.</li>
-    <li><a href="string-theory.html">String Theory</a> — extending point particles to strings for quantum gravity.</li>
+    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
+    <li><a href="relativity/">Relativity</a> — special relativity is what makes field theories Lorentz-invariant.</li>
+    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — finite-temperature field theory and the path-integral connection.</li>
+    <li><a href="condensed-matter/">Condensed Matter Physics</a> — field-theoretic methods in many-body systems.</li>
+    <li><a href="string-theory/">String Theory</a> — extending point particles to strings for quantum gravity.</li>
     <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
   </ul>
 </div>

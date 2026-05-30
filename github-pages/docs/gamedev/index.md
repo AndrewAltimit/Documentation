@@ -131,7 +131,7 @@ Unity is widely used for indie and mobile game development:
 - Cross-platform deployment to 25+ platforms
 - Asset Store ecosystem
 - DOTS (Data-Oriented Technology Stack) for performance
-- Visual scripting with Bolt
+- Visual scripting with Unity Visual Scripting (formerly Bolt)
 - Strong 2D game support
 
 ### Godot
@@ -376,16 +376,6 @@ Scalability considerations:
 - **Modding Support**: Community content tools
 - **Distribution**: Steam, Epic, GOG, direct
 
-## Recent Updates (2025)
-
-- **Unreal Engine 5**: Expanded coverage of Nanite virtualized geometry and Lumen global illumination
-- **Entity Component System**: Updated with modern ECS patterns and performance considerations
-- **Multiplayer Networking**: Enhanced lag compensation techniques and client-side prediction
-- **Mobile Development**: New sections on thermal throttling management and touch UI/UX
-- **Learning Paths**: Added structured progression guides for different career paths
-- **VR Development**: Cross-linked with expanded [VR/AR Development](../vr-ar/) documentation
-- **Performance**: Updated console performance targets and optimization strategies
-
 ## Key Takeaways
 
 <div class="takeaway-grid">
@@ -407,4 +397,4 @@ Scalability considerations:
 ### Specialized Topics
 - [VR/AR Development](../vr-ar/) - Immersive experiences, spatial tracking, and XR interactions
 - [Game AI](../ai-ml/game-ai.html) - Behavior trees, pathfinding, and machine learning in games
-- [Networking Fundamentals](../technology/networking.html) - Low-level networking concepts for multiplayer games
+- [Networking Fundamentals](../technology/networking/) - Low-level networking concepts for multiplayer games

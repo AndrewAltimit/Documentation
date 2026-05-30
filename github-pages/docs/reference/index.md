@@ -915,37 +915,6 @@ Phone: ^\+?1?\d{9,15}$
 
 ---
 
-## Recently Added
-
-<div class="reference-card" markdown="1">
-
-#### Latest Additions & Updates
-
-**December 2025**
-- Added Terraform CLI Commands section with comprehensive command reference
-- Enhanced Quick Navigation to include all major sections
-- Added Recently Added section for tracking updates
-
-**Previous Updates**
-- Complete physics formulas and constants reference
-- Algorithm patterns and Big O complexity charts
-- RESTful API conventions and response formats
-- Docker and Git troubleshooting flowcharts
-- Code review and deployment checklists
-- Network protocols and port number reference
-- Regular expressions quick reference
-- Mathematical reference for calculus and linear algebra
-
-**Coming Soon**
-- Python standard library quick reference
-- SQL query patterns and optimization tips
-- Shell scripting common patterns
-- CI/CD pipeline templates
-- Security best practices expanded section
-</div>
-
----
-
 <div class="reference-footer">
 <h2>Contributing to This Reference</h2>
 <p>This reference guide is continuously updated. Found an error or have a suggestion? <a href="https://github.com/AndrewAltimit/Documentation">Contribute on GitHub</a>.</p>

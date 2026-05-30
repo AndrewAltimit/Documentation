@@ -92,4 +92,4 @@ Kubernetes adds complexity, so it is important to understand when it provides va
 - [Docker](../docker/) - Container fundamentals
 - [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
 - [Terraform](../terraform/) - Infrastructure as code for K8s
-- [CI/CD](../ci-cd.html) - Continuous deployment pipelines
+- [CI/CD](../ci-cd/) - Continuous deployment pipelines

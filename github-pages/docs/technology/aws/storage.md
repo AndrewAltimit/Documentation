@@ -132,7 +132,7 @@ Consider the following: Does your workload need high IOPS (database transactions
 |-------------|----------|----------|----------------|------|
 | **gp3** (General Purpose SSD) | Most workloads, boot volumes | 16,000 | 1,000 MB/s | Lowest SSD |
 | **gp2** (General Purpose SSD) | Legacy, burst-based | 16,000 | 250 MB/s | Moderate |
-| **io2** (Provisioned IOPS SSD) | Databases requiring consistent IOPS | 256,000 | 4,000 MB/s | Highest |
+| **io2 Block Express** (Provisioned IOPS SSD) | Databases requiring consistent IOPS (base io2 caps at 64,000) | 256,000 | 4,000 MB/s | Highest |
 | **st1** (Throughput HDD) | Big data, log processing | 500 | 500 MB/s | Low |
 | **sc1** (Cold HDD) | Infrequently accessed archives | 250 | 250 MB/s | Lowest |
 
@@ -240,7 +240,7 @@ flowchart TD
   <h4>Common Pitfalls</h4>
   <ul>
     <li><strong>Accidentally public buckets:</strong> A misconfigured bucket policy or ACL is a leading cause of data leaks. Enable S3 Block Public Access at the account level and only relax it deliberately.</li>
-    <li><strong>Detaching the cost of versioning:</strong> Versioning keeps every overwrite and delete marker, so storage grows silently. Pair it with a lifecycle rule to expire noncurrent versions.</li>
+    <li><strong>Underestimating the cost of versioning:</strong> Versioning keeps every overwrite and delete marker, so storage grows silently. Pair it with a lifecycle rule to expire noncurrent versions.</li>
     <li><strong>One Zone-IA for irreplaceable data:</strong> One Zone-IA stores data in a single AZ. Use it only for data you can regenerate; an AZ loss destroys it.</li>
     <li><strong>Deleting EBS volumes with the instance:</strong> Root volumes default to <code>DeleteOnTermination=true</code>. Set it to false (or snapshot first) for volumes holding data you need to keep.</li>
     <li><strong>EFS for low-latency single-instance workloads:</strong> EFS adds network latency versus a local EBS volume. Reach for it only when files genuinely must be shared across instances.</li>
@@ -273,5 +273,5 @@ flowchart TD
 - [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EBS with EC2, S3 with Lambda
 - [Databases](databases.html) - Database storage considerations
-- [Infrastructure & Operations](infrastructure.html) - Storage IaC and cost optimization
+- [Infrastructure as Code](iac.html) - Storage IaC and cost optimization
 - [Security](security.html) - S3 bucket policies and encryption
