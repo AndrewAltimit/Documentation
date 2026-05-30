@@ -27,7 +27,7 @@ hide_title: true
     <ul>
       <li><a href="technology/git-reference.html">Git Quick Start</a></li>
       <li><a href="technology/docker-essentials.html">Docker Quick Start</a></li>
-      <li><a href="technology/database-design.html">Database Basics</a></li>
+      <li><a href="technology/database-design/">Database Basics</a></li>
       <li><a href="technology/ai-fundamentals-simple.html">AI for Beginners</a> (no math)</li>
     </ul>
   </div>
@@ -38,8 +38,8 @@ hide_title: true
     <ul>
       <li><a href="technology/branching.html">Git Branching Strategies</a></li>
       <li><a href="technology/docker/">Docker Deep Dive</a></li>
-      <li><a href="technology/database-design.html">Database Design Patterns</a></li>
-      <li><a href="technology/ai.html">AI &amp; Neural Networks</a></li>
+      <li><a href="technology/database-design/">Database Design Patterns</a></li>
+      <li><a href="technology/ai/">AI &amp; Neural Networks</a></li>
     </ul>
   </div>
 
@@ -47,7 +47,7 @@ hide_title: true
     <h3>Advanced</h3>
     <p>Comfortable already &mdash; dive into theory and research:</p>
     <ul>
-      <li><a href="technology/git.html">Git Internals &amp; Theory</a></li>
+      <li><a href="technology/git/">Git Internals &amp; Theory</a></li>
       <li><a href="technology/kubernetes/">Kubernetes Architecture</a></li>
       <li><a href="advanced/distributed-systems-theory/">Distributed Systems Theory</a></li>
       <li><a href="advanced/ai-mathematics/">AI Mathematics</a></li>

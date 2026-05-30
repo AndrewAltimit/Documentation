@@ -85,9 +85,9 @@ For a reversible process: $dS = \frac{\delta Q_{rev}}{T}$
 </div>
 
 #### Third Law
-As temperature approaches absolute zero, the entropy of a perfect crystal approaches zero:
+As temperature approaches absolute zero, the entropy approaches a constant $S_0$ (zero for a perfect crystal, per the Nernst statement):
 
-$$\lim_{T \to 0} S = 0$$
+$$\lim_{T \to 0} S = S_0$$
 
 ### The Four Laws at a Glance
 
@@ -486,7 +486,7 @@ Console output shows:
 
 <div class="tip-card">
   <h4>How to read the rest of this page</h4>
-  <p>Everything above is the working core of classical thermodynamics. The sections that follow are a denser, graduate-level reference: the formal Legendre-transform structure, critical phenomena and the renormalization group, the statistical-mechanical foundations, and modern research directions (stochastic, quantum, and information thermodynamics). They are formula-forward by design — for the microscopic story behind the statistical sections, see <a href="statistical-mechanics.html">Statistical Mechanics</a>, which develops ensembles and the partition function in full.</p>
+  <p>Everything above is the working core of classical thermodynamics. The sections that follow are a denser, graduate-level reference: the formal Legendre-transform structure, critical phenomena and the renormalization group, the statistical-mechanical foundations, and modern research directions (stochastic, quantum, and information thermodynamics). They are formula-forward by design — for the microscopic story behind the statistical sections, see <a href="statistical-mechanics/">Statistical Mechanics</a>, which develops ensembles and the partition function in full.</p>
 </div>
 
 ## Legendre Transformations and Thermodynamic Potentials
@@ -1015,10 +1015,10 @@ $$
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
-    <li><a href="statistical-mechanics.html">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
-    <li><a href="classical-mechanics.html">Classical Mechanics</a> — work, energy, and the mechanical origin of the First Law.</li>
-    <li><a href="quantum-mechanics.html">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical mechanics.</li>
-    <li><a href="relativity.html">Relativity</a> — black-hole thermodynamics and the Bekenstein–Hawking entropy.</li>
-    <li><a href="computational-physics.html">Computational Physics</a> — Monte Carlo and molecular dynamics for thermal systems.</li>
+    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
+    <li><a href="classical-mechanics/">Classical Mechanics</a> — work, energy, and the mechanical origin of the First Law.</li>
+    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical mechanics.</li>
+    <li><a href="relativity/">Relativity</a> — black-hole thermodynamics and the Bekenstein–Hawking entropy.</li>
+    <li><a href="computational-physics/">Computational Physics</a> — Monte Carlo and molecular dynamics for thermal systems.</li>
   </ul>
 </div>

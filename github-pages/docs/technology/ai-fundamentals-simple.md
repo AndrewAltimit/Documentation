@@ -15,7 +15,7 @@ toc_icon: "lightbulb"
 </div>
 
 <div class="intro-card">
-  <p class="lead-text">This is the friendly, no-math introduction to artificial intelligence. We'll build intuition for what AI is, how machines "learn," and where the technology shows up in everyday life. When you're ready for equations and architecture details, the <a href="ai.html">Complete</a> and <a href="ai-lecture-2023.html">Deep Dive</a> versions are waiting.</p>
+  <p class="lead-text">This is the friendly, no-math introduction to artificial intelligence. We'll build intuition for what AI is, how machines "learn," and where the technology shows up in everyday life. When you're ready for equations and architecture details, the <a href="ai/">Complete</a> and <a href="ai-lecture-2023.html">Deep Dive</a> versions are waiting.</p>
 
   <div class="key-insights">
     <div class="insight-card">
@@ -153,7 +153,7 @@ People often lump all AI together, but there's a huge gap between today's realit
 - **Transformers**: State-of-the-art for NLP and increasingly for vision tasks
 - **Generative Adversarial Networks (GAN)**: Generate new data samples
 - **Diffusion Models**: Current state-of-the-art for image generation (Stable Diffusion, DALL-E)
-- **Mixture of Experts (MoE)**: Efficient scaling approach (Mixtral, GPT-4)
+- **Mixture of Experts (MoE)**: Efficient scaling approach (Mixtral, DeepSeek-V3)
 
 ## Common Applications
 
@@ -267,13 +267,13 @@ We don't just ask "is it right?" — context matters. Common scorecards:
 
 ### Emerging Trends
 - **Multimodal Models**: AI that processes text, images, audio, and video together
-- **Small Language Models (SLMs)**: Efficient models for edge deployment (Phi-3, Gemma)
+- **Small Language Models (SLMs)**: Efficient models for edge deployment (Phi-4, Gemma 2/3)
 - **AI Agents**: Autonomous systems that can use tools and complete tasks
 - **Retrieval Augmented Generation (RAG)**: Combining LLMs with external knowledge
 - **Constitutional AI**: Training AI systems to be helpful, harmless, and honest
 - **Mixture of Experts**: Efficient scaling through specialized sub-networks
-- **Long Context Windows**: Models handling 100K+ tokens (Claude 3, Gemini 1.5)
-- **Open Source AI**: Rapid progress in open models (Llama 3, Mistral)
+- **Long Context Windows**: Models handling 100K+ tokens (Claude 4, Gemini 2.x)
+- **Open Source AI**: Rapid progress in open models (Llama 4, Mistral)
 
 ### Active Research Areas
 - **Reasoning and Planning**: Teaching AI to solve complex multi-step problems
@@ -292,7 +292,7 @@ We don't just ask "is it right?" — context matters. Common scorecards:
 - [Pattern Recognition and Machine Learning](https://www.microsoft.com/en-us/research/people/cmbishop/prml-book/) - Christopher Bishop
 - [The Elements of Statistical Learning](https://hastie.su.domains/ElemStatLearn/) - Hastie, Tibshirani, and Friedman
 
-### Modern Resources (2023-2024)
+### Modern Resources
 - [Understanding Deep Learning](https://udlbook.github.io/udlbook/) - Simon J.D. Prince (2023)
 - [The Little Book of Deep Learning](https://fleuret.org/francois/lbdl.html) - François Fleuret
 - [Dive into Deep Learning](https://d2l.ai/) - Interactive deep learning book
@@ -319,7 +319,7 @@ We don't just ask "is it right?" — context matters. Common scorecards:
 Ready to go deeper? Here's your learning path:
 
 ### Level Up Your Knowledge
-- [AI Fundamentals - Complete](ai.html) - Technical details with mathematical foundations
+- [AI Fundamentals - Complete](ai/) - Technical details with mathematical foundations
 - [AI Deep Dive](ai-lecture-2023.html) - Research-level content on transformers and LLMs
 - [AI Mathematics](../advanced/ai-mathematics/) - Statistical learning theory and proofs
 
@@ -336,7 +336,7 @@ Ready to go deeper? Here's your learning path:
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
-    <li><a href="ai.html">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics</li>
+    <li><a href="ai/">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics</li>
     <li><a href="ai-lecture-2023.html">AI Deep Dive</a> — transformers, LLM internals, and current research</li>
     <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — hands-on generative AI tools and guides</li>
     <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — when you're ready for the proofs</li>

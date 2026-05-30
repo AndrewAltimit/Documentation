@@ -64,12 +64,12 @@ Start anywhere that matches your goal: jump to the [patterns](#common-patterns-a
 - [**Distributed Systems Theory**](../advanced/distributed-systems-theory/) - Formal foundations and impossibility results
 
 ### Key Concepts
-- **Consensus Algorithms** - Paxos, Raft, and Byzantine fault tolerance
-- **Distributed Databases** - Sharding, replication, and consistency models
-- **Microservices Architecture** - Service decomposition and communication patterns
-- **Message Queuing Systems** - Async communication and event-driven architectures
-- **Service Mesh** - Traffic management, security, and observability
-- **Distributed Computing Frameworks** - MapReduce, Spark, and stream processing
+- [**Consensus Algorithms**](../advanced/distributed-systems-theory/) - Paxos, Raft, and Byzantine fault tolerance
+- [**Distributed Databases**](../technology/database-design/) - Sharding, replication, and consistency models
+- Microservices Architecture - Service decomposition and communication patterns
+- Message Queuing Systems - Async communication and event-driven architectures
+- Service Mesh - Traffic management, security, and observability
+- Distributed Computing Frameworks - MapReduce, Spark, and stream processing
 
 ## Getting Started
 
@@ -449,7 +449,7 @@ class ShardedDatabase:
             self.shards[i] = create_connection(config)
             
     def get_shard(self, key):
-        """Consistent hashing for shard selection"""
+        """Modulo/hash-based sharding for shard selection"""
         hash_value = int(hashlib.md5(key.encode()).hexdigest(), 16)
         shard_id = hash_value % self.num_shards
         return self.shards[shard_id]
@@ -1038,7 +1038,7 @@ class SecureClient:
 - **[Docker](../technology/docker/)** - Containerization fundamentals and best practices
 - **[Docker Essentials](../technology/docker-essentials.html)** - Quick reference and essential commands
 - **[AWS Cloud Services](../technology/aws/)** - Cloud infrastructure and distributed services at scale
-- **[CI/CD Pipelines](../technology/ci-cd.html)** - Continuous integration and deployment for distributed systems
+- **[CI/CD Pipelines](../technology/ci-cd/)** - Continuous integration and deployment for distributed systems
 
 ### Advanced Topics
 - **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** - Formal foundations, impossibility results, and consensus proofs
@@ -1047,15 +1047,15 @@ class SecureClient:
 
 ### Performance and Optimization
 - **[Performance Optimization](../optimization/)** - Optimizing distributed systems performance
-- **Database Performance** - Distributed database tuning and query optimization
-- **Network Optimization** - Reducing latency and improving throughput in distributed systems
+- **[Database Performance](../technology/database-design/)** - Distributed database tuning and query optimization
+- **[Network Optimization](../technology/networking/)** - Reducing latency and improving throughput in distributed systems
 
 ### Related Concepts
 - **[Quantum Distributed Systems](../quantum-computing/)** - Quantum networking and distributed quantum computing
-- **Blockchain and Consensus** - Distributed ledgers and cryptocurrencies
-- **Edge Computing** - Pushing computation to the network edge
-- **Serverless Architectures** - Function-as-a-Service patterns and distributed serverless systems
-- **Multi-Region Deployments** - Global scale architectures and geo-distributed systems
+- Blockchain and Consensus - Distributed ledgers and cryptocurrencies
+- Edge Computing - Pushing computation to the network edge
+- Serverless Architectures - Function-as-a-Service patterns and distributed serverless systems
+- Multi-Region Deployments - Global scale architectures and geo-distributed systems
 
 <div class="code-example bg-yellow-000" markdown="1">
 **Note**: Distributed systems are inherently complex. Start with simple patterns and gradually increase sophistication as you gain experience. Always prioritize reliability and maintainability over premature optimization.

@@ -44,6 +44,8 @@ kubectl get pods
 kubectl get services
 ```
 
+> **Note:** `--type=LoadBalancer` provisions an external IP only on a cloud provider. On a local cluster (minikube, kind, k3s) the service stays `<pending>` — run `minikube tunnel`, or use `--type=NodePort` instead.
+
 Now try the self-healing feature that makes Kubernetes valuable:
 
 ```bash

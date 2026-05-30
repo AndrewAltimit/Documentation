@@ -122,4 +122,4 @@ tofu version
 - [AWS Cloud Services](../aws/) - Deploy infrastructure on AWS
 - [Kubernetes](../kubernetes/) - Container orchestration
 - [Docker](../docker/) - Container fundamentals
-- [CI/CD](../ci-cd.html) - Continuous integration and deployment
+- [CI/CD](../ci-cd/) - Continuous integration and deployment

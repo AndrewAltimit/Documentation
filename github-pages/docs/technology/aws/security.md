@@ -189,7 +189,7 @@ resource "aws_lambda_function" "security_checker" {
   function_name    = "${var.environment}-custom-security-checks"
   role            = aws_iam_role.security_checker.arn
   handler         = "index.handler"
-  runtime         = "python3.9"
+  runtime         = "python3.12"
   timeout         = 900
   memory_size     = 3008
   
@@ -483,7 +483,7 @@ resource "aws_lambda_function" "auto_remediation" {
   function_name    = "${var.environment}-security-auto-remediation"
   role            = aws_iam_role.remediation.arn
   handler         = "index.handler"
-  runtime         = "python3.9"
+  runtime         = "python3.12"
   timeout         = 300
   
   environment {
@@ -618,6 +618,6 @@ If WAF misses something, the security group still limits exposure. If a credenti
 
 - [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda security configurations
-- [Networking](../networking.html) - VPC security and WAF integration
-- [Infrastructure & Operations](infrastructure.html) - Security automation and compliance monitoring
-- [Cybersecurity Guide](../cybersecurity.html) - General security concepts
+- [Networking](../networking/) - VPC security and WAF integration
+- [Infrastructure as Code](iac.html) - Security automation and compliance monitoring
+- [Cybersecurity Guide](../cybersecurity/) - General security concepts

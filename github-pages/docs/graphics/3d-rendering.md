@@ -426,16 +426,6 @@ Reduce draw calls:
 - **GPU Instancing**: Single draw call, multiple instances
 - **Indirect Drawing**: GPU-driven draw commands
 
-## Recent Updates (2025)
-
-- **Ray Tracing Advances**: Updated coverage of hardware-accelerated ray tracing and path tracing techniques
-- **Neural Rendering**: New section on NeRF, Gaussian Splatting, and neural radiance fields
-- **Mesh Shaders**: Modern GPU-driven geometry processing with mesh and task shaders
-- **UE5 Nanite/Lumen**: Cross-linked with Unreal Engine documentation for virtualized geometry and global illumination
-- **Vulkan/DirectX 12**: Updated modern graphics API best practices
-
----
-
 ## Key Takeaways
 
 <div class="takeaway-grid">

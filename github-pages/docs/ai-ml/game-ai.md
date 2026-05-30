@@ -2,7 +2,7 @@
 layout: docs
 title: Game AI Systems
 parent: AI/ML Documentation
-nav_order: 8
+nav_order: 9
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
@@ -569,6 +569,6 @@ Efficient queries:
 - [Game Development](../gamedev/) - Game development fundamentals
 - [Unreal Engine](../technology/unreal.html) - UE5 AI systems and behavior frameworks
 - [Performance Optimization](../optimization/) - Optimization techniques for real-time systems
-- [AI Fundamentals](../technology/ai.html) - Machine learning foundations behind ML-driven NPCs
+- [AI Fundamentals](../technology/ai/) - Machine learning foundations behind ML-driven NPCs
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
 </div>

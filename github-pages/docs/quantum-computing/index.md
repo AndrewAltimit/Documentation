@@ -57,7 +57,7 @@ Whether you're exploring quantum concepts for the first time, writing your first
 
 ### Fundamentals
 - [**Introduction to Quantum Computing**](../technology/quantumcomputing.html) - Comprehensive introduction covering all aspects
-- [**Quantum Mechanics Basics**](../physics/quantum-mechanics.html) - Fundamental quantum principles
+- [**Quantum Mechanics Basics**](../physics/quantum-mechanics/) - Fundamental quantum principles
 - [**Bits to Qubits**](../technology/quantumcomputing.html#building-blocks-from-bits-to-qubits) - How quantum mechanics enables computation
 
 ### Quantum Algorithms
@@ -104,7 +104,7 @@ Choose your quantum journey based on your background and goals:
 **For:** Software developers, data scientists wanting to program quantum computers
 
 **Journey:**
-1. Review [quantum mechanics basics](../physics/quantum-mechanics.html) - Essential physics
+1. Review [quantum mechanics basics](../physics/quantum-mechanics/) - Essential physics
 2. Learn [quantum gates and circuits](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) - Building blocks
 3. Choose a framework: Qiskit, Cirq, or Q# (see [Quick Start](#step-by-step-quick-start))
 4. Build your first [Bell state circuit](#hello-quantum-a-bell-state)
@@ -121,7 +121,7 @@ Choose your quantum journey based on your background and goals:
 **For:** Graduate students, researchers exploring quantum algorithm design
 
 **Journey:**
-1. Master [quantum mechanics](../physics/quantum-mechanics.html) - Deep foundation
+1. Master [quantum mechanics](../physics/quantum-mechanics/) - Deep foundation
 2. Study quantum information theory - Formal framework
 3. Analyze [classical quantum algorithms](../technology/quantumcomputing.html#classical-quantum-algorithms-the-foundations) - Shor's, Grover's, QFT
 4. Dive into [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory
@@ -138,7 +138,7 @@ Choose your quantum journey based on your background and goals:
 **For:** Physics students/professionals transitioning to quantum computing
 
 **Journey:**
-1. Apply your [quantum mechanics](../physics/quantum-mechanics.html) knowledge - You have a head start
+1. Apply your [quantum mechanics](../physics/quantum-mechanics/) knowledge - You have a head start
 2. Learn quantum information theory - New perspective
 3. Understand [quantum gates](../technology/quantumcomputing.html#quantum-gates-programming-the-quantum-world) - Physics to computation
 4. Study [quantum hardware platforms](../technology/quantumcomputing.html#building-quantum-computers-from-theory-to-hardware) - Physical implementations
@@ -156,7 +156,7 @@ Choose your quantum journey based on your background and goals:
 
 **Essential Reading:**
 - [Introduction to Quantum Computing](../technology/quantumcomputing.html) - Comprehensive overview
-- [Quantum Mechanics](../physics/quantum-mechanics.html) - Physical principles
+- [Quantum Mechanics](../physics/quantum-mechanics/) - Physical principles
 - Interactive demos and visualizations
 
 **Core Algorithms:**
@@ -227,7 +227,7 @@ and $n$ qubits span a $2^n$-dimensional state space — the root of quantum comp
 | Algorithm | Problem | Classical | Quantum | Status |
 |-----------|---------|-----------|---------|--------|
 | Grover's | Unstructured search | $O(N)$ | $O(\sqrt{N})$ | Proven quadratic |
-| Shor's | Integer factoring | super-polynomial | polynomial | Needs fault tolerance |
+| Shor's | Integer factoring | sub-exponential | polynomial | Needs fault tolerance |
 | QFT / phase estimation | Period finding | exponential | polynomial | Core subroutine |
 | VQE / QAOA | Chemistry, optimization | varies | heuristic | NISQ-era, hybrid |
 
@@ -367,28 +367,7 @@ dotnet tool install -g Microsoft.Quantum.IQSharp
 
 **2. Create Your First Quantum Circuit (30 minutes)**
 
-Try the classic "Hello Quantum" - a Bell state:
-
-```python
-from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
-
-# Create a 2-qubit circuit
-qc = QuantumCircuit(2, 2)
-qc.h(0)           # Superposition
-qc.cx(0, 1)       # Entanglement
-qc.measure_all()  # Measure
-
-# Simulate
-simulator = AerSimulator()
-compiled = transpile(qc, simulator)
-job = simulator.run(compiled, shots=1000)
-result = job.result()
-counts = result.get_counts()
-
-print("Bell state results:", counts)
-# Expected: ~50% |00⟩ and ~50% |11⟩
-```
+Try the classic "Hello Quantum" — a Bell state. The full circuit is in the [Hello Quantum: a Bell State](#hello-quantum-a-bell-state) section above: a Hadamard on qubit 0 creates superposition, a CNOT entangles the pair, and measuring 1000 shots yields ~50% `00` and ~50% `11`. Copy that snippet and run it.
 
 **3. Understand What Just Happened (20 minutes)**
 
@@ -469,7 +448,7 @@ Ready to begin your quantum journey? Start with our [Introduction to Quantum Com
 <div class="see-also-card" markdown="1">
 #### See Also
 - [Introduction to Quantum Computing](../technology/quantumcomputing.html) - The full deep-dive (gates, algorithms, error correction, hardware)
-- [Quantum Mechanics](../physics/quantum-mechanics.html) - The physics underpinning qubits
+- [Quantum Mechanics](../physics/quantum-mechanics/) - The physics underpinning qubits
 - [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
 - [AI/ML Documentation](../ai-ml/) - Where quantum machine learning connects to classical ML
 - [Artificial Intelligence Hub](../artificial-intelligence/) - Quantum ML in context

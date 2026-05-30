@@ -37,7 +37,7 @@ hide_title: true
   </div>
 </div>
 
-> **For the physics underneath this, see the [Quantum Mechanics](../physics/quantum-mechanics.html) page; for rigorous complexity theory, see [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/).**
+> **For the physics underneath this, see the [Quantum Mechanics](../physics/quantum-mechanics/) page; for rigorous complexity theory, see [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/).**
 
 ## What is Quantum Computing?
 
@@ -85,7 +85,7 @@ This exponential scaling is why quantum computers promise to revolutionize certa
 
 ### The Mathematics Behind Qubits
 
-Now that we understand the concept, let's look at the mathematical framework that makes quantum computing precise and predictable. Don't worry if you're not a mathematician - the key insights are actually quite intuitive.
+Now that we understand the concept, let's look at the mathematical framework that makes quantum computing precise and predictable. The key insights are more intuitive than the notation suggests.
 
 <div class="advanced-note">
   <i class="fas fa-graduation-cap"></i>
@@ -473,7 +473,7 @@ The leading approach, used by Google, IBM, and others, builds qubits from superc
 - Qubit lifetime: 100-300 microseconds (improving yearly)
 - Gate operation time: 10-100 nanoseconds
 - Gate fidelity: >99.9% for single qubits, >99% for two qubits
-- System size: Up to 1000+ qubits (IBM's Condor)
+- System size: Up to 1000+ qubits (IBM's Condor), though IBM has since shifted from a single monolithic chip to modular architectures (Heron, Flamingo) that link smaller processors
 
 ### Trapped Ions: Precision Quantum Control
 
@@ -942,7 +942,7 @@ The journey from quantum mechanics' discovery to today's quantum computers spans
 
 Whether you're a student, developer, researcher, or simply curious, there's never been a more exciting time to explore quantum computing. The field needs diverse perspectives and skills - from physics and computer science to engineering and applications.
 
-The quantum revolution isn't coming - it's here. And you can be part of it.
+Quantum computing has moved from theoretical possibility to an active engineering discipline, and its development will continue to unfold over the coming decades.
 
 ## Quantum Computing: Current State of the Field
 
@@ -951,6 +951,8 @@ The quantum revolution isn't coming - it's here. And you can be part of it.
 **IBM's Quantum Utility (2023)**: Demonstrated quantum advantage for materials science problems on 127-qubit Eagle processor.
 
 **Google's Error Correction Milestone (2023)**: Achieved logical qubit with lower error rate than physical qubits using surface codes.
+
+**Google's Willow Chip (December 2024)**: Demonstrated the first below-threshold quantum error correction — scaling up the surface code (distance 3 → 5 → 7) drove the logical error rate down exponentially, a key milestone toward fault tolerance.
 
 **Atom Computing's 1,000+ Qubit System (2023)**: Neutral atom platform crossing the 1,000 qubit threshold.
 
@@ -1045,12 +1047,12 @@ estimator = Estimator(backend)
 <div class="see-also-card" markdown="1">
 #### See Also
 - [Quantum Computing Hub](../quantum-computing/) - Learning paths, quick start, and topic map
-- [Quantum Mechanics](../physics/quantum-mechanics.html) - Fundamental quantum principles
+- [Quantum Mechanics](../physics/quantum-mechanics/) - Fundamental quantum principles
 - [Quantum Field Theory](../physics/quantum-field-theory.html) - Advanced quantum theory
-- [Statistical Mechanics](../physics/statistical-mechanics.html) - Quantum statistics
-- [Condensed Matter Physics](../physics/condensed-matter.html) - Quantum phenomena in materials
+- [Statistical Mechanics](../physics/statistical-mechanics/) - Quantum statistics
+- [Condensed Matter Physics](../physics/condensed-matter/) - Quantum phenomena in materials
 - [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
 - [AWS](aws/) - AWS Braket quantum computing service
-- [AI](ai.html) - Quantum machine learning algorithms
-- [Cybersecurity](cybersecurity.html) - Post-quantum cryptography
+- [AI](ai/) - Quantum machine learning algorithms
+- [Cybersecurity](cybersecurity/) - Post-quantum cryptography
 </div>

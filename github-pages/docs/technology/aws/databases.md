@@ -248,5 +248,5 @@ aws dynamodb query --table-name MyTable \
 - [Compute Services](compute.html) - Lambda with DynamoDB patterns
 - [Storage Services](storage.html) - S3 for database backups
 - [Security](security.html) - Database encryption and access control
-- [Infrastructure & Operations](infrastructure.html) - Database IaC and monitoring
-- [Database Design Guide](../database-design.html) - General database concepts
+- [Infrastructure as Code](iac.html) - Database IaC and monitoring
+- [Database Design Guide](../database-design/) - General database concepts

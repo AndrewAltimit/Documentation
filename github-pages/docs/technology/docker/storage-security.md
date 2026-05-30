@@ -300,8 +300,8 @@ docker run --rm -v app-data:/target -v $(pwd):/backup:ro \
 
   <div class="bind-mount-examples">
     <h4>Development Workflow</h4>
-    <pre><code class="language-bash"># Mount source code for live development
-docker run -d -v $(pwd)/src:/app/src -p 3000:3000 node:22 npm run dev
+    <pre><code class="language-bash"># Mount the project (with its package.json) and set it as the workdir
+docker run -d -v $(pwd):/app -w /app -p 3000:3000 node:22 npm run dev
 
 # Mount config file read-only (container cannot modify)
 docker run -d -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx</code></pre>
@@ -687,5 +687,5 @@ After mastering the basic Docker commands, the next crucial skill is creating yo
 - [Dockerfiles &amp; CI/CD](dockerfiles.html) - Build optimized images and automate pipelines
 - [Advanced Patterns](advanced.html) - Production architectures and runtime alternatives
 - [Docker Essentials](../docker-essentials.html) - Quick command reference
-- [Cybersecurity](../cybersecurity.html) - Broader security fundamentals
+- [Cybersecurity](../cybersecurity/) - Broader security fundamentals
 

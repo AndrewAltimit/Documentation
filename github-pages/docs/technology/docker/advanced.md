@@ -137,10 +137,12 @@ services:
 networks:
   frontend:
     driver: overlay
-    encrypted: true
+    driver_opts:
+      encrypted: "true"
   backend:
     driver: overlay
-    encrypted: true
+    driver_opts:
+      encrypted: "true"
     internal: true
 
 volumes:
@@ -753,21 +755,12 @@ The ecosystem around Docker has matured well beyond the original CLI and daemon.
 
 The durable principles do not change with the tooling: build for **consistency, isolation, and portability**, and choose the lightest runtime that meets your isolation needs.
 
-## Related Docker Documentation
-
-- [Docker Essentials](../docker-essentials.html) - Quick reference and command cheat sheet
-- [Kubernetes](../kubernetes/) - Container orchestration at scale
-- [Terraform](../terraform/) - Infrastructure as code for container deployments
-- [CI/CD Pipelines](../ci-cd.html) - Docker in continuous integration workflows
-- [AWS](../aws/) - ECS, EKS, and cloud container services
-
----
-
 ## See Also
+
 - [Docker Essentials](../docker-essentials.html) - Quick reference and command cheat sheet
 - [Kubernetes](../kubernetes/) - Container orchestration at scale
-- [CI/CD](../ci-cd.html) - Docker in continuous integration workflows
+- [CI/CD](../ci-cd/) - Docker in continuous integration workflows
 - [AWS](../aws/) - ECS, EKS, and cloud container services
 - [Terraform](../terraform/) - Infrastructure as Code for container deployments
-- [Networking](../networking.html) - Network concepts and container networking
+- [Networking](../networking/) - Network concepts and container networking
 - [Distributed Systems](../../distributed-systems/) - Distributed computing principles

@@ -301,13 +301,13 @@ For applied guides and working code examples, see:
 
 ### Foundational Physics
 Theoretical physics foundations for quantum computing:
-- **[Quantum Mechanics](../physics/quantum-mechanics.html)** - Wave functions, operators, and quantum states
+- **[Quantum Mechanics](../physics/quantum-mechanics/)** - Wave functions, operators, and quantum states
 - **[Quantum Field Theory](../physics/quantum-field-theory.html)** - Advanced quantum theoretical framework
-- **[Statistical Mechanics](../physics/statistical-mechanics.html)** - Connections to machine learning theory
+- **[Statistical Mechanics](../physics/statistical-mechanics/)** - Connections to machine learning theory
 
 ### Mathematical Background
 - **[Mathematical Reference](../reference/)** - Formulas, constants, and quick references
-- **[Computational Physics](../physics/computational-physics.html)** - Numerical methods and simulations
+- **[Computational Physics](../physics/computational-physics/)** - Numerical methods and simulations
 
 ---
 

@@ -560,7 +560,6 @@ Pod Security Standards are applied per namespace through labels, in three indepe
 ```yaml
 # Enforce the Restricted profile; warn and audit on the same standard
 apiVersion: v1
-apiVersion: v1
 kind: Namespace
 metadata:
   name: production
@@ -589,9 +588,10 @@ spec:
         nvidia.com/gpu: 2
       requests:
         nvidia.com/gpu: 2
-    env:
-    - name: NVIDIA_VISIBLE_DEVICES
-      value: "all"
+    # NVIDIA_VISIBLE_DEVICES is intentionally omitted: the device plugin
+    # sets it per-pod to enforce GPU isolation. Setting it to "all" here
+    # would override that isolation and expose every GPU on the node, so
+    # it should normally be left unset.
 ```
 
 ### Gateway API: The Successor to Ingress
@@ -665,5 +665,5 @@ The Kubernetes ecosystem evolves rapidly — serverless (Knative, KEDA), edge (K
 - [Docker](../docker/) - Container fundamentals and image creation
 - [AWS](../aws/) - Managed Kubernetes services (EKS)
 - [Terraform](../terraform/) - Infrastructure as Code for Kubernetes
-- [Networking](../networking.html) - Network concepts and protocols
-- [Database Design](../database-design.html) - Stateful applications in Kubernetes
+- [Networking](../networking/) - Network concepts and protocols
+- [Database Design](../database-design/) - Stateful applications in Kubernetes

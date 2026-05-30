@@ -66,13 +66,13 @@ IAM, Security Hub, KMS, and compliance.
 - Security Hub and compliance
 - WAF and network protection
 
-### [Infrastructure & Operations](infrastructure.html)
-CloudFormation, monitoring, cost optimization, and troubleshooting.
-- Infrastructure as Code (CloudFormation, CDK)
-- Monitoring with CloudWatch
-- Cost optimization strategies
-- Architecture patterns and case studies
-- Troubleshooting guide
+### Infrastructure & Operations
+The former single Infrastructure guide is now five focused pages:
+- [Infrastructure as Code](iac.html) — CloudFormation and CDK
+- [Monitoring & Messaging](monitoring.html) — CloudWatch, SNS, and SQS
+- [Cost Optimization](cost.html) — Spot, savings plans, and tagging
+- [Architecture & Case Studies](architecture.html) — patterns and real-world designs
+- [Troubleshooting](troubleshooting.html) — diagnostics and the emergency playbook
 
 ---
 
@@ -102,7 +102,7 @@ Consider where you are in your AWS journey:
 |-------------------|------------|
 | Deploy your first application | [Compute Services](compute.html) - includes a 30-minute crash course |
 | Understand security fundamentals | [Security](security.html) - IAM best practices and account setup |
-| Design scalable architecture | [Infrastructure & Operations](infrastructure.html) - patterns and case studies |
+| Design scalable architecture | [Architecture & Case Studies](architecture.html) - patterns and real-world designs |
 | Store files or data | [Storage Services](storage.html) - S3, EBS, and when to use each |
 | Set up a database | [Database Services](databases.html) - RDS vs DynamoDB decision guide |
 
@@ -141,10 +141,10 @@ AWS secures the infrastructure ("security of the cloud"), while you secure your 
 
 ## Quick Reference
 
-- **AWS CLI and developer tools**: See [Infrastructure & Operations](infrastructure.html)
+- **AWS CLI and developer tools**: See [Monitoring & Messaging](monitoring.html)
 - **IAM and security best practices**: See [Security](security.html)
-- **Cost optimization strategies**: See [Infrastructure & Operations](infrastructure.html)
-- **Troubleshooting guide**: See [Infrastructure & Operations](infrastructure.html)
+- **Cost optimization strategies**: See [Cost Optimization](cost.html)
+- **Troubleshooting guide**: See [Troubleshooting](troubleshooting.html)
 
 ## See Also
 

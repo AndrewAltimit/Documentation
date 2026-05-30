@@ -375,7 +375,7 @@ Before downloading models, verify compatibility:
 | SD 1.5 LoRAs | Yes | No | No |
 | SDXL LoRAs | No | Yes | No |
 | FLUX LoRAs | No | No | Yes |
-| Most ControlNets | Yes | Yes | Coming |
+| Most ControlNets | Yes | Yes | Yes |
 | Embeddings | Yes | Partial | No |
 
 ## Choosing Models: A Decision Guide

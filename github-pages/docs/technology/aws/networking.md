@@ -138,7 +138,7 @@ aws apigateway create-authorizer --rest-api-id xxx \
 
 ## CloudFront - Content Delivery Network
 
-CloudFront is AWS's content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 400+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.
+CloudFront is AWS's content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 600+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.
 
 ### When to Use CloudFront
 
@@ -195,7 +195,7 @@ Load balancers distribute incoming traffic across multiple targets (EC2 instance
 | **Application (ALB)** | Web applications, APIs | Path/host routing, WebSocket, HTTP/2 | Moderate |
 | **Network (NLB)** | High-performance, TCP/UDP | Ultra-low latency, static IPs | Lower |
 | **Gateway (GWLB)** | Security appliances | Third-party firewall/IDS integration | Varies |
-| **Classic** | Legacy applications | Avoid for new projects | Being deprecated |
+| **Classic** | Legacy applications | Avoid for new projects | Legacy; avoid for new projects |
 
 **Recommendation**: Use ALB for most web applications. Use NLB only when you need ultra-low latency or static IP addresses.
 
@@ -268,6 +268,6 @@ Cached responses return directly from the nearest edge location. Cache misses ro
 - [AWS Hub](./) - Overview of all AWS documentation
 - [Compute Services](compute.html) - EC2 and Lambda in VPC
 - [Security](security.html) - Network security and WAF
-- [Infrastructure & Operations](infrastructure.html) - VPC IaC templates
-- [Networking Fundamentals](../networking.html) - General networking concepts
+- [Infrastructure as Code](iac.html) - VPC IaC templates
+- [Networking Fundamentals](../networking/) - General networking concepts
 - [Kubernetes on AWS](../kubernetes/) - EKS networking

@@ -477,6 +477,8 @@ By mastering these advanced Blueprint techniques and following modern best pract
 
 ## Unreal Engine 5.4 and Beyond
 
+This guide targets UE5.3/5.4. Later releases (UE5.5 and UE5.6) continue to advance these systems, with further Nanite and Lumen improvements and the introduction of **MegaLights** for handling large numbers of dynamic, shadow-casting lights at lower cost. Confirm feature status against the release notes for the version you target.
+
 ### Latest Features in UE5.4
 
 #### Motion Matching
@@ -517,14 +519,14 @@ Because the output is rule-driven, designers tune parameters instead of placing 
 - Variable Rate Shading 2.0
 
 #### PC Gaming
-- NVIDIA DLSS 3.5 with Ray Reconstruction
-- AMD FSR 3.0 integration
+- NVIDIA DLSS 4 with Ray Reconstruction
+- AMD FSR 3.1+ integration
 - Intel XeSS support
 - DirectX 12 Ultimate features
 
 #### Mobile and AR/VR
 - Vulkan mobile renderer improvements
-- Apple Vision Pro support (Preview)
+- Apple Vision Pro support
 - Meta Quest 3 optimization presets
 - Mobile Lumen (simplified GI for mobile)
 
@@ -610,7 +612,7 @@ Unreal Engine continues to push the boundaries of what's possible in real-time r
   </div>
   <div class="takeaway-card">
     <h4>Blueprints and C++ are complementary</h4>
-    <p>Use Blueprints for logic flow and rapid iteration, C++ for heavy computation; nativization narrows the performance gap.</p>
+    <p>Use Blueprints for logic flow and rapid iteration, C++ for heavy computation; move hot paths to C++ (Blueprint nativization was removed in UE5).</p>
   </div>
   <div class="takeaway-card">
     <h4>UE5 reaches far beyond games</h4>

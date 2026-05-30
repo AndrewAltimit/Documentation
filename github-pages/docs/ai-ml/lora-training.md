@@ -19,6 +19,24 @@ hide_title: true
 Create custom AI models that generate your specific styles, characters, or concepts - all without needing massive computing resources.
 </div>
 
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-images"></i>
+    <h4>Data Over Everything</h4>
+    <p>A small, clean, well-captioned dataset beats a large noisy one. Curation and captioning decide most of your result.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sliders-h"></i>
+    <h4>Tune the Essentials</h4>
+    <p>Rank, learning rate, and step count are the levers that matter most. Start conservative and adjust from samples.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-balance-scale"></i>
+    <h4>Avoid Overfitting</h4>
+    <p>Watch for baked-in backgrounds and rigidity. Validate with varied prompts and stop before the model memorizes.</p>
+  </div>
+</div>
+
 ## Why Train Your Own LoRA?
 
 Pre-made models cannot generate everything. When you need consistent characters, specific art styles, or custom objects, training a LoRA lets you teach the model exactly what you want.

@@ -20,7 +20,7 @@ hide_title: true
   <h4>This page vs. Database Design</h4>
   <ul>
     <li><strong>This page (Crash Course)</strong> — concepts and core SQL to get started; read top to bottom.</li>
-    <li><a href="database-design.html">Database Design</a> — the comprehensive reference: normalization, indexing strategy, query execution, sharding/replication, NoSQL, and tuning.</li>
+    <li><a href="database-design/">Database Design</a> — the comprehensive reference: normalization, indexing strategy, query execution, sharding/replication, NoSQL, and tuning.</li>
   </ul>
 </div>
 
@@ -189,7 +189,7 @@ CREATE INDEX idx_customers_email ON customers(email);
   </div>
 </div>
 
-Index the columns you frequently filter or join on; don't index everything. See [Database Design → Indexing](database-design.html#indexing-making-queries-lightning-fast) for B-tree internals and composite-index ordering.
+Index the columns you frequently filter or join on; don't index everything. See [Database Design → Indexing](database-design/indexing-and-queries.html#indexing-making-queries-lightning-fast) for B-tree internals and composite-index ordering.
 
 ## Transactions: all-or-nothing
 
@@ -265,7 +265,7 @@ sqlite> CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT);
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
-    <li><a href="database-design.html">Database Design</a> — the full reference: normalization, indexing internals, query execution, distributed databases, and tuning</li>
+    <li><a href="database-design/">Database Design</a> — the full reference: normalization, indexing internals, query execution, distributed databases, and tuning</li>
     <li><a href="aws/databases.html">AWS Databases</a> — managed RDS, DynamoDB, and Aurora</li>
     <li><a href="docker-essentials.html">Docker Essentials</a> — run databases locally for development</li>
     <li><a href="../distributed-systems/">Distributed Systems</a> — consistency, replication, and the CAP theorem in depth</li>

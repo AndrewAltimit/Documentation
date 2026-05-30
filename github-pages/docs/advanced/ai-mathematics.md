@@ -12,7 +12,7 @@ hide_title: true
 </div>
 
 <div class="advanced-note" markdown="1">
-**Graduate-level research page.** This is a rigorous, proof-oriented treatment intended for ML researchers, theoretical computer scientists, and mathematicians. **Prerequisites:** measure theory, functional analysis, and probability theory. For an intuitive, code-first introduction instead, start with [AI Fundamentals — Complete](../../technology/ai.html) or the [Artificial Intelligence Hub](../../artificial-intelligence/).
+**Graduate-level research page.** This is a rigorous, proof-oriented treatment intended for ML researchers, theoretical computer scientists, and mathematicians. **Prerequisites:** measure theory, functional analysis, and probability theory. For an intuitive, code-first introduction instead, start with [AI Fundamentals — Complete](../../technology/ai/) or the [Artificial Intelligence Hub](../../artificial-intelligence/).
 </div>
 
 <div class="intro-card" markdown="1">
@@ -59,9 +59,9 @@ flowchart TD
 A concept class $C$ is **PAC-learnable** if there exist an algorithm $A$ and a polynomial $\text{poly}(\cdot,\cdot,\cdot,\cdot)$ such that for every $\epsilon, \delta > 0$, every distribution $D$ over $X$, and every target $c \in C$, running $A$ on $m \geq \text{poly}(1/\epsilon, 1/\delta, n, \text{size}(c))$ samples returns a hypothesis with true error $\leq \epsilon$ with probability $\geq 1-\delta$.
 </div>
 
-Formally, given an algorithm $A$ and polynomial $\text{poly}(\cdot,\cdot,\cdot,\cdot)$ such that for any $\epsilon > 0$, $\delta > 0$, any distribution $D$ over $X$ and any target concept $c \in C$, when running $A$ on $m \geq \text{poly}(1/\epsilon, 1/\delta, n, \text{size}(c))$ samples drawn from $D$ and labeled by $c$:
+Equivalently, the success condition above is the requirement that, running $A$ on $m \geq \text{poly}(1/\epsilon, 1/\delta, n, \text{size}(c))$ samples drawn from $D$ and labeled by $c$,
 
-$$P_{S \sim D^m}[\mathcal{L}_D(A(S)) \leq \epsilon] \geq 1 - \delta$$
+$$P_{S \sim D^m}[\mathcal{L}_D(A(S)) \leq \epsilon] \geq 1 - \delta,$$
 
 where $\mathcal{L}_D(h) = P_{x \sim D}[h(x) \neq c(x)]$ is the true error.
 
@@ -254,7 +254,7 @@ $$\min_w \max_{\|\epsilon\| \leq \rho} L(w + \epsilon)$$
 
 ### Theoretical Guarantees for Modern Architectures
 
-**Transformer Expressivity**: Transformers can approximate any sequence-to-sequence function using on the order of $O(\log n)$ layers and $O(n^2)$ parameters.
+**Transformer Expressivity**: Transformers are universal approximators of sequence-to-sequence functions, and certain explicit constructions achieve this with on the order of $O(\log n)$ layers and $O(n^2)$ parameters — a specific result for particular constructions, not a universal guarantee for every architecture.
 
 **Recent Architecture Theory (2023-2024)**:
 
@@ -327,7 +327,7 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 **Applied & Foundational**
 - [AI/ML Documentation](../../ai-ml/) — Practical model training, architectures, and tooling
 - [Model Types Reference](../../ai-ml/model-types.html) — Architectures explained without heavy formalism
-- [Statistical Mechanics](../../physics/statistical-mechanics.html) — Partition functions and the physics roots of learning theory
-- [Computational Physics](../../physics/computational-physics.html) — Numerical optimization and simulation methods
+- [Statistical Mechanics](../../physics/statistical-mechanics/) — Partition functions and the physics roots of learning theory
+- [Computational Physics](../../physics/computational-physics/) — Numerical optimization and simulation methods
 - [Mathematical Reference](../../reference/) — Linear algebra and calculus quick reference
 </div>

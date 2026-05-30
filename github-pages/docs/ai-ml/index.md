@@ -158,7 +158,7 @@ The fastest way to generate an image is through ComfyUI's web interface:
 
 ```bash
 # Start ComfyUI and open http://localhost:8188
-docker-compose up -d comfyui-server
+docker compose up -d comfyui-server
 ```
 
 Once the interface loads, you can use the default workflow immediately. Type your prompt, click "Queue Prompt," and watch your image generate.
@@ -166,7 +166,7 @@ Once the interface loads, you can use the default workflow immediately. Type you
 For programmatic access or automation, the MCP API accepts JSON requests:
 
 ```bash
-curl -X POST http://localhost:8005/mcp/tool \
+curl -X POST http://localhost:8189/mcp/tool \
   -H "Content-Type: application/json" \
   -d '{"tool": "generate-image", "arguments": {"prompt": "mountain landscape at sunset"}}'
 ```
@@ -375,7 +375,7 @@ Based on your goals, here is where to go next:
 Broader AI and machine learning concepts beyond image generation:
 
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Conceptual introduction without heavy math
-- [AI Fundamentals - Complete](../technology/ai.html) - Technical deep-dive into AI concepts
+- [AI Fundamentals - Complete](../technology/ai/) - Technical deep-dive into AI concepts
 - [AI Documentation Hub](../artificial-intelligence/) - All AI-related documentation
 - [Game AI Systems](game-ai.html) - Real-time AI for NPCs and interactive behaviors
 </div>

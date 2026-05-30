@@ -22,7 +22,7 @@ toc: false  # Index pages typically don't need TOC
 The classical pillars — the physics of everyday scales, energy, and the structure of spacetime.
 
 <div class="command-grid">
-  <a href="classical-mechanics.html" class="nav-card">
+  <a href="classical-mechanics/" class="nav-card">
     <h4><i class="fas fa-atom"></i> Classical Mechanics</h4>
     <p>Newton's laws, the Lagrangian and Hamiltonian formulations, conservation laws, and chaos.</p>
   </a>
@@ -30,11 +30,11 @@ The classical pillars — the physics of everyday scales, energy, and the struct
     <h4><i class="fas fa-fire"></i> Thermodynamics</h4>
     <p>Heat, work, entropy, and the four laws governing every engine and the fate of the universe.</p>
   </a>
-  <a href="statistical-mechanics.html" class="nav-card">
+  <a href="statistical-mechanics/" class="nav-card">
     <h4><i class="fas fa-dice"></i> Statistical Mechanics</h4>
     <p>How microscopic randomness becomes macroscopic law — ensembles, partition functions, phase transitions.</p>
   </a>
-  <a href="relativity.html" class="nav-card">
+  <a href="relativity/" class="nav-card">
     <h4><i class="fas fa-clock"></i> Relativity</h4>
     <p>Special and general relativity: spacetime, $E=mc^2$, curved geometry, and gravity as geometry.</p>
   </a>
@@ -45,7 +45,7 @@ The classical pillars — the physics of everyday scales, energy, and the struct
 The quantum world and the many-body, high-energy, and theoretical frontiers built on top of it.
 
 <div class="command-grid">
-  <a href="quantum-mechanics.html" class="nav-card">
+  <a href="quantum-mechanics/" class="nav-card">
     <h4><i class="fas fa-wave-square"></i> Quantum Mechanics</h4>
     <p>Wave functions, the uncertainty principle, measurement, and the strange logic of the quantum world.</p>
   </a>
@@ -53,11 +53,11 @@ The quantum world and the many-body, high-energy, and theoretical frontiers buil
     <h4><i class="fas fa-project-diagram"></i> Quantum Field Theory</h4>
     <p>Quantum mechanics + special relativity. Particles as field excitations; the Standard Model.</p>
   </a>
-  <a href="condensed-matter.html" class="nav-card">
+  <a href="condensed-matter/" class="nav-card">
     <h4><i class="fas fa-cube"></i> Condensed Matter</h4>
     <p>Solids, superconductors, topological materials, and emergent collective phenomena.</p>
   </a>
-  <a href="string-theory.html" class="nav-card">
+  <a href="string-theory/" class="nav-card">
     <h4><i class="fas fa-infinity"></i> String Theory</h4>
     <p>Extra dimensions, dualities, branes, and the quest for a quantum theory of gravity.</p>
   </a>
@@ -66,7 +66,7 @@ The quantum world and the many-body, high-energy, and theoretical frontiers buil
 ### Methods
 
 <div class="command-grid">
-  <a href="computational-physics.html" class="nav-card">
+  <a href="computational-physics/" class="nav-card">
     <h4><i class="fas fa-laptop-code"></i> Computational Physics</h4>
     <p>Numerical integration, Monte Carlo, molecular dynamics, PDE solvers, and machine learning for physics.</p>
   </a>
@@ -118,15 +118,15 @@ graph TD
 <div class="command-grid">
   <div class="step-card">
     <h4>New to physics</h4>
-    <p>Start with <a href="classical-mechanics.html">Classical Mechanics</a> to build intuition for force, energy, and motion before anything else.</p>
+    <p>Start with <a href="classical-mechanics/">Classical Mechanics</a> to build intuition for force, energy, and motion before anything else.</p>
   </div>
   <div class="step-card">
     <h4>Undergraduate sequence</h4>
-    <p>Classical Mechanics → <a href="quantum-mechanics.html">Quantum Mechanics</a> → <a href="thermodynamics.html">Thermodynamics</a> → <a href="statistical-mechanics.html">Statistical Mechanics</a> → <a href="relativity.html">Relativity</a>.</p>
+    <p>Classical Mechanics → <a href="quantum-mechanics/">Quantum Mechanics</a> → <a href="thermodynamics.html">Thermodynamics</a> → <a href="statistical-mechanics/">Statistical Mechanics</a> → <a href="relativity/">Relativity</a>.</p>
   </div>
   <div class="step-card">
     <h4>Graduate / research</h4>
-    <p>Dive into <a href="quantum-field-theory.html">QFT</a>, <a href="condensed-matter.html">Condensed Matter</a>, or <a href="string-theory.html">String Theory</a>, and use <a href="computational-physics.html">Computational Physics</a> as a toolbox.</p>
+    <p>Dive into <a href="quantum-field-theory.html">QFT</a>, <a href="condensed-matter/">Condensed Matter</a>, or <a href="string-theory/">String Theory</a>, and use <a href="computational-physics/">Computational Physics</a> as a toolbox.</p>
   </div>
 </div>
 

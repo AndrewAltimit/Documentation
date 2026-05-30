@@ -46,13 +46,14 @@ WORKDIR /app             # Set working directory
 COPY requirements.txt .  # Copy dependency file first (caching)
 RUN pip install -r requirements.txt  # Install dependencies
 COPY . .                 # Copy application code
+EXPOSE 5000              # Document the port app.py listens on
 CMD ["python", "app.py"] # Default command when container starts
 ```
 
-Build and run this with:
+Build and run this with (mapping host 8080 to the app's port 5000):
 ```bash
 docker build -t my-app .
-docker run -p 8080:80 my-app
+docker run -p 8080:5000 my-app
 ```
 
 ### Dockerfile Instructions Reference
@@ -388,5 +389,5 @@ build:
 - [Storage &amp; Security](storage-security.html) - Hardening images and managing secrets
 - [Advanced Patterns](advanced.html) - Distroless images and parallel multi-stage builds
 - [Kubernetes](../kubernetes/) - Run your built images at scale
-- [CI/CD](../ci-cd.html) - Broader continuous delivery practices
+- [CI/CD](../ci-cd/) - Broader continuous delivery practices
 

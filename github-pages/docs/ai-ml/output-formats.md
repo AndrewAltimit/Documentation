@@ -146,7 +146,7 @@ Video diffusion models extend denoising across time, generating a temporally coh
 | **Sora-class** (Sora, Veo, Kling) | Text prompt | Many seconds | Slow / API | Full clips with scene coherence |
 | **Frame interpolation** (RIFE, FILM) | Frame sequence | Smoothed video | Fast | Raising fps of any of the above |
 
-The open, locally-runnable options are **AnimateDiff** (text-driven motion on top of an SD/SDXL checkpoint) and **SVD** (image-to-video). The Sora-class text-to-video models produce far longer, more coherent clips but are API/cloud-only and access is limited; if you are building now, prototype with AnimateDiff/SVD so the rest of your pipeline is ready to swap them in.
+The open, locally-runnable options are **AnimateDiff** (text-driven motion on top of an SD/SDXL checkpoint) and **SVD** (image-to-video). The proprietary Sora-class text-to-video models (Sora, Veo, Kling) produce long, highly coherent clips via API. As of 2026 the gap has narrowed considerably: capable open, locally-runnable long-video models now exist too — for example **Wan**, **HunyuanVideo**, **Mochi**, and **LTX-Video** — though they remain VRAM-hungry. If you are building now, prototype with AnimateDiff/SVD or one of these open video models so the rest of your pipeline is ready to swap them in.
 
 ### AnimateDiff: Loops and Stylized Motion
 
@@ -200,7 +200,7 @@ Audio diffusion models generate sound by denoising in waveform or mel-spectrogra
 
 | You need... | Common model | Notes |
 |-------------|--------------|-------|
-| Music | Stable Audio | Up to ~90s of stereo; can output stems on some versions |
+| Music | Stable Audio | Length depends on version: Stable Audio Open generates ~47s, Stable Audio 2.0 up to ~3 min of stereo; can output stems on some versions |
 | Sound effects | AudioLDM 2 | Fast, good for short game/video SFX |
 | Music from a melody | MusicGen (Meta) | Conditions on a hummed/played melody or text |
 | Voice / speech | Bark, XTTS | Expressive TTS with emotion cues and voice cloning |

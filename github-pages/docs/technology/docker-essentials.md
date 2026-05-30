@@ -199,45 +199,45 @@ docker search <term>
 ### Basic Operations
 
 ```bash
-# Start services defined in docker-compose.yml
-docker-compose up
+# Start services defined in compose.yaml
+docker compose up
 
 # Start in detached mode
-docker-compose up -d
+docker compose up -d
 
 # Stop services
-docker-compose down
+docker compose down
 
 # Stop and remove volumes
-docker-compose down -v
+docker compose down -v
 
 # View service logs
-docker-compose logs
+docker compose logs
 
 # Follow logs
-docker-compose logs -f
+docker compose logs -f
 
 # List running services
-docker-compose ps
+docker compose ps
 ```
 
 ### Service Management
 
 ```bash
 # Build or rebuild services
-docker-compose build
+docker compose build
 
 # Force rebuild without cache
-docker-compose build --no-cache
+docker compose build --no-cache
 
 # Scale a service
-docker-compose up -d --scale web=3
+docker compose up -d --scale web=3
 
 # Execute command in service
-docker-compose exec <service> <command>
+docker compose exec <service> <command>
 
 # Run one-off command
-docker-compose run <service> <command>
+docker compose run <service> <command>
 ```
 
 ## Networking
@@ -383,8 +383,8 @@ docker container prune --filter "until=24h"
 | List images | `docker images` |
 | Build image | `docker build -t <name> .` |
 | Pull image | `docker pull <image>` |
-| Compose up | `docker-compose up -d` |
-| Compose down | `docker-compose down` |
+| Compose up | `docker compose up -d` |
+| Compose down | `docker compose down` |
 | System cleanup | `docker system prune -a` |
 
 ---
@@ -395,7 +395,7 @@ docker container prune --filter "until=24h"
   <ul>
     <li><strong>Build → run → ship:</strong> <code>docker build</code> makes images, <code>docker run</code> starts containers, <code>push</code>/<code>pull</code> move images through a registry.</li>
     <li><strong>Use <code>-d</code> for background, <code>-it</code> for an interactive shell, <code>-p</code> to publish ports, <code>-v</code> to mount volumes.</strong></li>
-    <li><strong><code>docker-compose up -d</code></strong> manages multi-container apps from a single YAML file.</li>
+    <li><strong><code>docker compose up -d</code></strong> manages multi-container apps from a single YAML file.</li>
     <li><strong>Reclaim disk with <code>docker system prune</code></strong> — add <code>-a --volumes</code> for an aggressive cleanup.</li>
     <li><strong>Debug live containers</strong> with <code>logs -f</code>, <code>exec -it ... bash</code>, <code>stats</code>, and <code>inspect</code>.</li>
   </ul>
@@ -409,6 +409,6 @@ docker container prune --filter "until=24h"
     <li><a href="docker/dockerfiles.html">Dockerfiles Guide</a> — building custom images</li>
     <li><a href="docker/advanced.html">Advanced Docker</a> — multi-stage builds, optimization, and orchestration</li>
     <li><a href="kubernetes/">Kubernetes</a> — container orchestration at scale</li>
-    <li><a href="ci-cd.html">CI/CD</a> — automating Docker workflows in pipelines</li>
+    <li><a href="ci-cd/">CI/CD</a> — automating Docker workflows in pipelines</li>
   </ul>
 </div>

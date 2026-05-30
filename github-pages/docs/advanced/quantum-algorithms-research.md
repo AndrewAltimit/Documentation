@@ -489,7 +489,7 @@ with error $O(t^2/n)$ for the first-order Trotter formula.
 - [Monorepo Strategies](../monorepo/) — Managing quantum software projects
 
 **Foundations & Applied**
-- [Quantum Mechanics](../../physics/quantum-mechanics.html) — Wave functions, operators, and measurement
+- [Quantum Mechanics](../../physics/quantum-mechanics/) — Wave functions, operators, and measurement
 - [Quantum Field Theory](../../physics/quantum-field-theory.html) — Deeper theoretical framework
 - [Quantum Computing Hub](../../quantum-computing/) — Programming with Qiskit and Cirq
 - [Quantum Computing (Technology)](../../technology/quantumcomputing.html) — Practical introduction

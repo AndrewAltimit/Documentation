@@ -19,6 +19,24 @@ hide_title: true
 Build visual AI workflows by connecting nodes, from simple image generation to complex multi-model pipelines.
 </div>
 
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-project-diagram"></i>
+    <h4>Think in Graphs</h4>
+    <p>Every generation is a node graph. Data flows from loaders through samplers to outputs, and you can branch or reroute any step.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-puzzle-piece"></i>
+    <h4>Compose, Don't Configure</h4>
+    <p>Instead of hidden menus, you wire components together — swap models, add ControlNet, or chain upscalers by connecting nodes.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-share-nodes"></i>
+    <h4>Save and Share Workflows</h4>
+    <p>Workflows export as portable JSON, so you can version, reuse, and share an entire pipeline as a single file.</p>
+  </div>
+</div>
+
 ## Why Use ComfyUI?
 
 ComfyUI takes a different approach from other AI interfaces. Instead of hiding complexity behind menus, it shows you exactly how each part of the generation process connects to the next. You build workflows by linking nodes together, like connecting pipes in a plumbing diagram.
@@ -51,7 +69,7 @@ ComfyUI has a learning curve. The node interface feels unfamiliar at first. But 
 The fastest way to get ComfyUI running:
 
 ```bash
-docker-compose up -d comfyui-server
+docker compose up -d comfyui-server
 # Open http://localhost:8188 in your browser
 ```
 

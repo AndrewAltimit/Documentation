@@ -18,16 +18,16 @@ The documentation is organized into several main sections, each serving differen
 
 ### [Technology Documentation](docs/index.html#technology)
 Comprehensive guides for modern software development:
-- **Infrastructure & DevOps**: [Terraform](docs/technology/terraform/), [Docker](docs/technology/docker/), [Kubernetes](docs/technology/kubernetes/), [AWS](docs/technology/aws/), [CI/CD pipelines](docs/technology/ci-cd.html)
-- **Development & Tools**: [Git workflows](docs/technology/git.html), [database design](docs/technology/database-design.html), [build systems](docs/technology/please-build.html)
-- **Networking & Security**: [TCP/IP](docs/technology/networking.html), protocols, [cybersecurity](docs/technology/cybersecurity.html) best practices
-- **Advanced Topics**: [Quantum computing](docs/technology/quantumcomputing.html), [AI/ML](docs/technology/ai.html), [distributed systems](docs/distributed-systems/index.html)
+- **Infrastructure & DevOps**: [Terraform](docs/technology/terraform/), [Docker](docs/technology/docker/), [Kubernetes](docs/technology/kubernetes/), [AWS](docs/technology/aws/), [CI/CD pipelines](docs/technology/ci-cd/)
+- **Development & Tools**: [Git workflows](docs/technology/git/), [database design](docs/technology/database-design/), [build systems](docs/technology/please-build.html)
+- **Networking & Security**: [TCP/IP](docs/technology/networking/), protocols, [cybersecurity](docs/technology/cybersecurity/) best practices
+- **Advanced Topics**: [Quantum computing](docs/technology/quantumcomputing.html), [AI/ML](docs/technology/ai/), [distributed systems](docs/distributed-systems/index.html)
 
 ### [Physics Documentation](docs/index.html#physics)
 From fundamentals to cutting-edge research:
-- **Classical Physics**: [Mechanics](docs/physics/classical-mechanics.html), [thermodynamics](docs/physics/thermodynamics.html), [statistical mechanics](docs/physics/statistical-mechanics.html)
-- **Modern Physics**: [Relativity](docs/physics/relativity.html), [quantum mechanics](docs/physics/quantum-mechanics.html)
-- **Advanced Topics**: [Quantum field theory](docs/physics/quantum-field-theory.html), [string theory](docs/physics/string-theory.html), [condensed matter](docs/physics/condensed-matter.html)
+- **Classical Physics**: [Mechanics](docs/physics/classical-mechanics/), [thermodynamics](docs/physics/thermodynamics.html), [statistical mechanics](docs/physics/statistical-mechanics/)
+- **Modern Physics**: [Relativity](docs/physics/relativity/), [quantum mechanics](docs/physics/quantum-mechanics/)
+- **Advanced Topics**: [Quantum field theory](docs/physics/quantum-field-theory.html), [string theory](docs/physics/string-theory/), [condensed matter](docs/physics/condensed-matter/)
 - **Computational Physics**: Numerical methods and simulations
 
 ### [AI/ML Documentation Hub](docs/ai-ml/index.html)
@@ -77,7 +77,7 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
       <li><a href="docs/technology/git-reference.html">Git Command Reference</a></li>
       <li><a href="docs/technology/docker-essentials.html">Docker Essentials</a></li>
       <li><a href="docs/technology/kubernetes/">Kubernetes Guide</a></li>
-      <li><a href="docs/technology/ci-cd.html">CI/CD Pipelines</a></li>
+      <li><a href="docs/technology/ci-cd/">CI/CD Pipelines</a></li>
     </ul>
   </div>
   <div class="nav-card">
@@ -85,7 +85,7 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
     <ul>
       <li><a href="docs/technology/terraform/">Terraform (multi-cloud IaC)</a></li>
       <li><a href="docs/technology/aws/">AWS Services</a></li>
-      <li><a href="docs/technology/networking.html">Networking</a></li>
+      <li><a href="docs/technology/networking/">Networking</a></li>
       <li><a href="docs/distributed-systems/index.html">Distributed Systems</a></li>
     </ul>
   </div>
@@ -102,7 +102,7 @@ Pick the path that matches what you do. Each card lists the highest-value pages 
   <div class="nav-card">
     <h4><i class="fas fa-microscope"></i> Physics & Research</h4>
     <ul>
-      <li><a href="docs/physics/quantum-mechanics.html">Quantum Mechanics</a></li>
+      <li><a href="docs/physics/quantum-mechanics/">Quantum Mechanics</a></li>
       <li><a href="docs/technology/quantumcomputing.html">Quantum Computing</a></li>
       <li><a href="docs/advanced/ai-mathematics/">Advanced Mathematics</a></li>
       <li><a href="docs/advanced/index.html">Research Hub</a></li>

@@ -80,7 +80,7 @@ Different applications need different storage strategies. Here are common patter
 
 | Pattern | Use Case | Implementation |
 |---------|----------|----------------|
-| **Single-writer** | One pod writes, many read | ReadWriteOnce access mode |
+| **Single-node read-write** | Pods on one node mount it read-write | ReadWriteOnce access mode |
 | **Shared storage** | Multiple pods read/write | ReadWriteMany (requires NFS or similar) |
 | **Per-pod volumes** | Each replica has own storage | StatefulSet with volumeClaimTemplates |
 | **Ephemeral storage** | Scratch space, caches | emptyDir volume |
