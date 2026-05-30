@@ -137,9 +137,9 @@ hide_title: true
       
       <div class="gl-content">
         <p>Free energy:</p>
-        <div class="equation-box scrollable">
-          $$F = \int d^3r \left[\alpha|\psi|^2 + \frac{\beta}{2}|\psi|^4 + \frac{1}{2m^*}|(-i\hbar\nabla - e^*\mathbf{A})\psi|^2 + \frac{B^2}{2\mu_0}\right]$$
-        </div>
+        <div class="equation-box scrollable" markdown="1">
+$$F = \int d^3r \left[\alpha|\psi|^2 + \frac{\beta}{2}|\psi|^4 + \frac{1}{2m^*}|(-i\hbar\nabla - e^*\mathbf{A})\psi|^2 + \frac{B^2}{2\mu_0}\right]$$
+</div>
         
         <div class="length-scales">
           <div class="scale-item">
@@ -164,14 +164,14 @@ hide_title: true
       <p>Cooper pair wavefunction:</p>
       
       <div class="bcs-content">
-        <div class="equation-box">
-          $$|\text{BCS}\rangle = \prod_k (u_k + v_k c_{k\uparrow}^\dagger c_{-k\downarrow}^\dagger)|0\rangle$$
-        </div>
+        <div class="equation-box" markdown="1">
+$$|\text{BCS}\rangle = \prod_k (u_k + v_k c_{k\uparrow}^\dagger c_{-k\downarrow}^\dagger)|0\rangle$$
+</div>
         
         <p>Gap equation:</p>
-        <div class="equation-box">
-          $$\Delta_k = -\sum_{k'} V_{kk'} \frac{\Delta_{k'}}{2E_{k'}} \tanh\left(\frac{E_{k'}}{2k_B T}\right)$$
-        </div>
+        <div class="equation-box" markdown="1">
+$$\Delta_k = -\sum_{k'} V_{kk'} \frac{\Delta_{k'}}{2E_{k'}} \tanh\left(\frac{E_{k'}}{2k_B T}\right)$$
+</div>
         
         <p>Where $E_k = \sqrt{\epsilon_k^2 + |\Delta_k|^2}$</p>
         
@@ -236,13 +236,17 @@ hide_title: true
     <div class="josephson-grid">
       <div class="josephson-type">
         <h4>DC Josephson</h4>
-        <div class="equation-box">$$I = I_c \sin\phi$$</div>
+        <div class="equation-box" markdown="1">
+$$I = I_c \sin\phi$$
+</div>
         <p class="effect-desc">Supercurrent without voltage</p>
       </div>
       
       <div class="josephson-type">
         <h4>AC Josephson</h4>
-        <div class="equation-box">$$\frac{d\phi}{dt} = \frac{2eV}{\hbar}$$</div>
+        <div class="equation-box" markdown="1">
+$$\frac{d\phi}{dt} = \frac{2eV}{\hbar}$$
+</div>
         <p class="effect-desc">Oscillating current with DC voltage</p>
       </div>
     </div>

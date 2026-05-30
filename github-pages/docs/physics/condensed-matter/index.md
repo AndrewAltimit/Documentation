@@ -203,9 +203,9 @@ hide_title: true
     <h3><i class="fas fa-sync-alt"></i> Reciprocal Lattice</h3>
     <p>Defined by vectors satisfying $\mathbf{a}_i \cdot \mathbf{b}_j = 2\pi\delta_{ij}$:</p>
     
-    <div class="equation-box">
-      $$\mathbf{b}_1 = 2\pi \frac{\mathbf{a}_2 \times \mathbf{a}_3}{\mathbf{a}_1 \cdot (\mathbf{a}_2 \times \mathbf{a}_3)}$$
-    </div>
+    <div class="equation-box" markdown="1">
+$$\mathbf{b}_1 = 2\pi \frac{\mathbf{a}_2 \times \mathbf{a}_3}{\mathbf{a}_1 \cdot (\mathbf{a}_2 \times \mathbf{a}_3)}$$
+</div>
     
     <div class="brillouin-zone">
       <p class="note">First Brillouin zone: Wigner-Seitz cell of reciprocal lattice</p>
@@ -280,7 +280,9 @@ hide_title: true
     
     <div class="bragg-law">
       <p>Bragg's law:</p>
-      <div class="equation-box highlighted">$$2d\sin\theta = n\lambda$$</div>
+      <div class="equation-box highlighted" markdown="1">
+$$2d\sin\theta = n\lambda$$
+</div>
 
       <svg viewBox="0 0 500 300" class="bragg-diagram" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
         <!-- Title -->
@@ -369,7 +371,9 @@ hide_title: true
     
     <div class="structure-factor">
       <p>Structure factor:</p>
-      <div class="equation-box">$$F_{\mathbf{G}} = \sum_j f_j e^{i\mathbf{G} \cdot \mathbf{r}_j}$$</div>
+      <div class="equation-box" markdown="1">
+$$F_{\mathbf{G}} = \sum_j f_j e^{i\mathbf{G} \cdot \mathbf{r}_j}$$
+</div>
     </div>
   </div>
 </div>
@@ -381,9 +385,9 @@ hide_title: true
     <h3><i class="fas fa-wave-square"></i> Bloch's Theorem</h3>
     <p>Wavefunctions in periodic potential:</p>
     
-    <div class="equation-box bloch">
-      $$\psi_{n\mathbf{k}}(\mathbf{r}) = e^{i\mathbf{k} \cdot \mathbf{r}} u_{n\mathbf{k}}(\mathbf{r})$$
-    </div>
+    <div class="equation-box bloch" markdown="1">
+$$\psi_{n\mathbf{k}}(\mathbf{r}) = e^{i\mathbf{k} \cdot \mathbf{r}} u_{n\mathbf{k}}(\mathbf{r})$$
+</div>
     
     <p class="note">Where $u_{n\mathbf{k}}(\mathbf{r})$ has lattice periodicity</p>
     
@@ -474,7 +478,9 @@ hide_title: true
       
       <div class="gap-equation">
         <p>Gap size:</p>
-        <div class="equation-box">$$\Delta E = 2|V_{\mathbf{G}}|$$</div>
+        <div class="equation-box" markdown="1">
+$$\Delta E = 2|V_{\mathbf{G}}|$$
+</div>
         <p class="variable-note">where $V_{\mathbf{G}}$ is Fourier component of potential</p>
       </div>
       
@@ -543,14 +549,14 @@ hide_title: true
       <h3><i class="fas fa-link"></i> Tight-Binding Model</h3>
       <p>Start from atomic orbitals:</p>
       
-      <div class="equation-box">
-        $$\psi_{\mathbf{k}}(\mathbf{r}) = \sum_{\mathbf{R}} e^{i\mathbf{k} \cdot \mathbf{R}} \phi(\mathbf{r} - \mathbf{R})$$
-      </div>
+      <div class="equation-box" markdown="1">
+$$\psi_{\mathbf{k}}(\mathbf{r}) = \sum_{\mathbf{R}} e^{i\mathbf{k} \cdot \mathbf{R}} \phi(\mathbf{r} - \mathbf{R})$$
+</div>
       
       <p>Dispersion relation:</p>
-      <div class="equation-box">
-        $$E(\mathbf{k}) = \epsilon_0 - 2t[\cos(k_xa) + \cos(k_ya) + \cos(k_za)]$$
-      </div>
+      <div class="equation-box" markdown="1">
+$$E(\mathbf{k}) = \epsilon_0 - 2t[\cos(k_xa) + \cos(k_ya) + \cos(k_za)]$$
+</div>
       
       <svg viewBox="0 0 420 300" class="tb-diagram" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
         <!-- Title -->
@@ -625,9 +631,9 @@ hide_title: true
   <div class="density-of-states">
     <h3><i class="fas fa-chart-area"></i> Density of States</h3>
     
-    <div class="equation-box">
-      $$g(E) = \sum_n \int \frac{d^3k}{(2\pi)^3} \delta(E - E_n(\mathbf{k}))$$
-    </div>
+    <div class="equation-box" markdown="1">
+$$g(E) = \sum_n \int \frac{d^3k}{(2\pi)^3} \delta(E - E_n(\mathbf{k}))$$
+</div>
     
     <p class="singularity-note">Van Hove singularities occur where $\nabla_k E_n(\mathbf{k}) = 0$</p>
     

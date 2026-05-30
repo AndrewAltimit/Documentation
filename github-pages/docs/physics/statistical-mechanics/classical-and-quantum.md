@@ -94,7 +94,9 @@ hide_title: true
   <div class="theorem-box liouville">
     <h3><i class="fas fa-balance-scale"></i> Liouville's Theorem</h3>
     <p>Phase space density is conserved along trajectories:</p>
-    <div class="equation-box">$$\frac{d\rho}{dt} = \frac{\partial \rho}{\partial t} + \{\rho, H\} = 0$$</div>
+    <div class="equation-box" markdown="1">
+$$\frac{d\rho}{dt} = \frac{\partial \rho}{\partial t} + \{\rho, H\} = 0$$
+</div>
     
     <div class="visual-interpretation">
       <svg viewBox="0 0 500 200" style="max-width: 500px; width: 100%;">
@@ -135,7 +137,9 @@ hide_title: true
   
   <div class="partition-function-box">
     <h3><i class="fas fa-calculator"></i> Classical Partition Function</h3>
-    <div class="equation-box">$$Z = \frac{1}{N!h^{3N}} \int e^{-\beta H(\mathbf{r},\mathbf{p})} d\Gamma$$</div>
+    <div class="equation-box" markdown="1">
+$$Z = \frac{1}{N!h^{3N}} \int e^{-\beta H(\mathbf{r},\mathbf{p})} d\Gamma$$
+</div>
     <p class="note">The factor $1/N!$ accounts for indistinguishability (Gibbs correction)</p>
   </div>
   
@@ -164,7 +168,9 @@ hide_title: true
   <div class="density-matrix-box">
     <h3><i class="fas fa-th"></i> Density Matrix</h3>
     <p>For a mixed state:</p>
-    <div class="equation-box">$$\rho = \sum_i p_i |\psi_i\rangle\langle\psi_i|$$</div>
+    <div class="equation-box" markdown="1">
+$$\rho = \sum_i p_i |\psi_i\rangle\langle\psi_i|$$
+</div>
     <p>Canonical density matrix: $\rho = \frac{e^{-\beta H}}{Z}$</p>
     
     <div class="matrix-visual">
@@ -229,7 +235,9 @@ hide_title: true
   
   <div class="partition-function">
     <h3><i class="fas fa-sum"></i> Quantum Partition Function</h3>
-    <div class="equation-box">$$Z = \text{Tr}(e^{-\beta H}) = \sum_n e^{-\beta E_n}$$</div>
+    <div class="equation-box" markdown="1">
+$$Z = \text{Tr}(e^{-\beta H}) = \sum_n e^{-\beta E_n}$$
+</div>
   </div>
   
   <div class="statistics-comparison">
@@ -239,7 +247,9 @@ hide_title: true
       
       <div class="occupation-formula">
         <p>Average occupation number:</p>
-        <div class="equation-box">$$\langle n_i \rangle = \frac{1}{e^{\beta(\epsilon_i - \mu)} + 1}$$</div>
+        <div class="equation-box" markdown="1">
+$$\langle n_i \rangle = \frac{1}{e^{\beta(\epsilon_i - \mu)} + 1}$$
+</div>
       </div>
       
       <div class="distribution-plot">
@@ -305,7 +315,9 @@ hide_title: true
       
       <div class="occupation-formula">
         <p>Average occupation number:</p>
-        <div class="equation-box">$$\langle n_i \rangle = \frac{1}{e^{\beta(\epsilon_i - \mu)} - 1}$$</div>
+        <div class="equation-box" markdown="1">
+$$\langle n_i \rangle = \frac{1}{e^{\beta(\epsilon_i - \mu)} - 1}$$
+</div>
       </div>
       
       <div class="distribution-plot">

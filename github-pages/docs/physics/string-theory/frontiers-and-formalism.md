@@ -138,7 +138,7 @@ $$V^{(0)} = \int d^2z \, V^{(1)}(z,\bar{z})$$
 
 $$Q_B = \oint \left(cT + \frac{1}{2}c\partial c + \tilde{c}\bar{T} + \frac{1}{2}\tilde{c}\bar{\partial}\tilde{c}\right)$$
 
-**Physical states:** $Q_B|\phi\rangle = 0$, $|\phi\rangle \neq Q_B|\chi\rangle$
+**Physical states:** $Q_B\lvert\phi\rangle = 0$, $\lvert\phi\rangle \neq Q_B\lvert\chi\rangle$
 
 **Cohomology:** $H^*(Q_B)$ gives physical spectrum
 

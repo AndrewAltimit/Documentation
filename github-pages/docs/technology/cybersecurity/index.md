@@ -61,7 +61,7 @@ flowchart TD
 
 ## Quick Navigation
 
-<div class="nav-card-grid">
+<div class="command-grid">
   <a class="nav-card" href="cryptography.html">
     <h3>Cryptography</h3>
     <p>Symmetric and public-key encryption, ECC, post-quantum algorithms, zero-knowledge and homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing.</p>

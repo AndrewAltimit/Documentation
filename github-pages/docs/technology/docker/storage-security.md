@@ -626,7 +626,8 @@ docker system df</code></pre>
   
   <h3><i class="fas fa-exclamation-circle"></i> Common Error Solutions</h3>
 
-  <div class="error-solutions">
+  <div class="error-solutions" markdown="1">
+
 | Error | Quick Fix |
 |-------|-----------|
 | "Cannot connect to Docker daemon" | `sudo systemctl start docker` or add user to docker group |
@@ -634,13 +635,13 @@ docker system df</code></pre>
 | "Port already in use" | `sudo lsof -i :8080` to find the process, then kill it or use a different port |
 | "Permission denied" | Run with sudo, or add user to docker group and log out/in |
 
-    <h4>Cleaning Up Disk Space</h4>
-    <pre><code class="language-bash"># See what is using space
+<h4>Cleaning Up Disk Space</h4>
+<pre><code class="language-bash"># See what is using space
 docker system df
 
 # Remove everything unused (images, containers, volumes)
 docker system prune -a --volumes</code></pre>
-  </div>
+</div>
 
   <h3><i class="fas fa-heartbeat"></i> Health Checks</h3>
 
