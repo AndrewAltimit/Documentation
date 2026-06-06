@@ -48,6 +48,45 @@ hide_title: true
   </a>
 </div>
 
+## From Microstates to Ensembles
+
+The whole subject rests on a single, almost embarrassingly simple idea, and everything else is bookkeeping built on top of it. A **microstate** is a complete answer to the question "what is every degree of freedom doing right now?" — the position and momentum of every classical particle, or the occupation of every quantum level. A **macrostate** is the handful of numbers a thermometer or pressure gauge can actually read: energy $E$, volume $V$, particle number $N$, temperature $T$, pressure $P$. The defining feature of a many-body system is that a single macrostate is consistent with an astronomical number of microstates, and we have no way (and no need) to know which one the system currently occupies.
+
+### The fundamental postulate
+
+Statistical mechanics resolves this ignorance with one assumption, the **postulate of equal a priori probabilities**:
+
+> For an isolated system in equilibrium, every microstate compatible with the imposed constraints (fixed $E$, $V$, $N$) is equally likely.
+
+There is no preferred microstate; the system has no memory of how it got where it is, and over time its dynamics carries it democratically through all the states it is allowed to visit (the *ergodic hypothesis* makes this precise). Equal weighting is the least-biased choice — it assumes nothing beyond the constraints themselves — and from it every probability distribution in the theory is derived. If $\Omega$ accessible microstates are all equally probable, each carries probability $1/\Omega$, and the entropy that counts them is Boltzmann's
+
+$$S = k_B \ln \Omega.$$
+
+### Constraints select the ensemble
+
+An **ensemble** is a conceptual collection of a huge number of imaginary copies of the system, each in a different microstate, distributed according to the probabilities the postulate dictates. Which ensemble we use is decided entirely by *what the system is allowed to exchange with its surroundings* — that is, by the physical boundary conditions:
+
+<div class="ensemble-mapping" markdown="1">
+
+| Physical situation | What's held fixed | What fluctuates | Ensemble | Natural variables |
+|---|---|---|---|---|
+| **Isolated** — insulated, rigid, sealed | $E$, $V$, $N$ | nothing | Microcanonical | $N, V, E$ |
+| **Closed, in a heat bath** — diathermal walls | $T$, $V$, $N$ | energy $E$ | Canonical | $N, V, T$ |
+| **Open, in a reservoir** — permeable walls | $T$, $V$, $\mu$ | energy $E$ and number $N$ | Grand canonical | $\mu, V, T$ |
+
+</div>
+
+The logic is uniform. Start from a large isolated "system + reservoir" whose total $(E, V, N)$ is fixed, and apply the fundamental postulate to the *combined* system. Then ask only about the small subsystem of interest. Summing over the reservoir's many microstates trades a fixed conserved quantity for the intensive variable conjugate to it:
+
+- Open the walls to **energy flow** and the subsystem's energy is no longer fixed; the reservoir's vast heat capacity pins the shared **temperature** $T$ instead. Counting reservoir states produces the Boltzmann weight $e^{-\beta E_i}$ with $\beta = 1/(k_B T)$, and the microcanonical $\Omega$ becomes the canonical partition function $Z$.
+- Open the walls to **particle flow** as well and $N$ also floats; the reservoir now fixes the **chemical potential** $\mu$, attaching a factor $e^{\beta \mu N}$ to each state and turning $Z$ into the grand partition function $\mathcal{Z}$.
+
+Each relaxation swaps a *held-fixed extensive* variable ($E$, then $N$) for its *conjugate intensive* partner ($T$, then $\mu$) — exactly the Legendre-transform structure that takes the entropy $S(E,V,N)$ to the Helmholtz free energy $F(T,V,N)$ to the grand potential $\Omega(T,V,\mu)$ in thermodynamics. The microstates are always counted the same way; only the constraint, and hence the statistical weight, changes.
+
+### Why it doesn't matter which one you pick
+
+These three descriptions are not competing theories — they are the same physics viewed through different boundary conditions, and in the **thermodynamic limit** ($N \to \infty$ at fixed densities) they give identical predictions for every macroscopic observable. The reason is that relative fluctuations shrink as $1/\sqrt{N}$: in the canonical ensemble the energy is technically allowed to vary, but for $N \sim 10^{23}$ it is overwhelmingly likely to sit within a part in $10^{11}$ of its mean, so "fixed $E$" and "fixed $T$" describe the same equilibrium. **Ensemble equivalence** means you are free to choose whichever ensemble makes the mathematics easiest — almost always the canonical one, because summing the unconstrained $e^{-\beta E_i}$ over all states is far simpler than counting only those states with one exact energy. The sections below build out each ensemble in turn and then put the partition function to work.
+
 ## Fundamental Principles
 
 <div class="principle-section">

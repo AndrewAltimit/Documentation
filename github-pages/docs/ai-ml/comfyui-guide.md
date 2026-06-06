@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: ComfyUI Comprehensive Guide
+permalink: /docs/ai-ml/comfyui-guide.html
 parent: AI/ML Documentation
 nav_order: 2
 toc: true

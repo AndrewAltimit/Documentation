@@ -32,7 +32,7 @@ From fundamentals to cutting-edge research:
 
 ### [AI/ML Documentation Hub](docs/ai-ml/index.html)
 Specialized content for artificial intelligence:
-- **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/base-models-comparison.html#flux), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
+- **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/flux-guide.html), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
 - **Model Training**: [LoRA fine-tuning](docs/ai-ml/lora-training.html), dataset preparation
 - **Practical Guides**: From beginner tutorials to [advanced techniques](docs/ai-ml/advanced-techniques.html)
 - **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics/) and research papers

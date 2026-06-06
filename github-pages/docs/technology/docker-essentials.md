@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Docker Essentials
+permalink: /docs/technology/docker-essentials.html
 description: Quick reference guide for essential Docker commands and operations
 toc: true
 toc_sticky: true

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Infrastructure as Code"
+permalink: /docs/technology/aws/iac.html
 hide_title: true
 toc: true
 toc_sticky: true

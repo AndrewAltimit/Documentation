@@ -1,6 +1,8 @@
 ---
 layout: docs
 title: Thermodynamics
+description: The fundamentals of thermodynamics — the four laws, state functions and processes, heat engines and the Carnot bound, entropy, and the free energies.
+permalink: /docs/physics/thermodynamics.html
 hide_title: true
 toc: true
 toc_sticky: true
@@ -12,6 +14,8 @@ toc_icon: "cog"
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Thermodynamics</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The science of heat, energy, and work, governing everything from steam engines to the fate of the universe.</p>
 </div>
+
+[Physics](./) &raquo; Thermodynamics
 
 <!-- Custom styles are now loaded via main.scss -->
 
@@ -41,6 +45,23 @@ toc_icon: "cog"
     <p>No engine beats Carnot: $\eta_{\max} = 1 - T_C/T_H$, set purely by the two temperatures.</p>
   </div>
 </div>
+
+## Why Thermodynamics?
+
+In principle, a gas is just $10^{23}$ molecules obeying Newton's laws, so why not simply integrate the equations of motion? Because that program is hopeless and, more deeply, beside the point. No experiment ever measures the position of an individual molecule; what we measure are a handful of bulk quantities — pressure, temperature, volume, energy — and what we want to predict are *relations* between them. Thermodynamics is the framework that delivers those relations directly, without ever solving the microscopic dynamics, by replacing $10^{23}$ coordinates with a few **state variables** and a small set of universal laws constraining them.
+
+The subject was not invented by philosophers contemplating the universe — it was forced into existence by engineers trying to build better steam engines. In 1824 Sadi Carnot asked a sharply practical question: given a furnace and a cold river, what is the *maximum* fraction of the heat that any engine, no matter how cleverly designed, can turn into useful work? His answer was startling. The ceiling depends only on the two temperatures,
+
+$$\eta_{\max} = 1 - \frac{T_C}{T_H},$$
+
+and on nothing else — not the working fluid, not the mechanism, not the engineer's ingenuity. This was the first hint that heat obeys a law of its own, one that *forbids* certain processes that energy conservation alone would happily allow. You can build a machine that turns work entirely into heat (friction does it for free), but you can never build one that turns heat entirely into work. That asymmetry is invisible at the level of Newton's reversible equations and only emerges from statistics — there are simply overwhelmingly more disordered microstates than ordered ones.
+
+<div class="principle-card">
+  <h4>Why microscopic mechanics alone is not enough</h4>
+  <p>Newton's laws are perfectly time-reversible: run a film of two colliding billiard balls backward and it still looks physical. Yet a dropped glass never spontaneously reassembles, and heat never flows on its own from cold to hot. Nothing in the microscopic equations singles out a direction for time — that arrow is a <em>thermodynamic</em> statement about entropy, a property of the ensemble of microstates, not of any single trajectory. Thermodynamics adds exactly the ingredient mechanics lacks: a direction for spontaneous change and a hard ceiling on what energy conversions are possible. This is why it is sometimes called the most portable theory in physics — its laws hold whether the working substance is steam, a magnet, light, or a black hole.</p>
+</div>
+
+The rest of this page builds that framework from the ground up: the four laws that fix the rules, the state functions that summarize a system's condition, the idealized processes that connect states, the engine cycles that turn the Carnot bound into hardware, and the free energies that predict which way a process will run. For the graduate-level machinery built on top of these foundations — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics — see [Thermodynamics: Advanced Topics](thermodynamics-advanced.html).
 
 ## Fundamental Concepts
 
@@ -242,23 +263,7 @@ $$\left(\frac{\partial S}{\partial V}\right)_T = \left(\frac{\partial P}{\partia
 
 $$\left(\frac{\partial S}{\partial P}\right)_T = -\left(\frac{\partial V}{\partial T}\right)_P$$
 
-## Phase Transitions
-
-### Clausius-Clapeyron Equation
-Describes the phase boundary between two phases:
-
-$$\frac{dP}{dT} = \frac{L}{T\Delta V}$$
-
-Where $L$ is the latent heat and $\Delta V$ is the volume change.
-
-For vapor-liquid equilibrium:
-$$\ln\left(\frac{P_2}{P_1}\right) = -\frac{\Delta H_{vap}}{R}\left(\frac{1}{T_2} - \frac{1}{T_1}\right)$$
-
-### Critical Point
-Where liquid and gas phases become indistinguishable:
-- Critical temperature $T_c$
-- Critical pressure $P_c$
-- Critical volume $V_c$
+These four relations turn quantities you cannot easily measure (like $(\partial S/\partial V)_T$) into slopes you can read straight off an equation of state (like $(\partial P/\partial T)_V$). The [advanced page](thermodynamics-advanced.html) derives the complete set from the Legendre structure of the potentials and packs them into the thermodynamic-square mnemonic.
 
 ## Heat Engines and Refrigerators
 
@@ -290,37 +295,6 @@ Models the idealized gasoline engine:
 Efficiency: $\eta = 1 - \frac{1}{r^{\gamma-1}}$
 
 Where $r$ is the compression ratio.
-
-## Real Gases
-
-### Van der Waals Equation
-Accounts for molecular size and intermolecular forces:
-
-$$\left(P + \frac{an^2}{V^2}\right)(V - nb) = nRT$$
-
-Where:
-- $a$ accounts for attractive forces
-- $b$ accounts for molecular volume
-
-### Virial Expansion
-$$\frac{PV}{nRT} = 1 + \frac{B(T)}{V} + \frac{C(T)}{V^2} + ...$$
-
-Where $B(T)$, $C(T)$ are virial coefficients.
-
-## Chemical Thermodynamics
-
-### Chemical Potential
-For species $i$ in a mixture:
-$$\mu_i = \left(\frac{\partial G}{\partial n_i}\right)_{T,P,n_{j\neq i}}$$
-
-### Reaction Equilibrium
-At equilibrium:
-$$\sum_i \nu_i \mu_i = 0$$
-
-Where $\nu_i$ are stoichiometric coefficients.
-
-### Equilibrium Constant
-$$K = \exp\left(-\frac{\Delta G^\circ}{RT}\right)$$
 
 ## Code Examples
 
@@ -482,493 +456,12 @@ Console output shows:
 - Crystal growth
 - Heat treatment of materials
 
-## Advanced Topics: A Graduate Reference
+## Where to Go Next
 
 <div class="tip-card">
-  <h4>How to read the rest of this page</h4>
-  <p>Everything above is the working core of classical thermodynamics. The sections that follow are a denser, graduate-level reference: the formal Legendre-transform structure, critical phenomena and the renormalization group, the statistical-mechanical foundations, and modern research directions (stochastic, quantum, and information thermodynamics). They are formula-forward by design — for the microscopic story behind the statistical sections, see <a href="statistical-mechanics/">Statistical Mechanics</a>, which develops ensembles and the partition function in full.</p>
+  <h4>Beyond the fundamentals</h4>
+  <p>Everything above is the working core of classical thermodynamics — the four laws, the state functions, the idealized processes, the engine cycles, and the free energies. The graduate-level machinery built on these foundations lives on its own page: the formal Legendre-transform structure relating the potentials, the Euler and Gibbs–Duhem relations, the full set of Maxwell relations and the thermodynamic square, critical phenomena and the renormalization group, and the modern non-equilibrium, stochastic, quantum, and information-theoretic extensions. See <a href="thermodynamics-advanced.html">Thermodynamics: Advanced Topics</a>. For the microscopic story that <em>derives</em> these laws from counting microstates, see <a href="statistical-mechanics/">Statistical Mechanics</a>.</p>
 </div>
-
-## Legendre Transformations and Thermodynamic Potentials
-
-### Mathematical Framework
-
-Legendre transformations connect different thermodynamic potentials:
-
-**General Legendre transformation:**
-$$
-F(p) = px - f(x)
-$$
-where $p = df/dx$
-
-### Thermodynamic Potentials
-
-**Internal Energy:** $U(S,V,N)$
-$$
-dU = TdS - PdV + \mu dN
-$$
-
-**Enthalpy:** $H(S,P,N) = U + PV$
-$$
-dH = TdS + VdP + \mu dN
-$$
-
-**Helmholtz Free Energy:** $F(T,V,N) = U - TS$
-$$
-dF = -SdT - PdV + \mu dN
-$$
-
-**Gibbs Free Energy:** $G(T,P,N) = U - TS + PV$
-$$
-dG = -SdT + VdP + \mu dN
-$$
-
-**Grand Potential:** $\Omega(T,V,\mu) = U - TS - \mu N$
-$$
-d\Omega = -SdT - PdV - Nd\mu
-$$
-
-### Maxwell Relations Extended
-
-Each potential is an exact differential, so its mixed second partials are equal. Reading off the equality for every potential gives the full set of Maxwell relations — note the sign flips, which track whether the conjugate pair appears with a $+$ or $-$ in the differential.
-
-| Potential | Natural variables | Maxwell relation |
-|-----------|-------------------|------------------|
-| $U$ | $S, V, N$ | $\left(\dfrac{\partial T}{\partial V}\right)_{S,N} = -\left(\dfrac{\partial P}{\partial S}\right)_{V,N}$ |
-| $H$ | $S, P, N$ | $\left(\dfrac{\partial T}{\partial P}\right)_{S,N} = \left(\dfrac{\partial V}{\partial S}\right)_{P,N}$ |
-| $F$ | $T, V, N$ | $\left(\dfrac{\partial S}{\partial V}\right)_{T,N} = \left(\dfrac{\partial P}{\partial T}\right)_{V,N}$ |
-| $G$ | $T, P, N$ | $\left(\dfrac{\partial S}{\partial P}\right)_{T,N} = -\left(\dfrac{\partial V}{\partial T}\right)_{P,N}$ |
-
-### The Thermodynamic Square
-
-A classic mnemonic packs all four potentials and their natural variables into a single square. Each potential sits between its two natural variables, and the Maxwell relations are read off the corners.
-
-```mermaid
-graph LR
-    U["U (S, V)"] --- H["H (S, P)"]
-    F["F (T, V)"] --- G["G (T, P)"]
-    U --- F
-    H --- G
-    U:::pot
-    H:::pot
-    F:::pot
-    G:::pot
-    classDef pot fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
-```
-
-The two diagonals of the square satisfy
-
-$$U + G = H + F = TS + \mu N,$$
-
-which is just the Euler relation re-expressed through the four potentials.
-
-## Critical Phenomena and Phase Transitions
-
-### Critical Exponents
-
-Approaching a continuous (second-order) phase transition, thermodynamic quantities diverge or vanish as power laws in the reduced temperature $t = (T - T_c)/T_c$. The exponents are remarkably *universal*: wildly different systems sharing the same dimensionality and symmetry collapse onto the same set of values.
-
-| Quantity | Power law | Exponent |
-|----------|-----------|----------|
-| Specific heat | $C \sim \lvert t \rvert^{-\alpha}$ | $\alpha$ |
-| Order parameter | $m \sim \lvert t \rvert^{\beta}$ | $\beta$ |
-| Susceptibility | $\chi \sim \lvert t \rvert^{-\gamma}$ | $\gamma$ |
-| Correlation length | $\xi \sim \lvert t \rvert^{-\nu}$ | $\nu$ |
-| Critical isotherm | $m \sim H^{1/\delta}$ | $\delta$ |
-| Correlation function | $G(r) \sim r^{-(d-2+\eta)}$ | $\eta$ |
-
-### Scaling Relations
-
-The six exponents are not independent — scaling theory links them through equalities that hold across all universality classes:
-
-$$\begin{aligned}
-&\text{Rushbrooke:} && \alpha + 2\beta + \gamma = 2 \\
-&\text{Griffiths:} && \alpha + \beta(1 + \delta) = 2 \\
-&\text{Widom:} && \gamma = \beta(\delta - 1) \\
-&\text{Fisher:} && \gamma = \nu(2 - \eta) \\
-&\text{Josephson (hyperscaling):} && d\nu = 2 - \alpha
-\end{aligned}$$
-
-### Landau Theory
-
-Free energy expansion near critical point:
-$$
-F = F_0 + at^2m^2 + bm^4 + cm^6 + \ldots - Hm
-$$
-
-**Mean-field critical exponents:**
-- α = 0 (logarithmic)
-- β = 1/2
-- γ = 1
-- δ = 3
-- ν = 1/2
-- η = 0
-
-### Renormalization Group Theory
-
-**RG transformation:** R maps Hamiltonian H → H'
-
-**Fixed points:** H* = R(H*)
-
-**Scaling dimensions:** y_i eigenvalues of linearized RG
-- Relevant: y_i > 0
-- Marginal: y_i = 0  
-- Irrelevant: y_i < 0
-
-**Universality:** Systems with same symmetry and dimensionality have same critical exponents
-
-## Statistical Foundations
-
-### Ensemble Theory
-
-**Microcanonical (NVE):**
-$$
-S = k_B \ln \Omega(E,V,N), \quad \Omega(E,V,N) = \int \delta(H - E) \, d\Gamma
-$$
-
-**Canonical (NVT):**
-$$
-Z = \int e^{-\beta H} \, d\Gamma, \quad F = -k_B T \ln Z
-$$
-
-**Grand Canonical (μVT):**
-$$
-\Xi = \sum_N e^{\beta\mu N} Z_N, \quad \Omega = -k_B T \ln \Xi
-$$
-
-### Fluctuations and Response Functions
-
-**Fluctuation-dissipation theorem:**
-$$
-\langle(\delta A)^2\rangle = k_B T^2 \left(\frac{\partial\langle A\rangle}{\partial T}\right)_X
-$$
-
-**Specific heat:**
-$$
-C_V = \left(\frac{\partial U}{\partial T}\right)_V = \frac{\langle(\delta E)^2\rangle}{k_B T^2}
-$$
-
-**Compressibility:**
-$$
-\kappa_T = -\frac{1}{V}\left(\frac{\partial V}{\partial P}\right)_T = \frac{\langle(\delta V)^2\rangle}{k_B T V}
-$$
-
-**Magnetic susceptibility:**
-$$
-\chi = \left(\frac{\partial M}{\partial H}\right)_T = \beta\langle(\delta M)^2\rangle
-$$
-
-## Non-equilibrium Thermodynamics
-
-### Linear Response Theory
-
-**Onsager regression hypothesis:**
-Fluctuations decay like macroscopic perturbations
-
-**Transport coefficients:**
-$$
-J_i = \sum_j L_{ij} X_j
-$$
-Where $J_i$ are fluxes and $X_j$ are thermodynamic forces.
-
-**Onsager reciprocity:**
-$$
-L_{ij} = L_{ji}
-$$
-
-### Entropy Production
-
-**Local entropy production:**
-$$
-\sigma = \sum_i J_i X_i \geq 0
-$$
-
-**Minimum entropy production:** For steady states near equilibrium
-
-### Fluctuation Theorems
-
-**Crooks relation:**
-$$
-\frac{P_F(W)}{P_R(-W)} = e^{\beta W - \beta\Delta F}
-$$
-
-**Jarzynski equality:**
-$$
-\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}
-$$
-
-**Gallavotti-Cohen theorem:** For entropy production
-$$
-\frac{P(\Sigma_\tau = A)}{P(\Sigma_\tau = -A)} = e^{\tau A/k_B}
-$$
-
-## Advanced Phase Transitions
-
-### Kosterlitz-Thouless Transition
-
-Topological phase transition in 2D:
-- No true long-range order (Mermin-Wagner)
-- Quasi-long-range order below T_KT
-- Vortex-antivortex unbinding
-
-**Correlation function:**
-$$
-G(r) \sim r^{-\eta(T)} \text{ for } T < T_{KT}, \quad G(r) \sim e^{-r/\xi} \text{ for } T > T_{KT}
-$$
-
-### Quantum Phase Transitions
-
-Phase transitions at T = 0 driven by quantum fluctuations:
-
-**Scaling ansatz:**
-$$
-F(g,T) = b^{-(d+z)}F(gb^{1/\nu}, Tb^z)
-$$
-
-Where z is dynamical critical exponent.
-
-### Glass Transitions
-
-**Kauzmann paradox:** Extrapolated entropy becomes negative
-
-**Vogel-Fulcher law:**
-$$
-\tau = \tau_0 \exp\left[\frac{DT_0}{T - T_0}\right]
-$$
-
-**Adam-Gibbs theory:** Relates relaxation to configurational entropy
-
-## Computational Methods
-
-### Monte Carlo Methods
-
-```python
-def metropolis_ising_2d(L, T, n_steps):
-    """Metropolis algorithm for 2D Ising model"""
-    # Initialize random spin configuration
-    spins = 2*np.random.randint(2, size=(L, L)) - 1
-    beta = 1.0/T
-    
-    # Precompute Boltzmann factors
-    w = {}
-    for dE in [-8, -4, 0, 4, 8]:
-        w[dE] = np.exp(-beta * dE)
-    
-    magnetization = []
-    energy = []
-    
-    for step in range(n_steps):
-        # Choose random spin
-        i = np.random.randint(L)
-        j = np.random.randint(L)
-        
-        # Calculate energy change
-        s = spins[i, j]
-        neighbors = spins[(i+1)%L, j] + spins[i, (j+1)%L] + \
-                   spins[(i-1)%L, j] + spins[i, (j-1)%L]
-        dE = 2 * s * neighbors
-        
-        # Metropolis acceptance
-        if dE <= 0 or np.random.random() < w[dE]:
-            spins[i, j] = -s
-        
-        # Measure observables
-        if step % 10 == 0:
-            magnetization.append(np.mean(spins))
-            energy.append(calculate_energy(spins))
-    
-    return magnetization, energy, spins
-
-def wolff_cluster_algorithm(spins, T):
-    """Wolff cluster algorithm for reduced critical slowing"""
-    L = len(spins)
-    p_add = 1 - np.exp(-2.0/T)
-    
-    # Choose random spin
-    i0, j0 = np.random.randint(L, size=2)
-    cluster_spin = spins[i0, j0]
-    
-    # Build cluster
-    cluster = {(i0, j0)}
-    boundary = {(i0, j0)}
-    
-    while boundary:
-        i, j = boundary.pop()
-        
-        # Check neighbors
-        for di, dj in [(1,0), (-1,0), (0,1), (0,-1)]:
-            ni, nj = (i+di)%L, (j+dj)%L
-            
-            if (ni, nj) not in cluster and \
-               spins[ni, nj] == cluster_spin and \
-               np.random.random() < p_add:
-                cluster.add((ni, nj))
-                boundary.add((ni, nj))
-    
-    # Flip cluster
-    for i, j in cluster:
-        spins[i, j] = -spins[i, j]
-    
-    return len(cluster)
-```
-
-### Density Functional Theory
-
-**Grand potential functional:**
-$$
-\Omega[\rho] = F[\rho] + \int dr \, \rho(r)[V_{\text{ext}}(r) - \mu]
-$$
-
-**Euler-Lagrange equation:**
-$$
-\frac{\delta F}{\delta\rho(r)} + V_{\text{ext}}(r) = \mu
-$$
-
-**Mean-field approximation:**
-$$
-F[\rho] = k_B T \int dr \, \rho(r)[\ln(\rho(r)\Lambda^3) - 1] + \frac{1}{2} \iint dr \, dr' \, \rho(r)\rho(r')V(|r-r'|)
-$$
-
-## Modern Research Topics
-
-### Active Matter Thermodynamics
-
-**Entropy production in active systems:**
-$$
-\Pi = \Pi_{\text{housekeeping}} + \Pi_{\text{excess}}
-$$
-
-**Pressure in active fluids:** Violates equation of state
-
-**Effective temperature:** Different for different degrees of freedom
-
-### Stochastic Thermodynamics
-
-**Langevin equation:**
-$$
-m\ddot{x} = -\gamma\dot{x} - \frac{\partial U}{\partial x} + \sqrt{2\gamma k_B T} \, \xi(t)
-$$
-
-**Work fluctuations:** $\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}$
-
-**Information thermodynamics:** 
-Maxwell's demon, Szilard engine, feedback control
-
-### Quantum Thermodynamics
-
-**Quantum work:**
-$$
-W = \sum_n E_n(\lambda_f)[p_n(\lambda_f) - p_n(\lambda_i)]
-$$
-
-**Quantum heat engines:** Otto cycle with quantum working medium
-
-**Thermodynamic uncertainty relations:**
-$$
-\frac{(\Delta J)^2}{\langle J\rangle^2} \geq \frac{2k_B T}{\langle\Sigma\rangle}
-$$
-
-### Machine Learning Applications
-
-**Neural networks for phase classification:**
-```python
-def build_phase_classifier():
-    model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(32, (3,3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2,2),
-        tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(1, activation='sigmoid')
-    ])
-    return model
-```
-
-**Variational free energy calculations:** Neural network ansatz for density matrices
-
-## Research Frontiers
-
-### Thermodynamics of Information
-
-**Landauer's principle:** Erasing one bit costs k_B T ln 2
-
-**Information engines:** Extract work from information
-
-**Quantum information thermodynamics:** Entanglement as resource
-
-### Extreme Conditions
-
-**Negative temperature systems:** Population inversion
-
-**Black hole thermodynamics:** A black hole behaves as a thermal object — it carries entropy proportional to its horizon *area* (not its volume) and radiates at a temperature inversely proportional to its mass:
-
-$$S_{BH} = \frac{k_B A}{4 \ell_P^2}, \qquad T_H = \frac{\hbar c^3}{8\pi G M k_B}.$$
-
-### Biological Systems
-
-**Efficiency of molecular motors:** Often near theoretical limits
-
-**Thermodynamics of self-replication:** Minimum dissipation requirements
-
-**Non-equilibrium steady states:** Maintenance of life
-
-## References and Further Reading
-
-### Graduate Textbooks
-1. **Callen** - *Thermodynamics and an Introduction to Thermostatistics*
-2. **Reichl** - *A Modern Course in Statistical Physics*
-3. **Chandler** - *Introduction to Modern Statistical Mechanics*
-4. **Kardar** - *Statistical Physics of Particles* and *Statistical Physics of Fields*
-
-### Research Monographs  
-1. **Goldenfeld** - *Lectures on Phase Transitions and the Renormalization Group*
-2. **Chaikin & Lubensky** - *Principles of Condensed Matter Physics*
-3. **Seifert** - *Stochastic Thermodynamics* (Rep. Prog. Phys. 2012)
-4. **Jarzynski** - *Nonequilibrium Work Relations* (C. R. Physique 2007)
-
-### Recent Reviews
-1. **Active Matter:** Marchetti et al., Rev. Mod. Phys. 85, 1143 (2013)
-2. **Fluctuation Theorems:** Sevick et al., Annu. Rev. Phys. Chem. 59, 603 (2008)  
-3. **Quantum Thermodynamics:** Vinjanampathy & Anders, Contemp. Phys. 57, 545 (2016)
-4. **Information Thermodynamics:** Parrondo et al., Nat. Phys. 11, 131 (2015)
-
-### Computational Resources
-1. **LAMMPS:** Large-scale MD simulations
-2. **Monte Carlo codes:** ALPS, SpinMC
-3. **Phase diagram software:** CALPHAD, Thermo-Calc
-4. **Python libraries:** pyro, emcee, thermopy
-
-## Advanced Mathematical Methods
-
-### Jacobians and Thermodynamic Derivatives
-
-**Jacobian notation:**
-$$
-\frac{\partial(u,v)}{\partial(x,y)} = \begin{vmatrix} \frac{\partial u}{\partial x} & \frac{\partial u}{\partial y} \\ \frac{\partial v}{\partial x} & \frac{\partial v}{\partial y} \end{vmatrix}
-$$
-
-**Chain rule:**
-$$
-\frac{\partial(u,v)}{\partial(x,y)} = \frac{\partial(u,v)}{\partial(s,t)} \times \frac{\partial(s,t)}{\partial(x,y)}
-$$
-
-**Thermodynamic identities:**
-$$
-\left(\frac{\partial T}{\partial P}\right)_S = \frac{\partial(T,S)}{\partial(P,S)}
-$$
-
-### Stability Conditions
-
-**Thermodynamic stability requires:**
-1. $C_V > 0$ (thermal stability — adding heat raises temperature)
-2. $\kappa_T > 0$ (mechanical stability — compressing raises pressure)
-3. $(\partial \mu / \partial N)_{T,V} > 0$ (diffusive stability)
-
-**Convexity of thermodynamic potentials:**
-- S(U,V,N) is concave
-- U(S,V,N) is convex
-- F(T,V,N) is convex in V
-- G(T,P,N) is convex in N
 
 ---
 
@@ -1015,6 +508,7 @@ $$
 <div class="see-also-card">
   <h4>See Also</h4>
   <ul>
+    <li><a href="thermodynamics-advanced.html">Thermodynamics: Advanced Topics</a> — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics.</li>
     <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
     <li><a href="classical-mechanics/">Classical Mechanics</a> — work, energy, and the mechanical origin of the First Law.</li>
     <li><a href="quantum-mechanics/">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical mechanics.</li>

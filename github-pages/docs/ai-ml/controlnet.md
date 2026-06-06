@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: ControlNet Guide
+permalink: /docs/ai-ml/controlnet.html
 parent: AI/ML Documentation
 nav_order: 7
 toc: true

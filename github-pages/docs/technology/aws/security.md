@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Security & Identity
+permalink: /docs/technology/aws/security.html
 hide_title: true
 toc: true
 toc_sticky: true

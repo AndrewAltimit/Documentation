@@ -36,11 +36,12 @@ hide_title: true
   </div>
 </div>
 
-<p style="font-size: 1.05rem;">This hub covers the foundations: what strings are, the classical and quantum theory of a single string, and the five superstring theories. Two companion pages continue the story:</p>
+<p style="font-size: 1.05rem;">This hub covers the foundations: what strings are, the classical and quantum theory of a single string, and the five superstring theories. Three companion pages continue the story:</p>
 
 <ul>
   <li><a href="dualities-and-branes.html"><strong>D-Branes, Dualities &amp; M-Theory</strong></a> — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology.</li>
-  <li><a href="frontiers-and-formalism.html"><strong>Criticisms, Research &amp; Graduate Formalism</strong></a> — open problems, current research directions, experimental prospects, and the full graduate-level mathematical formalism.</li>
+  <li><a href="frontiers-and-formalism.html"><strong>Criticisms &amp; Research Frontiers</strong></a> — open problems, current research directions, experimental prospects, and the live debates over the theory's scientific status.</li>
+  <li><a href="string-theory-formalism.html"><strong>Graduate Formalism</strong></a> — the full graduate-level mathematical machinery: worldsheet CFT, RNS and Green-Schwarz superstrings, BRST quantization, D-brane actions, Calabi-Yau compactification, and the AdS/CFT dictionary.</li>
 </ul>
 
 ## Fundamental Concepts

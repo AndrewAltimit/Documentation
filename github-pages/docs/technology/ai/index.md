@@ -91,13 +91,76 @@ For practical, hands-on generative-AI guides (Stable Diffusion, ComfyUI, LoRA tr
 
 ---
 
+## How to Use This Hub
+
+This reference is split into focused pages so you can go as deep as you need on any one topic without wading through the rest. Each page is self-contained, but they build on one another. If you are not sure where to begin, use these **start here** pointers:
+
+- **New to the math of learning?** Start with [Machine Learning Foundations](ml-foundations.html) — it sets up the statistical-learning vocabulary every later page assumes.
+- **Working with tabular data?** Go straight to [Core ML Algorithms](core-ml-algorithms.html); you can skip most of the deep-learning pages.
+- **Here for neural networks?** Read [Deep Learning Theory](deep-learning-theory.html) for the "why," then [Deep Learning Architectures](deep-learning-architectures.html) for the "how." The older [Neural Network Architectures](architectures.html) overview ties the same ideas together in one narrative if you prefer a single pass.
+- **Debugging or designing a training objective?** [Loss Functions & Objectives](loss-functions.html) is the page to bookmark — the objective is the model.
+- **Adapting a pretrained model?** Jump to [Fine-Tuning & Transfer Learning](fine-tuning.html) (LoRA, instruction tuning, RLHF, DPO).
+- **Building agents or reward-driven systems?** Start at [Reinforcement Learning](reinforcement-learning.html).
+- **Generating images, audio, or text?** See [Generative Models](generative-models.html).
+- **Thinking about scale, safety, or societal impact?** Read [Frontier Research & Ethics](frontier-and-ethics.html).
+
+**Suggested reading order (front to back):**
+[Foundations](ml-foundations.html) → [Core Algorithms](core-ml-algorithms.html) → [DL Theory](deep-learning-theory.html) → [DL Architectures](deep-learning-architectures.html) → [Loss Functions](loss-functions.html) → [Fine-Tuning](fine-tuning.html) → [Reinforcement Learning](reinforcement-learning.html) → [Generative Models](generative-models.html) → [Frontier & Ethics](frontier-and-ethics.html).
+
+---
+
 ## Explore the Reference
 
+### Foundations
+
 <div class="command-grid">
+  <a class="nav-card" href="ml-foundations.html">
+    <h3><i class="fas fa-square-root-alt"></i> Machine Learning Foundations</h3>
+    <p>Statistical learning theory, optimization, kernels and SVMs, Gaussian processes, and variational inference — the mathematics that makes learning work.</p>
+  </a>
+  <a class="nav-card" href="core-ml-algorithms.html">
+    <h3><i class="fas fa-table"></i> Core ML Algorithms</h3>
+    <p>The classical workhorses — regression, trees, boosting, SVMs, k-NN, and clustering — that still win most tabular problems.</p>
+  </a>
+</div>
+
+### Deep Learning
+
+<div class="command-grid">
+  <a class="nav-card" href="deep-learning-theory.html">
+    <h3><i class="fas fa-infinity"></i> Deep Learning Theory</h3>
+    <p>Why deep networks can fit anything, how gradients flow, and what makes them generalize despite being wildly overparameterized.</p>
+  </a>
+  <a class="nav-card" href="deep-learning-architectures.html">
+    <h3><i class="fas fa-layer-group"></i> Deep Learning Architectures</h3>
+    <p>From the multilayer perceptron to convolutions, recurrence, attention, Transformers, and the sequence models that followed.</p>
+  </a>
   <a class="nav-card" href="architectures.html">
     <h3><i class="fas fa-network-wired"></i> Neural Network Architectures</h3>
-    <p>The mathematical foundations of learning, plus CNNs, RNNs/LSTMs, Transformers, Vision Transformers, and CLIP/multimodal models.</p>
+    <p>A single-narrative overview tying the foundations to CNNs, RNNs/LSTMs, Transformers, and multimodal models.</p>
   </a>
+</div>
+
+### Training & Objectives
+
+<div class="command-grid">
+  <a class="nav-card" href="loss-functions.html">
+    <h3><i class="fas fa-bullseye"></i> Loss Functions &amp; Objectives</h3>
+    <p>The objective is the model. Regression, classification, contrastive, ranking, and generative losses — and the why behind each.</p>
+  </a>
+  <a class="nav-card" href="fine-tuning.html">
+    <h3><i class="fas fa-sliders-h"></i> Fine-Tuning &amp; Transfer Learning</h3>
+    <p>Adapting pretrained models to new tasks — from full fine-tuning and LoRA to instruction tuning, RLHF, and DPO.</p>
+  </a>
+  <a class="nav-card" href="reinforcement-learning.html">
+    <h3><i class="fas fa-robot"></i> Reinforcement Learning</h3>
+    <p>Learning to act from reward — MDPs, value and policy methods, deep RL, and the algorithms behind game-playing agents, robots, and RLHF.</p>
+  </a>
+</div>
+
+### Generation & Frontier
+
+<div class="command-grid">
   <a class="nav-card" href="generative-models.html">
     <h3><i class="fas fa-random"></i> Generative Models</h3>
     <p>Diffusion models, GANs, VAEs, and autoregressive/LLM generation — how machines create images, audio, and text.</p>
@@ -357,7 +420,7 @@ Machine learning is a branch of artificial intelligence that focuses on the deve
   </div>
 </div>
 
-Deep learning—machine learning with neural networks many layers deep—is where most of today's breakthroughs happen. The [Neural Network Architectures](architectures.html) page builds up the mathematical foundations (statistical learning theory, optimization, the kernel trick) and then walks through the architectures themselves.
+Deep learning—machine learning with neural networks many layers deep—is where most of today's breakthroughs happen. [Deep Learning Theory](deep-learning-theory.html) explains why these models work, and [Deep Learning Architectures](deep-learning-architectures.html) walks through the building blocks themselves; the [Machine Learning Foundations](ml-foundations.html) page covers the statistical learning theory and optimization that underpin both.
 
 ---
 
@@ -376,6 +439,20 @@ Deep learning—machine learning with neural networks many layers deep—is wher
 ## See Also
 
 <div class="see-also-card">
+  <h4>Reference pages in this section</h4>
+  <ul>
+    <li><a href="ml-foundations.html">Machine Learning Foundations</a> — statistical learning theory, optimization, kernels, GPs</li>
+    <li><a href="core-ml-algorithms.html">Core ML Algorithms</a> — regression, trees, boosting, SVMs, clustering</li>
+    <li><a href="deep-learning-theory.html">Deep Learning Theory</a> — expressivity, gradient flow, generalization</li>
+    <li><a href="deep-learning-architectures.html">Deep Learning Architectures</a> — MLPs, CNNs, RNNs, Transformers</li>
+    <li><a href="architectures.html">Neural Network Architectures</a> — single-narrative architectures overview</li>
+    <li><a href="loss-functions.html">Loss Functions &amp; Objectives</a> — the objective that defines the model</li>
+    <li><a href="fine-tuning.html">Fine-Tuning &amp; Transfer Learning</a> — LoRA, instruction tuning, RLHF, DPO</li>
+    <li><a href="reinforcement-learning.html">Reinforcement Learning</a> — MDPs, value/policy methods, deep RL</li>
+    <li><a href="generative-models.html">Generative Models</a> — diffusion, GANs, VAEs, autoregressive</li>
+    <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling, interpretability, safety, governance</li>
+  </ul>
+
   <h4>Related pages</h4>
   <ul>
     <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a> — complete index of all AI resources</li>

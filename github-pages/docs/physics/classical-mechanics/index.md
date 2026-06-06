@@ -42,18 +42,65 @@ hide_title: true
 
 ## Explore Classical Mechanics
 
+The pages below build from the core force-based picture, through the energy-based and geometric formalisms, into the modern computational and nonlinear frontier, and finally to the applied subjects that classical mechanics feeds. Read them in order for a guided arc, or jump straight to the layer you need.
+
+### Core
+
 <div class="command-grid">
   <a href="newtonian.html" class="nav-card">
     <h4><i class="fas fa-rocket"></i> Newtonian Mechanics &amp; Conservation Laws</h4>
-    <p>Newton's three laws, kinematics, dynamics, work and energy, conservation laws and Noether, rotational motion, gravitation, and oscillations and waves.</p>
+    <p>Newton's three laws, kinematics and dynamics, work and energy, conservation laws and Noether's theorem, rotational motion, and gravitation.</p>
   </a>
+  <a href="waves.html" class="nav-card">
+    <h4><i class="fas fa-wave-square"></i> Oscillations &amp; Waves</h4>
+    <p>The simple and damped harmonic oscillator, coupled oscillators and normal modes, the wave equation, dispersion, and the first hints of nonlinearity.</p>
+  </a>
+</div>
+
+### Formalism
+
+<div class="command-grid">
   <a href="lagrangian-hamiltonian.html" class="nav-card">
     <h4><i class="fas fa-route"></i> Lagrangian &amp; Hamiltonian Mechanics</h4>
     <p>The principle of least action, Euler-Lagrange equations, generalized coordinates, Hamilton's equations, phase space, Poisson brackets, canonical transformations, and Hamilton-Jacobi theory.</p>
   </a>
+  <a href="geometric-mechanics.html" class="nav-card">
+    <h4><i class="fas fa-draw-polygon"></i> Geometric Formalism</h4>
+    <p>Symplectic geometry, phase-space flow, fiber bundles, geometric (Berry) phases, and the differential-forms language that unifies the formalisms.</p>
+  </a>
+</div>
+
+### Modern &amp; Computational
+
+<div class="command-grid">
   <a href="chaos-and-computational.html" class="nav-card">
-    <h4><i class="fas fa-random"></i> Chaos, Modern Topics &amp; Computation</h4>
-    <p>Chaos and nonlinear dynamics, KAM theory, symplectic geometry, modern applications, symplectic and variational integrators, and the bridge to quantum and statistical mechanics.</p>
+    <h4><i class="fas fa-random"></i> Chaos &amp; Nonlinear Dynamics</h4>
+    <p>Nonlinear dynamics, sensitive dependence and Lyapunov exponents, KAM theory, the transition to chaos, and the frontiers of deterministic unpredictability.</p>
+  </a>
+  <a href="computational-classical-mechanics.html" class="nav-card">
+    <h4><i class="fas fa-microchip"></i> Computational Methods</h4>
+    <p>Symplectic and variational integrators, molecular dynamics, N-body methods, and the numerical analysis that keeps long simulations physically faithful.</p>
+  </a>
+</div>
+
+### Applications
+
+<div class="command-grid">
+  <a href="rigid-body-dynamics.html" class="nav-card">
+    <h4><i class="fas fa-cube"></i> Rigid Body Dynamics</h4>
+    <p>The inertia tensor and principal axes, Euler's equations and Euler angles, the symmetric and asymmetric top, gyroscopic precession and nutation, and the tennis-racket theorem.</p>
+  </a>
+  <a href="../thermodynamics.html" class="nav-card">
+    <h4><i class="fas fa-temperature-high"></i> Thermodynamics</h4>
+    <p>Where mechanical energy, work, and heat meet — the macroscopic laws that classical many-body motion ultimately obeys.</p>
+  </a>
+  <a href="../fluid-mechanics.html" class="nav-card">
+    <h4><i class="fas fa-water"></i> Fluid Mechanics</h4>
+    <p>Continuum mechanics: Newton's laws applied to deformable matter, from the Euler and Navier-Stokes equations to turbulence.</p>
+  </a>
+  <a href="../statistical-mechanics/" class="nav-card">
+    <h4><i class="fas fa-dice"></i> Statistical Mechanics</h4>
+    <p>Bridging Hamiltonian dynamics for enormous numbers of particles to the emergent laws of thermodynamics.</p>
   </a>
 </div>
 

@@ -40,13 +40,35 @@ flowchart TD
     GB --> SRM["Structural risk minimization<br/>(model selection)"]
 ```
 
+## How This Page Is Organized
+
+The material divides into five themes that follow the logical spine above. **Part I — Learning Theory** asks *what is learnable at all* and *how many samples it takes*. **Part II — Optimization** turns to *how* we find a good hypothesis once the class is fixed. **Part III — Generalization & Information** explains *why* the hypothesis we found works on unseen data, through the lens of compression. **Part IV — Function-Space Views** (kernels and the infinite-width limit) gives the analytic machinery that makes both questions tractable. **Part V — Frontiers** collects modern phenomena that the classical theory does not yet fully explain.
+
 ## Table of Contents
+
+**Part I — Learning Theory** (*what is learnable, and from how much data*)
 - [Computational Learning Theory](#computational-learning-theory)
 - [Statistical Learning Theory](#statistical-learning-theory)
+
+**Part II — Optimization** (*how we find a good hypothesis*)
 - [Optimization Theory for Deep Learning](#optimization-theory-for-deep-learning)
+
+**Part III — Generalization & Information** (*why the hypothesis generalizes*)
 - [Information Theory in ML](#information-theory-in-ml)
+
+**Part IV — Function-Space Views** (*the analytic machinery*)
 - [Kernel Methods and RKHS](#kernel-methods-and-rkhs)
 - [Advanced Neural Network Theory](#advanced-neural-network-theory)
+
+**Part V — Frontiers** (*what classical theory does not yet explain*)
+- [Research Frontiers](#research-frontiers)
+- [Emerging Topics](#emerging-topics)
+
+---
+
+## Part I — Learning Theory
+
+*The foundational question: given a hypothesis class and a finite sample, **what can be learned, and how much data does it take?** Computational learning theory makes "learnable" precise (PAC), and statistical learning theory pins the sample complexity to a single combinatorial quantity — the capacity of the class (VC dimension, Rademacher complexity). Capacity, not the dimension of the input or the size of the parameter vector, is what controls generalization.*
 
 ## Computational Learning Theory
 
@@ -121,6 +143,16 @@ $$h^* = \arg\min_{h \in H} \left[\hat{\mathcal{L}}_S(h) + \lambda \cdot \text{co
 
 $$\mathcal{L}_D(h^*) \leq \inf_{h \in H} \mathcal{L}_D(h) + O\left(\sqrt{\frac{\text{complexity}(H)}{m}}\right)$$
 
+<div class="theory-card" markdown="1">
+**Connection — the capacity quantities are dual to descriptive complexity.** VC dimension counts the labelings a class can realize; the growth function and Sauer's lemma that bound it are the same combinatorial counting arguments that appear in [Complexity Theory](../complexity-theory/) (circuit lower bounds, counting arguments) and in [Information & Coding Theory](../information-coding-theory/) (the type/method-of-types view of how many sequences a code must distinguish). A class with finite VC dimension is, in a precise sense, *compressible* — a theme we return to in Part III.
+</div>
+
+---
+
+## Part II — Optimization
+
+*Once the class is fixed, learning reduces to minimizing empirical risk over it. For deep networks this loss surface is wildly non-convex, yet plain gradient methods reliably find global minima. The resolution is geometric: **over-parameterization reshapes the landscape**. In the infinite-width (NTK) limit, training linearizes; with finite width, the dynamics still carry an **implicit bias** toward simple, low-norm solutions. This part develops the convergence guarantees and the optimizers used in practice.*
+
 ## Optimization Theory for Deep Learning
 
 ### Non-Convex Optimization Landscape
@@ -156,6 +188,12 @@ $$\theta_t = \theta_{t-1} - \alpha \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}
 
 $$\lim_{t \to \infty} \theta(t) = \arg\min_{\theta: L(\theta)=0} \|\theta - \theta_0\|$$
 
+---
+
+## Part III — Generalization & Information
+
+*Why does a model fit on finitely many samples work on data it has never seen? The unifying answer in this part is **compression**: a hypothesis generalizes to the extent that it can be described with few bits relative to the data it explains. The information bottleneck makes this an explicit objective, PAC-Bayes turns a KL-divergence "description cost" into a generalization bound, and MDL states the principle outright. These bounds reuse the exact entropy and mutual-information machinery developed in [Information & Coding Theory](../information-coding-theory/); the variational free-energy form of the PAC-Bayes bound is, term for term, the Helmholtz free energy of [Statistical Mechanics](../../physics/statistical-mechanics/) — energy (empirical risk) minus temperature times entropy (the KL term).*
+
 ## Information Theory in ML
 
 ### Mutual Information and Generalization
@@ -179,6 +217,12 @@ $$\mathbb{E}_{h \sim Q}[\mathcal{L}_D(h)] \leq \mathbb{E}_{h \sim Q}[\hat{\mathc
 $$L(h) + L(D \mid h)$$
 
 where $L(h)$ is the description length of the hypothesis and $L(D \mid h)$ is the description length of the data given that hypothesis.
+
+---
+
+## Part IV — Function-Space Views
+
+*Parts I–III reason about hypotheses one at a time. This part changes coordinates: instead of parameters, we work directly in a **space of functions**. Reproducing Kernel Hilbert Spaces give that space an inner product, so regularized learning has a closed-form representer and capacity is read off the kernel's spectrum (Mercer). The payoff for deep learning is the **Neural Tangent Kernel**: in the infinite-width limit a network's training dynamics become linear in function space, so deep learning collapses to kernel regression we can analyze with the tools of Part I. Mean-field theory and the lottery-ticket hypothesis describe what happens just outside that tractable regime.*
 
 ## Kernel Methods and RKHS
 
@@ -233,6 +277,12 @@ where ρₜ is empirical distribution of parameters.
 
 **Mathematical Formulation**:
 $$\exists m \subseteq \{1, ..., n\}, |m| \ll n: \mathcal{L}(f_{m}(\theta_0^m)) \approx \mathcal{L}(f(\theta^*))$$
+
+---
+
+## Part V — Frontiers
+
+*The classical theory of Parts I–IV predicts that capacity beyond the interpolation point should hurt. Modern deep learning routinely violates this — and works anyway. This part collects the phenomena that the existing bounds do not yet explain (double descent, grokking), the architecture-specific guarantees that are emerging for transformers and state-space models, and the generative and foundation-model theory now under active development. These are open problems, presented to mark the boundary of what is currently provable.*
 
 ## Research Frontiers
 
@@ -320,6 +370,8 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 #### See Also
 
 **Related Advanced Topics**
+- [Complexity Theory](../complexity-theory/) — Counting arguments and lower bounds that underpin VC-dimension capacity bounds
+- [Information & Coding Theory](../information-coding-theory/) — Entropy, mutual information, and the compression view of generalization
 - [Quantum Algorithms Research](../quantum-algorithms-research/) — Quantum machine learning and kernel methods
 - [Distributed Systems Theory](../distributed-systems-theory/) — Foundations for distributed/federated ML training
 - [Monorepo Strategies](../monorepo/) — Managing large ML research codebases

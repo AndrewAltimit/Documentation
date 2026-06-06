@@ -37,19 +37,36 @@ hide_title: true
 
 <div class="principle-card">
   <h4>The big idea: more is different</h4>
-  <p>You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new <strong>emergent</strong> phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the <em>organization</em>. The recurring strategy on this page is to start from the periodic arrangement of atoms (the crystal lattice), see how it reshapes the allowed electron energies (band theory), and then watch genuinely new states of matter emerge when interactions and topology take over.</p>
+  <p>You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new <strong>emergent</strong> phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the <em>organization</em>.</p>
+  <p>This hub follows the foundational thread: start from the periodic arrangement of atoms (the <strong>crystal lattice</strong>), see how that periodicity reshapes the allowed electron energies into <strong>bands</strong> separated by gaps, and read off — from a single fact, where the Fermi level falls relative to a gap — whether a material is a metal, an insulator, or the technologically pivotal in-between case, the <strong>semiconductor</strong>. The deeper machinery, and the genuinely new states of matter that emerge when interactions and topology take over, live on the dedicated pages linked below.</p>
 </div>
 
 ## Explore Condensed Matter
 
 <div class="command-grid">
+  <a href="lattice-dynamics.html" class="nav-card">
+    <h4><i class="fas fa-wave-square"></i> Lattice Dynamics &amp; Phonons</h4>
+    <p>How a crystal vibrates: the harmonic crystal, normal modes and phonon dispersion, acoustic vs. optical branches, the Debye and Einstein models, phonon heat capacity, and electron-phonon coupling.</p>
+  </a>
+  <a href="metals-and-magnetism.html" class="nav-card">
+    <h4><i class="fas fa-magnet"></i> Metals &amp; Magnetism</h4>
+    <p>The electron sea and magnetic order: Drude, Sommerfeld and Fermi-liquid theory, the Fermi surface, screening, the exchange interaction, Heisenberg/Ising models, mean-field magnetism, and spin waves.</p>
+  </a>
+  <a href="disorder-and-localization.html" class="nav-card">
+    <h4><i class="fas fa-random"></i> Disorder &amp; Localization</h4>
+    <p>How randomness turns a metal into an insulator: Anderson localization, weak localization, the mobility edge and metal-insulator transition, scaling theory, and many-body localization.</p>
+  </a>
+  <a href="experimental-techniques.html" class="nav-card">
+    <h4><i class="fas fa-microscope"></i> Experimental Techniques</h4>
+    <p>How we actually see band structure, order, and excitations: ARPES, STM/STS, neutron and Raman scattering, quantum oscillations, transport, and thermodynamic measurements.</p>
+  </a>
   <a href="emergent-phases.html" class="nav-card">
     <h4><i class="fas fa-snowflake"></i> Superconductivity, Quantum Hall &amp; Topological Phases</h4>
     <p>Superconductivity (Ginzburg-Landau, BCS, Josephson), the integer and fractional quantum Hall effects, topological insulators and Chern insulators, strongly correlated systems, and soft condensed matter.</p>
   </a>
   <a href="advanced-formalism.html" class="nav-card">
-    <h4><i class="fas fa-superscript"></i> Graduate-Level Formalism &amp; Experiment</h4>
-    <p>Experimental techniques and research frontiers, plus the full mathematical formalism: second quantization, Green's functions, advanced band theory, Bogoliubov-de Gennes, Chern-Simons, DMFT, and tensor networks.</p>
+    <h4><i class="fas fa-superscript"></i> Graduate-Level Formalism</h4>
+    <p>The full mathematical machinery: second quantization, Green's functions, advanced band theory, Bogoliubov-de Gennes, Chern-Simons, DMFT, and tensor networks.</p>
   </a>
 </div>
 
@@ -206,6 +223,8 @@ hide_title: true
     <div class="equation-box" markdown="1">
 $$\mathbf{b}_1 = 2\pi \frac{\mathbf{a}_2 \times \mathbf{a}_3}{\mathbf{a}_1 \cdot (\mathbf{a}_2 \times \mathbf{a}_3)}$$
 </div>
+    
+    <p class="note">The reciprocal lattice is the natural arena for everything that follows: Bloch's theorem labels electron states by a wavevector $\mathbf{k}$ living here, and the Brillouin zone is the unit cell over which the entire band structure is defined.</p>
     
     <div class="brillouin-zone">
       <p class="note">First Brillouin zone: Wigner-Seitz cell of reciprocal lattice</p>
@@ -378,7 +397,14 @@ $$F_{\mathbf{G}} = \sum_j f_j e^{i\mathbf{G} \cdot \mathbf{r}_j}$$
   </div>
 </div>
 
+<div class="see-also-card">
+  <h4>The lattice does more than hold atoms still</h4>
+  <p>The same periodic lattice that diffracts X-rays can also <em>vibrate</em>, and its quantized vibrations — phonons — carry heat, scatter electrons, and ultimately glue together the Cooper pairs of conventional superconductors. That story has its own page: <a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a>. Here we follow the other consequence of periodicity — what it does to the <em>electrons</em>.</p>
+</div>
+
 ## Electronic Band Theory
+
+A free electron can have any energy. Put it in a perfectly periodic crystal and something remarkable happens: its allowed energies collapse into continuous **bands** separated by forbidden **gaps**. This single fact — that periodicity carves the energy axis into allowed bands and forbidden gaps — is the foundation of all electronic structure, and the next section will show that it is also the entire reason a semiconductor exists.
 
 <div class="band-theory-section">
   <div class="bloch-theorem">
@@ -390,6 +416,8 @@ $$\psi_{n\mathbf{k}}(\mathbf{r}) = e^{i\mathbf{k} \cdot \mathbf{r}} u_{n\mathbf{
 </div>
     
     <p class="note">Where $u_{n\mathbf{k}}(\mathbf{r})$ has lattice periodicity</p>
+    
+    <p>Bloch's theorem is the master key: because the potential repeats with the lattice, every electron eigenstate can be written as a plane wave $e^{i\mathbf{k}\cdot\mathbf{r}}$ modulated by a cell-periodic function. The label $\mathbf{k}$ (the crystal momentum, defined only within the first Brillouin zone) and the band index $n$ together replace the continuum of free-electron momenta. Each band $E_n(\mathbf{k})$ is a smooth surface over the Brillouin zone, and the gaps between bands are exactly the energies no $\mathbf{k}$ can reach.</p>
     
     <div class="bloch-visual">
       <svg viewBox="0 0 550 280" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
@@ -484,6 +512,8 @@ $$\Delta E = 2|V_{\mathbf{G}}|$$
         <p class="variable-note">where $V_{\mathbf{G}}$ is Fourier component of potential</p>
       </div>
       
+      <p>Start from free electrons and switch on a faint periodic potential. At a Brillouin-zone boundary two plane waves $\mathbf{k}$ and $\mathbf{k}-\mathbf{G}$ are degenerate, so even a weak potential mixes them strongly, splitting the energy by $2|V_{\mathbf{G}}|$. That split <em>is</em> the band gap — the gap is not an accident of any particular material but a generic consequence of periodicity meeting degeneracy.</p>
+      
       <svg viewBox="0 0 420 300" class="band-diagram" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
         <!-- Title -->
         <text x="210" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Nearly Free Electron Band Structure</text>
@@ -558,6 +588,8 @@ $$\psi_{\mathbf{k}}(\mathbf{r}) = \sum_{\mathbf{R}} e^{i\mathbf{k} \cdot \mathbf
 $$E(\mathbf{k}) = \epsilon_0 - 2t[\cos(k_xa) + \cos(k_ya) + \cos(k_za)]$$
 </div>
       
+      <p>The nearly-free-electron and tight-binding pictures are the two complementary limits of the same physics. Where the nearly-free model starts from delocalized waves and lets the lattice carve gaps into them, tight-binding starts from sharp atomic levels and lets electrons hop between neighbors (amplitude $t$), broadening each isolated level into a band of width $\sim 4t$ (in 1D). Both routes arrive at the same conclusion: discrete allowed bands with forbidden gaps in between.</p>
+      
       <svg viewBox="0 0 420 300" class="tb-diagram" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
         <!-- Title -->
         <text x="210" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Tight-Binding Band Structure (1D)</text>
@@ -627,7 +659,66 @@ $$E(\mathbf{k}) = \epsilon_0 - 2t[\cos(k_xa) + \cos(k_ya) + \cos(k_za)]$$
       </svg>
     </div>
   </div>
-  
+</div>
+
+With the band-gap concept in hand, we can immediately read off the most consequential application of band theory before returning to the finer machinery. The next section pairs the theory with its single most important product — the semiconductor.
+
+## Semiconductors
+
+Band theory delivers a strikingly simple classification of solids: it is not *how many* electrons a material has that decides whether it conducts, but *where the Fermi level sits relative to the band gap*. A partly filled band conducts (a metal); a filled band separated from the next empty band by a large gap insulates; a filled band separated by a *small* gap is a semiconductor — an insulator that thermal energy or doping can switch on. This single distinction underpins the entire electronics industry.
+
+| Class | Band filling | Gap $E_g$ | Conductivity vs. $T$ |
+|-------|--------------|-----------|----------------------|
+| Metal | Partly filled band | none (bands overlap) | decreases with $T$ |
+| Semiconductor | Filled valence band | small ($\sim 0.1$–$2$ eV) | increases with $T$ |
+| Insulator | Filled valence band | large ($\gtrsim 4$ eV) | negligible |
+
+<div class="insight-card">
+  <h4>Why semiconductors heat up into conductors</h4>
+  <p>In a metal, conductivity falls as temperature rises because lattice vibrations scatter the already-mobile electrons. A semiconductor does the opposite: its valence band is full and the conduction band empty, so it can only conduct once electrons are thermally promoted across the gap. The number of carriers grows exponentially as $e^{-E_g/2k_BT}$, swamping the scattering effect. That exponential sensitivity is exactly what makes a semiconductor a controllable switch.</p>
+</div>
+
+### Band Structure
+The two band edges that matter are the **valence band maximum (VBM)** and the **conduction band minimum (CBM)**. Their relative position in momentum space sets the optical behavior:
+
+- **Direct gap** — VBM and CBM lie at the same $\mathbf{k}$. An electron can cross the gap by absorbing or emitting a single photon, so direct-gap materials (e.g. GaAs) make efficient LEDs and lasers.
+- **Indirect gap** — VBM and CBM lie at different $\mathbf{k}$. A photon alone cannot conserve momentum, so a phonon must assist; this makes silicon a poor light emitter despite being the workhorse of electronics.
+
+### Carrier Statistics
+For an intrinsic (undoped) semiconductor, electrons and holes are created in pairs, and their equilibrium concentration is set by the Boltzmann factor for crossing the gap:
+
+$$n_i = \sqrt{N_c N_v}\, e^{-E_g/2k_BT}$$
+
+where $N_c$ and $N_v$ are the effective densities of states in the conduction and valence bands. The factor of $2$ in the exponent reflects that each promoted electron leaves a hole behind, so the carriers are shared between the two bands.
+
+### Doping
+Pure semiconductors carry too few intrinsic carriers to be useful. **Doping** — substituting a few-parts-per-million of a foreign atom — overwhelms the intrinsic population with carriers of one chosen sign:
+
+- **n-type**: donor atoms (e.g. phosphorus in silicon) contribute extra electrons to the conduction band.
+- **p-type**: acceptor atoms (e.g. boron) accept electrons, leaving mobile holes in the valence band.
+
+Even when doped, the product of electron and hole concentrations is pinned by the **mass-action law**, $np = n_i^2$ — adding majority carriers necessarily suppresses minority carriers.
+
+### p-n Junction
+Built-in potential:
+$$V_{bi} = \frac{k_BT}{e} \ln\left(\frac{N_A N_D}{n_i^2}\right)$$
+
+Depletion width:
+$$W = \sqrt{\frac{2\epsilon_s V_{bi}}{e}\left(\frac{N_A + N_D}{N_A N_D}\right)}$$
+
+Bring an n-type and a p-type region into contact and electrons diffuse across, leaving behind a charged depletion region with a built-in field. That field rectifies — current flows easily one way and barely the other — and the p-n junction is the elementary building block of diodes, transistors, solar cells, and LEDs.
+
+### Recent Advances in 2D Semiconductors (2023-2024)
+- **Moiré Engineering**: Twisted bilayer TMDs showing correlated insulator states
+- **Valleytronics**: Valley-selective optical excitation in monolayer WSe₂
+- **Exciton Condensates**: Room-temperature exciton-polariton BEC in perovskites
+- **Quantum Emitters**: Single-photon sources in hBN defects
+
+## Counting States: The Density of States
+
+Bands tell us which energies are allowed; the **density of states** $g(E)$ tells us *how many* states sit at each energy — the quantity that ultimately controls heat capacity, magnetic susceptibility, optical absorption, and the carrier densities $N_c, N_v$ that appeared above. It is the first piece of the deeper band-theory machinery, and the bridge to the metals, magnetism, and transport developed on the dedicated pages.
+
+<div class="band-theory-section">
   <div class="density-of-states">
     <h3><i class="fas fa-chart-area"></i> Density of States</h3>
     
@@ -636,6 +727,8 @@ $$g(E) = \sum_n \int \frac{d^3k}{(2\pi)^3} \delta(E - E_n(\mathbf{k}))$$
 </div>
     
     <p class="singularity-note">Van Hove singularities occur where $\nabla_k E_n(\mathbf{k}) = 0$</p>
+    
+    <p>The shape of $g(E)$ depends sharply on dimensionality, falling as $1/\sqrt{E}$ in 1D, flat in 2D, and rising as $\sqrt{E}$ in 3D near a band edge. Wherever a band flattens ($\nabla_k E_n = 0$) the density of states spikes into a <strong>Van Hove singularity</strong> — a feature that shows up directly in optical and tunneling spectra.</p>
     
     <div class="dos-plots">
       <svg viewBox="0 0 650 280" style="max-width: 500px; width: 100%; background: #fafbfc; border-radius: 8px;">
@@ -754,117 +847,24 @@ $$g(E) = \sum_n \int \frac{d^3k}{(2\pi)^3} \delta(E - E_n(\mathbf{k}))$$
   </div>
 </div>
 
-## Semiconductors
+## Where the Foundations Lead
 
-Band theory delivers a strikingly simple classification of solids: it is not *how many* electrons a material has that decides whether it conducts, but *where the Fermi level sits relative to the band gap*. A partly filled band conducts (a metal); a filled band separated from the next empty band by a large gap insulates; a filled band separated by a *small* gap is a semiconductor — an insulator that thermal energy or doping can switch on. This single distinction underpins the entire electronics industry.
+Crystal structure, band theory, and the density of states are the common foundation for everything else in condensed matter. The remaining themes each take this groundwork in a different direction, and each has its own page.
 
-| Class | Band filling | Gap $E_g$ | Conductivity vs. $T$ |
-|-------|--------------|-----------|----------------------|
-| Metal | Partly filled band | none (bands overlap) | decreases with $T$ |
-| Semiconductor | Filled valence band | small ($\sim 0.1$–$2$ eV) | increases with $T$ |
-| Insulator | Filled valence band | large ($\gtrsim 4$ eV) | negligible |
-
-<div class="insight-card">
-  <h4>Why semiconductors heat up into conductors</h4>
-  <p>In a metal, conductivity falls as temperature rises because lattice vibrations scatter the already-mobile electrons. A semiconductor does the opposite: its valence band is full and the conduction band empty, so it can only conduct once electrons are thermally promoted across the gap. The number of carriers grows exponentially as $e^{-E_g/2k_BT}$, swamping the scattering effect. That exponential sensitivity is exactly what makes a semiconductor a controllable switch.</p>
+<div class="see-also-card">
+  <h4>Metals &amp; magnetism — the electron sea and spontaneous order</h4>
+  <p>What happens once a band is only <em>partly</em> filled? The conduction electrons form a degenerate quantum fluid whose understanding evolved through three pictures — a classical gas (Drude), a Pauli-blocked Fermi gas (Sommerfeld), and an interacting fluid of dressed quasiparticles (Landau's Fermi liquid) — and whose low-energy states live on a <strong>Fermi surface</strong>. When the exchange interaction between spins becomes important, the same electrons can lock into spontaneous magnetic order: paramagnetism, ferromagnetism, antiferromagnetism, and the quantized spin waves (magnons) that excite them. The full treatment — Drude through Fermi liquids, screening, the Heisenberg and Ising models, and mean-field magnetism — is on <a href="metals-and-magnetism.html">Metals &amp; Magnetism</a>.</p>
 </div>
 
-### Band Structure
-The two band edges that matter are the **valence band maximum (VBM)** and the **conduction band minimum (CBM)**. Their relative position in momentum space sets the optical behavior:
+<div class="see-also-card">
+  <h4>Lattice dynamics &amp; phonons — the crystal in motion</h4>
+  <p>Bands describe electrons in a <em>static</em> lattice, but the lattice itself vibrates. Its quantized normal modes — <strong>phonons</strong> — split into acoustic and optical branches, carry most of a solid's heat, set the low-temperature heat capacity (Debye and Einstein models), and scatter electrons. Electron-phonon coupling is also the pairing glue of conventional superconductivity. The full story is on <a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a>.</p>
+</div>
 
-- **Direct gap** — VBM and CBM lie at the same $\mathbf{k}$. An electron can cross the gap by absorbing or emitting a single photon, so direct-gap materials (e.g. GaAs) make efficient LEDs and lasers.
-- **Indirect gap** — VBM and CBM lie at different $\mathbf{k}$. A photon alone cannot conserve momentum, so a phonon must assist; this makes silicon a poor light emitter despite being the workhorse of electronics.
-
-### Carrier Statistics
-For an intrinsic (undoped) semiconductor, electrons and holes are created in pairs, and their equilibrium concentration is set by the Boltzmann factor for crossing the gap:
-
-$$n_i = \sqrt{N_c N_v}\, e^{-E_g/2k_BT}$$
-
-where $N_c$ and $N_v$ are the effective densities of states in the conduction and valence bands. The factor of $2$ in the exponent reflects that each promoted electron leaves a hole behind, so the carriers are shared between the two bands.
-
-### Doping
-Pure semiconductors carry too few intrinsic carriers to be useful. **Doping** — substituting a few-parts-per-million of a foreign atom — overwhelms the intrinsic population with carriers of one chosen sign:
-
-- **n-type**: donor atoms (e.g. phosphorus in silicon) contribute extra electrons to the conduction band.
-- **p-type**: acceptor atoms (e.g. boron) accept electrons, leaving mobile holes in the valence band.
-
-Even when doped, the product of electron and hole concentrations is pinned by the **mass-action law**, $np = n_i^2$ — adding majority carriers necessarily suppresses minority carriers.
-
-### p-n Junction
-Built-in potential:
-$$V_{bi} = \frac{k_BT}{e} \ln\left(\frac{N_A N_D}{n_i^2}\right)$$
-
-Depletion width:
-$$W = \sqrt{\frac{2\epsilon_s V_{bi}}{e}\left(\frac{N_A + N_D}{N_A N_D}\right)}$$
-
-### Recent Advances in 2D Semiconductors (2023-2024)
-- **Moiré Engineering**: Twisted bilayer TMDs showing correlated insulator states
-- **Valleytronics**: Valley-selective optical excitation in monolayer WSe₂
-- **Exciton Condensates**: Room-temperature exciton-polariton BEC in perovskites
-- **Quantum Emitters**: Single-photon sources in hBN defects
-
-## Metals and Fermi Liquids
-
-Our picture of a metal evolved in three stages, each fixing a failure of the last: a classical gas of electrons (Drude), then a quantum gas obeying the Pauli principle (Sommerfeld), then an interacting fluid of "dressed" electrons (Landau). Each step kept the successes of the previous one while resolving a glaring discrepancy with experiment.
-
-### Drude Model
-The earliest picture treats conduction electrons as a classical gas of point particles bouncing off the ions, with a mean time $\tau$ between collisions. It gets the form of Ohm's law right:
-
-$$\sigma = \frac{ne^2\tau}{m}, \qquad R_H = -\frac{1}{ne}.$$
-
-The Hall coefficient $R_H$ even gives the carrier density and sign correctly for simple metals. But Drude predicts a huge electronic contribution to the heat capacity that experiments flatly contradict — the model's fatal flaw.
-
-### Sommerfeld Model
-The fix is quantum statistics. Electrons are fermions, so they fill states up to the **Fermi energy** rather than sharing energy classically:
-
-$$E_F = \frac{\hbar^2}{2m}(3\pi^2 n)^{2/3}.$$
-
-Only the thin shell of electrons within $\sim k_B T$ of $E_F$ can be thermally excited — the rest are Pauli-blocked. This is why the electronic heat capacity is small and *linear* in temperature, exactly as measured:
-
-$$C_V = \gamma T, \qquad \gamma = \frac{\pi^2 k_B^2 g(E_F)}{3}.$$
-
-### Fermi Liquid Theory
-Real electrons repel each other strongly, so why does the free-electron picture work at all? Landau's answer: interactions "dress" each electron into a **quasiparticle** — an electron carrying a cloud of disturbance in the surrounding sea — that behaves like a free particle with a renormalized effective mass $m^*$. The low-energy excitations remain in one-to-one correspondence with the free gas, which is why Sommerfeld's results survive. Residual interactions are encoded in the Landau parameters $f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'}$:
-
-$$\delta E = \sum_{\mathbf{k}\sigma} \epsilon_{\mathbf{k}} n_{\mathbf{k}\sigma} + \frac{1}{2V}\sum_{\mathbf{k}\mathbf{k}'\sigma\sigma'} f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'} n_{\mathbf{k}\sigma} n_{\mathbf{k}'\sigma'}.$$
-
-## Magnetism
-
-Magnetism is a purely quantum, purely collective effect — a classical system in thermal equilibrium cannot be magnetic at all (the Bohr–van Leeuwen theorem). The phenomena below differ in *how the atomic moments respond*: independently and weakly (paramagnetism), or by locking into collective order through exchange interactions (ferro- and antiferromagnetism).
-
-| Order | Moment arrangement | Net moment | Hallmark temperature |
-|-------|--------------------|------------|----------------------|
-| Paramagnet | random, align weakly with field | zero at $H=0$ | none |
-| Ferromagnet | parallel | large, spontaneous | Curie $T_C$ |
-| Antiferromagnet | alternating up/down | zero (cancels) | Néel $T_N$ |
-
-### Paramagnetism
-Independent atomic moments align only weakly with an applied field, and thermal agitation fights that alignment — so the susceptibility falls off as $1/T$ (the **Curie law**):
-
-$$\chi = \frac{C}{T}, \qquad C = \frac{N\mu_0\mu_B^2 g^2 J(J+1)}{3k_B}.$$
-
-In a metal the story is different: only electrons near the Fermi surface can flip, giving a temperature-independent **Pauli paramagnetism**, $\chi = \mu_0\mu_B^2 g(E_F)$.
-
-### Ferromagnetism
-When the exchange interaction is strong enough, moments align *spontaneously* even with no applied field. Mean-field theory replaces the exchange coupling with an effective internal field $\lambda M$ proportional to the magnetization itself, giving a self-consistent equation:
-
-$$M = Ng\mu_B J\, B_J\!\left(\frac{g\mu_B J(H + \lambda M)}{k_B T}\right).$$
-
-Below the **Curie temperature** $T_C = g\mu_B J(J+1)\lambda / 3k_B$ this equation has a nonzero solution at $H = 0$ — spontaneous magnetization. Above $T_C$ thermal disorder wins and the material reverts to a paramagnet.
-
-### Antiferromagnetism
-Here the exchange favors *anti*-alignment: neighboring moments point opposite ways, so the net magnetization cancels even though the system is ordered. Order sets in below the **Néel temperature** $T_N$, marking the onset of staggered magnetization. A two-sublattice mean-field model gives
-
-$$\chi = \frac{2C}{T + T_N},$$
-
-with the telltale $T + T_N$ in the denominator — the opposite sign to a ferromagnet's $T - T_C$.
-
-### Spin Waves
-Just as a crystal's lowest-energy excitations are quantized lattice vibrations (phonons), an ordered magnet's are quantized waves of tilting spins — **magnons**. For a ferromagnet the dispersion is
-
-$$\omega_{\mathbf{k}} = \frac{2JS}{\hbar}(1 - \cos(ka)),$$
-
-which is *quadratic* at long wavelength ($\omega \sim k^2$), in contrast to the linear dispersion of acoustic phonons — a difference that shows up directly in the low-temperature heat capacity.
+<div class="see-also-card">
+  <h4>And beyond the perfect crystal</h4>
+  <p>Real materials are neither perfectly periodic nor weakly interacting. <a href="disorder-and-localization.html">Disorder &amp; Localization</a> shows how randomness can turn a metal into an insulator; <a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> covers the genuinely new states of matter; <a href="experimental-techniques.html">Experimental Techniques</a> explains how all of this is measured; and <a href="advanced-formalism.html">Graduate-Level Formalism</a> develops the many-body machinery behind it.</p>
+</div>
 
 ## Key Takeaways
 
@@ -874,24 +874,24 @@ which is *quadratic* at long wavelength ($\omega \sim k^2$), in contrast to the 
     <p>Collective behavior of $\sim 10^{23}$ particles produces emergent phenomena absent at the single-particle level.</p>
   </div>
   <div class="takeaway-card">
+    <h4>Periodicity makes bands</h4>
+    <p>Bloch's theorem turns a periodic potential into continuous energy bands separated by forbidden gaps.</p>
+  </div>
+  <div class="takeaway-card">
     <h4>Band structure governs solids</h4>
     <p>Whether a material is a metal, insulator, or semiconductor follows from how electron bands fill.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>The gap is the switch</h4>
+    <p>A small band gap plus doping makes a semiconductor — a tunable insulator that powers all of electronics.</p>
   </div>
   <div class="takeaway-card">
     <h4>Quasiparticles simplify the many-body problem</h4>
     <p>Phonons, holes, and Cooper pairs let us treat strongly interacting systems with effective single-particle pictures.</p>
   </div>
   <div class="takeaway-card">
-    <h4>Symmetry breaking creates order</h4>
-    <p>Magnetism and superconductivity arise when the ground state breaks a symmetry of the Hamiltonian.</p>
-  </div>
-  <div class="takeaway-card">
     <h4>Topology classifies new phases</h4>
     <p>Topological insulators and the quantum Hall effect are robust against disorder because they are protected by topology.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Where quantum tech is built</h4>
-    <p>Superconducting qubits, spintronics, and 2D materials make condensed matter the engine room of quantum technology.</p>
   </div>
 </div>
 
@@ -900,8 +900,12 @@ which is *quadratic* at long wavelength ($\omega \sim k^2$), in contrast to the 
 <div class="see-also-card">
   <h4>Where to go next</h4>
   <ul>
+    <li><a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a> — quantized vibrations, heat capacity, and electron-phonon coupling.</li>
+    <li><a href="metals-and-magnetism.html">Metals &amp; Magnetism</a> — the electron sea, Fermi surfaces, and spontaneous magnetic order.</li>
+    <li><a href="disorder-and-localization.html">Disorder &amp; Localization</a> — how randomness drives metal-insulator transitions.</li>
+    <li><a href="experimental-techniques.html">Experimental Techniques</a> — ARPES, STM, neutron scattering, and transport probes.</li>
     <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — emergent and topological states of matter.</li>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — many-body theory and experimental probes.</li>
+    <li><a href="advanced-formalism.html">Graduate-Level Formalism</a> — many-body theory and field-theoretic methods.</li>
     <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — wave functions and band theory underpin every solid.</li>
     <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — many-body theory and the physics of phase transitions.</li>
     <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>

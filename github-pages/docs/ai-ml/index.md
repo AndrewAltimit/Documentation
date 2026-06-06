@@ -14,7 +14,7 @@ hide_title: true
 </div>
 
 <div class="code-example" markdown="1">
-Your guide to creating AI-generated images, training custom models, and building automated workflows. From your first generated image to training your own artistic styles.
+Your guide to creating AI-generated images, training custom models, and building automated workflows. From your first generated image to training your own artistic styles and shipping them to production.
 </div>
 
 <div class="key-insights">
@@ -26,24 +26,16 @@ Your guide to creating AI-generated images, training custom models, and building
   <div class="insight-card">
     <i class="fas fa-tools"></i>
     <h4>Master the Tools</h4>
-    <p>Build node workflows in ComfyUI, train your own LoRAs, and steer composition precisely with ControlNet.</p>
+    <p>Build node workflows in ComfyUI, train your own LoRAs, edit existing images, and steer composition precisely with ControlNet.</p>
   </div>
   <div class="insight-card">
     <i class="fas fa-rocket"></i>
     <h4>Ship to Production</h4>
-    <p>Export across image, video, audio, and 3D, and push results further with advanced multi-stage techniques.</p>
+    <p>Optimize for your hardware, compress models, automate pipelines, and run reliable, observable services with MLOps.</p>
   </div>
 </div>
 
 > **Suggested path:** start with the **Foundations**, pick up the **Tools** that match your goal, then move into **Production** workflows. Use the "Choose Your Path" table below to jump straight to your starting point.
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
 
 ## Why Learn AI Image Generation?
 
@@ -57,102 +49,7 @@ AI image generation has transformed from a research curiosity into a practical c
 
 This documentation covers the practical skills you need, from understanding how the technology works to building production-ready workflows.
 
-## Choose Your Path
-
-Different goals require different starting points. Find your path below:
-
-| Your Goal | Start Here | Then Explore |
-|-----------|------------|--------------|
-| Generate images quickly | [ComfyUI Guide](comfyui-guide.html) | [Base Models Comparison](base-models-comparison.html) |
-| Understand the technology | [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) | [Model Types](model-types.html) |
-| Train custom styles | [LoRA Training](lora-training.html) | [Advanced Techniques](advanced-techniques.html) |
-| Control composition precisely | [ControlNet](controlnet.html) | [ComfyUI Guide](comfyui-guide.html) |
-| Build automation pipelines | [ComfyUI Guide](comfyui-guide.html) | [Output Formats](output-formats.html) |
-
-### Documentation Overview
-
-Explore the full library, grouped by purpose:
-
-#### Understanding the Foundations
-
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-wave-square"></i> <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></h4>
-    <p>How diffusion models turn noise into images, and the parameters that control your results.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-cubes"></i> <a href="model-types.html">Model Types</a></h4>
-    <p>The building blocks — checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter — and how they fit together.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-balance-scale"></i> <a href="base-models-comparison.html">Base Models Comparison</a></h4>
-    <p>SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony — choosing the right foundation for your task and hardware.</p>
-  </div>
-</div>
-
-#### Practical Tools
-
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-project-diagram"></i> <a href="comfyui-guide.html">ComfyUI Guide</a></h4>
-    <p>The node-based workflow builder for complex, automatable generation pipelines.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-graduation-cap"></i> <a href="lora-training.html">LoRA Training</a></h4>
-    <p>Train custom models for your own styles, characters, or concepts on consumer hardware.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-sliders-h"></i> <a href="controlnet.html">ControlNet</a></h4>
-    <p>Guide composition with poses, edges, depth maps, and segmentation for precise control.</p>
-  </div>
-</div>
-
-#### Going Further
-
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-file-export"></i> <a href="output-formats.html">Output Formats</a></h4>
-    <p>Diffusion across every medium — image, video, audio, and 3D — and how to export each.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-flask"></i> <a href="advanced-techniques.html">Advanced Techniques</a></h4>
-    <p>Latent interpolation, regional prompting, flow matching, distillation, and expert optimization.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-gamepad"></i> <a href="game-ai.html">Game AI Systems</a></h4>
-    <p>Pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.</p>
-  </div>
-</div>
-
-## Getting Started
-
-Before generating your first image, you will need compatible hardware and a few software tools. The requirements scale with the complexity of your goals.
-
-### Hardware Requirements
-
-| Use Case | GPU VRAM | System RAM | Storage |
-|----------|----------|------------|---------|
-| Basic generation (SD 1.5) | 4-6 GB | 16 GB | 50 GB |
-| Standard workflows (SDXL) | 8-12 GB | 32 GB | 200 GB |
-| Advanced models (FLUX, SD3) | 16-24 GB | 64 GB | 500 GB |
-| LoRA training | 8-24 GB | 32-64 GB | 100 GB |
-
-Most modern NVIDIA GPUs work well. AMD and Apple Silicon have growing support but may require additional configuration.
-
-### Software Requirements
-
-- **Docker and Docker Compose** - Containers simplify setup and ensure consistent environments
-- **NVIDIA Docker runtime** - Enables GPU acceleration inside containers
-- **Python 3.10+** - Only needed for local scripts or custom development
-
-### What You Should Already Know
-
-No prior AI experience is required, but you should be comfortable with:
-- Running commands in a terminal
-- Basic file and folder operations
-- Reading error messages and troubleshooting
-
-### Quick Start: Your First Image
+## Quick Start: Your First Image
 
 The fastest way to generate an image is through ComfyUI's web interface:
 
@@ -171,7 +68,31 @@ curl -X POST http://localhost:8189/mcp/tool \
   -d '{"tool": "generate-image", "arguments": {"prompt": "mountain landscape at sunset"}}'
 ```
 
-See the [ComfyUI Guide](comfyui-guide.html) for detailed setup and workflow tutorials.
+**Hardware at a glance** — requirements scale with the models you run:
+
+| Use Case | GPU VRAM | System RAM | Storage |
+|----------|----------|------------|---------|
+| Basic generation (SD 1.5) | 4-6 GB | 16 GB | 50 GB |
+| Standard workflows (SDXL) | 8-12 GB | 32 GB | 200 GB |
+| Advanced models (FLUX, SD3) | 16-24 GB | 64 GB | 500 GB |
+| LoRA training | 8-24 GB | 32-64 GB | 100 GB |
+
+Most modern NVIDIA GPUs work well. AMD and Apple Silicon have growing support but may require additional configuration. See the [ComfyUI Guide](comfyui-guide.html) for detailed setup, and the [Optimization & Performance](optimization-guide.html) guide if you need to fit larger models on smaller cards.
+
+## Choose Your Path
+
+Different goals require different starting points. Find your path below:
+
+| Your Goal | Start Here | Then Explore |
+|-----------|------------|--------------|
+| Generate images quickly | [ComfyUI Guide](comfyui-guide.html) | [Base Models Comparison](base-models-comparison.html) |
+| Understand the technology | [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) | [Model Types](model-types.html) |
+| Train custom styles | [LoRA Training](lora-training.html) | [Advanced Techniques](advanced-techniques.html) |
+| Edit existing images | [Inpainting & Editing](inpainting-editing.html) | [ControlNet](controlnet.html) |
+| Control composition precisely | [ControlNet](controlnet.html) | [ComfyUI Guide](comfyui-guide.html) |
+| Make it fit / run faster | [Optimization & Performance](optimization-guide.html) | [Model Compression](model-compression.html) |
+| Automate generation at scale | [Production Pipelines](production-pipelines.html) | [Output Formats](output-formats.html) |
+| Run reliable ML services | [MLOps & Production](mlops-production.html) | [Production Pipelines](production-pipelines.html) |
 
 ## Key Concepts
 
@@ -214,7 +135,7 @@ Several interfaces exist for working with these models:
 
 This documentation focuses on **ComfyUI** because its node-based approach teaches you how the components connect and enables the most advanced workflows.
 
-## Model Generations at a Glance
+### Model Generations at a Glance
 
 The field evolves quickly. Here is how the major model families compare:
 
@@ -225,74 +146,91 @@ The field evolves quickly. Here is how the major model families compare:
 | SD3 | 1024x1024 | 10-16 GB | Text rendering, prompt following | Text-heavy images, precision |
 | FLUX | 1024x1024+ | 12-24 GB | Photorealism, coherence | Professional quality, portraits |
 
-**When to use which:**
-- Start with **SDXL** for the best balance of quality, speed, and ecosystem support
-- Use **SD 1.5** if you have limited hardware or need specific legacy LoRAs
-- Choose **FLUX** when photorealism and fine details matter most
-- Pick **SD3** when your images include text or need precise prompt interpretation
+Start with **SDXL** for the best balance of quality, speed, and ecosystem; use **SD 1.5** on limited hardware or for legacy LoRAs; choose **FLUX** when photorealism matters most; pick **SD3** for text-heavy or precision work. See [Base Models Comparison](base-models-comparison.html) for detailed technical differences.
 
-See [Base Models Comparison](base-models-comparison.html) for detailed technical differences.
+## Documentation Overview
 
-## Real-World Applications
+Explore the full library, grouped by purpose:
 
-People use AI image generation across many fields. Here are common scenarios and the approaches that work best:
+### Understanding the Foundations
 
-### Creative Work
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-wave-square"></i> <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></h4>
+    <p>How diffusion models turn noise into images, and the parameters that control your results.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-cubes"></i> <a href="model-types.html">Model Types</a></h4>
+    <p>The building blocks — checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter — and how they fit together.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-balance-scale"></i> <a href="base-models-comparison.html">Base Models Comparison</a></h4>
+    <p>SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony — choosing the right foundation for your task and hardware.</p>
+  </div>
+</div>
 
-**Concept art and illustration** - Generate variations quickly, then refine favorites manually. Use style LoRAs to maintain visual consistency across a project.
+### Practical Tools
 
-**Character design** - Train a character LoRA from reference sketches, then generate the character in different poses and situations. Combine with ControlNet for precise posing.
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-project-diagram"></i> <a href="comfyui-guide.html">ComfyUI Guide</a></h4>
+    <p>The node-based workflow builder for complex, automatable generation pipelines.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-graduation-cap"></i> <a href="lora-training.html">LoRA Training</a></h4>
+    <p>Train custom models for your own styles, characters, or concepts on consumer hardware.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-sliders-h"></i> <a href="controlnet.html">ControlNet</a></h4>
+    <p>Guide composition with poses, edges, depth maps, and segmentation for precise control.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-eraser"></i> <a href="inpainting-editing.html">Inpainting & Editing</a></h4>
+    <p>Mask, regenerate, extend, and blend regions to edit existing images instead of rerolling them.</p>
+  </div>
+</div>
 
-**Environment art** - Generate base landscapes or interiors, use img2img for iterative refinement. ControlNet depth maps help maintain architectural consistency.
+### Going Further
 
-### Commercial Applications
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-file-export"></i> <a href="output-formats.html">Output Formats</a></h4>
+    <p>Diffusion across every medium — image, video, audio, and 3D — and how to export each.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-flask"></i> <a href="advanced-techniques.html">Advanced Techniques</a></h4>
+    <p>Latent interpolation, regional prompting, flow matching, distillation, and expert optimization.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-gamepad"></i> <a href="game-ai.html">Game AI Systems</a></h4>
+    <p>Pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.</p>
+  </div>
+</div>
 
-**Product visualization** - Generate product mockups in various settings before physical prototypes exist. Works especially well for packaging and marketing concepts.
+### Optimization & Production
 
-**Marketing content** - Create social media visuals, banner images, and promotional materials. Train brand-specific LoRAs for consistent visual identity.
-
-**Game development** - Generate texture variations, background elements, and concept references. LoRAs trained on existing game art maintain style consistency.
-
-### Technical Applications
-
-**Dataset augmentation** - Generate training data variations for other ML models. Particularly valuable when real data is scarce or expensive to collect.
-
-**Rapid prototyping** - Visualize ideas before committing development resources. Especially useful in early design phases.
-
-## Best Practices
-
-### Writing Effective Prompts
-
-Good prompts guide the model toward your vision. Structure them with the most important elements first:
-
-- **Subject first** - "A knight in armor" beats "detailed, 4k, masterpiece, knight"
-- **Be specific** - "Golden retriever puppy" produces better results than "dog"
-- **Include context** - Mention lighting, setting, camera angle, and artistic style
-- **Use negative prompts** - Tell the model what to avoid (blurry, low quality, extra limbs)
-
-### Managing System Resources
-
-AI models consume significant GPU memory. These practices help:
-
-- Match model size to your hardware (see requirements table above)
-- Enable "low VRAM" modes in your workflow tool when needed
-- Close other GPU-intensive applications during generation
-- Use quantized model versions (fp16, fp8) for reduced memory usage
-
-### Improving Output Quality
-
-When results disappoint, try these adjustments:
-
-| Problem | Solution |
-|---------|----------|
-| Blurry images | Increase steps (30-50), try different sampler |
-| Wrong composition | Revise prompt structure, consider ControlNet |
-| Artifacts/glitches | Lower CFG scale, check model compatibility |
-| Style not matching | Adjust LoRA strength, verify trigger words |
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-cog"></i> <a href="optimization-guide.html">Optimization & Performance</a></h4>
+    <p>Quantization, VRAM-reduction tactics, inference speedups, and batching for diffusion models and LLMs.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-compress"></i> <a href="model-compression.html">Model Compression</a></h4>
+    <p>Pruning, distillation, quantization, low-rank factorization, and edge deployment — and the accuracy you trade.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-stream"></i> <a href="production-pipelines.html">Production Pipelines</a></h4>
+    <p>Headless generation at scale — batch jobs, parameter sweeps, the ComfyUI API, queues, and asset pipelines.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-robot"></i> <a href="mlops-production.html">MLOps & Production</a></h4>
+    <p>Reproducible training, experiment tracking, model registries, rollouts, and drift monitoring for reliable services.</p>
+  </div>
+</div>
 
 ## Troubleshooting
 
-When something goes wrong, these are the most common causes and fixes:
+When something goes wrong, these are the most common causes and fixes.
 
 ### Out of Memory Errors
 
@@ -303,42 +241,29 @@ Your GPU ran out of VRAM. Try these solutions in order:
 3. Enable "low VRAM" or "CPU offloading" in your workflow tool
 4. Close other applications using the GPU
 
+For systematic VRAM reduction and quantization, see [Optimization & Performance](optimization-guide.html).
+
 ### Slow Generation
 
 Generation taking too long usually means inefficient settings:
 
 1. Reduce sampling steps (20-30 is often sufficient)
 2. Switch to a faster sampler (DPM++ 2M, Euler)
-3. Verify GPU is being used (check nvidia-smi)
+3. Verify GPU is being used (check `nvidia-smi`)
 4. Ensure models are loaded once, not reloaded per image
 
 ### Poor Quality Results
 
-When images do not match expectations:
+When images do not match your expectations:
 
-1. Review and refine your prompt (be more specific)
-2. Experiment with CFG scale (try 5-10 range)
-3. Increase sampling steps for more detail
-4. Verify model and LoRA compatibility
+| Problem | Solution |
+|---------|----------|
+| Blurry images | Increase steps (30-50), try a different sampler |
+| Wrong composition | Revise prompt structure, consider [ControlNet](controlnet.html) |
+| Artifacts/glitches | Lower CFG scale, check model compatibility |
+| Style not matching | Adjust LoRA strength, verify trigger words |
 
-## Automation and Integration
-
-For batch processing or integration into larger systems, the MCP API provides programmatic access:
-
-```python
-import requests
-
-# Generate an image via API
-response = requests.post("http://localhost:8189/mcp/tool", json={
-    "tool": "generate-image",
-    "arguments": {
-        "prompt": "cyberpunk city at night",
-        "checkpoint": "sdxl_base.safetensors"
-    }
-})
-```
-
-See the [ComfyUI Guide](comfyui-guide.html) for complete API documentation and workflow submission examples.
+**Prompt tips:** put the subject first ("a knight in armor" beats "detailed, 4k, masterpiece, knight"), be specific, include lighting/setting/style, and use negative prompts to exclude what you do not want.
 
 ## Resources and Community
 
@@ -355,19 +280,8 @@ See the [ComfyUI Guide](comfyui-guide.html) for complete API documentation and w
 
 ### Research Papers
 
-For those interested in the underlying technology:
 - [Stable Diffusion Paper](https://arxiv.org/abs/2112.10752) - Original architecture
 - [Stable Diffusion 3 Paper](https://arxiv.org/abs/2403.03206) - Latest architecture advances
-
-## Next Steps
-
-Based on your goals, here is where to go next:
-
-**Want to generate images now?** Start with the [ComfyUI Guide](comfyui-guide.html) for hands-on workflow building.
-
-**Want to understand the technology?** Read [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) for the concepts behind generation.
-
-**Want to create custom styles?** Jump to [LoRA Training](lora-training.html) to learn how to train your own models.
 
 <div class="see-also-card" markdown="1">
 #### Related Documentation

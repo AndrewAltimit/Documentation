@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Model Types Explained
+permalink: /docs/ai-ml/model-types.html
 parent: AI/ML Documentation
 nav_order: 5
 toc: true
@@ -15,11 +16,29 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A practical guide to checkpoints, LoRAs, VAEs, ControlNet, and other AI image generation components - what each does and how they work together.</p>
 </div>
 
+[AI/ML Documentation](./) &raquo; Model Types Explained
+
 <div class="code-example" markdown="1">
 A practical guide to the building blocks of AI image generation: what each component does, when to use it, and how they work together.
 </div>
 
-## Why Understanding Model Types Matters
+## Quick Reference: Model Types at a Glance
+
+Start here. This table is the at-a-glance map of every component covered on this page — skim it to find what you need, then jump to the matching section below for detail. The two structural sections that follow ([How Components Work Together](#how-components-work-together) and the per-component reference) explain the *why*; the [decision guide at the end](#choosing-models-a-decision-guide) ties them together into a recommended build order.
+
+| Component | What It Does | When You Need It | Size | Detail |
+|-----------|-------------|------------------|------|--------|
+| Checkpoint | The complete base model | Always required | 2-12 GB | [Jump](#base-models-checkpoints) |
+| LoRA | Adds styles, characters, or concepts | Custom content | 10-300 MB | [Jump](#lora-low-rank-adaptation) |
+| VAE | Handles image compression/decompression | Usually included, swap for color issues | 300-500 MB | [Jump](#vae-variational-autoencoder) |
+| Text Encoder | Interprets your prompt | Usually included, rarely changed | 500 MB-10 GB | [Jump](#text-encoders-clip-and-t5) |
+| ControlNet | Guides composition with reference images | Precise pose/layout control | 1-2 GB | [Jump](#controlnet) |
+| Embedding | Teaches new words to the text encoder | Simple concepts, quality tags | 10-100 KB | [Jump](#embeddings-textual-inversions) |
+| IP-Adapter | Uses images as prompts | Style transfer, character consistency | 500 MB-1 GB | [Jump](#ip-adapter) |
+
+> **In a hurry?** You only *need* a checkpoint to start. Everything else is optional and additive. Skip to [Choosing Models: A Decision Guide](#choosing-models-a-decision-guide) for a build order, or read on for what each piece does.
+
+### Why Understanding Model Types Matters
 
 When you generate an image, multiple specialized components work together. Understanding what each one does helps you:
 
@@ -28,21 +47,7 @@ When you generate an image, multiple specialized components work together. Under
 - **Combine models effectively** - Stack LoRAs and choose compatible components
 - **Make informed downloads** - Understand what you are getting from model repositories
 
-**Consider the following:**
-
 You do not need to understand every model type before generating images. Start with a base model (checkpoint) and add components as your needs grow. This guide serves as a reference for when you want to customize your workflow.
-
-## Quick Reference: Model Types at a Glance
-
-| Component | What It Does | When You Need It | Size |
-|-----------|-------------|------------------|------|
-| Checkpoint | The complete base model | Always required | 2-12 GB |
-| LoRA | Adds styles, characters, or concepts | Custom content | 10-300 MB |
-| VAE | Handles image compression/decompression | Usually included, swap for color issues | 300-500 MB |
-| Text Encoder | Interprets your prompt | Usually included, rarely changed | 500 MB-10 GB |
-| ControlNet | Guides composition with reference images | Precise pose/layout control | 1-2 GB |
-| Embedding | Teaches new words to the text encoder | Simple concepts, quality tags | 10-100 KB |
-| IP-Adapter | Uses images as prompts | Style transfer, character consistency | 500 MB-1 GB |
 
 ## How Components Work Together
 
@@ -61,6 +66,12 @@ flowchart TD
 ```
 
 Each component can be swapped or enhanced independently. This modularity is what makes the ecosystem so flexible: the dashed arrows are optional add-ons that steer or augment the base model without retraining it.
+
+---
+
+## Component Reference
+
+The sections below cover each component in turn — what it is, when to reach for it, and how to use it well. They follow the pipeline order from the [Quick Reference](#quick-reference-model-types-at-a-glance): the required checkpoint first, then the optional add-ons that plug into it. Skip to whichever one you came for.
 
 ## Base Models (Checkpoints)
 
@@ -379,6 +390,8 @@ Before downloading models, verify compatibility:
 | Embeddings | Yes | Partial | No |
 
 ## Choosing Models: A Decision Guide
+
+This is the capstone that ties the whole [Component Reference](#component-reference) together. Now that you know what each piece does, here is the order to assemble them in — start with the checkpoint and add components only when a concrete need appears.
 
 Start with this flowchart approach:
 

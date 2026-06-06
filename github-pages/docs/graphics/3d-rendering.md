@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: 3D Graphics & Rendering
+permalink: /docs/graphics/3d-rendering.html
 hide_title: true
 toc: true
 toc_sticky: true

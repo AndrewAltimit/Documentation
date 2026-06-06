@@ -37,6 +37,8 @@ hide_title: true
 
 ## Explore Relativity
 
+### Foundations
+
 <div class="command-grid">
   <a href="special-relativity.html" class="nav-card">
     <h4><i class="fas fa-rocket"></i> Special Relativity</h4>
@@ -46,9 +48,34 @@ hide_title: true
     <h4><i class="fas fa-globe"></i> General Relativity</h4>
     <p>The equivalence principle, the Einstein field equations, the Schwarzschild solution, gravitational time dilation, geodesics, and experimental tests.</p>
   </a>
+</div>
+
+### Graduate Topics &amp; Deep Dives
+
+<div class="command-grid">
   <a href="advanced.html" class="nav-card">
-    <h4><i class="fas fa-superscript"></i> Graduate Formalism &amp; Frontiers</h4>
-    <p>Tensor calculus, the Riemann tensor, exact solutions (Kerr, FLRW, de Sitter), black-hole thermodynamics, gravitational waves, and quantum-gravity frontiers.</p>
+    <h4><i class="fas fa-superscript"></i> Graduate Topics Hub</h4>
+    <p>Sub-hub for the graduate formalism and frontiers: where each deep-dive below fits, the prerequisites, and the path through them.</p>
+  </a>
+  <a href="tensor-formalism.html" class="nav-card">
+    <h4><i class="fas fa-square-root-alt"></i> Tensor Formalism</h4>
+    <p>Tensor calculus, the metric, covariant derivatives, the Riemann and Ricci tensors, and a full derivation of the Einstein field equations.</p>
+  </a>
+  <a href="black-holes.html" class="nav-card">
+    <h4><i class="fas fa-circle"></i> Black Holes</h4>
+    <p>Schwarzschild and Kerr geometries, horizons, singularities, the Penrose process, and black-hole thermodynamics.</p>
+  </a>
+  <a href="cosmology.html" class="nav-card">
+    <h4><i class="fas fa-globe-americas"></i> Cosmology</h4>
+    <p>The FLRW metric, the Friedmann equations, the expanding universe, the cosmological constant, and the standard ΛCDM model.</p>
+  </a>
+  <a href="gravitational-waves.html" class="nav-card">
+    <h4><i class="fas fa-wave-square"></i> Gravitational Waves</h4>
+    <p>Linearized gravity, the transverse-traceless gauge, the quadrupole formula, binary inspirals, and detection with LIGO.</p>
+  </a>
+  <a href="quantum-gravity.html" class="nav-card">
+    <h4><i class="fas fa-atom"></i> Quantum Gravity</h4>
+    <p>Why general relativity and quantum theory clash, the information paradox, and the string-theory and loop approaches to a unified theory.</p>
   </a>
 </div>
 
@@ -84,7 +111,12 @@ graph TD
 |------|----------------|
 | [Special Relativity](special-relativity.html) | The two postulates, Lorentz transformations, time dilation, length contraction, $E=mc^2$, four-vectors |
 | [General Relativity](general-relativity.html) | The equivalence principle, curvature, the Einstein field equations, Schwarzschild & black holes, predictions and tests |
-| [Graduate Formalism & Frontiers](advanced.html) | Tensors, the Riemann tensor, Kerr/FLRW solutions, black-hole thermodynamics, gravitational waves, quantum gravity (reference) |
+| [Graduate Topics Hub](advanced.html) | Sub-hub: how the deep-dives below fit together, prerequisites, and a suggested reading path |
+| [Tensor Formalism](tensor-formalism.html) | Tensor calculus, the metric, covariant derivatives, the Riemann/Ricci tensors, deriving the field equations |
+| [Black Holes](black-holes.html) | Schwarzschild and Kerr geometries, horizons, singularities, the Penrose process, black-hole thermodynamics |
+| [Cosmology](cosmology.html) | The FLRW metric, the Friedmann equations, cosmic expansion, the cosmological constant, ΛCDM |
+| [Gravitational Waves](gravitational-waves.html) | Linearized gravity, the quadrupole formula, binary inspirals, detection with LIGO |
+| [Quantum Gravity](quantum-gravity.html) | Why GR and quantum theory clash, the information paradox, string and loop approaches |
 
 <div class="tip-card">
   <h4>Level and prerequisites</h4>

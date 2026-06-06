@@ -164,6 +164,12 @@ $$Z = \frac{1}{N!h^{3N}} \int e^{-\beta H(\mathbf{r},\mathbf{p})} d\Gamma$$
 
 ## Quantum Statistical Mechanics
 
+The classical formalism above rests on a single object — the phase-space distribution $\rho(\mathbf{r}, \mathbf{p})$ — from which every observable follows by integrating against $d\Gamma$. Quantum mechanics forces us to generalize on two fronts. First, a quantum system in thermal contact with a reservoir is not in a definite pure state $|\psi\rangle$ but in a *statistical mixture* of energy eigenstates, so the distribution is promoted from a function on phase space to an operator on Hilbert space — the **density operator** $\rho$. Second, because position and momentum no longer commute, there is no joint $(\mathbf{r},\mathbf{p})$ distribution to integrate over; the phase-space integral $\frac{1}{h^{3N}}\int (\cdots)\, d\Gamma$ is replaced by the basis-independent **trace** $\text{Tr}(\cdots)$, which sums the diagonal matrix elements over any complete set of states. The dictionary is direct:
+
+$$\rho(\mathbf{r},\mathbf{p}) \;\longrightarrow\; \hat{\rho}, \qquad \frac{1}{h^{3N}}\int d\Gamma \;\longrightarrow\; \text{Tr}, \qquad \langle A \rangle = \frac{1}{h^{3N}}\int A\,\rho\, d\Gamma \;\longrightarrow\; \langle A \rangle = \text{Tr}(\hat{\rho}\hat{A}).$$
+
+The Gibbs $1/N!$ that we inserted by hand classically now appears automatically, encoded in the (anti)symmetry of the many-body Hilbert space. The two formalisms meet in the classical limit: when the thermal de Broglie wavelength is small compared to the inter-particle spacing, the trace over states reduces to the phase-space integral and $\hat{\rho}$ becomes diagonal in the classical sense, recovering the Boltzmann weight $e^{-\beta H}$ as an ordinary function.
+
 <div class="quantum-stat-section">
   <div class="density-matrix-box">
     <h3><i class="fas fa-th"></i> Density Matrix</h3>

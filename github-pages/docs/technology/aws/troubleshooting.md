@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Troubleshooting & Emergency Response"
+permalink: /docs/technology/aws/troubleshooting.html
 hide_title: true
 toc: true
 toc_sticky: true

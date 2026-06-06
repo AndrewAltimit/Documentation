@@ -23,34 +23,29 @@ Choose your path based on your goals and experience level:
 
 ### Beginner Path
 **Starting from scratch?** Build your foundation systematically:
-1. Start with [Game Design Principles](#game-design-principles) to understand what makes games engaging
-2. Learn a beginner-friendly engine: [Unity](#unity) or [Godot](#godot)
-3. Master the [Game Loop Architecture](#game-loop-architecture) and [State Machines](#state-machines)
-4. Study [Core Loop Design](#core-loop-design) and [Player Motivation](#player-motivation)
-5. Practice with small projects before scaling up
+1. Master the [Game Loop Architecture](#game-loop-architecture) and state machines
+2. Learn [Entity Component System](#entity-component-system-ecs) for flexible game objects
+3. Study [core loop design](#design-physics-and-platforms) to understand what makes games engaging
+4. Add a [save system](save-systems.html) and [UI](ui-design.html) once the loop is fun
 
 ### Indie Developer Path
 **Building games independently?** Focus on efficiency and scope management:
-1. Choose tools that maximize productivity: [Unity](#unity) or [Godot](#godot) for rapid iteration
-2. Master [Entity Component System](#entity-component-system-ecs) for flexible architecture
-3. Learn [Platform Considerations](#platform-considerations) for your target audience
-4. Study [Difficulty Design](#difficulty-design) and [Core Loop Design](#core-loop-design)
-5. Understand [Mobile Development](#mobile-development) for broader reach
+1. Master [Entity Component System](#entity-component-system-ecs) for flexible architecture
+2. Use [procedural generation](procedural-generation.html) to stretch limited content budgets
+3. Plan [monetization](monetization.html) and [platform targets](#design-physics-and-platforms) early
 
 ### AAA/Enterprise Path
 **Working on large-scale productions?** Master professional workflows:
-1. Deep dive into [Unreal Engine](#unreal-engine) with Nanite and Lumen
-2. Study [Physics and Simulation](#physics-and-simulation) for realistic worlds
-3. Master [Networking and Multiplayer](#networking-and-multiplayer) systems
-4. Learn [Performance Optimization](../optimization/) for target platforms
-5. Understand [Console Development](#console-development) requirements and certification
+1. Deep dive into [Unreal Engine](../technology/unreal.html) with Nanite and Lumen
+2. Master [multiplayer networking](multiplayer-networking.html) and [game AI](../ai-ml/game-ai.html)
+3. Learn [Performance Optimization](../optimization/) for target platforms
+4. Build a [testing &amp; QA](testing-qa.html) pipeline toward certification
 
 ### Specialized Paths
 
-**VR/AR Development:** Core game dev + [VR/AR Development](../vr-ar/) + spatial audio
-**Mobile Games:** Unity + [Mobile Development](#mobile-development) + monetization strategies
-**Technical Art:** [3D Graphics & Rendering](../graphics/3d-rendering.html) + shader programming
-**Multiplayer Specialist:** [Networking and Multiplayer](#networking-and-multiplayer) + [Performance Optimization](../optimization/)
+**VR/AR Development:** Core game dev + [VR/AR Development](../vr-ar/) + [spatial audio](audio-design.html)
+**Technical Art:** [3D Rendering](../graphics/3d-rendering.html) + [shader programming](../graphics/shaders.html)
+**Multiplayer Specialist:** [Multiplayer Networking](multiplayer-networking.html) + [Performance Optimization](../optimization/)
 
 ## How Game Development Topics Connect
 
@@ -71,37 +66,104 @@ flowchart TD
 
 Each discipline feeds into the core systems, which integrate into cohesive gameplay experiences that are optimized and shipped across platforms.
 
-## Game Development Overview
+## Documentation Overview
 
-### The Game Development Pipeline
+Explore the library, grouped by how a game comes together — from the architectural backbone to the systems players touch, the visuals and audio that sell the experience, the networking that connects players, and the production work that ships it.
 
-The modern game development process typically follows these stages:
+### Core Architecture
 
-1. **Pre-Production**
-   - Concept development and prototyping
-   - Game design documentation
-   - Technical planning and architecture
-   - Art style exploration
+The structural foundations every game is built on — engines, the frame loop, and how game objects are composed.
 
-2. **Production**
-   - Core gameplay implementation
-   - Asset creation (3D models, textures, animations)
-   - Level design and world building
-   - Audio production and integration
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-cube"></i> <a href="../technology/unreal.html">Unreal Engine</a></h4>
+    <p>Epic's AAA engine — Nanite virtualized geometry, Lumen real-time GI, World Partition streaming, Blueprints, and MetaSounds.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-sync"></i> <a href="#game-loop-architecture">Game Loop &amp; State Machines</a></h4>
+    <p>The input → update → render heartbeat, fixed vs. variable timestep, and the state machines that drive game logic.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-th-large"></i> <a href="#entity-component-system-ecs">Entity Component System</a></h4>
+    <p>Composition over inheritance — cache-friendly, parallelizable game objects assembled from data components.</p>
+  </div>
+</div>
 
-3. **Post-Production**
-   - Quality assurance and testing
-   - Performance optimization
-   - Platform certification
-   - Launch preparation
+### Gameplay Systems
 
-4. **Live Operations**
-   - Player analytics and telemetry
-   - Content updates and patches
-   - Community management
-   - Monetization optimization
+The systems players interact with directly — design loops, persistence, interfaces, and generated content.
 
-## Game Engines
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-dice"></i> <a href="procedural-generation.html">Procedural Generation</a></h4>
+    <p>Noise functions, wave function collapse, dungeon and terrain generation, and seeded reproducible worlds.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-save"></i> <a href="save-systems.html">Save Systems &amp; Persistence</a></h4>
+    <p>Serialization formats, versioned migration, cloud saves, autosave, and corruption-safe write strategies.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-window-maximize"></i> <a href="ui-design.html">UI/UX &amp; Menu Architecture</a></h4>
+    <p>HUDs, menu state machines, input remapping, resolution scaling, and accessibility-first interface design.</p>
+  </div>
+</div>
+
+### Graphics &amp; Audio
+
+The presentation layer — rendering, shaders, immersive spaces, and the sound that brings them to life.
+
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-cubes"></i> <a href="../graphics/3d-rendering.html">3D Rendering</a></h4>
+    <p>The rendering pipeline, rasterization, lighting models, and real-time techniques behind modern visuals.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-paint-brush"></i> <a href="../graphics/shaders.html">Shader Programming</a></h4>
+    <p>Vertex and fragment shaders, the GPU pipeline, and writing materials and effects on the hardware.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-volume-up"></i> <a href="audio-design.html">Audio Design</a></h4>
+    <p>Spatial audio and HRTF, adaptive music, occlusion, mixing, and middleware integration.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-vr-cardboard"></i> <a href="../vr-ar/">VR &amp; AR Development</a></h4>
+    <p>Spatial tracking, comfort and locomotion, XR interactions, and the rendering constraints of immersive hardware.</p>
+  </div>
+</div>
+
+### Networking
+
+Connecting players — architectures, latency hiding, and the AI that fills the world.
+
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-network-wired"></i> <a href="multiplayer-networking.html">Multiplayer Networking</a></h4>
+    <p>Client-server vs. P2P, authoritative servers, client-side prediction, reconciliation, and lag compensation.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-robot"></i> <a href="../ai-ml/game-ai.html">Game AI</a></h4>
+    <p>Behavior trees, pathfinding, steering, and machine-learning-driven NPCs for real-time interactive agents.</p>
+  </div>
+</div>
+
+### Production
+
+Shipping the game — quality assurance and the business models that sustain it.
+
+<div class="command-grid">
+  <div class="feature-card">
+    <h4><i class="fas fa-vial"></i> <a href="testing-qa.html">Testing &amp; QA</a></h4>
+    <p>Automated and playtesting strategy, regression suites, profiling, certification, and bug triage.</p>
+  </div>
+  <div class="feature-card">
+    <h4><i class="fas fa-coins"></i> <a href="monetization.html">Monetization &amp; Business Models</a></h4>
+    <p>Premium, free-to-play, IAP and battle passes, ethical design, and the economics behind each model.</p>
+  </div>
+</div>
+
+## Foundations Reference
+
+A condensed look at the architectural patterns above — the ones not yet split into their own pages.
 
 ### Engine at a Glance
 
@@ -112,52 +174,11 @@ The modern game development process typically follows these stages:
 | Godot | GDScript / C# | 2D, lightweight 3D, open source | MIT (free, no royalties) | Scene system, tiny footprint |
 | Custom (id Tech, Frostbite, Decima) | C++ | Studio-specific AAA needs | Proprietary | Tailored to one game family |
 
-### Unreal Engine
-
-Epic Games' Unreal Engine is an industry-leading platform for AAA game development:
-
-- **Nanite**: Virtualized geometry system for film-quality assets
-- **Lumen**: Real-time global illumination
-- **World Partition**: Automatic level streaming for open worlds
-- **Blueprints**: Visual scripting for rapid prototyping
-- **MetaSounds**: Procedural audio synthesis
-
-See our comprehensive [Unreal Engine Guide](../technology/unreal.html) for detailed coverage.
-
-### Unity
-
-Unity is widely used for indie and mobile game development:
-
-- Cross-platform deployment to 25+ platforms
-- Asset Store ecosystem
-- DOTS (Data-Oriented Technology Stack) for performance
-- Visual scripting with Unity Visual Scripting (formerly Bolt)
-- Strong 2D game support
-
-### Godot
-
-Open-source engine gaining popularity:
-
-- GDScript (Python-like) and C# support
-- Scene-based architecture
-- Lightweight and fast iteration
-- No licensing fees or royalties
-- Active community development
-
-### Custom Engines
-
-Large studios often develop proprietary engines:
-
-- **id Tech** (id Software): Doom, Quake series
-- **Frostbite** (EA): Battlefield, FIFA
-- **Decima** (Guerrilla): Horizon series
-- **REDengine** (CD Projekt): Cyberpunk 2077
-
-## Core Game Systems
+Unity reaches 25+ platforms with a deep Asset Store and DOTS for performance; Godot offers a lightweight, royalty-free, scene-based workflow; and large studios maintain proprietary engines (id Tech, Frostbite, Decima, REDengine) tuned to one game family. For deep coverage of the leading AAA engine, see the [Unreal Engine guide](../technology/unreal.html).
 
 ### Entity Component System (ECS)
 
-Modern architecture pattern for game objects:
+A composition-based architecture for game objects:
 
 ```
 Entity: Unique identifier (ID only)
@@ -172,11 +193,7 @@ Systems process entities with specific components:
 - AI System: Processes entities with Transform + Behavior
 ```
 
-**Benefits:**
-- Cache-friendly data layout
-- Easy parallelization
-- Flexible composition over inheritance
-- Better separation of concerns
+Storing components contiguously gives a cache-friendly layout, makes systems easy to parallelize, and favors flexible composition over deep inheritance hierarchies.
 
 ### Game Loop Architecture
 
@@ -203,178 +220,17 @@ while (game_running) {
 }
 ```
 
-**Fixed vs Variable Timestep:**
-- **Variable**: Smoother visuals, physics instability
-- **Fixed**: Deterministic simulation, potential stuttering
-- **Hybrid**: Fixed physics, variable rendering (most common)
+**Fixed vs Variable Timestep:** variable timesteps give smoother visuals but unstable physics; fixed timesteps give deterministic simulation but can stutter. The common solution is a **hybrid** — a fixed-step physics simulation with variable-step rendering and interpolation.
 
-### State Machines
+**State machines** sit on top of the loop to drive game logic: discrete states (Idle, Walking, Jumping, Attacking, Damaged) with explicit transitions. Hierarchical state machines (HSMs) let parent states hold shared behavior so sub-states specialize without state explosion.
 
-Essential pattern for game logic:
+### Design, Physics and Platforms
 
-```
-Player States:
-├── Idle
-│   └── Transitions: Move → Walking, Jump → Jumping, Attack → Attacking
-├── Walking
-│   └── Transitions: Stop → Idle, Jump → Jumping, Sprint → Running
-├── Jumping
-│   └── Transitions: Land → Idle/Walking, DoubleJump → Jumping
-├── Attacking
-│   └── Transitions: Complete → Idle, Chain → Attacking
-└── Damaged
-    └── Transitions: Recover → Idle, Death → Dead
-```
+A few cross-cutting fundamentals that every project tunes:
 
-**Hierarchical State Machines (HSM):**
-- Parent states contain shared behavior
-- Sub-states inherit and specialize
-- Reduces state explosion in complex systems
-
-## Game Design Principles
-
-### Core Loop Design
-
-The fundamental repeatable activity:
-
-```
-Collect → Build → Battle → Reward → Collect...
-```
-
-**Examples:**
-- **Action RPG**: Combat → Loot → Upgrade → Combat
-- **City Builder**: Earn → Build → Manage → Earn
-- **Battle Royale**: Drop → Loot → Fight → Survive
-
-### Player Motivation
-
-Understanding what drives engagement:
-
-| Motivation | Description | Game Examples |
-|------------|-------------|---------------|
-| Achievement | Mastery and completion | Dark Souls, Celeste |
-| Exploration | Discovery and curiosity | Breath of the Wild, Subnautica |
-| Social | Competition and cooperation | Fortnite, Among Us |
-| Immersion | Story and fantasy | The Witcher, Mass Effect |
-
-### Difficulty Design
-
-Balancing challenge and accessibility:
-
-- **Dynamic Difficulty Adjustment (DDA)**: Rubber-banding based on performance
-- **Difficulty Options**: Let players choose their experience
-- **Assist Modes**: Accessibility without compromising core design
-- **Mastery Curves**: Gradual skill introduction
-
-## Physics and Simulation
-
-### Physics Engines
-
-Common physics middleware:
-
-- **PhysX** (NVIDIA): Industry standard, UE4 default
-- **Havok**: Premium physics and destruction
-- **Bullet**: Open-source, used in Blender
-- **Chaos** (Epic): UE5's new physics system
-- **Jolt**: Modern open-source alternative
-
-### Collision Detection
-
-**Broad Phase:**
-- Spatial partitioning (octrees, grids)
-- Bounding volume hierarchies (BVH)
-- Sweep and prune algorithms
-
-**Narrow Phase:**
-- GJK (Gilbert-Johnson-Keerthi) algorithm
-- SAT (Separating Axis Theorem)
-- Mesh-mesh intersection tests
-
-### Character Controllers
-
-Specialized physics for player movement:
-
-- Capsule-based collision
-- Step climbing and slope handling
-- Ground detection and coyote time
-- Push-out resolution for penetration
-
-## Audio Systems
-
-### Spatial Audio
-
-3D sound positioning and propagation:
-
-- **HRTF** (Head-Related Transfer Function): Binaural positioning
-- **Occlusion/Obstruction**: Sound blocking by geometry
-- **Reverb Zones**: Environment-aware acoustics
-- **Distance Attenuation**: Volume falloff over distance
-
-### Adaptive Music
-
-Dynamic soundtrack systems:
-
-- **Horizontal Re-sequencing**: Seamless section transitions
-- **Vertical Layering**: Adding/removing instrument layers
-- **Stinger System**: One-shot events for actions
-- **Tension/Intensity**: Music responding to gameplay state
-
-## Networking and Multiplayer
-
-### Network Architectures
-
-**Client-Server:**
-- Authoritative server prevents cheating
-- Higher latency but more secure
-- Standard for competitive games
-
-**Peer-to-Peer:**
-- Lower latency for small groups
-- No server costs
-- Vulnerable to cheating
-
-**Hybrid:**
-- Dedicated servers for matchmaking
-- P2P for actual gameplay
-- Common in fighting games
-
-### Lag Compensation
-
-Techniques for smooth multiplayer:
-
-- **Client-Side Prediction**: Immediate local response
-- **Server Reconciliation**: Correcting prediction errors
-- **Entity Interpolation**: Smoothing remote player movement
-- **Lag Compensation**: Rewinding server state for hit detection
-
-## Platform Considerations
-
-### Console Development
-
-Platform-specific requirements:
-
-- **Certification**: Platform holder approval process
-- **TRCs/TCRs**: Technical requirement checklists
-- **Performance Targets**: 30/60 FPS requirements
-- **Controller Standards**: Button mappings and haptics
-
-### Mobile Development
-
-Constraints and optimizations:
-
-- **Battery Life**: Thermal throttling management
-- **Touch Controls**: UI/UX for small screens
-- **Memory Limits**: Aggressive asset streaming
-- **Monetization**: F2P models and IAP design
-
-### PC Development
-
-Scalability considerations:
-
-- **Graphics Options**: Wide hardware range support
-- **Input Methods**: Mouse/keyboard, controller, touch
-- **Modding Support**: Community content tools
-- **Distribution**: Steam, Epic, GOG, direct
+- **Core loop design** — the repeatable activity that drives engagement (e.g. *combat → loot → upgrade*), tuned to player motivations (achievement, exploration, social, immersion) and a difficulty curve with assist/accessibility options.
+- **Physics &amp; simulation** — middleware (PhysX, Havok, Chaos, Jolt, Bullet), broad-phase vs. narrow-phase collision (BVH, sweep-and-prune, GJK, SAT), and capsule-based character controllers with step/slope handling.
+- **Platform targets** — console certification (TRCs/TCRs, 30/60 FPS targets), mobile constraints (thermals, touch UI, memory streaming), and PC scalability (graphics options, input methods, modding, distribution).
 
 ## Key Takeaways
 
@@ -387,14 +243,9 @@ Scalability considerations:
   <div class="takeaway-card"><h4>Ship within a budget</h4><p>Platform targets (30/60 FPS, memory, thermals) drive optimization and certification from day one, not at the end.</p></div>
 </div>
 
-## Related Documentation
+## See Also
 
-### Core Technologies
-- [Unreal Engine](../technology/unreal.html) - Complete UE5 development guide with Nanite, Lumen, and MetaSounds
-- [3D Graphics & Rendering](../graphics/3d-rendering.html) - Rendering pipeline, shaders, and real-time techniques
-- [Performance Optimization](../optimization/) - Profiling, bottleneck analysis, and platform-specific optimizations
+Beyond the sections above, these neighboring topics round out a game project:
 
-### Specialized Topics
-- [VR/AR Development](../vr-ar/) - Immersive experiences, spatial tracking, and XR interactions
-- [Game AI](../ai-ml/game-ai.html) - Behavior trees, pathfinding, and machine learning in games
-- [Networking Fundamentals](../technology/networking/) - Low-level networking concepts for multiplayer games
+- [Performance Optimization](../optimization/) - Profiling, bottleneck analysis, and platform-specific tuning
+- [Networking Fundamentals](../technology/networking/) - Low-level networking concepts underpinning multiplayer

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Storage Services
+permalink: /docs/technology/aws/storage.html
 hide_title: true
 toc: true
 toc_sticky: true

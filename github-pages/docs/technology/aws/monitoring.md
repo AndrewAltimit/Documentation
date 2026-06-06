@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Monitoring & Messaging"
+permalink: /docs/technology/aws/monitoring.html
 hide_title: true
 toc: true
 toc_sticky: true

@@ -44,30 +44,77 @@ New to databases? The fastest on-ramp — tables, SQL, relationships, indexes, a
 
 ## Explore Database Design
 
+### Modeling
+
 <div class="command-grid">
   <a href="modeling.html" class="nav-card">
     <h4><i class="fas fa-table"></i> Data Modeling &amp; Normalization</h4>
     <p>From files to the relational model, ACID, normalization (1NF–3NF), modeling relationships, star/snowflake/EAV patterns, and design anti-patterns.</p>
   </a>
+</div>
+
+### Querying
+
+<div class="command-grid">
   <a href="indexing-and-queries.html" class="nav-card">
     <h4><i class="fas fa-bolt"></i> Indexing &amp; Query Execution</h4>
     <p>Index types and strategies, how the planner parses, optimizes, and executes queries, plus optimizer, memory, and lock internals.</p>
   </a>
+</div>
+
+### Transactions
+
+<div class="command-grid">
   <a href="transactions-and-concurrency.html" class="nav-card">
     <h4><i class="fas fa-code-branch"></i> Transactions &amp; Concurrency</h4>
     <p>The concurrency problem, locking vs MVCC, serializability, isolation levels, practical locking patterns, and database security.</p>
   </a>
+</div>
+
+### Storage
+
+<div class="command-grid">
   <a href="storage-internals.html" class="nav-card">
     <h4><i class="fas fa-hdd"></i> Storage Engines &amp; Recovery</h4>
     <p>Pages, the buffer pool, B+ trees and LSM trees, write-ahead logging, backup and recovery, troubleshooting, and performance tuning.</p>
   </a>
+</div>
+
+### Distributed &amp; NoSQL
+
+<div class="command-grid">
   <a href="distributed-and-nosql.html" class="nav-card">
     <h4><i class="fas fa-network-wired"></i> Distributed Databases &amp; NoSQL</h4>
-    <p>The CAP theorem, consensus (Raft/Paxos), 2PC and sagas, NoSQL models, the future of databases, case studies, and a selection guide.</p>
+    <p>The hub: CAP theorem, consensus overview, NoSQL landscape, the future of databases, case studies, and a selection guide.</p>
   </a>
-  <a href="distributed-and-nosql.html#best-practices-from-the-trenches" class="nav-card">
-    <h4><i class="fas fa-clipboard-check"></i> Best Practices &amp; Build Your Own</h4>
-    <p>Design principles that scale, common pitfalls, and a hands-on progression for building your own database from a key-value store up.</p>
+  <a href="replication-and-consensus.html" class="nav-card">
+    <h4><i class="fas fa-clone"></i> Replication &amp; Consensus</h4>
+    <p>Replication topologies, streaming &amp; logical replication, Raft/Paxos, read replicas, failover, and quorums.</p>
+  </a>
+  <a href="distributed-transactions.html" class="nav-card">
+    <h4><i class="fas fa-project-diagram"></i> Distributed Transactions</h4>
+    <p>2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics.</p>
+  </a>
+  <a href="nosql-data-models.html" class="nav-card">
+    <h4><i class="fas fa-cubes"></i> NoSQL Data Models</h4>
+    <p>Document, key-value, wide-column, graph, and time-series stores — and how to model for each.</p>
+  </a>
+</div>
+
+### Operations
+
+<div class="command-grid">
+  <a href="operations-and-monitoring.html" class="nav-card">
+    <h4><i class="fas fa-heartbeat"></i> Operations &amp; Monitoring</h4>
+    <p>Backups &amp; PITR, disaster recovery, VACUUM, connection pooling, observability, and incident response.</p>
+  </a>
+  <a href="orm-patterns.html" class="nav-card">
+    <h4><i class="fas fa-exchange-alt"></i> ORMs &amp; Data-Access Patterns</h4>
+    <p>Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL.</p>
+  </a>
+  <a href="schema-evolution-and-migrations.html" class="nav-card">
+    <h4><i class="fas fa-stream"></i> Schema Evolution &amp; Migrations</h4>
+    <p>Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks.</p>
   </a>
 </div>
 

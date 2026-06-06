@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Game AI Systems
+permalink: /docs/ai-ml/game-ai.html
 parent: AI/ML Documentation
 nav_order: 9
 toc: true
