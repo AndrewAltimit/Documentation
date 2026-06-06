@@ -13,27 +13,7 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Bridging the Microscopic and Macroscopic Worlds</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Statistical mechanics provides the microscopic foundation for thermodynamics by connecting the behavior of individual particles to macroscopic observables. It explains how the laws of thermodynamics emerge from the statistical behavior of large ensembles of particles.</p>
-  
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-dice"></i>
-      <h4>Probabilistic Nature</h4>
-      <p>Macroscopic properties emerge from statistical averages</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-layer-group"></i>
-      <h4>Ensembles</h4>
-      <p>Different statistical descriptions for different constraints</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-exchange-alt"></i>
-      <h4>Phase Transitions</h4>
-      <p>Critical phenomena and universality</p>
-    </div>
-  </div>
-</div>
+Statistical mechanics provides the microscopic foundation for thermodynamics, connecting the behavior of individual particles to macroscopic observables. It explains how the laws of thermodynamics emerge from the statistical behavior of large ensembles. Three ideas anchor the subject: macroscopic properties are **statistical averages** over microstates; **ensembles** give different statistical descriptions for different constraints; and **phase transitions** are collective phenomena governed by critical exponents and universality.
 
 ## Explore Statistical Mechanics
 
@@ -89,14 +69,11 @@ These three descriptions are not competing theories — they are the same physic
 
 ## Fundamental Principles
 
-<div class="principle-section">
-  <h3>Microstates and Macrostates</h3>
-  
-  <div class="concept-grid">
-    <div class="concept-card microstate">
-      <h4><i class="fas fa-atom"></i> Microstate</h4>
-      <p>Complete specification of the quantum state of every particle</p>
-      <div class="visual-example">
+### Microstates and Macrostates
+
+A **microstate** is a complete specification of the quantum state of every particle; a **macrostate** is a specification of the macroscopic variables ($T, P, V, N, E$). The two diagrams below contrast them.
+
+<div class="visual-example">
         <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
           <!-- Background container -->
           <rect x="10" y="10" width="400" height="130" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
@@ -149,12 +126,8 @@ These three descriptions are not competing theories — they are the same physic
           <text x="210" y="165" text-anchor="middle" font-size="15" fill="#555" font-style="italic">Each particle has a definite quantum state (complete microscopic specification)</text>
         </svg>
       </div>
-    </div>
-    
-    <div class="concept-card macrostate">
-      <h4><i class="fas fa-temperature-high"></i> Macrostate</h4>
-      <p>Specification of macroscopic variables (T, P, V, N, E)</p>
-      <div class="visual-example">
+
+<div class="visual-example">
         <svg viewBox="0 0 420 200" style="max-width: 500px; width: 100%;">
           <!-- Background -->
           <rect x="10" y="10" width="400" height="180" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
@@ -195,20 +168,8 @@ These three descriptions are not competing theories — they are the same physic
           <text x="210" y="175" text-anchor="middle" font-size="14" fill="#555" font-style="italic">Only bulk properties matter - individual particle states unknown</text>
         </svg>
       </div>
-    </div>
-  </div>
-  
-  <div class="fundamental-postulate">
-    <i class="fas fa-balance-scale"></i>
-    <h4>Fundamental Postulate</h4>
-    <p>All accessible microstates are equally probable</p>
-  </div>
-</div>
 
-<div class="principle-card">
-  <h4>Why counting microstates yields thermodynamics</h4>
-  <p>Imagine flipping 100 coins. Every specific sequence is equally likely, yet you almost always see close to 50 heads — simply because there are astronomically more ways to arrange "about half heads" than "all heads." A gas of $10^{23}$ particles takes this to the extreme: the overwhelming majority of microstates look macroscopically identical (uniform density, a single temperature), so the system is found in that macrostate with near-certainty. <strong>Entropy</strong> $S = k_B \ln \Omega$ is just the logarithm of how many microstates wear a given macroscopic face, and the Second Law becomes a near-tautology — systems drift toward macrostates that more microstates correspond to. This is the bridge: thermodynamics is what statistics looks like when the numbers are enormous. The challenge is computational, and the tool that makes it tractable is the <em>partition function</em>, introduced next through the various ensembles.</p>
-</div>
+**Why counting microstates yields thermodynamics.** Imagine flipping 100 coins. Every specific sequence is equally likely, yet you almost always see close to 50 heads — there are astronomically more ways to arrange "about half heads" than "all heads." A gas of $10^{23}$ particles takes this to the extreme: the overwhelming majority of microstates look macroscopically identical (uniform density, a single temperature), so the system is found in that macrostate with near-certainty. Entropy $S = k_B \ln \Omega$ is just the logarithm of how many microstates wear a given macroscopic face, and the Second Law becomes a near-tautology — systems drift toward macrostates that more microstates correspond to. Thermodynamics is what statistics looks like when the numbers are enormous. The tool that makes the counting tractable is the *partition function*, introduced next through the ensembles.
 
 ### Statistical Ensembles
 
@@ -395,45 +356,20 @@ $$\mathcal{Z} = \sum_{N=0}^{\infty} \sum_i e^{-\beta(E_i - \mu N)}$$
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Entropy counts microstates</h4>
-    <p>Boltzmann's $S = k_B \ln \Omega$ links microscopic configurations to macroscopic thermodynamics.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The partition function is everything</h4>
-    <p>From $Z$ you derive all thermodynamics: free energy, entropy, energy, and response functions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Ensembles agree at large $N$</h4>
-    <p>Microcanonical, canonical, and grand canonical descriptions become equivalent in the thermodynamic limit.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Quantum statistics matter</h4>
-    <p>Bosons (Bose–Einstein) and fermions (Fermi–Dirac) behave radically differently at low temperature.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Phase transitions are collective</h4>
-    <p>Singularities in $Z$ emerge only in the thermodynamic limit; universality groups them by symmetry and dimension.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Fluctuations encode response</h4>
-    <p>The fluctuation–dissipation theorem connects equilibrium fluctuations to how a system responds to perturbation.</p>
-  </div>
-</div>
+- **Entropy counts microstates.** Boltzmann's $S = k_B \ln \Omega$ links microscopic configurations to macroscopic thermodynamics.
+- **The partition function is everything.** From $Z$ you derive all thermodynamics: free energy, entropy, energy, and response functions.
+- **Ensembles agree at large $N$.** Microcanonical, canonical, and grand canonical descriptions become equivalent in the thermodynamic limit.
+- **Quantum statistics matter.** Bosons (Bose-Einstein) and fermions (Fermi-Dirac) behave radically differently at low temperature.
+- **Phase transitions are collective.** Singularities in $Z$ emerge only in the thermodynamic limit; universality groups them by symmetry and dimension.
+- **Fluctuations encode response.** The fluctuation-dissipation theorem connects equilibrium fluctuations to how a system responds to perturbation.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="classical-and-quantum.html">Classical &amp; Quantum Statistical Mechanics</a> — partition functions, quantum statistics, and ideal and interacting gases.</li>
-    <li><a href="phase-transitions-and-advanced.html">Phase Transitions &amp; Graduate Formalism</a> — critical phenomena, fluctuations, non-equilibrium dynamics, and the advanced reference block.</li>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — the macroscopic laws that statistical mechanics derives from microstate counting.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the quantum foundation behind Bose–Einstein and Fermi–Dirac statistics.</li>
-    <li><a href="../condensed-matter/">Condensed Matter Physics</a> — many-body applications to solids and phase transitions.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — finite-temperature field theory and the path-integral link.</li>
-    <li><a href="../classical-mechanics/">Classical Mechanics</a> — the microscopic dynamics that ensembles average over.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Classical &amp; Quantum Statistical Mechanics](classical-and-quantum.html) — partition functions, quantum statistics, and ideal and interacting gases.
+- [Phase Transitions &amp; Graduate Formalism](phase-transitions-and-advanced.html) — critical phenomena, fluctuations, non-equilibrium dynamics, and the advanced reference block.
+- [Thermodynamics](../thermodynamics.html) — the macroscopic laws that statistical mechanics derives from microstate counting.
+- [Quantum Mechanics](../quantum-mechanics/) — the quantum foundation behind Bose-Einstein and Fermi-Dirac statistics.
+- [Condensed Matter Physics](../condensed-matter/) — many-body applications to solids and phase transitions.
+- [Quantum Field Theory](../quantum-field-theory.html) — finite-temperature field theory and the path-integral link.
+- [Classical Mechanics](../classical-mechanics/) — the microscopic dynamics that ensembles average over.
+- [Physics Hub](../) — browse all physics topics.

@@ -11,11 +11,6 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Routing &amp; Switching</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Finding the best path, the protocols that hold the internet together, and segmenting networks</p>
-</div>
-
 The internet is a massive graph of routers and links, and getting data across it efficiently is a path-finding problem. This page starts with the graph algorithms behind routing, scales up to the protocols that route traffic within and between organizations (OSPF and BGP), covers how routers actually make decisions (static, dynamic, and NAT), and ends with VLANs for segmenting networks on shared hardware.
 
 ## Finding the Best Path: Graph Theory in Networks
@@ -452,19 +447,10 @@ interface GigabitEthernet0/24
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — what rides on top of routed packets.</li>
-    <li><strong>Next:</strong> <a href="performance-and-security.html">Performance, QoS &amp; Security</a> — how fast and how safely it all moves.</li>
-  </ul>
-</div>
+**Previous:** [Transport & Application Protocols](transport-and-protocols.html) — what rides on top of routed packets. &nbsp;**Next:** [Performance, QoS & Security](performance-and-security.html) — how fast and how safely it all moves.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="fundamentals.html">Layers &amp; Addressing</a> — IP addressing and CIDR subnetting that routing operates on.</li>
-    <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — SDN and programmable forwarding that re-imagine routing.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — BGP hijacking and routing security.</li>
-  </ul>
-</div>
+### See Also
+
+- [Layers & Addressing](fundamentals.html) — IP addressing and CIDR subnetting that routing operates on.
+- [Modern & Future Networking](modern-architecture.html) — SDN and programmable forwarding that re-imagine routing.
+- [Cybersecurity](../cybersecurity/) — BGP hijacking and routing security.

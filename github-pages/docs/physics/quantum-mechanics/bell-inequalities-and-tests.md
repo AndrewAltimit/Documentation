@@ -7,17 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Bell's Theorem &amp; Experimental Tests</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From the EPR paradox to loophole-free experiments: how a question about whether quantum mechanics is "complete" became a theorem about the structure of reality, and how the laboratory answered it.</p>
-</div>
+## Bell's Theorem & Experimental Tests
 
 [Quantum Mechanics](./) &raquo; Bell's Theorem &amp; Experimental Tests
 
-<div class="tip-card">
-  <h4>Why this page exists</h4>
-  <p>Entanglement is introduced on the <a href="systems-and-phenomena.html">Systems &amp; Phenomena</a> page as a correlation with "no classical analog." That phrase is not rhetoric — it is a <em>theorem</em>. Bell's inequality turns the philosophical EPR debate into a sharp, falsifiable prediction, and decades of increasingly airtight experiments have decided it. This page develops the argument from first principles: the EPR setup, the local-hidden-variable assumption, the CHSH inequality and its derivation, the quantum prediction and Tsirelson's bound, the landmark experiments, the loopholes that kept the question open until 2015, and the consequences for no-signaling and device-independent technology.</p>
-</div>
+**Why this page exists.** Entanglement is introduced on the [Systems & Phenomena](systems-and-phenomena.html) page as a correlation with "no classical analog." That phrase is not rhetoric — it is a *theorem*. Bell's inequality turns the philosophical EPR debate into a sharp, falsifiable prediction, and decades of increasingly airtight experiments have decided it. This page develops the argument from first principles: the EPR setup, the local-hidden-variable assumption, the CHSH inequality and its derivation, the quantum prediction and Tsirelson's bound, the landmark experiments, the loopholes that kept the question open until 2015, and the consequences for no-signaling and device-independent technology.
 
 ## The EPR Argument
 
@@ -43,10 +37,7 @@ Now run EPR's logic. Alice is free to measure her particle's spin along $z$ *or*
 
 Because (by locality) Alice's choice cannot disturb Bob's distant particle, **both** $z$-spin and $x$-spin must be simultaneously real properties of Bob's particle. But quantum mechanics forbids assigning simultaneous definite values to non-commuting observables — $[\hat S_x, \hat S_z] \neq 0$. EPR concluded that the wave function is therefore an **incomplete** description: there must be additional "hidden" variables, not captured by $|\psi\rangle$, that fix the outcomes in advance.
 
-<div class="info-card">
-  <h4>What EPR were and were not claiming</h4>
-  <p>EPR did not claim quantum mechanics was <em>wrong</em>. They argued it was <em>incomplete</em> — that a deeper, deterministic theory respecting locality could underlie it and supply the "elements of reality" the wave function omits. Bohr's reply rejected the reality criterion as inapplicable to entangled systems, but the debate stayed philosophical for nearly thirty years. Everyone assumed local-hidden-variable theories and quantum mechanics made the <em>same</em> predictions, so no experiment could distinguish them. Bell's achievement was to prove that assumption false.</p>
-</div>
+**What EPR were and were not claiming.** EPR did not claim quantum mechanics was *wrong*. They argued it was *incomplete* — that a deeper, deterministic theory respecting locality could underlie it and supply the "elements of reality" the wave function omits. Bohr's reply rejected the reality criterion as inapplicable to entangled systems, but the debate stayed philosophical for nearly thirty years. Everyone assumed local-hidden-variable theories and quantum mechanics made the *same* predictions, so no experiment could distinguish them. Bell's achievement was to prove that assumption false.
 
 ## Local Hidden Variables
 
@@ -100,10 +91,7 @@ $$
 |S| = \left| E(\mathbf{a}, \mathbf{b}) - E(\mathbf{a}, \mathbf{b}') + E(\mathbf{a}', \mathbf{b}) + E(\mathbf{a}', \mathbf{b}') \right| \le 2.
 $$
 
-<div class="info-card">
-  <h4>What the derivation actually used</h4>
-  <p>Read it back: the only ingredients were (i) each outcome is a definite ±1 (realism), (ii) Alice's outcome does not depend on Bob's setting so the four outcomes can be evaluated for one common $\lambda$ (locality), and (iii) a single distribution $\rho(\lambda)$ that does not depend on the settings (measurement independence). That is the entire content of "local hidden variables." Any theory satisfying these three assumptions — Newtonian or otherwise — is bound by $|S| \le 2$. A violation therefore falsifies the conjunction of those three assumptions, not quantum mechanics.</p>
-</div>
+**What the derivation actually used.** Read it back: the only ingredients were (i) each outcome is a definite ±1 (realism), (ii) Alice's outcome does not depend on Bob's setting so the four outcomes can be evaluated for one common $\lambda$ (locality), and (iii) a single distribution $\rho(\lambda)$ that does not depend on the settings (measurement independence). That is the entire content of "local hidden variables." Any theory satisfying these three assumptions — Newtonian or otherwise — is bound by $|S| \le 2$. A violation therefore falsifies the conjunction of those three assumptions, not quantum mechanics.
 
 ## The Quantum Prediction and Tsirelson's Bound
 
@@ -147,10 +135,7 @@ $$
 
 Since the operator norm of each commutator is at most $2$, $\|\hat S^2\| \le 4 + 4 = 8$, giving $\|\hat S\| \le 2\sqrt 2$.
 
-<div class="info-card">
-  <h4>Why isn't the bound 4?</h4>
-  <p>Algebraically, $|S|$ could be as large as $4$ — and there <em>are</em> hypothetical "super-quantum" correlations (Popescu–Rohrlich boxes) that reach $S = 4$ while still forbidding faster-than-light signaling. Nature does not use them. Quantum mechanics stops precisely at $2\sqrt 2$. Understanding <em>why</em> physical correlations are limited to Tsirelson's bound, rather than the larger no-signaling bound of 4, is an active question in quantum foundations and information theory (principles like "information causality" reproduce $2\sqrt 2$).</p>
-</div>
+**Why isn't the bound 4?** Algebraically, $|S|$ could be as large as $4$ — and there *are* hypothetical "super-quantum" correlations (Popescu–Rohrlich boxes) that reach $S = 4$ while still forbidding faster-than-light signaling. Nature does not use them. Quantum mechanics stops precisely at $2\sqrt 2$. Understanding *why* physical correlations are limited to Tsirelson's bound, rather than the larger no-signaling bound of 4, is an active question in quantum foundations and information theory (principles like "information causality" reproduce $2\sqrt 2$).
 
 The hierarchy of bounds is worth memorizing:
 
@@ -211,10 +196,7 @@ Gregor Weihs and Anton Zeilinger's group in Innsbruck closed the locality loopho
 - Measured: a CHSH violation by roughly 30 standard deviations.
 - Significance: the first test enforcing strict **Einstein locality** with truly random, relativistically-spacelike setting choices. After Weihs, the locality loophole was essentially closed for photons — but the **detection loophole** remained, because photon detectors are inefficient and most pairs were never registered.
 
-<div class="info-card">
-  <h4>Two stubborn loopholes, two platforms</h4>
-  <p>By the late 1990s the field faced a frustrating split. <strong>Photon</strong> experiments could enforce locality (photons fly far, fast) but suffered the detection loophole (detectors miss most photons). <strong>Trapped-ion and atom</strong> experiments had near-perfect detection but could not be separated far enough to enforce locality. Each platform closed one loophole while leaving the other open, so a die-hard local realist could always retreat to the gap. Closing both at once was the grand challenge of the 2010s.</p>
-</div>
+**Two stubborn loopholes, two platforms.** By the late 1990s the field faced a frustrating split. **Photon** experiments could enforce locality (photons fly far, fast) but suffered the detection loophole (detectors miss most photons). **Trapped-ion and atom** experiments had near-perfect detection but could not be separated far enough to enforce locality. Each platform closed one loophole while leaving the other open, so a die-hard local realist could always retreat to the gap. Closing both at once was the grand challenge of the 2010s.
 
 ## The Detection and Locality Loopholes
 
@@ -228,10 +210,7 @@ If a signal could travel from Alice's apparatus to Bob's during the experiment, 
 
 Real detectors miss particles. If only a fraction of pairs are detected, one must *assume* the detected sample is representative ("fair sampling"). But an LHV model can exploit inefficiency: each particle's hidden variable could decide *whether* it gets detected as a function of the local setting, biasing the detected subensemble to fake a violation. **Closing it** requires the **overall detection efficiency to exceed a threshold** — for the CHSH inequality with maximally entangled states, $\eta > 2/3 \approx 82.8\%$ (the Eberhard limit lowers this to ~$2/3$ for non-maximally entangled states with a modified inequality).
 
-<div class="warning-card">
-  <h4>The tension between the loopholes</h4>
-  <p>The two loopholes pull in opposite directions. Closing locality wants the detectors <em>far apart</em>, which favors photons (they travel well) but worsens losses. Closing detection wants <em>near-perfect efficiency</em>, which favors massive particles like ions or electron spins, but those are hard to separate over the kilometers needed for space-like separation. Any single platform tended to close one loophole only by reopening the other. This is why no experiment before 2015 was simultaneously free of both.</p>
-</div>
+**The tension between the loopholes.** The two loopholes pull in opposite directions. Closing locality wants the detectors *far apart*, which favors photons (they travel well) but worsens losses. Closing detection wants *near-perfect efficiency*, which favors massive particles like ions or electron spins, but those are hard to separate over the kilometers needed for space-like separation. Any single platform tended to close one loophole only by reopening the other. This is why no experiment before 2015 was simultaneously free of both.
 
 A third, subtler loophole is the **freedom-of-choice (measurement-independence) loophole**: if the hidden variable $\lambda$ could influence the experimenters' setting choices, the derivation's assumption $\rho(\lambda) \perp (\mathbf{a},\mathbf{b})$ fails. It is closed by deriving the settings from sources space-like separated from the entanglement source — or, dramatically, from cosmic photons emitted by distant quasars billions of years ago (the "Cosmic Bell" tests, 2017–2018).
 
@@ -265,10 +244,7 @@ Subsequent experiments attacked the **freedom-of-choice loophole**:
 - **The BIG Bell Test (2016):** ~100,000 human volunteers worldwide generated the setting bits by playing an online game, replacing machine randomness with unpredictable human choices.
 - **Cosmic Bell tests (2017–2018):** setting choices were derived from the color of photons emitted by **high-redshift quasars** — light that left its source billions of years ago. For a hidden-variable conspiracy to fix the settings, the correlation would have had to be established in the early universe, pushing the freedom-of-choice loophole back to cosmological time scales.
 
-<div class="tip-card">
-  <h4>The verdict</h4>
-  <p>By 2018, Bell violations had been demonstrated with the locality, detection, and freedom-of-choice loopholes simultaneously closed (to within cosmological limits), across photons, electron spins, and atoms. <strong>Local realism is experimentally dead.</strong> The 2022 Nobel Prize in Physics went to Alain Aspect, John Clauser, and Anton Zeilinger "for experiments with entangled photons, establishing the violation of Bell inequalities and pioneering quantum information science." No remaining loophole is taken seriously as a real description of nature; the residual ones (e.g. superdeterminism) require abandoning the experimenters' free choice itself.</p>
-</div>
+**The verdict.** By 2018, Bell violations had been demonstrated with the locality, detection, and freedom-of-choice loopholes simultaneously closed (to within cosmological limits), across photons, electron spins, and atoms. **Local realism is experimentally dead.** The 2022 Nobel Prize in Physics went to Alain Aspect, John Clauser, and Anton Zeilinger "for experiments with entangled photons, establishing the violation of Bell inequalities and pioneering quantum information science." No remaining loophole is taken seriously as a real description of nature; the residual ones (e.g. superdeterminism) require abandoning the experimenters' free choice itself.
 
 ## Implications
 
@@ -290,39 +266,16 @@ The most powerful practical consequence is **device-independent (DI) certificati
 - **Device-independent randomness generation/expansion.** A Bell violation guarantees the outcomes are *intrinsically random* — not pre-set by any hidden mechanism — certifying true randomness from the laws of physics rather than from trust in a hardware vendor. NIST and others have built certified-randomness beacons on this principle.
 - **Self-testing.** Saturating Tsirelson's bound, $|S| = 2\sqrt 2$, *uniquely* certifies (up to local isometry) that the underlying state is a maximally entangled pair and the measurements are the optimal anti-commuting ones — the statistics alone pin down the physics.
 
-<div class="info-card">
-  <h4>The conceptual payoff</h4>
-  <p>Bell's theorem converted a 1935 philosophical dispute about the "completeness" of the wave function into a quantitative, technological resource. The same inequality that rules out local realism also serves as a <em>witness</em>: a number you can measure to certify that a device is exploiting genuine quantum entanglement, with security guarantees that hold even against a manufacturer you do not trust. Foundations became engineering.</p>
-</div>
+**The conceptual payoff.** Bell's theorem converted a 1935 philosophical dispute about the "completeness" of the wave function into a quantitative, technological resource. The same inequality that rules out local realism also serves as a *witness*: a number you can measure to certify that a device is exploiting genuine quantum entanglement, with security guarantees that hold even against a manufacturer you do not trust. Foundations became engineering.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>EPR posed the question</h4>
-    <p>Perfect correlations in the singlet state seemed to demand predetermined local "elements of reality," implying quantum mechanics is incomplete.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Bell made it testable</h4>
-    <p>Any local-hidden-variable theory obeys $|S| \le 2$ (CHSH); the derivation is pure algebra with no quantum input.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Quantum mechanics breaks it</h4>
-    <p>The singlet gives $E(\mathbf{a},\mathbf{b}) = -\cos\theta_{ab}$ and $|S| = 2\sqrt 2$, up to Tsirelson's bound and no further.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Loopholes mattered</h4>
-    <p>The locality and detection loopholes kept the question technically open; photon and matter platforms each closed only one until 2015.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>2015 closed both at once</h4>
-    <p>Delft (NV spins, 1.3 km), Vienna, and NIST (high-efficiency photons) performed loophole-free violations; the 2022 Nobel followed.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>It is a resource</h4>
-    <p>No-signaling preserves relativity, while device-independence turns the violation into certified security and randomness.</p>
-  </div>
-</div>
+- **EPR posed the question.** Perfect correlations in the singlet state seemed to demand predetermined local "elements of reality," implying quantum mechanics is incomplete.
+- **Bell made it testable.** Any local-hidden-variable theory obeys $|S| \le 2$ (CHSH); the derivation is pure algebra with no quantum input.
+- **Quantum mechanics breaks it.** The singlet gives $E(\mathbf{a},\mathbf{b}) = -\cos\theta_{ab}$ and $|S| = 2\sqrt 2$, up to Tsirelson's bound and no further.
+- **Loopholes mattered.** The locality and detection loopholes kept the question technically open; photon and matter platforms each closed only one until 2015.
+- **2015 closed both at once.** Delft (NV spins, 1.3 km), Vienna, and NIST (high-efficiency photons) performed loophole-free violations; the 2022 Nobel followed.
+- **It is a resource.** No-signaling preserves relativity, while device-independence turns the violation into certified security and randomness.
 
 ## See Also
 

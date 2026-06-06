@@ -9,14 +9,7 @@ toc_label: "On This Page"
 toc_icon: "shield-alt"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Security & Identity</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive guide to IAM, Security Hub, KMS, WAF, and security best practices for protecting your AWS infrastructure.</p>
-</div>
-
-<div class="intro-card">
-  <p class="lead-text">Security in AWS isn't a feature you add later - it's woven into every decision from day one. This guide covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.</p>
-</div>
+Security in AWS isn't a feature you add later — it's woven into every decision from day one. This page covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.
 
 ## The Problem Security Solves
 
@@ -594,24 +587,10 @@ If WAF misses something, the security group still limits exposure. If a credenti
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Least Privilege Always</h4>
-    <p>Grant the minimum permissions each user or service needs. Prefer scoped custom policies and IAM roles over broad managed policies like AdministratorAccess.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Encrypt Everywhere</h4>
-    <p>Enable encryption at rest (S3, EBS, RDS) and in transit (TLS). Let KMS handle key management and rotation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Shared Responsibility</h4>
-    <p>AWS secures the cloud; you secure what's in it — access control, configuration, and data. Know which side of the line each control sits on.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Detect and Automate</h4>
-    <p>Turn on GuardDuty and Security Hub for continuous threat detection, and automate remediation so misconfigurations are caught fast.</p>
-  </div>
-</div>
+- **Least privilege always.** Grant the minimum permissions each user or service needs. Prefer scoped custom policies and IAM roles over broad managed policies like AdministratorAccess.
+- **Encrypt everywhere.** Enable encryption at rest (S3, EBS, RDS) and in transit (TLS). Let KMS handle key management and rotation.
+- **Shared responsibility.** AWS secures the cloud; you secure what's in it — access control, configuration, and data. Know which side of the line each control sits on.
+- **Detect and automate.** Turn on GuardDuty and Security Hub for continuous threat detection, and automate remediation so misconfigurations are caught fast.
 
 ---
 

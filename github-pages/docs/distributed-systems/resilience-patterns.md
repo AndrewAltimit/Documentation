@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Resilience Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Circuit breakers, retries, bulkheads, sagas, idempotency, locks, and graceful degradation</p>
-</div>
-
 [Distributed Systems](./) &raquo; Resilience Patterns
 
-<div class="code-example" markdown="1">
 In a distributed system, *failure is the default*. Networks partition, dependencies time out, nodes crash mid-operation, and clocks drift. Resilience patterns are the engineering vocabulary for turning those failures from catastrophic outages into routine, contained events. This page collects the patterns you reach for most often — how each one works, when to use it, the failure mode it guards against, and runnable implementation code.
-</div>
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -632,5 +625,3 @@ A practical default for an outbound dependency call: wrap it in a **timeout**, i
 - **[Kubernetes](../technology/kubernetes/)** — liveness/readiness probes, resource limits as bulkheads, and rollout safety
 - **[Database Design](../technology/database-design/)** — replication, sharding, and transactional consistency
 - **[AWS Cloud Services](../technology/aws/)** — managed building blocks (DynamoDB conditional writes, SQS, retries) for these patterns
-</content>
-</invoke>

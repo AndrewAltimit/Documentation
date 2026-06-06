@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Application Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The OWASP Top 10, injection, broken access control, and building security into the SDLC</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Application Security</p>
 
-<div class="intro-card">
-  <p class="lead-text">Cryptography protects data in transit, but most successful attacks target the application layer itself — injection flaws, broken access control, and weak authentication. This page covers the OWASP Top 10, SQL injection, cross-site scripting and CSRF, server-side request forgery, modern authentication and authorization (JWT/OAuth/OIDC), secure session management, API security, and building security into the software development lifecycle.</p>
-</div>
+# Application Security
+
+Cryptography protects data in transit, but most successful attacks target the application layer itself — injection flaws, broken access control, and weak authentication. This page covers the OWASP Top 10, SQL injection, cross-site scripting and CSRF, server-side request forgery, modern authentication and authorization (JWT/OAuth/OIDC), secure session management, API security, and building security into the software development lifecycle.
 
 <div class="notice--info" markdown="1">
 **Looking for cloud and container security?** The shared-responsibility model, cloud IAM, posture management, image hardening, and Kubernetes runtime defense now live on their own page: [Cloud &amp; Container Security](cloud-and-container-security.html).

@@ -15,20 +15,16 @@ hide_title: true
 An API is a contract. It defines how a client and a server — or two services, or a service and the outside world — agree to exchange information without either side knowing the other's internals. The hard part is rarely the wire protocol; it is choosing the *style* that fits your coupling, evolution, and performance needs, then designing a contract that stays stable as both sides change. This hub frames the major API styles, shows when each one earns its keep, and routes you into focused pages for REST, GraphQL, gRPC/Protocol Buffers, and asynchronous event-driven communication.
 </div>
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-file-signature"></i><h4>An API is a contract, not code</h4><p>The interface is a promise about request shapes, responses, and errors. Implementations change freely; the contract must stay stable or version explicitly.</p></div>
-  <div class="insight-card"><i class="fas fa-exchange-alt"></i><h4>Coupling is the real choice</h4><p>Synchronous request/response couples caller to callee in time and availability. Asynchronous events decouple them — at the cost of eventual consistency and harder debugging.</p></div>
-  <div class="insight-card"><i class="fas fa-code-branch"></i><h4>Design for evolution</h4><p>Every API outlives its first client. Additive change, explicit versioning, and forward/backward-compatible schemas are not luxuries — they are the difference between a living API and a frozen one.</p></div>
-  <div class="insight-card"><i class="fas fa-ruler-combined"></i><h4>No style is universally best</h4><p>REST, GraphQL, gRPC, and events each optimize for different forces — cacheability, flexible queries, raw throughput, or decoupling. The right answer is "it depends," and this hub makes the dependencies explicit.</p></div>
-</div>
-
 ## Overview
 
-Every non-trivial system is a collection of components that must talk to each other: a browser to a backend, a mobile app to an aggregation layer, one microservice to another, a producer to a stream of consumers. **API design is the discipline of defining those conversations well** — choosing how requests are shaped, how responses come back, how errors are reported, and how the whole contract evolves without breaking the people who depend on it.
+Every non-trivial system is a collection of components that must talk to each other: a browser to a backend, a mobile app to an aggregation layer, one microservice to another, a producer to a stream of consumers. **API design is the discipline of defining those conversations well** — choosing how requests are shaped, how responses come back, how errors are reported, and how the whole contract evolves without breaking the people who depend on it. A few principles cut across every style:
 
-**What you'll get:** a working mental model of the four dominant communication styles, a decision framework for picking among them, and curated links into focused pages that develop each style with concrete schemas, code, and trade-offs.
+- **An API is a contract, not code.** The interface is a promise about request shapes, responses, and errors. Implementations change freely; the contract must stay stable or version explicitly.
+- **Coupling is the real choice.** Synchronous request/response couples caller to callee in time and availability; asynchronous events decouple them — at the cost of eventual consistency and harder debugging.
+- **Design for evolution.** Every API outlives its first client. Additive change, explicit versioning, and forward/backward-compatible schemas are the difference between a living API and a frozen one.
+- **No style is universally best.** REST, GraphQL, gRPC, and events each optimize for different forces — cacheability, flexible queries, raw throughput, or decoupling.
 
-**Assumed background:** comfort with HTTP, JSON, and at least one programming language. No prior experience with GraphQL, gRPC, or message brokers is required — each child page builds from first principles.
+This hub assumes comfort with HTTP, JSON, and one programming language; no prior GraphQL, gRPC, or broker experience is required, as each child page builds from first principles.
 
 ### Two Axes That Decide Everything
 
@@ -78,28 +74,7 @@ These concerns connect directly to the [Distributed Systems](../distributed-syst
 
 ## Explore the Topics
 
-The pages below are ordered from the most familiar style to the most decoupled. Start with REST for the resource-oriented baseline, then layer in client-driven querying, high-performance RPC, and finally asynchronous messaging.
-
-<div class="command-grid">
-  <a href="rest.html" class="nav-card">
-    <h4><i class="fas fa-server"></i> REST APIs</h4>
-    <p>Resource-oriented design over HTTP — verbs, status codes, statelessness, HATEOAS, caching, pagination, and versioning.</p>
-  </a>
-  <a href="graphql.html" class="nav-card">
-    <h4><i class="fas fa-project-diagram"></i> GraphQL</h4>
-    <p>A typed schema and a single endpoint where the client asks for exactly the fields it needs — resolvers, the N+1 problem, and caching.</p>
-  </a>
-  <a href="grpc-and-protobuf.html" class="nav-card">
-    <h4><i class="fas fa-bolt"></i> gRPC &amp; Protocol Buffers</h4>
-    <p>Strongly typed RPC over HTTP/2 with binary Protobuf messages, code generation, deadlines, and four flavors of streaming.</p>
-  </a>
-  <a href="async-and-events.html" class="nav-card">
-    <h4><i class="fas fa-stream"></i> Async &amp; Event-Driven</h4>
-    <p>Decoupling with queues and streams — messaging patterns, delivery guarantees, ordering, idempotent consumers, and webhooks.</p>
-  </a>
-</div>
-
-### What You'll Find
+The pages are ordered from the most familiar style to the most decoupled — REST for the resource-oriented baseline, then client-driven querying, high-performance RPC, and finally asynchronous messaging. Each idea builds on the one before it: REST establishes the HTTP and versioning concerns that recur everywhere; GraphQL moves response-shaping to the client (fixing over-/under-fetching, creating caching and N+1 problems); gRPC trades human-readability for a typed, binary, streaming contract for high-throughput internal calls; and async messaging replaces request/response entirely, trading immediacy for decoupling and resilience.
 
 | Page | What it covers |
 |------|----------------|
@@ -108,40 +83,24 @@ The pages below are ordered from the most familiar style to the most decoupled. 
 | [gRPC & Protocol Buffers](grpc-and-protobuf.html) | Protobuf message and service definitions, code generation, unary and streaming RPCs, deadlines, interceptors, and wire-format evolution |
 | [Async & Event-Driven](async-and-events.html) | Queues vs. streams, pub/sub, at-least-once vs. exactly-once delivery, ordering, idempotency, the outbox pattern, and webhooks |
 
-## Learning Path
-
-There is no single correct route, but the following order builds each idea on the one before it:
-
-1. **Start with the baseline.** Read [REST APIs](rest.html) for resource-oriented design, HTTP semantics, and the versioning and error-handling concerns that recur everywhere else.
-2. **Let the client drive.** [GraphQL](graphql.html) shows how moving response-shaping to the client fixes REST's over-/under-fetching — and the new problems (caching, N+1) that creates.
-3. **Optimize the internal hop.** [gRPC & Protocol Buffers](grpc-and-protobuf.html) trades human-readability for a typed, binary, streaming contract built for high-throughput service-to-service calls.
-4. **Cut the synchronous cord.** [Async & Event-Driven](async-and-events.html) replaces request/response with messages, decoupling producers from consumers and trading immediacy for resilience.
-
 To see how these contracts behave under partition, retry, and partial failure, branch into [Distributed Systems](../distributed-systems/); to understand the transport beneath every call, see [Networking](../technology/networking/).
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Design the contract first</h4><p>Agree on request shapes, responses, and errors before writing implementations. The contract is the product; the code behind it is replaceable.</p></div>
-  <div class="takeaway-card"><h4>Match the style to the coupling</h4><p>Synchronous REST/GraphQL/gRPC for "I need an answer now"; asynchronous events for "do this eventually" and one-to-many fan-out.</p></div>
-  <div class="takeaway-card"><h4>Plan for evolution from day one</h4><p>Prefer additive changes, version explicitly when you must break, and keep schemas forward- and backward-compatible.</p></div>
-  <div class="takeaway-card"><h4>Make retries safe</h4><p>Networks fail mid-request. Idempotency keys and idempotent consumers turn a client retry from a double-charge into a no-op.</p></div>
-  <div class="takeaway-card"><h4>Errors are part of the API</h4><p>A consistent, machine-readable error model is as important as the success path — clients code against both.</p></div>
-  <div class="takeaway-card"><h4>Mix styles deliberately</h4><p>Real systems combine REST at the edge, GraphQL for front-ends, gRPC internally, and events for background work. Choose per interaction, not per system.</p></div>
-</div>
+- **Design the contract first.** Agree on request shapes, responses, and errors before writing implementations. The contract is the product; the code behind it is replaceable.
+- **Match the style to the coupling.** Synchronous REST/GraphQL/gRPC for "I need an answer now"; asynchronous events for "do this eventually" and one-to-many fan-out.
+- **Plan for evolution from day one.** Prefer additive changes, version explicitly when you must break, and keep schemas forward- and backward-compatible.
+- **Make retries safe.** Networks fail mid-request. Idempotency keys and idempotent consumers turn a client retry from a double-charge into a no-op.
+- **Errors are part of the API.** A consistent, machine-readable error model is as important as the success path — clients code against both.
+- **Mix styles deliberately.** Real systems combine REST at the edge, GraphQL for front-ends, gRPC internally, and events for background work. Choose per interaction, not per system.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../distributed-systems/">Distributed Systems</a> — idempotency, retries, partial failure, and the consistency models your APIs must respect.</li>
-    <li><a href="../technology/networking/">Networking</a> — TCP/IP, HTTP/2, latency, and ordering: the substrate every API call rides on.</li>
-    <li><a href="../technology/database-design/">Database Design</a> — the data models your resources, types, and events are projections of.</li>
-    <li><a href="../technology/kubernetes/">Kubernetes</a> — deploying, discovering, and load-balancing the services your APIs expose.</li>
-    <li><a href="../technology/cybersecurity/">Cybersecurity</a> — authentication, authorization, and securing API endpoints against abuse.</li>
-  </ul>
-</div>
+- **[Distributed Systems](../distributed-systems/)** — idempotency, retries, partial failure, and the consistency models your APIs must respect.
+- **[Networking](../technology/networking/)** — TCP/IP, HTTP/2, latency, and ordering: the substrate every API call rides on.
+- **[Database Design](../technology/database-design/)** — the data models your resources, types, and events are projections of.
+- **[Kubernetes](../technology/kubernetes/)** — deploying, discovering, and load-balancing the services your APIs expose.
+- **[Cybersecurity](../technology/cybersecurity/)** — authentication, authorization, and securing API endpoints against abuse.
 
 ### Further Reading
 

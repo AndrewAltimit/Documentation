@@ -7,23 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Unit &amp; Integration Testing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fast, deterministic foundation of an automated test suite — and how to keep it that way</p>
-</div>
-
 [Testing Hub](./) &raquo; Unit &amp; Integration
 
-<div class="code-example" markdown="1">
-Almost every bug a test suite ever catches is caught by an *example-based* test: call a function with a known input, assert a known output. This page is about doing that well at two scales — the **unit**, where a single piece of code is exercised in isolation, and the **integration**, where real collaborators (databases, queues, HTTP servers) are wired together. It covers the testing pyramid that balances the two, the test doubles that make isolation possible, test-driven development, fixtures and test-data management, what code coverage does and does not tell you, how this all runs in CI, and the single biggest threat to a suite's value: flaky tests.
-</div>
+Almost every bug a test suite ever catches is caught by an *example-based* test: call a function with a known input, assert a known output. This page is about doing that well at two scales — the **unit**, where a single piece of code is exercised in isolation, and the **integration**, where real collaborators (databases, queues, HTTP servers) are wired together. It covers the testing pyramid that balances the two, the test doubles that make isolation possible, test-driven development, fixtures and test-data management, what code coverage does and does not tell you, how this all runs in CI, and the single biggest threat to a suite's value: flaky tests. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Speed is a feature</h4><p>A test you run a thousand times a day must finish in milliseconds. Fast, deterministic unit tests change how you write code; slow ones get skipped.</p></div>
-  <div class="insight-card"><i class="fas fa-vial"></i><h4>Isolate to localize</h4><p>A failing unit test names the broken function. A failing end-to-end test names "something, somewhere." Push detection as far down the pyramid as the bug allows.</p></div>
-  <div class="insight-card"><i class="fas fa-link"></i><h4>Integration tests earn their slowness</h4><p>The bugs that live in the seams — schema mismatches, serialization, transaction boundaries — are invisible to unit tests by construction. You must wire the real things together.</p></div>
-  <div class="insight-card"><i class="fas fa-percent"></i><h4>Coverage is a floor, not a goal</h4><p>100% coverage with weak assertions proves only that the code ran without crashing. Coverage tells you what was *executed*, never whether it was *verified*.</p></div>
-</div>
+- **Speed is a feature.** A test you run a thousand times a day must finish in milliseconds. Fast, deterministic unit tests change how you write code; slow ones get skipped.
+- **Isolate to localize.** A failing unit test names the broken function; a failing end-to-end test names "something, somewhere." Push detection as far down the pyramid as the bug allows.
+- **Integration tests earn their slowness.** The bugs that live in the seams — schema mismatches, serialization, transaction boundaries — are invisible to unit tests by construction; you must wire the real things together.
+- **Coverage is a floor, not a goal.** 100% coverage with weak assertions proves only that the code ran without crashing. Coverage tells you what was *executed*, never whether it was *verified*.
 
 ## Table of contents
 {: .no_toc .text-delta }

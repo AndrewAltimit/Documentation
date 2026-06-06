@@ -8,39 +8,17 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Techniques & Workflows</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Cutting-edge techniques including latent space manipulation, regional prompting, advanced sampling, and multi-stage workflows for expert-level AI image generation.</p>
-</div>
-
-<div class="code-example" markdown="1">
 Cutting-edge techniques and complex workflows for pushing the boundaries of AI image generation.
-</div>
 
 ## Who This Guide Is For
 
 This guide is for users already comfortable with prompting, samplers, and basic ComfyUI workflows who want to push further. It covers latent-space manipulation, regional prompting, advanced sampling, and multi-stage pipelines — plus the newer ideas (consistency distillation, flow matching, adversarial distillation) that now make near-real-time generation possible without collapsing quality. Read it as a toolbox: most real results come from combining a few of these techniques, not from any single one.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-bezier-curve"></i>
-    <h4>Latent Control</h4>
-    <p>Interpolate, blend, and mask in latent space (SLERP, regional prompts) for transitions and composition prompts alone can't reach.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bolt"></i>
-    <h4>Faster Sampling</h4>
-    <p>Distillation (LCM, ADD) and flow matching cut 30+ steps to 1-8, trading a little quality for real-time speed.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Multi-Stage Pipelines</h4>
-    <p>Progressive upscaling, detail passes, and self-attention guidance stack into reference-grade results.</p>
-  </div>
-</div>
+- **Latent Control.** Interpolate, blend, and mask in latent space (SLERP, regional prompts) for transitions and composition prompts alone can't reach.
+- **Faster Sampling.** Distillation (LCM, ADD) and flow matching cut 30+ steps to 1-8, trading a little quality for real-time speed.
+- **Multi-Stage Pipelines.** Progressive upscaling, detail passes, and self-attention guidance stack into reference-grade results.
 
 ## Latent Space Techniques
 
@@ -304,18 +282,13 @@ You rarely implement the underlying math — you consume it as an LCM-LoRA, a Tu
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Interpolate on the sphere, not the chord.** SLERP preserves latent magnitude for smoother transitions than linear blending.
 - **Regional prompting and attention masking** let different parts of one image follow different prompts — far more reliable than cramming everything into one prompt.
 - **Distillation buys speed.** LCM and ADD compress 30+ steps down to 1-8, enabling near-real-time generation with a modest quality trade-off.
 - **Flow matching (FLUX/SD3) learns a velocity field** along near-straight noise→data paths ($\mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$), needing fewer sampling steps than classic diffusion.
 - **Compose, don't replace.** The strongest results come from layering techniques (multi-stage upscaling, SAG, regional control) — and from changing one variable at a time while you tune.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts these techniques build on
 - [ComfyUI Guide](comfyui-guide.html) - Build the multi-stage workflows described here
@@ -324,4 +297,3 @@ You rarely implement the underlying math — you consume it as an LCM-LoRA, a Tu
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

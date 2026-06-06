@@ -4,7 +4,6 @@ title: "String Theory: Graduate Formalism"
 permalink: /docs/physics/string-theory/string-theory-formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 <!-- Custom styles for string theory visualizations -->
@@ -12,10 +11,7 @@ hide_title: true
 
 [String Theory](./) &raquo; Graduate Formalism
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Graduate Formalism</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The mathematics underneath it all — worldsheet CFT, superstring quantization, the duality web, and holography.</p>
-</div>
+## Graduate Formalism
 
 This page is a self-contained, graduate-level treatment of the machinery of string theory. It assumes familiarity with quantum field theory, group theory, and differential geometry. We build the **worldsheet conformal field theory**, quantize the bosonic and super-strings in both the **RNS** and **Green-Schwarz** formalisms, develop **BRST cohomology**, treat **D-branes** and their effective actions, compactify on **Calabi-Yau** manifolds, organize the **duality web** and **M-theory**, derive the **AdS/CFT** dictionary, count **black-hole microstates**, and survey **topological strings** and **modern amplitude methods**. Every formula is written so it renders correctly under MathJax; conceptual narratives of the same material live on the sibling pages linked at the foot.
 
@@ -475,16 +471,7 @@ def ads_cft_correlator(operators, positions):
 
 ---
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="dualities-and-branes.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">&larr; D-Branes, Dualities &amp; M-Theory</h4>
-    <p style="margin: 0;">The narrative treatment of branes, dualities, M-theory, holography, and black holes.</p>
-  </a>
-  <a class="nav-card" href="./" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">String Theory (Overview) &rarr;</h4>
-    <p style="margin: 0;">Back to the hub: strings, quantization, and the five superstring theories.</p>
-  </a>
-</div>
+**Previous:** [D-Branes, Dualities & M-Theory](dualities-and-branes.html) — the narrative treatment of branes, dualities, M-theory, holography, and black holes. **Up:** [String Theory (Overview)](./) — strings, quantization, and the five superstring theories.
 
 ## See Also
 

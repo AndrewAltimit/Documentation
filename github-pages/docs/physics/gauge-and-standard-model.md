@@ -4,42 +4,18 @@ title: "QFT: Gauge Theories & the Standard Model"
 permalink: /docs/physics/gauge-and-standard-model.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Gauge Theories &amp; the Standard Model</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How demanding local symmetry forces the existence of forces — from the photon of QED to the gluons of QCD, electroweak unification, the Higgs mechanism, and the full Standard Model Lagrangian.</p>
-</div>
+## Gauge Theories & the Standard Model
 
 [Physics](./) &raquo; [Quantum Field Theory](quantum-field-theory.html) &raquo; Gauge Theories &amp; the Standard Model
 
-<div class="intro-card">
-  <p class="lead-text">The Standard Model is not a list of forces bolted together by hand. It is the consequence of a single demand: that the phase (and the internal "color" or "flavor" label) of every matter field be choosable <em>independently at every point of spacetime</em>. That demand — <strong>local gauge symmetry</strong> — cannot be met by free fields alone. Repairing it forces new vector fields into existence, and those fields <em>are</em> the photon, the $W$ and $Z$ bosons, and the gluons. This page develops that argument from $U(1)$ electromagnetism up to the full $SU(3)_C \times SU(2)_L \times U(1)_Y$ gauge group, and shows how the Higgs mechanism gives the gauge bosons and fermions their masses without spoiling the symmetry.</p>
-</div>
+The Standard Model is not a list of forces bolted together by hand. It is the consequence of a single demand: that the phase (and the internal "color" or "flavor" label) of every matter field be choosable *independently at every point of spacetime*. That demand — **local gauge symmetry** — cannot be met by free fields alone. Repairing it forces new vector fields into existence, and those fields *are* the photon, the $W$ and $Z$ bosons, and the gluons. This page develops that argument from $U(1)$ electromagnetism up to the full $SU(3)_C \times SU(2)_L \times U(1)_Y$ gauge group, and shows how the Higgs mechanism gives the gauge bosons and fermions their masses without spoiling the symmetry.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Symmetry dictates forces</h4>
-    <p>A global symmetry made local cannot be maintained by the ordinary derivative — repairing it <em>forces</em> a gauge field into the theory.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Non-abelian means self-interacting</h4>
-    <p>When the symmetry group doesn't commute, the gauge bosons carry the charge themselves and interact with one another.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-compress-arrows-alt"></i>
-    <h4>Strong force gets weaker up close</h4>
-    <p>QCD's coupling runs to zero at high energy (asymptotic freedom) and grows at long range (confinement).</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-wine-bottle"></i>
-    <h4>Mass from a hidden symmetry</h4>
-    <p>The Higgs field's vacuum value breaks electroweak symmetry, giving the $W$/$Z$ and fermions mass while leaving the photon massless.</p>
-  </div>
-</div>
+- **Symmetry dictates forces.** A global symmetry made local cannot be maintained by the ordinary derivative — repairing it *forces* a gauge field into the theory.
+- **Non-abelian means self-interacting.** When the symmetry group doesn't commute, the gauge bosons carry the charge themselves and interact with one another.
+- **Strong force gets weaker up close.** QCD's coupling runs to zero at high energy (asymptotic freedom) and grows at long range (confinement).
+- **Mass from a hidden symmetry.** The Higgs field's vacuum value breaks electroweak symmetry, giving the $W$/$Z$ and fermions mass while leaving the photon massless.
 
 ### What You'll Find on This Page
 
@@ -407,42 +383,17 @@ These gaps motivate grand unified theories, supersymmetry, and other physics bey
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Local symmetry forces gauge fields</h4>
-    <p>Promoting a global phase to a local one cannot be done with the ordinary derivative; the covariant derivative $D_\mu = \partial_\mu + igA_\mu$ drags in a gauge field whose interaction term is mandatory, not optional.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Abelian vs. non-abelian</h4>
-    <p>$U(1)$ gives the neutral, non-self-interacting photon; $SU(N)$ gauge bosons carry charge and couple to themselves via the $gf^{abc}A^b A^c$ term in the field strength.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>QCD runs the opposite way to QED</h4>
-    <p>Gluon self-interaction makes $\beta_0 = 11 - \tfrac{2}{3}n_f > 0$, giving asymptotic freedom at high energy and confinement at long range.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Electroweak mixing</h4>
-    <p>$SU(2)_L \times U(1)_Y$ mixes through the Weinberg angle into the massless photon and the massive $W^\pm$, $Z$, with $e = g\sin\theta_W$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The Higgs gives mass</h4>
-    <p>A nonzero vacuum value breaks electroweak symmetry; gauge bosons eat the Goldstones to become massive ($m_W = m_Z\cos\theta_W$), and Yukawa couplings give fermions their masses.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>One Lagrangian, fixed by symmetry</h4>
-    <p>$SU(3)_C \times SU(2)_L \times U(1)_Y$ plus the Higgs determines the entire structure of the Standard Model; only the numerical parameters are free.</p>
-  </div>
-</div>
+- **Local symmetry forces gauge fields.** Promoting a global phase to a local one cannot be done with the ordinary derivative; the covariant derivative $D_\mu = \partial_\mu + igA_\mu$ drags in a gauge field whose interaction term is mandatory, not optional.
+- **Abelian vs. non-abelian.** $U(1)$ gives the neutral, non-self-interacting photon; $SU(N)$ gauge bosons carry charge and couple to themselves via the $gf^{abc}A^b A^c$ term in the field strength.
+- **QCD runs the opposite way to QED.** Gluon self-interaction makes $\beta_0 = 11 - \tfrac{2}{3}n_f > 0$, giving asymptotic freedom at high energy and confinement at long range.
+- **Electroweak mixing.** $SU(2)_L \times U(1)_Y$ mixes through the Weinberg angle into the massless photon and the massive $W^\pm$, $Z$, with $e = g\sin\theta_W$.
+- **The Higgs gives mass.** A nonzero vacuum value breaks electroweak symmetry; gauge bosons eat the Goldstones to become massive ($m_W = m_Z\cos\theta_W$), and Yukawa couplings give fermions their masses.
+- **One Lagrangian, fixed by symmetry.** $SU(3)_C \times SU(2)_L \times U(1)_Y$ plus the Higgs determines the entire structure of the Standard Model; only the numerical parameters are free.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — fields, quantization, propagators, renormalization, and the path integral that underlie this page.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
-    <li><a href="relativity/">Relativity</a> — special relativity is what makes gauge theories Lorentz-invariant.</li>
-    <li><a href="string-theory/">String Theory</a> — an attempt to unify the gauge forces with gravity.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](quantum-field-theory.html) — fields, quantization, propagators, renormalization, and the path integral that underlie this page.
+- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation that QFT generalizes.
+- [Relativity](relativity/) — special relativity is what makes gauge theories Lorentz-invariant.
+- [String Theory](string-theory/) — an attempt to unify the gauge forces with gravity.
+- [Physics Hub](index.html) — browse all physics topics.

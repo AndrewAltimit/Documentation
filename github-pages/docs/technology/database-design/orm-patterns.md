@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">ORMs &amp; Data-Access Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# ORMs & Data-Access Patterns
 
 ## Why an ORM Exists
 
@@ -41,8 +38,6 @@ It also has a cost: the abstraction hides what SQL actually runs, and a careless
 
 The "impedance mismatch" is the structural friction between the object model and the relational model. The two were designed under different assumptions, and the ORM has to bridge each gap:
 
-<div class="comparison-table">
-
 | Object world | Relational world | The friction |
 |---|---|---|
 | Object identity (`a is b`) | Primary-key equality | Two queries can return two distinct objects for the same row unless an identity map deduplicates them. |
@@ -52,8 +47,6 @@ The "impedance mismatch" is the structural friction between the object model and
 | Encapsulation / private state | Public columns | The schema leaks structure the object tried to hide. |
 | Methods / behavior | Data only | Behavior lives in the app; the database sees only state. |
 | Nested / graph structure | Normalized, decomposed | Saving one aggregate may touch many tables in one transaction. |
-
-</div>
 
 ### Mapping inheritance
 
@@ -86,8 +79,6 @@ ORMs cluster into two design philosophies, named by Martin Fowler:
 - **Active Record** — a model object *is* a row and knows how to save itself (`user.save()`). Simple and discoverable; couples domain objects to persistence.
 - **Data Mapper** — a separate session/repository moves data between plain objects and the database. More ceremony, cleaner domain model.
 
-<div class="comparison-table">
-
 | ORM | Language | Pattern | Notable trait |
 |---|---|---|---|
 | **SQLAlchemy** | Python | Data Mapper (Core + ORM) | Powerful query builder; you can drop to SQL expressions without leaving the API. |
@@ -95,8 +86,6 @@ ORMs cluster into two design philosophies, named by Martin Fowler:
 | **Sequelize** | JavaScript/Node | Active Record | Promise-based; broad SQL-dialect support. |
 | **Prisma** | TypeScript/Node | Query builder + client | Schema-first; generates a fully typed client; no lazy loading (explicit `include`). |
 | **Hibernate / JPA** | Java | Data Mapper | The JPA reference implementation; persistence context, dirty checking, HQL/JPQL. |
-
-</div>
 
 The same query in four of them:
 
@@ -173,10 +162,7 @@ const orders = await prisma.$queryRaw`
 `;
 ```
 
-<div class="tip-card">
-  <h4>The cardinal rule</h4>
-  <p>Use the ORM/query builder for the 95% of queries that are routine CRUD and simple joins; reach for parameterized raw SQL for the 5% that are performance-critical or use features the ORM can't express. Never build SQL by string concatenation of user input — that is the classic SQL-injection bug.</p>
-</div>
+> **The cardinal rule.** Use the ORM/query builder for the 95% of queries that are routine CRUD and simple joins; reach for parameterized raw SQL for the 5% that are performance-critical or use features the ORM can't express. Never build SQL by string concatenation of user input — that is the classic SQL-injection bug.
 
 ## The N+1 Query Problem
 
@@ -364,8 +350,6 @@ Stay as high on the ladder as the workload allows, and step down deliberately �
 
 ## ORM Anti-Patterns and Pitfalls
 
-<div class="comparison-table">
-
 | Pitfall | Symptom | Fix |
 |---|---|---|
 | N+1 queries | Query count scales with row count | Eager-load (`selectinload`/`prefetch_related`/`include`) |
@@ -376,42 +360,18 @@ Stay as high on the ladder as the workload allows, and step down deliberately �
 | Leaky lazy loads after session close | `DetachedInstanceError` / lazy load outside transaction | Eager-load before the session closes |
 | Fighting the ORM for a hard query | Convoluted method chains | Drop to raw SQL for that one query |
 
-</div>
-
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The mapping is leaky on purpose</h4>
-    <p>An ORM bridges objects and tables but cannot erase the impedance mismatch — inheritance, identity, and collections all need explicit mapping decisions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Lazy loading causes N+1</h4>
-    <p>Touching a relationship inside a loop fires one query per row. Eager-load related data up front to collapse 1+N queries into a small constant.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>JOIN for to-one, second-query for to-many</h4>
-    <p><code>joinedload</code>/<code>select_related</code> suit single related rows; <code>selectinload</code>/<code>prefetch_related</code> avoid row explosion for collections.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The session is the unit of work</h4>
-    <p>Dirty checking batches in-memory mutations into a minimal, correctly-ordered set of writes committed in one transaction.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Stay high on the ladder, drop down deliberately</h4>
-    <p>Use objects and the query builder for routine work; reach for parameterized raw SQL only for bulk, analytical, or vendor-specific queries — never concatenate user input.</p>
-  </div>
-</div>
+- **The mapping is leaky on purpose.** An ORM bridges objects and tables but cannot erase the impedance mismatch — inheritance, identity, and collections all need explicit mapping decisions.
+- **Lazy loading causes N+1.** Touching a relationship inside a loop fires one query per row. Eager-load related data up front to collapse 1+N queries into a small constant.
+- **JOIN for to-one, second-query for to-many.** `joinedload`/`select_related` suit single related rows; `selectinload`/`prefetch_related` avoid row explosion for collections.
+- **The session is the unit of work.** Dirty checking batches in-memory mutations into a minimal, correctly-ordered set of writes committed in one transaction.
+- **Stay high on the ladder, drop down deliberately.** Use objects and the query builder for routine work; reach for parameterized raw SQL only for bulk, analytical, or vendor-specific queries — never concatenate user input.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue in Database Design</h4>
-  <ul>
-    <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema the ORM maps onto, and the inheritance/normalization trade-offs.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code>EXPLAIN</code> output to tune the SQL your ORM generates, including the N+1 discussion.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking, MVCC, and isolation behind the ORM's <code>commit()</code> and optimistic locking.</li>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — what flush and commit actually do to pages and the write-ahead log.</li>
-    <li><a href="./">Database Design hub</a> — the full deep-dive series.</li>
-  </ul>
-</div>
+- [Data Modeling & Normalization](modeling.html) — the schema the ORM maps onto, and the inheritance/normalization trade-offs.
+- [Indexing & Query Execution](indexing-and-queries.html) — reading `EXPLAIN` output to tune the SQL your ORM generates, including the N+1 discussion.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — locking, MVCC, and isolation behind the ORM's `commit()` and optimistic locking.
+- [Storage Engines & Recovery](storage-internals.html) — what flush and commit actually do to pages and the write-ahead log.
+- [Database Design hub](./) — the full deep-dive series.

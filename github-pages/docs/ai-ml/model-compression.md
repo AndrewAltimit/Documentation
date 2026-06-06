@@ -9,16 +9,9 @@ toc_icon: "compress"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Model Compression</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Shrinking neural networks for faster, cheaper inference: pruning, distillation, quantization, low-rank factorization, and edge deployment - and the accuracy you trade for them.</p>
-</div>
-
 [AI/ML Documentation](./) &raquo; Model Compression
 
-<div class="code-example" markdown="1">
 How to make a trained model smaller and faster without throwing away the accuracy you paid to train: remove redundant weights, teach a small student to mimic a large teacher, store weights in fewer bits, factor big matrices into thin ones, and ship the result to a phone or microcontroller.
-</div>
 
 ## Why Compress a Model?
 
@@ -406,22 +399,16 @@ flowchart LR
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Four levers, often stacked:** pruning (remove weights), distillation (smaller student trained from a teacher), quantization (fewer bits), and low-rank factorization (thin matrices) attack different redundancies.
 - **Structured beats unstructured for speed.** Removing whole channels/heads shrinks real tensors and speeds up any hardware; unstructured sparsity needs special kernels to pay off.
 - **Quantization is the highest-leverage single step:** INT8 gives ~4x smaller and 2-4x faster for usually under 1% accuracy loss; try PTQ first, use QAT when accuracy slips or you go below 8 bits.
 - **Distillation transfers "dark knowledge"** via soft targets at a temperature; it is how compact models like DistilBERT keep most of a large model's accuracy.
 - **Measure latency on the target device,** not FLOPs or parameter count, and export through ONNX to the native runtime (Core ML, TFLite, TensorRT) for the real win.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Model Types Explained](model-types.html) - Checkpoints, LoRAs, VAEs, and how components combine
 - [LoRA Training](lora-training.html) - Low-rank adaptation as a training-time technique
 - [Base Models Comparison](base-models-comparison.html) - Trade-offs across model families and sizes
 - [Advanced Techniques](advanced-techniques.html) - Further optimization and workflow methods
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Testing &amp; QA</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Playtesting, automated test suites, performance and soak testing, bug triage, certification, and telemetry</p>
-</div>
+# Testing & QA
 
 [Game Development](./) &raquo; Testing &amp; QA
 
-<div class="code-example" markdown="1">
 Games are among the hardest software to test: they are large, stateful, real-time, non-deterministic, and judged on *feel* as much as correctness. A regression in a spreadsheet app is a wrong number; a regression in a game can be a soft-lock that traps a player forever, a physics edge case that launches the avatar into orbit, or a memory leak that crashes the console after six hours — a class of bug a unit test almost never catches. This page covers the full quality stack: human **playtesting** for fun and usability, **automated testing** (unit, integration, and replay/determinism) for correctness, **performance and soak testing** for stability under load and over time, **bug triage** to turn a flood of reports into a prioritized work queue, console **certification** (TRC/TCR/lotcheck), and **telemetry** to close the loop with live data from real players.
-</div>
 
 ## Table of contents
 {: .no_toc .text-delta }

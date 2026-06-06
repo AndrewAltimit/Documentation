@@ -6,25 +6,18 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Algorithms Research</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous quantum complexity theory, error correction codes, and cutting-edge algorithmic developments</p>
-</div>
+# Quantum Algorithms Research
 
 <div class="advanced-note" markdown="1">
 **Graduate-level research page.** This is a rigorous treatment of quantum complexity, error correction, and algorithm design aimed at quantum computing researchers and physicists. **Prerequisites:** linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals. For an accessible, hands-on introduction with runnable circuits instead, start at the [Quantum Computing Hub](../../quantum-computing/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Quantum computing is often mis-described as "trying all answers in parallel." The truth is subtler and more interesting: a quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one. Quantum <em>advantage</em> comes entirely from <strong>interference</strong> — arranging unitary operations so that the amplitudes of wrong answers cancel while the amplitude of the right answer reinforces. Every algorithm below, from Shor's factoring to Grover's search, is a recipe for engineering that constructive interference.</p>
-</div>
+Quantum computing is often mis-described as "trying all answers in parallel." The truth is subtler and more interesting: a quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one. Quantum *advantage* comes entirely from **interference** — arranging unitary operations so that the amplitudes of wrong answers cancel while the amplitude of the right answer reinforces. Every algorithm below, from Shor's factoring to Grover's search, is a recipe for engineering that constructive interference.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-wave-square"></i><h4>Interference, not parallelism</h4><p>Superposition is cheap; extracting a useful answer requires amplitudes to interfere so wrong outcomes cancel. That is the real source of speedup.</p></div>
-  <div class="insight-card"><i class="fas fa-key"></i><h4>Exponential vs quadratic</h4><p>Shor gives an exponential speedup for factoring (a structured problem); Grover gives only a quadratic one for unstructured search — and that quadratic bound is provably optimal.</p></div>
-  <div class="insight-card"><i class="fas fa-shield-virus"></i><h4>Error correction is mandatory</h4><p>Physical qubits decohere. Fault tolerance via surface/stabilizer codes — below a threshold error rate — is what makes scalable quantum computing possible at all.</p></div>
-  <div class="insight-card"><i class="fas fa-microchip"></i><h4>NISQ is the present</h4><p>Today's noisy, intermediate-scale devices run variational hybrids (VQE, QAOA) that lean on a classical optimizer to tolerate hardware imperfection.</p></div>
-</div>
+- **Interference, not parallelism.** Superposition is cheap; extracting a useful answer requires amplitudes to interfere so wrong outcomes cancel. That is the real source of speedup.
+- **Exponential vs quadratic.** Shor gives an exponential speedup for factoring (a structured problem); Grover gives only a quadratic one for unstructured search — and that quadratic bound is provably optimal.
+- **Error correction is mandatory.** Physical qubits decohere. Fault tolerance via surface/stabilizer codes — below a threshold error rate — is what makes scalable quantum computing possible at all.
+- **NISQ is the present.** Today's noisy, intermediate-scale devices run variational hybrids (VQE, QAOA) that lean on a classical optimizer to tolerate hardware imperfection.
 
 ### Map of the Algorithmic Landscape
 
@@ -504,14 +497,12 @@ The post-quantum cryptography sketched above is treated in full — including th
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Speedups come from interference</h4><p>Quantum advantage is engineered interference, not brute-force parallelism. Wrong-answer amplitudes must cancel.</p></div>
-  <div class="takeaway-card"><h4>Structure determines the gain</h4><p>Shor is exponential because factoring hides periodic structure; Grover is only quadratic — and provably optimal — because search has none.</p></div>
-  <div class="takeaway-card"><h4>QFT is the workhorse</h4><p>The $O(n^2)$ quantum Fourier transform underlies phase estimation, period finding, and HHL.</p></div>
-  <div class="takeaway-card"><h4>Fault tolerance is achievable</h4><p>The threshold theorem guarantees scalable computation below $p_{\text{th}}$; surface codes are the leading practical route.</p></div>
-  <div class="takeaway-card"><h4>NISQ relies on hybrids</h4><p>VQE and QAOA offload optimization to a classical loop, but barren plateaus and noise limit current reach.</p></div>
-  <div class="takeaway-card"><h4>BQP sits between BPP and PSPACE</h4><p>Quantum is believed strictly more powerful than classical randomized computation, but not omnipotent.</p></div>
-</div>
+- **Speedups come from interference.** Quantum advantage is engineered interference, not brute-force parallelism. Wrong-answer amplitudes must cancel.
+- **Structure determines the gain.** Shor is exponential because factoring hides periodic structure; Grover is only quadratic — and provably optimal — because search has none.
+- **QFT is the workhorse.** The $O(n^2)$ quantum Fourier transform underlies phase estimation, period finding, and HHL.
+- **Fault tolerance is achievable.** The threshold theorem guarantees scalable computation below $p_{\text{th}}$; surface codes are the leading practical route.
+- **NISQ relies on hybrids.** VQE and QAOA offload optimization to a classical loop, but barren plateaus and noise limit current reach.
+- **BQP sits between BPP and PSPACE.** Quantum is believed strictly more powerful than classical randomized computation, but not omnipotent.
 
 ## See Also
 

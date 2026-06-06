@@ -6,58 +6,24 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">CI/CD</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Continuous Integration & Continuous Deployment: From Code to Production</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">CI/CD</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Continuous integration and deployment: from code to production</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">CI/CD transforms software delivery from a risky, manual process into an automated, reliable pipeline. By automatically building, testing, and deploying code changes, teams can release features faster, catch bugs earlier, and deliver value to users continuously. This automation isn't just about speed—it's about creating a safety net that gives developers confidence to innovate without fear of breaking production.</p>
-
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-rocket"></i>
-      <h4>Rapid Delivery</h4>
-      <p>Deploy changes multiple times per day with confidence</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-shield-alt"></i>
-      <h4>Early Bug Detection</h4>
-      <p>Catch issues in minutes, not days or weeks</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-users"></i>
-      <h4>Team Efficiency</h4>
-      <p>Free developers from manual deployment tasks</p>
-    </div>
-  </div>
-</div>
+CI/CD turns software delivery from a risky, manual process into an automated, reliable pipeline. Automatically building, testing, and deploying every change lets teams release faster, catch bugs in minutes instead of weeks, and free developers from manual deployment toil — a safety net that makes it safe to ship many times a day.
 
 ## What is CI/CD?
 
+The three terms are often conflated:
+
+- **Continuous Integration (CI)** — developers merge changes frequently (often several times a day), and each merge triggers an automated build and test run.
+- **Continuous Deployment (CD)** — every change that passes all tests is deployed to production automatically, with no manual gate.
+- **Continuous Delivery** — the same, except the final promotion to production requires a manual approval.
+
 ### The Restaurant Kitchen Analogy
 
-Imagine a busy restaurant kitchen:
-
-**Without CI/CD** (Traditional Approach):
-- Chef prepares entire meal alone
-- No one tastes until it reaches the customer
-- If something's wrong, the whole meal is remade
-- One chef = one meal at a time
-
-**With CI/CD** (Modern Approach):
-- Multiple chefs work on different dishes
-- Each component is tasted immediately (CI)
-- Approved dishes go straight to customers (CD)
-- Kitchen runs continuously, serving many orders
-
-### Breaking It Down
-
-**Continuous Integration (CI)**: Developers merge code changes frequently (usually several times per day), with each merge triggering automated builds and tests.
-
-**Continuous Deployment (CD)**: Code that passes all tests is automatically deployed to production without manual intervention.
-
-**Continuous Delivery**: A variation where code is automatically prepared for release but requires manual approval to deploy.
+A traditional release is one chef cooking an entire meal alone, with no one tasting it until it reaches the customer — if anything is wrong, the whole meal is remade. CI/CD is a kitchen where many chefs work in parallel, each dish is tasted the moment it's ready (CI), approved dishes go straight out (CD), and the kitchen runs continuously, serving many orders at once.
 
 ### The Pipeline at a Glance
 
@@ -196,35 +162,18 @@ Once the first pipeline runs, expand it incrementally:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>CI and CD Are Distinct</h4>
-    <p>CI integrates and tests every change automatically; CD takes passing builds the rest of the way to staging or production. You can adopt CI long before full CD.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Fast Feedback Is the Point</h4>
-    <p>The value is catching problems in minutes, not days. Parallelize tests, fail fast, and keep pipelines quick enough that developers trust them.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Deploy Strategies Manage Risk</h4>
-    <p>Blue-green, canary, and rolling deployments trade speed for safety in different ways. Pair them with automated rollback so a bad release is reversible.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Secure the Supply Chain</h4>
-    <p>Pipelines hold secrets and ship artifacts. Scan dependencies, sign artifacts, generate SBOMs, and grant least-privilege credentials to runners.</p>
-  </div>
-</div>
+- **CI and CD are distinct.** CI integrates and tests every change automatically; CD takes passing builds the rest of the way to staging or production. You can adopt CI long before full CD.
+- **Fast feedback is the point.** The value is catching problems in minutes, not days. Parallelize tests, fail fast, and keep pipelines quick enough that developers trust them.
+- **Deploy strategies manage risk.** Blue-green, canary, and rolling deployments trade speed for safety in different ways; pair them with automated rollback so a bad release is reversible.
+- **Secure the supply chain.** Pipelines hold secrets and ship artifacts. Scan dependencies, sign artifacts, generate SBOMs, and grant least-privilege credentials to runners.
 
 ---
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="../git/">Git Version Control</a> — the commits that trigger every pipeline</li>
-    <li><a href="../branching.html">Branching Strategies</a> — workflow patterns that shape your pipeline</li>
-    <li><a href="../docker/">Docker</a> — containerization for consistent build environments</li>
-    <li><a href="../kubernetes/">Kubernetes</a> — orchestration and automated deployments</li>
-    <li><a href="../terraform/">Terraform</a> — infrastructure as code for automated provisioning</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — securing the pipeline and its secrets</li>
-  </ul>
-</div>
+## See Also
+
+- [Git Version Control](../git/) — the commits that trigger every pipeline
+- [Branching Strategies](../branching.html) — workflow patterns that shape your pipeline
+- [Docker](../docker/) — containerization for consistent build environments
+- [Kubernetes](../kubernetes/) — orchestration and automated deployments
+- [Terraform](../terraform/) — infrastructure as code for automated provisioning
+- [Cybersecurity](../cybersecurity/) — securing the pipeline and its secrets

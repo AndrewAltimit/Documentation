@@ -4,20 +4,13 @@ title: "Quantum Mechanics: Advanced Formalism"
 permalink: /docs/physics/quantum-mechanics/qm-advanced-formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Formalism</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The graduate machinery behind the working theory: rigged Hilbert spaces, density matrices and mixed states, the path integral, coherent and squeezed states, and open quantum systems.</p>
-</div>
+## Advanced Formalism
 
 [Quantum Mechanics](./) &raquo; Advanced Formalism
 
-<div class="tip-card">
-  <h4>Level and scope</h4>
-  <p>This page is graduate-level reference material. It assumes comfort with the working formalism — Hilbert spaces, Dirac notation, the Schrödinger equation, and the harmonic oscillator ladder operators developed on the <a href="formalism.html">States, Operators &amp; Dynamics</a> page. Nothing here is a linear prerequisite for the earlier pages; it is collected for reference and for readers who want the mathematically complete picture.</p>
-</div>
+**Level and scope.** This page is graduate-level reference material. It assumes comfort with the working formalism — Hilbert spaces, Dirac notation, the Schrödinger equation, and the harmonic oscillator ladder operators developed on the [States, Operators & Dynamics](formalism.html) page. Nothing here is a linear prerequisite for the earlier pages; it is collected for reference and for readers who want the mathematically complete picture.
 
 ## Why Go Beyond the Textbook Formalism
 
@@ -390,36 +383,13 @@ The Dirac equation is the cornerstone of relativistic quantum mechanics and the 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Rigged Hilbert spaces legalize Dirac kets</h4>
-    <p>The Gelfand triple $\Phi \subset \mathcal{H} \subset \Phi'$ gives a rigorous home to non-normalizable position and momentum eigenstates.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Density matrices handle mixedness</h4>
-    <p>$\hat\rho$ describes statistical mixtures and subsystems; $\operatorname{Tr}(\hat\rho^2) = 1$ iff the state is pure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The path integral sums over histories</h4>
-    <p>Amplitudes are $\int \mathcal{D}[x]\,e^{iS/\hbar}$; classical mechanics is the stationary-phase $\hbar \to 0$ limit.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Coherent states are the most classical</h4>
-    <p>Eigenstates of $\hat a$, minimum-uncertainty, Poissonian photon statistics — the quantum picture of a laser.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Squeezing beats the symmetric noise floor</h4>
-    <p>Narrowing one quadrature below the standard quantum limit powers gravitational-wave detection.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Open systems obey Lindblad dynamics</h4>
-    <p>The CPTP, $T_1/T_2$-governed master equation captures decoherence and dissipation in real hardware.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Relativity forces spin and antimatter</h4>
-    <p>The Dirac equation is first order in space and time; spin-½ and the positron emerge automatically, bridging to QFT.</p>
-  </div>
-</div>
+- **Rigged Hilbert spaces legalize Dirac kets.** The Gelfand triple $\Phi \subset \mathcal{H} \subset \Phi'$ gives a rigorous home to non-normalizable position and momentum eigenstates.
+- **Density matrices handle mixedness.** $\hat\rho$ describes statistical mixtures and subsystems; $\operatorname{Tr}(\hat\rho^2) = 1$ iff the state is pure.
+- **The path integral sums over histories.** Amplitudes are $\int \mathcal{D}[x]\,e^{iS/\hbar}$; classical mechanics is the stationary-phase $\hbar \to 0$ limit.
+- **Coherent states are the most classical.** Eigenstates of $\hat a$, minimum-uncertainty, Poissonian photon statistics — the quantum picture of a laser.
+- **Squeezing beats the symmetric noise floor.** Narrowing one quadrature below the standard quantum limit powers gravitational-wave detection.
+- **Open systems obey Lindblad dynamics.** The CPTP, $T_1/T_2$-governed master equation captures decoherence and dissipation in real hardware.
+- **Relativity forces spin and antimatter.** The Dirac equation is first order in space and time; spin-½ and the positron emerge automatically, bridging to QFT.
 
 ---
 

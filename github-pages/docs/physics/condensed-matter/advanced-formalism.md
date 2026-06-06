@@ -4,17 +4,13 @@ title: "Condensed Matter: Graduate-Level Formalism & Experiment"
 permalink: /docs/physics/condensed-matter/advanced-formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Condensed Matter Physics](./) &raquo; Graduate-Level Formalism
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Graduate-Level Formalism &amp; Experiment</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Many-body theory, experimental probes, and research frontiers</p>
-</div>
+## Graduate-Level Formalism & Experiment
 
 This is the theory-first companion to the [Condensed Matter hub](./). It collects
 the graduate-level machinery — second quantization, Green's functions, topological
@@ -699,13 +695,8 @@ $$\frac{dI}{dV} \propto \rho_s(E_F)\rho_t(\mathbf{r},eV)$$
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — the narrative treatment of these phases.</li>
-    <li><a href="experimental-techniques.html">Experimental Techniques</a> — full methodology for the probes that test this formalism.</li>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and magnetism.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — DFT, Monte Carlo, and tensor-network simulations.</li>
-  </ul>
-</div>
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — the narrative treatment of these phases.
+- [Experimental Techniques](experimental-techniques.html) — full methodology for the probes that test this formalism.
+- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and magnetism.
+- [Quantum Field Theory](../quantum-field-theory.html) — field-theoretic methods for collective excitations.
+- [Computational Physics](../computational-physics/) — DFT, Monte Carlo, and tensor-network simulations.

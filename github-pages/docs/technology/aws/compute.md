@@ -9,10 +9,7 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Compute Services</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">EC2 virtual servers, Lambda serverless functions, Auto Scaling, and container patterns for running your applications in the cloud.</p>
-</div>
+EC2 virtual servers, Lambda serverless functions, Auto Scaling, and containers (ECS/Fargate) are the four main ways to run code on AWS. This page covers when to use each and how to operate them.
 
 ## Why Compute Services Matter
 
@@ -588,28 +585,11 @@ By now you have four ways to run code on AWS. This table ties them together:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>EC2 for Control, Lambda for Scale-to-Zero</h4>
-    <p>Choose EC2 when you need a long-running server you fully control; choose Lambda for event-driven, bursty work that should cost nothing when idle.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Auto Scaling + Load Balancing</h4>
-    <p>Pair an Auto Scaling group with a load balancer so capacity tracks demand and unhealthy instances are replaced automatically.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Spot Instances Cut Cost</h4>
-    <p>Use Spot for fault-tolerant, interruptible workloads to save up to 90%; keep baseline capacity on On-Demand or Reserved.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mind Lambda's Limits</h4>
-    <p>Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Fargate for Containers Without Servers</h4>
-    <p>Run containers on ECS (or EKS) with Fargate to skip host patching and scaling entirely — choose the EC2 launch type only when you need control over the underlying instances.</p>
-  </div>
-</div>
+- **EC2 for control, Lambda for scale-to-zero.** Choose EC2 when you need a long-running server you fully control; choose Lambda for event-driven, bursty work that should cost nothing when idle.
+- **Auto Scaling plus load balancing.** Pair an Auto Scaling group with a load balancer so capacity tracks demand and unhealthy instances are replaced automatically.
+- **Spot instances cut cost.** Use Spot for fault-tolerant, interruptible workloads to save up to 90%; keep baseline capacity on On-Demand or Reserved.
+- **Mind Lambda's limits.** Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.
+- **Fargate for containers without servers.** Run containers on ECS (or EKS) with Fargate to skip host patching and scaling entirely — choose the EC2 launch type only when you need control over the underlying instances.
 
 ---
 

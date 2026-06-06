@@ -6,10 +6,7 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Computational Complexity Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Machine models, resource-bounded complexity classes, completeness, the polynomial hierarchy, and the barriers around P vs NP</p>
-</div>
+# Computational Complexity Theory
 
 [Advanced Topics](./) &raquo; Computational Complexity Theory
 
@@ -17,16 +14,12 @@ hide_title: true
 **Graduate-level research page.** This page develops the formal theory of computation: machine models, time and space classes, reductions and completeness, the polynomial hierarchy, circuit complexity, randomized computation, and the relativization/natural-proofs barriers that explain why P vs NP remains open. **Prerequisites:** discrete mathematics, formal languages and automata, graph theory, basic probability, and mathematical maturity with asymptotic analysis. For applied algorithm analysis and Big-O in practice instead, see the [Distributed Systems Theory](../distributed-systems-theory/) page's complexity sections or the practical [Technology Hub](../../technology/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Complexity theory asks not <em>whether</em> a problem can be solved, but <em>how much</em> of a resource — time, memory, randomness, nondeterminism, circuit size — is required to solve it. Its central objects are <strong>complexity classes</strong>: sets of decision problems solvable within a given resource bound. Its central question is whether these classes are genuinely different. P vs NP is the most famous instance, but the same separation question recurs at every level of the hierarchy, and a recurring theme is that our standard proof techniques are provably too weak to settle it. This page builds the machinery from the Turing machine up to the barriers.</p>
-</div>
+Complexity theory asks not *whether* a problem can be solved, but *how much* of a resource — time, memory, randomness, nondeterminism, circuit size — is required to solve it. Its central objects are **complexity classes**: sets of decision problems solvable within a given resource bound. Its central question is whether these classes are genuinely different. P vs NP is the most famous instance, but the same separation question recurs at every level of the hierarchy, and a recurring theme is that our standard proof techniques are provably too weak to settle it. This page builds the machinery from the Turing machine up to the barriers.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-cogs"></i><h4>The model barely matters</h4><p>Up to polynomial overhead, every "reasonable" sequential model (multi-tape TM, RAM, while-program) computes the same things in the same time class. This robustness is what makes P a meaningful notion of "efficient."</p></div>
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>Completeness localizes hardness</h4><p>A single NP-complete problem — SAT — is a faithful proxy for all of NP. Polynomial-time reductions let one hard problem stand in for thousands.</p></div>
-  <div class="insight-card"><i class="fas fa-dice"></i><h4>Randomness may be free</h4><p>BPP is widely conjectured to equal P: under plausible circuit lower bounds, derandomization shows coin flips add no power to polynomial time.</p></div>
-  <div class="insight-card"><i class="fas fa-ban"></i><h4>Our tools hit walls</h4><p>Relativization, natural proofs, and algebrization each rule out broad classes of techniques for P vs NP. Any resolution must be "non-relativizing" and "non-naturalizing."</p></div>
-</div>
+- **The model barely matters.** Up to polynomial overhead, every "reasonable" sequential model (multi-tape TM, RAM, while-program) computes the same things in the same time class. This robustness is what makes P a meaningful notion of "efficient."
+- **Completeness localizes hardness.** A single NP-complete problem — SAT — is a faithful proxy for all of NP. Polynomial-time reductions let one hard problem stand in for thousands.
+- **Randomness may be free.** BPP is widely conjectured to equal P: under plausible circuit lower bounds, derandomization shows coin flips add no power to polynomial time.
+- **Our tools hit walls.** Relativization, natural proofs, and algebrization each rule out broad classes of techniques for P vs NP. Any resolution must be "non-relativizing" and "non-naturalizing."
 
 ### How to Read This Page
 
@@ -448,14 +441,12 @@ The only *unconditional* strict separation visible here is $\mathrm{P} \subsetne
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The model is robust</h4><p>Polynomial time is independent of the (reasonable, classical, sequential) machine model. That robustness is what makes P a meaningful definition of "efficient."</p></div>
-  <div class="takeaway-card"><h4>Hierarchies are the easy part</h4><p>Diagonalization proves more time/space buys more power (P &ne; EXP, L &ne; PSPACE). Changing the resource — determinism vs nondeterminism — is the hard, open direction.</p></div>
-  <div class="takeaway-card"><h4>Completeness compresses a class</h4><p>SAT captures all of NP under poly-time reductions. Solve one NP-complete problem efficiently and P = NP follows for free.</p></div>
-  <div class="takeaway-card"><h4>Alternation builds PH</h4><p>Stacking &exist;/&forall; quantifiers gives the polynomial hierarchy. Any collapse at one level cascades downward; an infinite PH is stronger than P &ne; NP.</p></div>
-  <div class="takeaway-card"><h4>Circuits and randomness reframe it</h4><p>NP &not;&sube; P/poly would prove P &ne; NP; and a strong circuit lower bound would instead collapse BPP into P via derandomization.</p></div>
-  <div class="takeaway-card"><h4>Three barriers, one moral</h4><p>Relativization, natural proofs, and algebrization each kill a class of techniques. A resolution of P vs NP must dodge all three.</p></div>
-</div>
+- **The model is robust.** Polynomial time is independent of the (reasonable, classical, sequential) machine model. That robustness is what makes P a meaningful definition of "efficient."
+- **Hierarchies are the easy part.** Diagonalization proves more time/space buys more power (P &ne; EXP, L &ne; PSPACE). Changing the resource — determinism vs nondeterminism — is the hard, open direction.
+- **Completeness compresses a class.** SAT captures all of NP under poly-time reductions. Solve one NP-complete problem efficiently and P = NP follows for free.
+- **Alternation builds PH.** Stacking &exist;/&forall; quantifiers gives the polynomial hierarchy. Any collapse at one level cascades downward; an infinite PH is stronger than P &ne; NP.
+- **Circuits and randomness reframe it.** NP &not;&sube; P/poly would prove P &ne; NP; and a strong circuit lower bound would instead collapse BPP into P via derandomization.
+- **Three barriers, one moral.** Relativization, natural proofs, and algebrization each kill a class of techniques. A resolution of P vs NP must dodge all three.
 
 ## References
 

@@ -6,9 +6,9 @@ hide_title: true
 toc: false
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Cloud Services Hub</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your complete guide to Amazon Web Services, from first deployment to multi-region architectures.</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2rem;">AWS Cloud Services Hub</h1>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">Amazon Web Services, from first deployment to multi-region architectures.</p>
 </div>
 
 ## Why AWS?
@@ -21,11 +21,7 @@ Before diving into specific services, consider why millions of organizations cho
 - **Reliability**: Built-in redundancy and disaster recovery options
 - **Innovation**: Access cutting-edge services (AI/ML, IoT, analytics) without building expertise from scratch
 
-Think of AWS as a massive technology toolkit in the cloud. Instead of buying and maintaining your own servers, you rent computing power, storage, and dozens of other services from Amazon's data centers around the world.
-
-<div class="hub-intro">
-  <p class="lead">Whether you're deploying your first EC2 instance or architecting multi-region systems, you'll find detailed guides, practical patterns, and real-world examples to help you build on AWS.</p>
-</div>
+Think of AWS as a massive technology toolkit in the cloud. Instead of buying and maintaining your own servers, you rent computing power, storage, and dozens of other services from Amazon's data centers around the world. Whether you're deploying your first EC2 instance or architecting multi-region systems, the guides below cover the patterns and trade-offs.
 
 ---
 

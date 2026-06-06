@@ -4,17 +4,13 @@ title: "Condensed Matter: Superconductivity, Quantum Hall & Topological Phases"
 permalink: /docs/physics/condensed-matter/emergent-phases.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Condensed Matter Physics](./)
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Superconductivity, Quantum Hall &amp; Topological Phases</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The emergent and topological states of matter</p>
-</div>
+## Superconductivity, Quantum Hall & Topological Phases
 
 ## Superconductivity
 
@@ -472,11 +468,6 @@ Debye screening length: $\lambda_D = \sqrt{\frac{\epsilon k_B T}{2e^2 n_0}}$
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — Bogoliubov-de Gennes, Chern-Simons, DMFT, and experimental probes.</li>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and magnetism.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>
-  </ul>
-</div>
+- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — Bogoliubov-de Gennes, Chern-Simons, DMFT, and experimental probes.
+- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and magnetism.
+- [Quantum Field Theory](../quantum-field-theory.html) — field-theoretic methods for collective excitations.

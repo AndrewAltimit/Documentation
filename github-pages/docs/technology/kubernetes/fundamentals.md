@@ -7,11 +7,6 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Part I — Architecture &amp; core objects: the control plane and nodes, Pods, ReplicaSets, Deployments, Services, Namespaces, and labels.</p>
-</div>
-
 [Kubernetes](./) &raquo; Fundamentals
 
 This is **Part I** of the Kubernetes Fundamentals. It covers the architecture (control plane and worker nodes) and the core objects you create every day — Pods, ReplicaSets, Deployments, Services, Namespaces — plus the labels and selectors that wire them together. It opens with a hands-on quick start so you can see the system work before meeting the abstractions.
@@ -122,11 +117,9 @@ Now that you understand why Kubernetes exists, let us explore how it works. The 
 
 **Consider the following**: When you run `kubectl apply -f deployment.yaml`, your request travels through several components. The API Server receives it, stores the desired state in etcd, the Scheduler decides which node should run the pods, and the Controller Manager ensures reality matches your specification. Understanding this flow helps you troubleshoot when things go wrong.
 
-<div class="architecture-section">
-  <h3><i class="fas fa-sitemap"></i> Architecture Overview</h3>
-  <p>Kubernetes follows a master-worker architecture. The control plane manages the cluster while worker nodes run your applications.</p>
-  
-  <div class="architecture-visual">
+Kubernetes follows a control-plane / worker-node architecture: the control plane manages the cluster while worker nodes run your applications.
+
+<div class="architecture-visual">
     <svg viewBox="0 0 700 400" class="k8s-architecture">
       <!-- Control Plane -->
       <rect x="50" y="50" width="600" height="120" fill="#3498db" opacity="0.1" stroke="#3498db" stroke-width="2" />
@@ -197,54 +190,9 @@ Now that you understand why Kubernetes exists, let us explore how it works. The 
       <path d="M 360 150 L 350 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3" />
       <path d="M 480 150 L 560 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3" />
     </svg>
-  </div>
-  
-  <div class="component-details">
-    <div class="component-group control-plane">
-      <h4><i class="fas fa-server"></i> Control Plane Components</h4>
-      <div class="component-list">
-        <div class="component-item">
-          <i class="fas fa-plug"></i>
-          <strong>API Server:</strong> Central management point, exposes Kubernetes API
-        </div>
-        <div class="component-item">
-          <i class="fas fa-database"></i>
-          <strong>etcd:</strong> Distributed key-value store for cluster state
-        </div>
-        <div class="component-item">
-          <i class="fas fa-calendar-alt"></i>
-          <strong>Scheduler:</strong> Assigns pods to nodes based on resource requirements
-        </div>
-        <div class="component-item">
-          <i class="fas fa-cogs"></i>
-          <strong>Controller Manager:</strong> Runs controller processes
-        </div>
-        <div class="component-item">
-          <i class="fas fa-cloud"></i>
-          <strong>Cloud Controller Manager:</strong> Integrates with cloud provider APIs
-        </div>
-      </div>
-    </div>
-    
-    <div class="component-group node-components">
-      <h4><i class="fas fa-microchip"></i> Node Components</h4>
-      <div class="component-list">
-        <div class="component-item">
-          <i class="fas fa-heartbeat"></i>
-          <strong>kubelet:</strong> Ensures containers are running in pods
-        </div>
-        <div class="component-item">
-          <i class="fas fa-network-wired"></i>
-          <strong>kube-proxy:</strong> Maintains network rules for pod communication
-        </div>
-        <div class="component-item">
-          <i class="fas fa-box"></i>
-          <strong>Container Runtime:</strong> Docker, containerd, or CRI-O
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
+
+The control plane runs the **API Server** (the API gateway), **etcd** (the state store), the **Scheduler** (pod placement), the **Controller Manager** (the built-in controllers), and the **Cloud Controller Manager** (cloud-provider integration). Each worker node runs the **kubelet** (node agent), **kube-proxy** (service networking), and a **container runtime** (containerd or CRI-O). The next two sections detail each side.
 
 ### The Control Plane in Detail
 
@@ -340,35 +288,20 @@ Every Kubernetes object shares the same four top-level fields, worth recognizing
 
 ### Pods
 
-<div class="k8s-objects-section">
-  <div class="object-card pod-object">
-    <div class="object-header">
-      <i class="fas fa-cube"></i>
-      <h4>Pods</h4>
-    </div>
-    <p class="object-desc">The smallest deployable unit in Kubernetes:</p>
-    
-    <div class="object-visual">
-      <svg viewBox="0 0 300 150">
-        <!-- Pod outline -->
-        <rect x="50" y="30" width="200" height="90" rx="10" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2" />
-        <text x="150" y="20" text-anchor="middle" font-size="12" font-weight="bold">Pod</text>
-        
-        <!-- Containers inside pod -->
-        <rect x="70" y="50" width="70" height="50" fill="#e74c3c" opacity="0.5" rx="5" />
-        <text x="105" y="80" text-anchor="middle" font-size="10" fill="white">Container 1</text>
-        
-        <rect x="160" y="50" width="70" height="50" fill="#27ae60" opacity="0.5" rx="5" />
-        <text x="195" y="80" text-anchor="middle" font-size="10" fill="white">Container 2</text>
-        
-        <!-- Shared resources -->
-        <text x="150" y="130" text-anchor="middle" font-size="9">Shared Network & Storage</text>
-      </svg>
-    </div>
-    
-    <div class="code-example">
-      <div class="code-header">Pod Definition</div>
-      <pre><code class="language-yaml">apiVersion: v1
+A **Pod** is the smallest thing Kubernetes schedules. It is not a single container — it is a wrapper around one *or more* tightly coupled containers that share:
+
+- a **network namespace** — every container in the pod shares one IP address and port space, so they reach each other over `localhost`;
+- **storage volumes** — mounted into any container in the pod that asks for them;
+- a **lifecycle** — they are scheduled, started, and stopped together on the same node.
+
+Most pods hold exactly one container. The multi-container pattern is reserved for **helpers** that must live beside the main process: a **sidecar** (for example a log shipper or a service-mesh proxy) and an **init container** that runs to completion *before* the main containers start (covered with the operational patterns in [Operations](operations.html)).
+
+**Pods are ephemeral.** This is the most important thing to internalize. A pod is never healed in place — if its node dies, the pod is gone for good and a *new* pod with a *new* name and *new* IP is created elsewhere. That is why you almost never create a bare `Pod` in production: nothing would recreate it. Instead you let a controller own it.
+
+A bare Pod manifest is rarely used directly, but it shows the minimal shape:
+
+```yaml
+apiVersion: v1
 kind: Pod
 metadata:
   name: nginx-pod
@@ -379,42 +312,8 @@ spec:
   - name: nginx
     image: nginx:1.21
     ports:
-    - containerPort: 80</code></pre>
-    </div>
-    
-    <div class="key-features">
-      <h5>Key Features:</h5>
-      <div class="feature-grid">
-        <div class="feature-item">
-          <i class="fas fa-layer-group"></i>
-          <span>One or more containers</span>
-        </div>
-        <div class="feature-item">
-          <i class="fas fa-share-alt"></i>
-          <span>Shared network and storage</span>
-        </div>
-        <div class="feature-item">
-          <i class="fas fa-hourglass-half"></i>
-          <span>Ephemeral by design</span>
-        </div>
-        <div class="feature-item">
-          <i class="fas fa-fingerprint"></i>
-          <span>Unique IP address</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-A **Pod** is the smallest thing Kubernetes schedules. It is not a single container — it is a wrapper around one *or more* tightly coupled containers that share:
-
-- a **network namespace** — every container in the pod shares one IP address and port space, so they reach each other over `localhost`;
-- **storage volumes** — mounted into any container in the pod that asks for them;
-- a **lifecycle** — they are scheduled, started, and stopped together on the same node.
-
-Most pods hold exactly one container. The multi-container pattern is reserved for **helpers** that must live beside the main process: a **sidecar** (for example a log shipper or a service-mesh proxy) and an **init container** that runs to completion *before* the main containers start (covered with the operational patterns in [Operations](operations.html)).
-
-**Pods are ephemeral.** This is the most important thing to internalize. A pod is never healed in place — if its node dies, the pod is gone for good and a *new* pod with a *new* name and *new* IP is created elsewhere. That is why you almost never create a bare `Pod` in production: nothing would recreate it. Instead you let a controller own it.
+    - containerPort: 80
+```
 
 ```bash
 kubectl get pods -o wide              # which node, which IP
@@ -453,47 +352,10 @@ Note the structure that repeats across every workload controller: a **`selector`
 
 ### Deployments
 
-<div class="k8s-objects-section">
-  <div class="object-card deployment-object">
-    <div class="object-header">
-      <i class="fas fa-rocket"></i>
-      <h4>Deployments</h4>
-    </div>
-    <p class="object-desc">Manages replica sets and provides declarative updates:</p>
-    
-    <div class="object-visual">
-      <svg viewBox="0 0 400 200">
-        <!-- Deployment controller -->
-        <rect x="150" y="20" width="100" height="40" fill="#9b59b6" opacity="0.5" stroke="#8e44ad" stroke-width="2" />
-        <text x="200" y="45" text-anchor="middle" font-size="11" fill="white">Deployment</text>
-        
-        <!-- ReplicaSet -->
-        <rect x="125" y="80" width="150" height="40" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2" />
-        <text x="200" y="105" text-anchor="middle" font-size="10">ReplicaSet</text>
-        
-        <!-- Pods -->
-        <circle cx="120" cy="160" r="20" fill="#e74c3c" opacity="0.5" />
-        <text x="120" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
-        
-        <circle cx="200" cy="160" r="20" fill="#e74c3c" opacity="0.5" />
-        <text x="200" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
-        
-        <circle cx="280" cy="160" r="20" fill="#e74c3c" opacity="0.5" />
-        <text x="280" y="165" text-anchor="middle" font-size="9" fill="white">Pod</text>
-        
-        <!-- Arrows -->
-        <path d="M 200 60 L 200 75" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-        <path d="M 150 120 L 120 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-        <path d="M 200 120 L 200 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-        <path d="M 250 120 L 280 135" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-        
-        <text x="330" y="105" font-size="10">Replicas: 3</text>
-      </svg>
-    </div>
-    
-    <div class="code-example">
-      <div class="code-header">Deployment Definition</div>
-      <pre><code class="language-yaml">apiVersion: apps/v1
+A **Deployment** is the object you reach for to run a stateless application. It manages a ReplicaSet and adds rolling updates, rollback, scaling, and self-healing on top:
+
+```yaml
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
@@ -511,38 +373,10 @@ spec:
       - name: nginx
         image: nginx:1.21
         ports:
-        - containerPort: 80</code></pre>
-    </div>
-    
-    <div class="deployment-features">
-      <h5>Features:</h5>
-      <div class="feature-cards">
-        <div class="feature-card">
-          <i class="fas fa-sync-alt"></i>
-          <h6>Rolling Updates</h6>
-          <p>Zero-downtime deployments</p>
-        </div>
-        <div class="feature-card">
-          <i class="fas fa-undo"></i>
-          <h6>Rollback</h6>
-          <p>Revert to previous versions</p>
-        </div>
-        <div class="feature-card">
-          <i class="fas fa-expand-arrows-alt"></i>
-          <h6>Scaling</h6>
-          <p>Adjust replica count</p>
-        </div>
-        <div class="feature-card">
-          <i class="fas fa-heartbeat"></i>
-          <h6>Self-healing</h6>
-          <p>Automatic pod recovery</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+        - containerPort: 80
+```
 
-A **Deployment** is the object you reach for to run a stateless application. It sits one level above the ReplicaSet and adds the thing a bare ReplicaSet lacks: **versioned, controlled rollouts**. The ownership chain is:
+It sits one level above the ReplicaSet and adds the thing a bare ReplicaSet lacks: **versioned, controlled rollouts**. The ownership chain is:
 
 ```
 Deployment  ──owns──►  ReplicaSet  ──owns──►  Pods
@@ -579,63 +413,8 @@ This is also the source of the self-healing you saw in the quick start: the Depl
 
 ### Services (Overview)
 
-<div class="k8s-objects-section">
-  <div class="object-card service-object">
-    <div class="object-header">
-      <i class="fas fa-network-wired"></i>
-      <h4>Services</h4>
-    </div>
-    <p class="object-desc">Provides stable network endpoint for pods:</p>
-    
-    <div class="service-types-visual">
-      <h5>Service Types</h5>
-      <div class="service-type-grid">
-        <div class="service-type clusterip">
-          <svg viewBox="0 0 150 120">
-            <rect x="30" y="30" width="90" height="60" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2" />
-            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">ClusterIP</text>
-            <circle cx="50" cy="60" r="8" fill="#e74c3c" />
-            <circle cx="75" cy="60" r="8" fill="#e74c3c" />
-            <circle cx="100" cy="60" r="8" fill="#e74c3c" />
-            <text x="75" y="105" text-anchor="middle" font-size="9">Internal Only</text>
-          </svg>
-        </div>
-        
-        <div class="service-type nodeport">
-          <svg viewBox="0 0 150 120">
-            <rect x="30" y="30" width="90" height="60" fill="#27ae60" opacity="0.2" stroke="#27ae60" stroke-width="2" />
-            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">NodePort</text>
-            <circle cx="75" cy="60" r="8" fill="#e74c3c" />
-            <line x1="75" y1="52" x2="75" y2="10" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
-            <text x="75" y="105" text-anchor="middle" font-size="9">Node IP:Port</text>
-          </svg>
-        </div>
-        
-        <div class="service-type loadbalancer">
-          <svg viewBox="0 0 150 120">
-            <ellipse cx="75" cy="15" rx="40" ry="10" fill="#f39c12" opacity="0.3" />
-            <text x="75" y="18" text-anchor="middle" font-size="9">LB</text>
-            <rect x="30" y="40" width="90" height="50" fill="#f39c12" opacity="0.2" stroke="#f39c12" stroke-width="2" />
-            <text x="75" y="35" text-anchor="middle" font-size="10" font-weight="bold">LoadBalancer</text>
-            <circle cx="75" cy="65" r="8" fill="#e74c3c" />
-            <text x="75" y="105" text-anchor="middle" font-size="9">External LB</text>
-          </svg>
-        </div>
-        
-        <div class="service-type externalname">
-          <svg viewBox="0 0 150 120">
-            <rect x="30" y="30" width="90" height="60" fill="#9b59b6" opacity="0.2" stroke="#9b59b6" stroke-width="2" />
-            <text x="75" y="20" text-anchor="middle" font-size="10" font-weight="bold">ExternalName</text>
-            <text x="75" y="60" text-anchor="middle" font-size="16">DNS</text>
-            <text x="75" y="105" text-anchor="middle" font-size="9">Maps to DNS</text>
-          </svg>
-        </div>
-      </div>
-    </div>
-    
-    <div class="code-example">
-      <div class="code-header">Service Definition</div>
-      <pre><code class="language-yaml">apiVersion: v1
+```yaml
+apiVersion: v1
 kind: Service
 metadata:
   name: nginx-service
@@ -645,10 +424,8 @@ spec:
   ports:
   - port: 80
     targetPort: 80
-  type: LoadBalancer</code></pre>
-    </div>
-  </div>
-</div>
+  type: LoadBalancer
+```
 
 Pods are ephemeral and their IPs change every time they are rescheduled, so you can never hand a pod IP to a client. A **Service** solves this by giving a *stable* virtual IP and DNS name that fronts a *changing* set of pods. The Service finds its backing pods the same way every controller does — by **label selector** — and load-balances across whichever pods currently match.
 
@@ -666,84 +443,6 @@ The four Service types differ only in *how far* that stable endpoint reaches:
 This is the *overview*. How kube-proxy programs the routing, how DNS-based service discovery works, how Ingress fans one external IP out to many Services, and how NetworkPolicies restrict pod-to-pod traffic are all covered in depth in **[Networking &amp; Configuration](fundamentals-networking.html)**. Configuration injection with ConfigMaps and Secrets lives on that page as well.
 
 ### Namespaces
-
-<div class="k8s-objects-section">
-  <div class="object-card namespace-object">
-    <div class="object-header">
-      <i class="fas fa-folder"></i>
-      <h4>Namespaces</h4>
-    </div>
-    <p class="object-desc">Logical isolation within a cluster:</p>
-    
-    <div class="namespace-visual">
-      <svg viewBox="0 0 400 250">
-        <!-- Cluster boundary -->
-        <rect x="20" y="20" width="360" height="210" fill="none" stroke="#2c3e50" stroke-width="2" stroke-dasharray="5,5" />
-        <text x="200" y="15" text-anchor="middle" font-size="12" font-weight="bold">Kubernetes Cluster</text>
-        
-        <!-- Default namespace -->
-        <rect x="40" y="40" width="150" height="80" fill="#3498db" opacity="0.2" stroke="#3498db" stroke-width="2" />
-        <text x="115" y="60" text-anchor="middle" font-size="11" font-weight="bold">default</text>
-        <circle cx="70" cy="90" r="8" fill="#e74c3c" />
-        <circle cx="100" cy="90" r="8" fill="#e74c3c" />
-        <circle cx="130" cy="90" r="8" fill="#e74c3c" />
-        <text x="100" y="110" text-anchor="middle" font-size="9">User Apps</text>
-        
-        <!-- kube-system namespace -->
-        <rect x="210" y="40" width="150" height="80" fill="#e74c3c" opacity="0.2" stroke="#e74c3c" stroke-width="2" />
-        <text x="285" y="60" text-anchor="middle" font-size="11" font-weight="bold">kube-system</text>
-        <rect x="234" y="79" width="12" height="12" fill="#c0392b" />
-        <rect x="264" y="79" width="12" height="12" fill="#c0392b" />
-        <rect x="294" y="79" width="12" height="12" fill="#c0392b" />
-        <text x="270" y="110" text-anchor="middle" font-size="9">System Pods</text>
-        
-        <!-- Development namespace -->
-        <rect x="40" y="140" width="150" height="70" fill="#27ae60" opacity="0.2" stroke="#27ae60" stroke-width="2" />
-        <text x="115" y="160" text-anchor="middle" font-size="11" font-weight="bold">development</text>
-        <circle cx="70" cy="185" r="8" fill="#229954" />
-        <circle cx="100" cy="185" r="8" fill="#229954" />
-        <text x="85" y="205" text-anchor="middle" font-size="9">Dev Apps</text>
-        
-        <!-- Production namespace -->
-        <rect x="210" y="140" width="150" height="70" fill="#f39c12" opacity="0.2" stroke="#f39c12" stroke-width="2" />
-        <text x="285" y="160" text-anchor="middle" font-size="11" font-weight="bold">production</text>
-        <circle cx="240" cy="185" r="8" fill="#d68910" />
-        <circle cx="270" cy="185" r="8" fill="#d68910" />
-        <text x="255" y="205" text-anchor="middle" font-size="9">Prod Apps</text>
-      </svg>
-    </div>
-    
-    <div class="code-example">
-      <div class="code-header">Namespace Definition</div>
-      <pre><code class="language-yaml">apiVersion: v1
-kind: Namespace
-metadata:
-  name: development</code></pre>
-    </div>
-    
-    <div class="default-namespaces">
-      <h5>Default Namespaces:</h5>
-      <div class="namespace-list">
-        <div class="namespace-item">
-          <code>default</code>
-          <span>Default namespace for objects</span>
-        </div>
-        <div class="namespace-item">
-          <code>kube-system</code>
-          <span>Kubernetes system objects</span>
-        </div>
-        <div class="namespace-item">
-          <code>kube-public</code>
-          <span>Publicly accessible data</span>
-        </div>
-        <div class="namespace-item">
-          <code>kube-node-lease</code>
-          <span>Node heartbeat data</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 A **Namespace** is a virtual cluster inside a physical one — a way to partition objects so that names, quotas, and access controls do not collide. Two teams can both have a `Deployment` named `web` as long as they live in different namespaces.
 
@@ -827,24 +526,10 @@ kubectl get pods --show-labels
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Declarative, Not Imperative</h4>
-    <p>You describe desired state; controllers continuously reconcile reality toward it. This is the source of self-healing.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Everything Goes Through the API Server</h4>
-    <p>Components never talk directly — they watch the API server, which persists state in etcd.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Deployments Manage Pods</h4>
-    <p>Work with Deployments and Services, not raw pods. The Deployment owns the ReplicaSet, replica count, and rollout; the Service owns the stable address.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Labels Wire It Together</h4>
-    <p>Services, NetworkPolicies, and selectors all match by label. Consistent labeling is foundational.</p>
-  </div>
-</div>
+- **Declarative, not imperative.** You describe desired state; controllers continuously reconcile reality toward it. This is the source of self-healing.
+- **Everything goes through the API server.** Components never talk directly — they watch the API server, which persists state in etcd.
+- **Deployments manage pods.** Work with Deployments and Services, not raw pods. The Deployment owns the ReplicaSet, replica count, and rollout; the Service owns the stable address.
+- **Labels wire it together.** Services, NetworkPolicies, and selectors all match by label, so consistent labeling is foundational.
 
 ---
 

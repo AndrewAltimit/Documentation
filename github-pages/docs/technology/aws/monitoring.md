@@ -9,11 +9,6 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Monitoring &amp; Messaging</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">CloudWatch metrics, logs, and alarms plus SNS/SQS messaging — the observability and integration layer that keeps a cloud system healthy and loosely coupled.</p>
-</div>
-
 You can only operate what you can see, and resilient systems are built from components that do not block on each other. This page covers the two halves of that story: **CloudWatch** for monitoring and management, and **SNS/SQS** for messaging and integration. It closes with a proactive monitoring and troubleshooting toolkit you can reach for when something looks off.
 
 ---
@@ -299,20 +294,9 @@ aws cloudwatch put-metric-alarm \
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Instrument Before You Need It</h4>
-    <p>CloudWatch metrics, logs, and alarms turn outages into diagnosable events. Add custom metrics and set log retention so data is there — and costs stay bounded — when something breaks.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Decouple with SNS and SQS</h4>
-    <p>SNS broadcasts to many subscribers; SQS buffers work for reliable, at-your-own-pace processing. Combine them for fan-out with durable delivery.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>FIFO When Order Matters</h4>
-    <p>Reach for SQS FIFO queues and message group IDs when per-key ordering and exactly-once processing are required, such as payments.</p>
-  </div>
-</div>
+- **Instrument before you need it.** CloudWatch metrics, logs, and alarms turn outages into diagnosable events. Add custom metrics and set log retention so data is there — and costs stay bounded — when something breaks.
+- **Decouple with SNS and SQS.** SNS broadcasts to many subscribers; SQS buffers work for reliable, at-your-own-pace processing. Combine them for fan-out with durable delivery.
+- **FIFO when order matters.** Reach for SQS FIFO queues and message group IDs when per-key ordering and exactly-once processing are required, such as payments.
 
 ---
 

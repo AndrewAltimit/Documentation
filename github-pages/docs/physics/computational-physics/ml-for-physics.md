@@ -9,17 +9,11 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Machine Learning for Physics</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Machine Learning for Physics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Learning the physics directly from data — solving PDEs, emulating simulators, and respecting symmetry by construction.</p>
-</div>
+Learning the physics directly from data — solving PDEs, emulating simulators, and respecting symmetry by construction.
 
 Machine learning entered computational physics not to replace the differential equations but to *complement* them. A traditional solver discretizes a known equation and grinds through it for one set of boundary conditions; a learned model can absorb a known equation as a soft constraint (PINNs), amortize an entire family of solutions into a single forward pass (neural operators), or replace an intractable quantum-chemistry calculation with a cheap surrogate that still obeys the right invariances (neural-network potentials). The unifying theme is **inductive bias**: the more physics you bake into the architecture or loss, the less data you need and the better the model generalizes.
 
-<div class="insight-card">
-  <h4>Why physics priors matter</h4>
-  <p>A generic neural network is a universal approximator, but in the small-data, high-stakes regime of physics that universality is a liability — it will happily fit a function that violates energy conservation or rotational symmetry. Encoding the symmetry group, the governing PDE, or the conservation law <em>into</em> the model shrinks the hypothesis space to functions that are physically admissible, which is why a symmetry-aware network can match a generic one with orders of magnitude less data.</p>
-</div>
+**Why physics priors matter.** A generic neural network is a universal approximator, but in the small-data, high-stakes regime of physics that universality is a liability — it will happily fit a function that violates energy conservation or rotational symmetry. Encoding the symmetry group, the governing PDE, or the conservation law *into* the model shrinks the hypothesis space to physically admissible functions, which is why a symmetry-aware network can match a generic one with orders of magnitude less data.
 
 ## Recent Advances in Physics-ML Integration
 
@@ -161,10 +155,7 @@ The failure modes are equally important to know:
 - **Loss balancing.** The relative magnitude of $L_r$, $L_b$, $L_i$ controls everything, and a poorly weighted PINN happily satisfies the PDE in the interior while ignoring the boundary. Adaptive weighting (e.g., learning-rate annealing on the gradients of each term, or the neural-tangent-kernel-based schemes) is often essential.
 - **Optimization, not approximation, is the bottleneck.** A network *can* represent the solution, but Adam frequently stalls in a bad minimum; a second-order optimizer (L-BFGS) after Adam warm-up is the standard remedy.
 
-<div class="insight-card">
-  <h4>Hard vs. soft constraints</h4>
-  <p>Penalizing boundary/initial conditions in the loss is a <em>soft</em> constraint — the network only approximately satisfies them. You can instead enforce them <em>exactly</em> by construction: write the output as <code>u(x,t) = u0(x) + t·g(x) + t·(x+1)(x-1)·N(x,t)</code> so the ansatz already obeys the IC and Dirichlet BCs for any network N. Hard constraints remove the corresponding loss terms entirely and usually train far more reliably.</p>
-</div>
+**Hard vs. soft constraints.** Penalizing boundary/initial conditions in the loss is a *soft* constraint — the network only approximately satisfies them. You can instead enforce them *exactly* by construction: write the output as `u(x,t) = u0(x) + t·g(x) + t·(x+1)(x-1)·N(x,t)` so the ansatz already obeys the IC and Dirichlet BCs for any network N. Hard constraints remove the corresponding loss terms entirely and usually train far more reliably.
 
 ## Equivariant and Symmetry-Aware Networks
 
@@ -468,10 +459,7 @@ def train_fno_navier_stokes():
 
 The two-channel split in `SpectralConv2d` (low-frequency modes from both the positive and negative ends of the spectrum) reflects the conjugate symmetry of the real FFT. The complementary $1\times 1$ convolution `w` lets the operator represent the high-frequency, local residual that the truncated spectral path discards — the same low-pass-plus-local-correction structure that makes FNOs both expressive and resolution-robust. Beyond the FNO, **DeepONet** offers an alternative operator-learning paradigm (a "branch" network encodes the input function and a "trunk" network encodes the query location), and **graph neural operators** generalize the construction to irregular meshes where the FFT no longer applies.
 
-<div class="insight-card">
-  <h4>PINN vs. neural operator: which to reach for</h4>
-  <p>Use a <strong>PINN</strong> when you need <em>one</em> high-accuracy solution to a known PDE, possibly with an unknown parameter to infer, and have little or no labeled data. Use a <strong>neural operator</strong> when you must solve the <em>same</em> PDE family thousands of times (uncertainty quantification, design optimization, real-time control) and can afford to generate a training set of paired input–output functions once.</p>
-</div>
+**PINN vs. neural operator: which to reach for.** Use a **PINN** when you need *one* high-accuracy solution to a known PDE, possibly with an unknown parameter to infer, and have little or no labeled data. Use a **neural operator** when you must solve the *same* PDE family thousands of times (uncertainty quantification, design optimization, real-time control) and can afford to generate a training set of paired input-output functions once.
 
 ## See Also
 

@@ -4,15 +4,9 @@ title: "AI: Deep Learning Architectures"
 permalink: /docs/technology/ai/deep-learning-architectures.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Deep Learning Architectures
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Deep Learning Architectures</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From the multilayer perceptron to convolutions, recurrence, attention, Transformers, and the sequence models that followed.</p>
-</div>
 
 Deep learning is the art of composing simple differentiable operations into networks deep enough to learn hierarchical representations. This page is a tour of the *architectural families* that have defined the field: the fully-connected baseline, the convolutional networks that conquered vision, the recurrent networks that first tamed sequences, the attention mechanism and the Transformer that displaced them, the Vision Transformer and CLIP that brought attention to images and to multimodal data, and finally the post-Transformer landscape of state-space models and efficient-attention variants. Each section gives the intuition, the core mathematics (ASCII display math only), and a pointer to runnable code.
 
@@ -102,11 +96,7 @@ Convolution bakes in two assumptions that match natural images:
 
 The residual idea is worth isolating, because it appears everywhere. By learning a residual $\mathcal{F}(\mathbf{x})$ rather than a full transformation, each block only needs to learn the *difference* from the identity, which is far easier to optimize and keeps the backward-pass Jacobian close to the identity, mitigating vanishing gradients.
 
-<div class="use-cases">
-  <span class="use-case-tag">Image Classification</span>
-  <span class="use-case-tag">Object Detection</span>
-  <span class="use-case-tag">Segmentation</span>
-</div>
+*Typical uses: image classification, object detection, segmentation.*
 
 ## Recurrent Networks: RNNs, LSTMs, and GRUs
 
@@ -205,11 +195,7 @@ $$\mathbf{h}_t = (1 - \mathbf{z}_t)\odot \mathbf{h}_{t-1} + \mathbf{z}_t \odot \
 
 Even with gating, RNNs share two structural weaknesses: they are **inherently sequential** (step $t$ cannot be computed until step $t-1$ finishes, so they do not parallelize across the sequence on modern hardware), and information from distant tokens must survive a long chain of state updates. Both problems are solved by attention, which lets any position read directly from any other.
 
-<div class="use-cases">
-  <span class="use-case-tag">Time Series</span>
-  <span class="use-case-tag">Speech Recognition</span>
-  <span class="use-case-tag">Sequence Modeling</span>
-</div>
+*Typical uses: time series, speech recognition, sequence modeling.*
 
 ## Attention and the Transformer
 
@@ -283,11 +269,7 @@ Contemporary models more often use **learned**, **rotary (RoPE)**, or **ALiBi** 
 <i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/transformer_architectures.py">transformer_architectures.py</a>
 </div>
 
-<div class="use-cases">
-  <span class="use-case-tag">BERT</span>
-  <span class="use-case-tag">GPT</span>
-  <span class="use-case-tag">T5</span>
-</div>
+*Landmark models: BERT, GPT, T5.*
 
 ## Vision Transformers (ViT)
 

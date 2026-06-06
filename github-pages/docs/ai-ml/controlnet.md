@@ -11,14 +11,7 @@ toc_icon: "cog"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">ControlNet Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master ControlNet for precise control over AI image generation using poses, edges, depth, and more.</p>
-</div>
-
-<div class="code-example" markdown="1">
 Stop fighting the prompt for composition. ControlNet lets you *show* the model the pose, edges, or depth you want and have it follow that structure exactly while the prompt handles content and style.
-</div>
 
 ## Why Use ControlNet?
 
@@ -29,23 +22,9 @@ Prompts are great at describing *what* to generate but poor at controlling *wher
 - **Consistency** - Hold a character's pose or a scene's geometry steady across many generations
 - **Style-preserving structure** - Restyle a photo while keeping its shapes and depth intact
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-vector-square"></i>
-    <h4>Control Maps</h4>
-    <p>A preprocessor turns your reference into a pose skeleton, edge map, or depth gradient that steers every denoising step.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sliders-h"></i>
-    <h4>Strength Is a Dial</h4>
-    <p>Tune control influence (and when it applies) so structure guides the result without overriding the prompt.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Composable</h4>
-    <p>Combine with IP-Adapter for style and LoRAs for subjects — but stacking many ControlNets rarely helps.</p>
-  </div>
-</div>
+- **Control Maps.** A preprocessor turns your reference into a pose skeleton, edge map, or depth gradient that steers every denoising step.
+- **Strength Is a Dial.** Tune control influence (and when it applies) so structure guides the result without overriding the prompt.
+- **Composable.** Combine with IP-Adapter for style and LoRAs for subjects — but stacking many ControlNets rarely helps.
 
 ## What is ControlNet?
 
@@ -248,15 +227,13 @@ Every `Apply ControlNet` node exposes the same handful of dials:
 
 The two most useful beyond `strength` are `start_percent` and `end_percent`. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. `end_percent: 0.7`) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.
 
-<div class="tip-card" markdown="1">
-**Common pitfalls**
+**Common pitfalls:**
 
 - **Mismatched ControlNet and base model.** An SD 1.5 ControlNet silently fails or corrupts output on SDXL/FLUX. Match the family first.
 - **Strength pinned at 1.0.** Full strength makes results look traced and fights the prompt. Start around 0.7 and raise only if structure drifts.
 - **Wrong preprocessor for the input.** Running Canny on a soft watercolor produces noisy edges; use SoftEdge. Always preview the control map before sampling.
 - **Control resolution mismatch.** Preprocess at the model's native resolution (512 for SD 1.5, 1024 for SDXL) or the map misaligns with the latent.
 - **Stacking too many controls.** Three or more ControlNets usually conflict and degrade quality. Prefer one strong control plus IP-Adapter for style.
-</div>
 
 ## Advanced Techniques
 
@@ -326,9 +303,7 @@ ControlNets are tied to their base-model family. A control map is portable, but 
 | SD3 | SD3 (Canny, Depth, ...) | `*controlnet*sd3*.safetensors` |
 | FLUX | FLUX / Union | `*flux*controlnet*.safetensors` |
 
-<div class="tip-card" markdown="1">
-**Union models simplify the mess.** Newer "ControlNet Union" releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, ...) at runtime instead of juggling a separate file per type.
-</div>
+> **Union models simplify the mess.** Newer "ControlNet Union" releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, ...) at runtime instead of juggling a separate file per type.
 
 ### ControlNet vs. the Alternatives
 
@@ -430,18 +405,13 @@ The key to mastery is experimentation: try different preprocessors, adjust stren
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **ControlNet adds spatial control** to diffusion by injecting a structural "control map" (pose, edge, depth, segmentation) into every denoising step.
 - **The preprocessor matters as much as the model** — choose it to match your input (OpenPose for figures, Canny for edges, Depth for 3D structure).
 - **Strength is a dial, not a switch.** Rarely use 100%; tune `strength` and pull `end_percent` back so structure guides the layout without overriding the prompt's detail.
 - **Combine deliberately:** ControlNet for structure + IP-Adapter for style + a LoRA for subject — but stacking 3+ ControlNets rarely helps.
 - **Match versions and resolution.** Use ControlNets built for your base family (SD1.5/SDXL/FLUX) and align control resolution with generation resolution.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Understanding the base generation process
 - [ComfyUI Guide](comfyui-guide.html) - Integrate ControlNet into advanced workflows
@@ -450,4 +420,3 @@ The key to mastery is experimentation: try different preprocessors, adjust stren
 - [Model Types](model-types.html) - ControlNet model types and compatibility
 - [Base Models Comparison](base-models-comparison.html) - ControlNet support across models
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

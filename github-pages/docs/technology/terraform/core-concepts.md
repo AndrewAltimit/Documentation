@@ -7,10 +7,7 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: Core Concepts</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the fundamentals of Infrastructure as Code, from installation to your first deployment in 30 minutes.</p>
-</div>
+This page covers the fundamentals of Terraform: installation, a 30-minute hands-on crash course, and the core concepts (declarative configuration, the plan-apply cycle, providers, resource lifecycles, and variables) that everything else builds on.
 
 ## Getting Started
 
@@ -421,24 +418,10 @@ When you run `terraform apply`, Terraform uses the values from `terraform.tfvars
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Declarative Infrastructure</h4>
-    <p>You describe the desired end state in HCL; Terraform figures out the create/update/delete steps to get there.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Plan Before Apply</h4>
-    <p>The plan is a dry run showing exactly what will change. Treat it as a code review for your infrastructure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Dependencies Are Automatic</h4>
-    <p>Referencing one resource from another builds the dependency graph; Terraform orders and parallelizes accordingly.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Providers Are Plugins</h4>
-    <p>Each cloud or service has a provider that translates HCL into API calls. Pin provider versions for reproducibility.</p>
-  </div>
-</div>
+- **Declarative infrastructure.** You describe the desired end state in HCL; Terraform figures out the create/update/delete steps to get there.
+- **Plan before apply.** The plan is a dry run showing exactly what will change. Treat it as a code review for your infrastructure.
+- **Dependencies are automatic.** Referencing one resource from another builds the dependency graph; Terraform orders and parallelizes accordingly.
+- **Providers are plugins.** Each cloud or service has a provider that translates HCL into API calls. Pin provider versions for reproducibility.
 
 ---
 

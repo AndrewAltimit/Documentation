@@ -6,37 +6,9 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Unreal Engine</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">UE5 game development with Nanite, Lumen, and Blueprints</p>
-</div>
-
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="intro-card">
-  <p class="lead-text">Unreal Engine is a real-time 3D creation platform from Epic Games. Born for games, it now powers film virtual production, architecture, and automotive design. Unreal Engine 5 introduced <strong>Nanite</strong> virtualized geometry and <strong>Lumen</strong> dynamic global illumination, removing two of the oldest technical ceilings in real-time rendering. This guide covers UE5 from core editor concepts to advanced systems.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-cubes"></i>
-    <h4>Nanite</h4>
-    <p>Film-quality geometry with no manual LODs</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-lightbulb"></i>
-    <h4>Lumen</h4>
-    <p>Fully dynamic global illumination, no lightmap baking</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Blueprints</h4>
-    <p>Visual scripting alongside C++</p>
-  </div>
-</div>
+Unreal Engine is a real-time 3D creation platform from Epic Games. Born for games, it now powers film virtual production, architecture, and automotive design. Unreal Engine 5 introduced **Nanite** (film-quality virtualized geometry with no manual LODs) and **Lumen** (fully dynamic global illumination with no lightmap baking), removing two of the oldest technical ceilings in real-time rendering, and pairs **Blueprints** visual scripting with C++. This guide covers UE5 from core editor concepts to advanced systems.
 
 <div class="notice--info" markdown="1">
 **Scope of this page.** This is an Unreal-specific reference. The engine-agnostic
@@ -278,10 +250,7 @@ UE5 is introducing **Substrate**, a more flexible material framework that replac
 
 Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as **Directional Lights**, **Point Lights**, **Spot Lights**, and **Sky Lights**. Each describes *where* light comes from; how that light bounces and fills a scene is handled by the global illumination system.
 
-<div class="tip-card" markdown="1">
-#### Lumen Changes the Lighting Workflow
-In UE4, indirect light from these sources was typically *baked* into lightmaps — accurate, but static and slow to iterate on. With Lumen enabled (the UE5 default), the same lights produce real-time bounce lighting and reflections that update instantly as you move objects or change the time of day. The practical consequence: you place lights and immediately see the final result, with no bake step. Baked lighting still exists for fixed scenes or low-end hardware where the runtime cost of Lumen is too high.
-</div>
+**Lumen changes the lighting workflow.** In UE4, indirect light from these sources was typically *baked* into lightmaps — accurate, but static and slow to iterate on. With Lumen enabled (the UE5 default), the same lights produce real-time bounce lighting and reflections that update instantly as you move objects or change the time of day. The practical consequence: you place lights and immediately see the final result, with no bake step. Baked lighting still exists for fixed scenes or low-end hardware where the runtime cost of Lumen is too high.
 
 ### Light Types
 
@@ -614,44 +583,19 @@ Unreal Engine continues to push the boundaries of what's possible in real-time r
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Nanite removes the polygon ceiling</h4>
-    <p>Virtualized geometry streams only the detail each frame needs, so film-quality source assets render directly — no manual LODs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Lumen makes lighting fully dynamic</h4>
-    <p>Real-time global illumination and reflections react to scene changes instantly, eliminating lightmap baking.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>World Partition scales open worlds</h4>
-    <p>Automatic streaming and One File Per Actor let large teams build vast worlds and merge changes without manual level volumes.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Blueprints and C++ are complementary</h4>
-    <p>Use Blueprints for logic flow and rapid iteration, C++ for heavy computation; move hot paths to C++ (Blueprint nativization was removed in UE5).</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>UE5 reaches far beyond games</h4>
-    <p>Virtual production, architecture, automotive, and film all rely on the same real-time pipeline and USD/Datasmith interchange.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Profile before optimizing</h4>
-    <p>Unreal Insights and the Blueprint profiler reveal real bottlenecks — event-driven design and object pooling beat guesswork.</p>
-  </div>
-</div>
+- **Nanite removes the polygon ceiling** — virtualized geometry streams only the detail each frame needs, so film-quality source assets render directly with no manual LODs.
+- **Lumen makes lighting fully dynamic** — real-time global illumination and reflections react to scene changes instantly, eliminating lightmap baking.
+- **World Partition scales open worlds** — automatic streaming and One File Per Actor let large teams build vast worlds and merge changes without manual level volumes.
+- **Blueprints and C++ are complementary** — use Blueprints for logic flow and rapid iteration, C++ for heavy computation; move hot paths to C++ (Blueprint nativization was removed in UE5).
+- **UE5 reaches far beyond games** — virtual production, architecture, automotive, and film all rely on the same real-time pipeline and USD/Datasmith interchange.
+- **Profile before optimizing** — Unreal Insights and the Blueprint profiler reveal real bottlenecks; event-driven design and object pooling beat guesswork.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="../gamedev/">Game Development hub</a> — engine-agnostic foundations: game loop, ECS-vs-OOP, state machines, and design principles that underpin any engine, including Unreal</li>
-    <li><a href="../gamedev/audio-design.html">Audio Design</a> — the general theory behind MetaSounds: mixing, attenuation, occlusion, and adaptive scoring</li>
-    <li><a href="../ai-ml/game-ai.html">AI in Games</a> — pathfinding, behavior trees, and decision-making that Unreal's State Tree and Smart Objects build on</li>
-    <li><a href="../graphics/3d-rendering.html">3D Graphics</a> — the rendering pipeline behind Nanite and Lumen</li>
-    <li><a href="../vr-ar/">Virtual Reality</a> — VR development with Unreal</li>
-    <li><a href="../optimization/">Performance Optimization</a> — profiling and optimization techniques</li>
-  </ul>
-</div>
+- [Game Development hub](../gamedev/) — engine-agnostic foundations: game loop, ECS-vs-OOP, state machines, and design principles that underpin any engine, including Unreal
+- [Audio Design](../gamedev/audio-design.html) — the general theory behind MetaSounds: mixing, attenuation, occlusion, and adaptive scoring
+- [AI in Games](../ai-ml/game-ai.html) — pathfinding, behavior trees, and decision-making that Unreal's State Tree and Smart Objects build on
+- [3D Graphics](../graphics/3d-rendering.html) — the rendering pipeline behind Nanite and Lumen
+- [Virtual Reality](../vr-ar/) — VR development with Unreal
+- [Performance Optimization](../optimization/) — profiling and optimization techniques
 

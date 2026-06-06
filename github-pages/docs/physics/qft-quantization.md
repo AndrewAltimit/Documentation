@@ -4,42 +4,18 @@ title: "QFT: Canonical Quantization"
 permalink: /docs/physics/qft-quantization.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Canonical Quantization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Promoting classical fields to operators: the Klein-Gordon and Dirac fields, ladder operators, the vacuum, and the propagators that glue Feynman diagrams together.</p>
-</div>
+## Canonical Quantization
 
 [Quantum Field Theory](./quantum-field-theory.html) &raquo; Canonical Quantization
 
-<div class="intro-card">
-  <p class="lead-text">Canonical quantization is the most direct route from a classical field theory to a quantum one. You take the classical field — a function $\phi(x)$ defined at every point of spacetime — and its conjugate momentum, and you impose the same equal-time commutation relations that turned the harmonic oscillator into a quantum system. The payoff is enormous: the field decomposes into an infinite collection of oscillators, one per momentum mode, and the quanta of those oscillators <em>are the particles</em>. Energy in a mode comes in discrete lumps; each lump is one particle. This page builds that machinery explicitly for spin-0 (Klein-Gordon) and spin-½ (Dirac) fields, defines the vacuum, and derives the Feynman propagators.</p>
-</div>
+Canonical quantization is the most direct route from a classical field theory to a quantum one. You take the classical field — a function $\phi(x)$ defined at every point of spacetime — and its conjugate momentum, and you impose the same equal-time commutation relations that turned the harmonic oscillator into a quantum system. The payoff is enormous: the field decomposes into an infinite collection of oscillators, one per momentum mode, and the quanta of those oscillators *are the particles*. Energy in a mode comes in discrete lumps; each lump is one particle. This page builds that machinery explicitly for spin-0 (Klein-Gordon) and spin-½ (Dirac) fields, defines the vacuum, and derives the Feynman propagators.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>A field is infinitely many oscillators</h4>
-    <p>Fourier-expanding a free field turns it into one harmonic oscillator per momentum mode.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Quanta are particles</h4>
-    <p>The $n$-th excited state of a mode is a state of $n$ identical particles with that momentum.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-exchange-alt"></i>
-    <h4>Statistics from (anti)commutators</h4>
-    <p>Bosons use commutators; fermions <em>must</em> use anticommutators — this is the spin-statistics connection.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-arrows-left-right"></i>
-    <h4>The propagator is the inverse</h4>
-    <p>The two-point function is the Green's function of the field equation, with the $i\varepsilon$ contour fixing causality.</p>
-  </div>
-</div>
+- **A field is infinitely many oscillators.** Fourier-expanding a free field turns it into one harmonic oscillator per momentum mode.
+- **Quanta are particles.** The $n$-th excited state of a mode is a state of $n$ identical particles with that momentum.
+- **Statistics from (anti)commutators.** Bosons use commutators; fermions *must* use anticommutators — this is the spin-statistics connection.
+- **The propagator is the inverse.** The two-point function is the Green's function of the field equation, with the $i\varepsilon$ contour fixing causality.
 
 ## From the Oscillator to the Field
 
@@ -254,43 +230,18 @@ recovering the postulated canonical relation. This consistency is precisely why 
 
 ## Summary
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Quantize like an oscillator</h4>
-    <p>Impose $[\phi, \pi] = i\delta^3$; the field becomes one harmonic oscillator per momentum mode.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Ladder operators make particles</h4>
-    <p>$a^\dagger_k$ creates a quantum of momentum $k$; multi-particle states span a Fock space built on the vacuum.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Bosons commute, fermions anticommute</h4>
-    <p>The choice is fixed by spin-statistics; anticommutation yields Pauli exclusion and a stable vacuum for the Dirac field.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Antiparticles are mandatory</h4>
-    <p>Complex scalar and Dirac fields each contain a second set of operators creating oppositely charged antiparticles.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Propagators are inverse operators</h4>
-    <p>$\tilde D_F = i/(k^2-m^2+i\varepsilon)$ and $\tilde S_F = i/(\not{p}-m+i\varepsilon)$ are the Green's functions with the causal $i\varepsilon$ contour.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The vacuum is not empty</h4>
-    <p>Zero-point fluctuations give measurable effects (Casimir, Lamb shift); normal ordering measures energy relative to it.</p>
-  </div>
-</div>
+- **Quantize like an oscillator.** Impose $[\phi, \pi] = i\delta^3$; the field becomes one harmonic oscillator per momentum mode.
+- **Ladder operators make particles.** $a^\dagger_k$ creates a quantum of momentum $k$; multi-particle states span a Fock space built on the vacuum.
+- **Bosons commute, fermions anticommute.** The choice is fixed by spin-statistics; anticommutation yields Pauli exclusion and a stable vacuum for the Dirac field.
+- **Antiparticles are mandatory.** Complex scalar and Dirac fields each contain a second set of operators creating oppositely charged antiparticles.
+- **Propagators are inverse operators.** $\tilde D_F = i/(k^2-m^2+i\varepsilon)$ and $\tilde S_F = i/(\not{p}-m+i\varepsilon)$ are the Green's functions with the causal $i\varepsilon$ contour.
+- **The vacuum is not empty.** Zero-point fluctuations give measurable effects (Casimir, Lamb shift); normal ordering measures energy relative to it.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="./quantum-field-theory.html">Quantum Field Theory</a> — the overview hub: gauge theories, the Standard Model, renormalization, and path integrals.</li>
-    <li><a href="./qft-methods.html#the-path-integral-formulation">Path Integral Formulation</a> — the equivalent route to quantization via sum-over-histories.</li>
-    <li><a href="./gauge-and-standard-model.html#quantum-electrodynamics-qed">Quantum Electrodynamics</a> — these propagators and the gauge field combine into the first interacting theory.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation, including the harmonic oscillator that this construction generalizes.</li>
-    <li><a href="relativity/">Relativity</a> — special relativity is what forces the relativistic dispersion and antiparticles.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](./quantum-field-theory.html) — the overview hub: gauge theories, the Standard Model, renormalization, and path integrals.
+- [Path Integral Formulation](./qft-methods.html#the-path-integral-formulation) — the equivalent route to quantization via sum-over-histories.
+- [Quantum Electrodynamics](./gauge-and-standard-model.html#quantum-electrodynamics-qed) — these propagators and the gauge field combine into the first interacting theory.
+- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation, including the harmonic oscillator that this construction generalizes.
+- [Relativity](relativity/) — special relativity is what forces the relativistic dispersion and antiparticles.
+- [Physics Hub](index.html) — browse all physics topics.

@@ -7,23 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Testing &amp; Chaos Engineering</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Finding the bugs that only appear under failure, concurrency, and partition</p>
-</div>
-
 [Distributed Systems Hub](./) &raquo; Testing &amp; Chaos Engineering
 
-<div class="code-example" markdown="1">
-The bugs that matter in distributed systems are *emergent*: they live in the interleavings of concurrent operations, the moments during a network partition, and the recovery path after a crash. Ordinary unit and integration tests rarely exercise those states. This page collects the techniques that do — fault injection and chaos engineering, property-based and deterministic-simulation testing, Jepsen-style consistency checking, and load/stress testing — with the theory of *why* each one finds bugs the others miss.
-</div>
+The bugs that matter in distributed systems are *emergent*: they live in the interleavings of concurrent operations, the moments during a network partition, and the recovery path after a crash. Ordinary unit and integration tests rarely exercise those states. This page collects the techniques that do — fault injection and chaos engineering, property-based and deterministic-simulation testing, Jepsen-style consistency checking, and load/stress testing — with the theory of *why* each one finds bugs the others miss. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-bug"></i><h4>Test the failure path, not the happy path</h4><p>Most production incidents are recovery bugs. If you never inject the failure, you never run the recovery code — and it rots.</p></div>
-  <div class="insight-card"><i class="fas fa-dice"></i><h4>Make the nondeterminism reproducible</h4><p>A concurrency bug you can't replay is a bug you can't fix. Seeded schedulers and simulation turn "flaky once a week" into "fails every time on seed 42."</p></div>
-  <div class="insight-card"><i class="fas fa-check-double"></i><h4>Check a property, not an example</h4><p>Asserting "this specific history is correct" scales poorly. Asserting "every history is linearizable" generalizes across the infinite space of interleavings.</p></div>
-  <div class="insight-card"><i class="fas fa-tachometer-alt"></i><h4>Load reveals coordinated failure</h4><p>Queues back up, retries amplify, and timeouts cascade only under load. Steady-state correctness says nothing about behavior at saturation.</p></div>
-</div>
+- **Test the failure path, not the happy path.** Most production incidents are recovery bugs; if you never inject the failure, you never run the recovery code — and it rots.
+- **Make the nondeterminism reproducible.** A concurrency bug you can't replay is a bug you can't fix. Seeded schedulers and simulation turn "flaky once a week" into "fails every time on seed 42."
+- **Check a property, not an example.** Asserting "this specific history is correct" scales poorly. Asserting "every history is linearizable" generalizes across the infinite space of interleavings.
+- **Load reveals coordinated failure.** Queues back up, retries amplify, and timeouts cascade only under load. Steady-state correctness says nothing about behavior at saturation.
 
 ## Table of contents
 {: .no_toc .text-delta }

@@ -4,15 +4,9 @@ title: "AI: Machine Learning Foundations"
 permalink: /docs/technology/ai/ml-foundations.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Machine Learning Foundations
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Machine Learning Foundations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Statistical learning theory, optimization, kernels and SVMs, Gaussian processes, and variational inference — the mathematics that makes learning work.</p>
-</div>
 
 Before you stack a hundred layers and call it deep learning, it pays to understand *why* learning from finite data is possible at all, *how* we actually find good parameters, and *what* classical tools (kernels, Gaussian processes, variational inference) reveal about modern models. This page builds those foundations gradually—from intuitive concepts to the formal results—then hands off to [Neural Network Architectures](architectures.html), which assumes all of it.
 
@@ -345,147 +339,14 @@ so gradients flow through $\mu_\phi$ and $\sigma_\phi$ with low variance. This i
 
 Now that we understand the foundations, let's meet the algorithms that do the actual work. Each has its strengths and ideal use cases—choosing the right one is both an art and a science.
 
-<div class="ml-algorithms-grid">
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-chart-line"></i>
-      <h4>Linear Regression</h4>
-    </div>
-    <p>A simple algorithm for predicting a continuous target variable based on one or more input features.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <line x1="20" y1="80" x2="130" y2="20" stroke="#e74c3c" stroke-width="2" />
-        <circle cx="30" cy="70" r="3" fill="#3498db" />
-        <circle cx="50" cy="60" r="3" fill="#3498db" />
-        <circle cx="70" cy="50" r="3" fill="#3498db" />
-        <circle cx="90" cy="40" r="3" fill="#3498db" />
-        <circle cx="110" cy="30" r="3" fill="#3498db" />
-      </svg>
-    </div>
-  </div>
-
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-divide"></i>
-      <h4>Logistic Regression</h4>
-    </div>
-    <p>A regression algorithm used for binary classification tasks.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <path d="M 20 80 Q 75 50, 130 20" stroke="#9b59b6" stroke-width="2" fill="none" />
-        <circle cx="30" cy="70" r="3" fill="#e74c3c" />
-        <circle cx="50" cy="75" r="3" fill="#e74c3c" />
-        <circle cx="90" cy="25" r="3" fill="#3498db" />
-        <circle cx="110" cy="20" r="3" fill="#3498db" />
-      </svg>
-    </div>
-  </div>
-
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-sitemap"></i>
-      <h4>Decision Trees</h4>
-    </div>
-    <p>A tree-based algorithm that recursively splits data based on the most informative feature.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <line x1="75" y1="20" x2="45" y2="50" stroke="#2c3e50" stroke-width="2" />
-        <line x1="75" y1="20" x2="105" y2="50" stroke="#2c3e50" stroke-width="2" />
-        <line x1="45" y1="50" x2="30" y2="75" stroke="#2c3e50" stroke-width="2" />
-        <line x1="45" y1="50" x2="60" y2="75" stroke="#2c3e50" stroke-width="2" />
-        <circle cx="75" cy="20" r="8" fill="#27ae60" />
-        <circle cx="45" cy="50" r="8" fill="#f39c12" />
-        <circle cx="105" cy="50" r="8" fill="#f39c12" />
-        <circle cx="30" cy="75" r="6" fill="#3498db" />
-        <circle cx="60" cy="75" r="6" fill="#e74c3c" />
-      </svg>
-    </div>
-  </div>
-
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-vector-square"></i>
-      <h4>Support Vector Machines</h4>
-    </div>
-    <p>Finds the best hyperplane separating data into different classes.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <line x1="20" y1="50" x2="130" y2="50" stroke="#2c3e50" stroke-width="2" />
-        <line x1="20" y1="40" x2="130" y2="40" stroke="#95a5a6" stroke-width="1" stroke-dasharray="3,3" />
-        <line x1="20" y1="60" x2="130" y2="60" stroke="#95a5a6" stroke-width="1" stroke-dasharray="3,3" />
-        <circle cx="40" cy="25" r="4" fill="#e74c3c" />
-        <circle cx="60" cy="20" r="4" fill="#e74c3c" />
-        <circle cx="80" cy="30" r="4" fill="#e74c3c" />
-        <circle cx="50" cy="70" r="4" fill="#3498db" />
-        <circle cx="70" cy="75" r="4" fill="#3498db" />
-        <circle cx="90" cy="80" r="4" fill="#3498db" />
-      </svg>
-    </div>
-  </div>
-
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-tree"></i>
-      <h4>Random Forests</h4>
-    </div>
-    <p>Ensemble method combining multiple decision trees to improve accuracy.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <!-- Multiple small trees -->
-        <g transform="translate(30,20)">
-          <line x1="10" y1="10" x2="5" y2="20" stroke="#27ae60" stroke-width="1" />
-          <line x1="10" y1="10" x2="15" y2="20" stroke="#27ae60" stroke-width="1" />
-          <circle cx="10" cy="10" r="3" fill="#27ae60" />
-        </g>
-        <g transform="translate(60,20)">
-          <line x1="10" y1="10" x2="5" y2="20" stroke="#27ae60" stroke-width="1" />
-          <line x1="10" y1="10" x2="15" y2="20" stroke="#27ae60" stroke-width="1" />
-          <circle cx="10" cy="10" r="3" fill="#27ae60" />
-        </g>
-        <g transform="translate(90,20)">
-          <line x1="10" y1="10" x2="5" y2="20" stroke="#27ae60" stroke-width="1" />
-          <line x1="10" y1="10" x2="15" y2="20" stroke="#27ae60" stroke-width="1" />
-          <circle cx="10" cy="10" r="3" fill="#27ae60" />
-        </g>
-        <path d="M 40 50 L 75 70 L 100 50" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" fill="none" />
-        <rect x="65" y="65" width="20" height="15" fill="#3498db" />
-        <text x="75" y="77" text-anchor="middle" font-size="8" fill="white">Σ</text>
-      </svg>
-    </div>
-  </div>
-
-  <div class="algorithm-card">
-    <div class="algo-header">
-      <i class="fas fa-brain"></i>
-      <h4>Neural Networks</h4>
-    </div>
-    <p>Algorithms inspired by biological neural networks, capable of learning complex patterns.</p>
-    <div class="algo-visual">
-      <svg viewBox="0 0 150 100">
-        <!-- Input layer -->
-        <circle cx="30" cy="30" r="6" fill="#3498db" />
-        <circle cx="30" cy="50" r="6" fill="#3498db" />
-        <circle cx="30" cy="70" r="6" fill="#3498db" />
-
-        <!-- Hidden layer -->
-        <circle cx="75" cy="25" r="6" fill="#e74c3c" />
-        <circle cx="75" cy="50" r="6" fill="#e74c3c" />
-        <circle cx="75" cy="75" r="6" fill="#e74c3c" />
-
-        <!-- Output layer -->
-        <circle cx="120" cy="40" r="6" fill="#27ae60" />
-        <circle cx="120" cy="60" r="6" fill="#27ae60" />
-
-        <!-- Connections -->
-        <line x1="36" y1="30" x2="69" y2="25" stroke="#95a5a6" stroke-width="1" />
-        <line x1="36" y1="30" x2="69" y2="50" stroke="#95a5a6" stroke-width="1" />
-        <line x1="36" y1="50" x2="69" y2="50" stroke="#95a5a6" stroke-width="1" />
-        <line x1="81" y1="25" x2="114" y2="40" stroke="#95a5a6" stroke-width="1" />
-        <line x1="81" y1="50" x2="114" y2="40" stroke="#95a5a6" stroke-width="1" />
-      </svg>
-    </div>
-  </div>
-</div>
+| Algorithm | What it does |
+|-----------|-------------|
+| **Linear Regression** | Predicts a continuous target from one or more input features. |
+| **Logistic Regression** | Regression adapted for binary classification. |
+| **Decision Trees** | Recursively splits data on the most informative feature. |
+| **Support Vector Machines** | Finds the maximum-margin hyperplane separating classes. |
+| **Random Forests** | Ensembles many decision trees to improve accuracy and reduce variance. |
+| **Neural Networks** | Layered models inspired by biological neurons, capable of learning complex patterns. |
 
 These six algorithms are the workhorses of classical machine learning. Linear and logistic regression are the convex, low-variance baselines; decision trees and random forests are the flexible, low-bias nonparametric methods; SVMs apply the kernel trick for maximum-margin classification; and neural networks generalize all of them, scaling into the deep architectures that the rest of this section explores.
 
@@ -498,5 +359,3 @@ These six algorithms are the workhorses of classical machine learning. Linear an
 - [Frontier Research & Ethics](frontier-and-ethics.html) — scaling laws and interpretability of large models
 - [AI Deep Dive (Lecture)](../ai-lecture-2023.html) — transformers and LLM internals in depth
 - [AI Mathematics](../../advanced/ai-mathematics/) — formal proofs for the theory above (PAC, RKHS, ELBO)
-</content>
-</invoke>

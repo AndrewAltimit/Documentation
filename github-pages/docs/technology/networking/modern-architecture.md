@@ -4,17 +4,11 @@ title: "Networking: Modern Architecture & Frontiers"
 permalink: /docs/technology/networking/modern-architecture.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Networking](./) &raquo; Modern Architecture &amp; Frontiers
 
 <!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Modern Architecture &amp; Frontiers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Modeling real traffic, the research reshaping the internet, and a map of how today's networks became software</p>
-</div>
 
 The fixed, hardware-defined networks of the past have given way to software, and the design of those software networks rests on two things this page covers: an honest model of how traffic actually behaves, and an eye on the research that will reshape the internet next. We start by replacing textbook traffic assumptions with realistic ones (Poisson, self-similar, heavy-tailed, and modulated processes), then survey the research frontier — content-centric networking, network coding, quantum networking and QKD, and 6G. The three pages that grew out of this section — programmable, cloud, and wireless networking — are linked from the hub below.
 
@@ -24,20 +18,9 @@ The Python listings throughout this page are *illustrative* — compact models t
 
 This page sits at the apex of a small family of pages, each of which started life as a section here and has since grown into its own full treatment. Before diving into traffic and research, here is where each piece now lives:
 
-<div class="command-grid">
-  <a href="programmable-networks.html" class="nav-card">
-    <h4><i class="fas fa-code"></i> Programmable Networks</h4>
-    <p>SDN and the control/data-plane split, NFV and service chaining, P4 and the programmable data plane, plus MPLS, Segment Routing, SRv6, and the IPv6 transition.</p>
-  </a>
-  <a href="cloud-networking.html" class="nav-card">
-    <h4><i class="fas fa-cloud"></i> Cloud Networking</h4>
-    <p>VPCs, subnets and route tables, Layer-4/7 load balancing, CDNs and anycast, NAT and egress, private service networking, and the shared-responsibility model.</p>
-  </a>
-  <a href="wireless-and-mobile.html" class="nav-card">
-    <h4><i class="fas fa-wifi"></i> Wireless &amp; Mobile</h4>
-    <p>Wi-Fi (802.11), cellular evolution to 5G, spectrum and modulation, the 5G core and network slicing, edge/IoT, and mobility management.</p>
-  </a>
-</div>
+- **[Programmable Networks](programmable-networks.html)** — SDN and the control/data-plane split, NFV and service chaining, P4 and the programmable data plane, plus MPLS, Segment Routing, SRv6, and the IPv6 transition.
+- **[Cloud Networking](cloud-networking.html)** — VPCs, subnets and route tables, Layer-4/7 load balancing, CDNs and anycast, NAT and egress, private service networking, and the shared-responsibility model.
+- **[Wireless & Mobile](wireless-and-mobile.html)** — Wi-Fi (802.11), cellular evolution to 5G, spectrum and modulation, the 5G core and network slicing, edge/IoT, and mobility management.
 
 The common thread linking all four is **disaggregation and programmability** — every layer of the network, from the control plane down to the radio, is becoming software you can change. This page is the part of that story that is less about *building* the network and more about *understanding the load it carries* and *where the research is heading*.
 
@@ -473,22 +456,13 @@ Networking is a vast field that continues to evolve rapidly. Here are resources 
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the queueing theory these traffic models feed.</li>
-    <li><strong>Up:</strong> <a href="./">Networking</a> — overview and navigation hub.</li>
-  </ul>
-</div>
+**Previous:** [Performance, QoS & Security](performance-and-security.html) — the queueing theory these traffic models feed. &nbsp;**Up:** [Networking](./) — overview and navigation hub.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="programmable-networks.html">Programmable Networks</a> — SDN, NFV, P4, MPLS, and SRv6.</li>
-    <li><a href="cloud-networking.html">Cloud Networking</a> — VPCs, load balancing, CDNs, and the shared-responsibility model.</li>
-    <li><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — Wi-Fi, 5G, the 5G core, and the wireless foundations 6G builds on.</li>
-    <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — queueing models, Little's law, and buffer sizing.</li>
-    <li><a href="../aws/">AWS</a> — VPC, load balancing, and CloudFront in a real cloud.</li>
-    <li><a href="../../physics/quantum-mechanics/">Quantum Mechanics</a> — the physics behind QKD and quantum networking.</li>
-  </ul>
-</div>
+### See Also
+
+- [Programmable Networks](programmable-networks.html) — SDN, NFV, P4, MPLS, and SRv6.
+- [Cloud Networking](cloud-networking.html) — VPCs, load balancing, CDNs, and the shared-responsibility model.
+- [Wireless & Mobile](wireless-and-mobile.html) — Wi-Fi, 5G, the 5G core, and the wireless foundations 6G builds on.
+- [Performance, QoS & Security](performance-and-security.html) — queueing models, Little's law, and buffer sizing.
+- [AWS](../aws/) — VPC, load balancing, and CloudFront in a real cloud.
+- [Quantum Mechanics](../../physics/quantum-mechanics/) — the physics behind QKD and quantum networking.

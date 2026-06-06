@@ -8,38 +8,14 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Condensed Matter Physics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Exploring the Quantum World of Materials</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem;">
+  <h1 style="color: white; margin: 0; font-size: 2rem;">Condensed Matter Physics</h1>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">Exploring the Quantum World of Materials</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Condensed matter physics studies the physical properties of matter in its condensed phases, primarily solids and liquids. It is the largest field of contemporary physics, encompassing phenomena from superconductivity to topological insulators.</p>
-  
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-cube"></i>
-      <h4>Crystal Structure</h4>
-      <p>Periodic arrangements and their properties</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-bolt"></i>
-      <h4>Electronic Properties</h4>
-      <p>Band theory and quantum behavior</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-magnet"></i>
-      <h4>Emergent Phenomena</h4>
-      <p>Superconductivity and magnetism</p>
-    </div>
-  </div>
-</div>
+Condensed matter physics studies the physical properties of matter in its condensed phases, primarily solids and liquids. It is the largest field of contemporary physics, encompassing phenomena from superconductivity to topological insulators.
 
-<div class="principle-card">
-  <h4>The big idea: more is different</h4>
-  <p>You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new <strong>emergent</strong> phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the <em>organization</em>.</p>
-  <p>This hub follows the foundational thread: start from the periodic arrangement of atoms (the <strong>crystal lattice</strong>), see how that periodicity reshapes the allowed electron energies into <strong>bands</strong> separated by gaps, and read off — from a single fact, where the Fermi level falls relative to a gap — whether a material is a metal, an insulator, or the technologically pivotal in-between case, the <strong>semiconductor</strong>. The deeper machinery, and the genuinely new states of matter that emerge when interactions and topology take over, live on the dedicated pages linked below.</p>
-</div>
+**The big idea: more is different.** You could in principle know everything about a single electron and a single proton and still have no way to predict that $10^{23}$ of them, packed into a crystal, will conduct electricity, turn magnetic, or carry current with zero resistance. Condensed matter physics is built on this insight — Philip Anderson's "more is different": when enormous numbers of simple parts interact, qualitatively new **emergent** phenomena appear that exist only collectively. A superconductor's resistanceless flow, a magnet's spontaneous alignment, the rigidity of a solid — none of these are properties of the constituent particles; they are properties of the *organization*. This hub follows the foundational thread: start from the periodic arrangement of atoms (the **crystal lattice**), see how that periodicity reshapes the allowed electron energies into **bands** separated by gaps, and read off — from a single fact, where the Fermi level falls relative to a gap — whether a material is a metal, an insulator, or the technologically pivotal in-between case, the **semiconductor**. The deeper machinery, and the genuinely new states of matter that emerge when interactions and topology take over, live on the dedicated pages linked below.
 
 ## Explore Condensed Matter
 
@@ -397,10 +373,7 @@ $$F_{\mathbf{G}} = \sum_j f_j e^{i\mathbf{G} \cdot \mathbf{r}_j}$$
   </div>
 </div>
 
-<div class="see-also-card">
-  <h4>The lattice does more than hold atoms still</h4>
-  <p>The same periodic lattice that diffracts X-rays can also <em>vibrate</em>, and its quantized vibrations — phonons — carry heat, scatter electrons, and ultimately glue together the Cooper pairs of conventional superconductors. That story has its own page: <a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a>. Here we follow the other consequence of periodicity — what it does to the <em>electrons</em>.</p>
-</div>
+**The lattice does more than hold atoms still.** The same periodic lattice that diffracts X-rays can also *vibrate*, and its quantized vibrations — phonons — carry heat, scatter electrons, and ultimately glue together the Cooper pairs of conventional superconductors. That story has its own page: [Lattice Dynamics & Phonons](lattice-dynamics.html). Here we follow the other consequence of periodicity — what it does to the *electrons*.
 
 ## Electronic Band Theory
 
@@ -673,10 +646,7 @@ Band theory delivers a strikingly simple classification of solids: it is not *ho
 | Semiconductor | Filled valence band | small ($\sim 0.1$–$2$ eV) | increases with $T$ |
 | Insulator | Filled valence band | large ($\gtrsim 4$ eV) | negligible |
 
-<div class="insight-card">
-  <h4>Why semiconductors heat up into conductors</h4>
-  <p>In a metal, conductivity falls as temperature rises because lattice vibrations scatter the already-mobile electrons. A semiconductor does the opposite: its valence band is full and the conduction band empty, so it can only conduct once electrons are thermally promoted across the gap. The number of carriers grows exponentially as $e^{-E_g/2k_BT}$, swamping the scattering effect. That exponential sensitivity is exactly what makes a semiconductor a controllable switch.</p>
-</div>
+**Why semiconductors heat up into conductors.** In a metal, conductivity falls as temperature rises because lattice vibrations scatter the already-mobile electrons. A semiconductor does the opposite: its valence band is full and the conduction band empty, so it can only conduct once electrons are thermally promoted across the gap. The number of carriers grows exponentially as $e^{-E_g/2k_BT}$, swamping the scattering effect. That exponential sensitivity is exactly what makes a semiconductor a controllable switch.
 
 ### Band Structure
 The two band edges that matter are the **valence band maximum (VBM)** and the **conduction band minimum (CBM)**. Their relative position in momentum space sets the optical behavior:
@@ -851,66 +821,32 @@ $$g(E) = \sum_n \int \frac{d^3k}{(2\pi)^3} \delta(E - E_n(\mathbf{k}))$$
 
 Crystal structure, band theory, and the density of states are the common foundation for everything else in condensed matter. The remaining themes each take this groundwork in a different direction, and each has its own page.
 
-<div class="see-also-card">
-  <h4>Metals &amp; magnetism — the electron sea and spontaneous order</h4>
-  <p>What happens once a band is only <em>partly</em> filled? The conduction electrons form a degenerate quantum fluid whose understanding evolved through three pictures — a classical gas (Drude), a Pauli-blocked Fermi gas (Sommerfeld), and an interacting fluid of dressed quasiparticles (Landau's Fermi liquid) — and whose low-energy states live on a <strong>Fermi surface</strong>. When the exchange interaction between spins becomes important, the same electrons can lock into spontaneous magnetic order: paramagnetism, ferromagnetism, antiferromagnetism, and the quantized spin waves (magnons) that excite them. The full treatment — Drude through Fermi liquids, screening, the Heisenberg and Ising models, and mean-field magnetism — is on <a href="metals-and-magnetism.html">Metals &amp; Magnetism</a>.</p>
-</div>
+**Metals & magnetism — the electron sea and spontaneous order.** What happens once a band is only *partly* filled? The conduction electrons form a degenerate quantum fluid whose understanding evolved through three pictures — a classical gas (Drude), a Pauli-blocked Fermi gas (Sommerfeld), and an interacting fluid of dressed quasiparticles (Landau's Fermi liquid) — and whose low-energy states live on a **Fermi surface**. When the exchange interaction between spins becomes important, the same electrons can lock into spontaneous magnetic order: paramagnetism, ferromagnetism, antiferromagnetism, and the quantized spin waves (magnons) that excite them. The full treatment — Drude through Fermi liquids, screening, the Heisenberg and Ising models, and mean-field magnetism — is on [Metals & Magnetism](metals-and-magnetism.html).
 
-<div class="see-also-card">
-  <h4>Lattice dynamics &amp; phonons — the crystal in motion</h4>
-  <p>Bands describe electrons in a <em>static</em> lattice, but the lattice itself vibrates. Its quantized normal modes — <strong>phonons</strong> — split into acoustic and optical branches, carry most of a solid's heat, set the low-temperature heat capacity (Debye and Einstein models), and scatter electrons. Electron-phonon coupling is also the pairing glue of conventional superconductivity. The full story is on <a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a>.</p>
-</div>
+**Lattice dynamics & phonons — the crystal in motion.** Bands describe electrons in a *static* lattice, but the lattice itself vibrates. Its quantized normal modes — **phonons** — split into acoustic and optical branches, carry most of a solid's heat, set the low-temperature heat capacity (Debye and Einstein models), and scatter electrons. Electron-phonon coupling is also the pairing glue of conventional superconductivity. The full story is on [Lattice Dynamics & Phonons](lattice-dynamics.html).
 
-<div class="see-also-card">
-  <h4>And beyond the perfect crystal</h4>
-  <p>Real materials are neither perfectly periodic nor weakly interacting. <a href="disorder-and-localization.html">Disorder &amp; Localization</a> shows how randomness can turn a metal into an insulator; <a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> covers the genuinely new states of matter; <a href="experimental-techniques.html">Experimental Techniques</a> explains how all of this is measured; and <a href="advanced-formalism.html">Graduate-Level Formalism</a> develops the many-body machinery behind it.</p>
-</div>
+**And beyond the perfect crystal.** Real materials are neither perfectly periodic nor weakly interacting. [Disorder & Localization](disorder-and-localization.html) shows how randomness can turn a metal into an insulator; [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) covers the genuinely new states of matter; [Experimental Techniques](experimental-techniques.html) explains how all of this is measured; and [Graduate-Level Formalism](advanced-formalism.html) develops the many-body machinery behind it.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>More is different</h4>
-    <p>Collective behavior of $\sim 10^{23}$ particles produces emergent phenomena absent at the single-particle level.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Periodicity makes bands</h4>
-    <p>Bloch's theorem turns a periodic potential into continuous energy bands separated by forbidden gaps.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Band structure governs solids</h4>
-    <p>Whether a material is a metal, insulator, or semiconductor follows from how electron bands fill.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The gap is the switch</h4>
-    <p>A small band gap plus doping makes a semiconductor — a tunable insulator that powers all of electronics.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Quasiparticles simplify the many-body problem</h4>
-    <p>Phonons, holes, and Cooper pairs let us treat strongly interacting systems with effective single-particle pictures.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Topology classifies new phases</h4>
-    <p>Topological insulators and the quantum Hall effect are robust against disorder because they are protected by topology.</p>
-  </div>
-</div>
+- **More is different.** Collective behavior of $\sim 10^{23}$ particles produces emergent phenomena absent at the single-particle level.
+- **Periodicity makes bands.** Bloch's theorem turns a periodic potential into continuous energy bands separated by forbidden gaps.
+- **Band structure governs solids.** Whether a material is a metal, insulator, or semiconductor follows from how electron bands fill.
+- **The gap is the switch.** A small band gap plus doping makes a semiconductor — a tunable insulator that powers all of electronics.
+- **Quasiparticles simplify the many-body problem.** Phonons, holes, and Cooper pairs let us treat strongly interacting systems with effective single-particle pictures.
+- **Topology classifies new phases.** Topological insulators and the quantum Hall effect are robust against disorder because they are protected by topology.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a> — quantized vibrations, heat capacity, and electron-phonon coupling.</li>
-    <li><a href="metals-and-magnetism.html">Metals &amp; Magnetism</a> — the electron sea, Fermi surfaces, and spontaneous magnetic order.</li>
-    <li><a href="disorder-and-localization.html">Disorder &amp; Localization</a> — how randomness drives metal-insulator transitions.</li>
-    <li><a href="experimental-techniques.html">Experimental Techniques</a> — ARPES, STM, neutron scattering, and transport probes.</li>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — emergent and topological states of matter.</li>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism</a> — many-body theory and field-theoretic methods.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — wave functions and band theory underpin every solid.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — many-body theory and the physics of phase transitions.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — macroscopic properties and phase diagrams of materials.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — DFT, Monte Carlo, and molecular-dynamics simulations.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Lattice Dynamics & Phonons](lattice-dynamics.html) — quantized vibrations, heat capacity, and electron-phonon coupling.
+- [Metals & Magnetism](metals-and-magnetism.html) — the electron sea, Fermi surfaces, and spontaneous magnetic order.
+- [Disorder & Localization](disorder-and-localization.html) — how randomness drives metal-insulator transitions.
+- [Experimental Techniques](experimental-techniques.html) — ARPES, STM, neutron scattering, and transport probes.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — emergent and topological states of matter.
+- [Graduate-Level Formalism](advanced-formalism.html) — many-body theory and field-theoretic methods.
+- [Quantum Mechanics](../quantum-mechanics/) — wave functions and band theory underpin every solid.
+- [Statistical Mechanics](../statistical-mechanics/) — many-body theory and the physics of phase transitions.
+- [Quantum Field Theory](../quantum-field-theory.html) — field-theoretic methods for collective excitations.
+- [Thermodynamics](../thermodynamics.html) — macroscopic properties and phase diagrams of materials.
+- [Computational Physics](../computational-physics/) — DFT, Monte Carlo, and molecular-dynamics simulations.
+- [Physics Hub](../) — browse all physics topics.

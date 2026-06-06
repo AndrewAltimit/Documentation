@@ -11,11 +11,6 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Performance, QoS &amp; Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Why networks are fast or slow, how to defend them, and how to keep them healthy</p>
-</div>
-
 What makes a network feel fast or slow comes down to queues filling at bottleneck links. This page builds the queueing models that explain latency, then turns to defending the network (firewalls, VPNs, ACLs), prioritizing traffic with quality of service, and the tools and metrics for troubleshooting and monitoring.
 
 > **How this page is organized.** It covers two intertwined but distinct concerns:
@@ -473,21 +468,12 @@ This is exactly the data pipeline that detection engineering and incident respon
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="routing.html">Routing &amp; Switching</a> — the paths whose performance we measure here.</li>
-    <li><strong>Next:</strong> <a href="modern-architecture.html">Modern &amp; Future Networking</a> — programmable, cloud, and research-frontier networks.</li>
-  </ul>
-</div>
+**Previous:** [Routing & Switching](routing.html) — the paths whose performance we measure here. &nbsp;**Next:** [Modern & Future Networking](modern-architecture.html) — programmable, cloud, and research-frontier networks.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — congestion control, the response to queue buildup.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — deeper coverage of network defense and zero trust.</li>
-    <li><a href="../cybersecurity/security-operations.html">Security Operations</a> — where flow, packet, and log telemetry becomes detections and alerts.</li>
-    <li><a href="../cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a> — the threat models that decide what your observability should watch for.</li>
-    <li><a href="../aws/">AWS</a> — security groups, NACLs, and cloud monitoring with CloudWatch.</li>
-  </ul>
-</div>
+### See Also
+
+- [Transport & Application Protocols](transport-and-protocols.html) — congestion control, the response to queue buildup.
+- [Cybersecurity](../cybersecurity/) — deeper coverage of network defense and zero trust.
+- [Security Operations](../cybersecurity/security-operations.html) — where flow, packet, and log telemetry becomes detections and alerts.
+- [Attacks & Defense](../cybersecurity/attacks-and-defense.html) — the threat models that decide what your observability should watch for.
+- [AWS](../aws/) — security groups, NACLs, and cloud monitoring with CloudWatch.

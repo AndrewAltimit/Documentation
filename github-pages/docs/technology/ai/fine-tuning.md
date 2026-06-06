@@ -4,15 +4,9 @@ title: "AI: Fine-Tuning & Transfer Learning"
 permalink: /docs/technology/ai/fine-tuning.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Fine-Tuning & Transfer Learning
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Fine-Tuning &amp; Transfer Learning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Adapting pretrained models to new tasks — from full fine-tuning and LoRA to instruction tuning, RLHF, and DPO.</p>
-</div>
 
 Pretraining a large model from scratch costs millions of dollars and consumes enormous datasets, but the representations it learns are broadly useful. **Transfer learning** reuses those representations: instead of starting from random weights, we start from a model that already "knows" the structure of language or vision and adapt it to a specific task. This page covers the full spectrum of adaptation strategies — from updating every parameter, to surgically inserting a few million trainable weights, to aligning a model's behavior with human preferences.
 
@@ -244,27 +238,20 @@ A disciplined loop — curate data, fine-tune with a method matched to your comp
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Transfer learning reuses pretrained representations**, so a new task needs orders of magnitude less data than training from scratch.
 - **Full fine-tuning** is the most expressive but the most expensive in memory and storage; **freezing** most layers regularizes and saves resources.
 - **PEFT methods** (LoRA, QLoRA, adapters, prefix/prompt tuning) train <1% of parameters; LoRA's low-rank update $\Delta W = \tfrac{\alpha}{r}BA$ merges into the base model with zero inference cost.
 - **Alignment is staged**: instruction tuning teaches format via SFT; **RLHF** optimizes a reward model with PPO under a KL leash; **DPO** reaches similar quality directly from preference pairs without a reward model or RL loop.
 - **Catastrophic forgetting** is the core risk — mitigate with small learning rates, PEFT, weight regularization, rehearsal, and KL anchoring.
 - **Data quality and honest, multi-faceted evaluation** (task metrics + held-out benchmarks + pairwise preference) determine whether fine-tuning actually helped.
-</div>
 
 ---
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="architectures.html">Neural Network Architectures</a> — the transformers and optimization these methods build on</li>
-    <li><a href="generative-models.html">Generative Models</a> — autoregressive LLM generation and decoding strategies</li>
-    <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling laws, alignment, and AI safety</li>
-    <li><a href="../../ai-ml/">AI/ML Documentation Hub</a> — hands-on LoRA training and ComfyUI guides</li>
-    <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — the optimization and learning theory underneath</li>
-    <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a> — complete index of AI resources</li>
-  </ul>
-</div>
+- [Neural Network Architectures](architectures.html) — the transformers and optimization these methods build on
+- [Generative Models](generative-models.html) — autoregressive LLM generation and decoding strategies
+- [Frontier Research & Ethics](frontier-and-ethics.html) — scaling laws, alignment, and AI safety
+- [AI/ML Documentation Hub](../../ai-ml/) — hands-on LoRA training and ComfyUI guides
+- [AI Mathematics](../../advanced/ai-mathematics/) — the optimization and learning theory underneath
+- [AI Documentation Hub](../../artificial-intelligence/index.html) — complete index of AI resources

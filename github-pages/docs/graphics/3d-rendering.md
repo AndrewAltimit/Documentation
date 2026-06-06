@@ -9,21 +9,14 @@ toc_label: "On This Page"
 toc_icon: "cube"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">3D Graphics & Rendering</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Real-time rendering pipelines, shading techniques, and GPU architectures for interactive visuals</p>
-</div>
+# 3D Graphics & Rendering
 
-<div class="hub-intro">
-  <p class="lead">3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images displayed on screen. Modern rendering pipelines combine sophisticated algorithms, parallel GPU architectures, and advanced shading techniques to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications.</p>
-</div>
+3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images on screen. Modern pipelines combine geometry algorithms, parallel GPU architectures, and advanced shading to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications. Four ideas frame the whole subject:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-stream"></i><h4>Pipeline, Not Magic</h4><p>Every frame is a fixed sequence of stages: transform geometry, decide which pixels are covered, then shade them. Understanding the stages tells you where time goes.</p></div>
-  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Massively Parallel</h4><p>A GPU runs thousands of threads at once. Performance comes from feeding that parallelism evenly, not from clever serial tricks.</p></div>
-  <div class="insight-card"><i class="fas fa-balance-scale"></i><h4>Rasterize vs Trace</h4><p>Rasterization is fast and approximate; ray tracing is accurate and expensive. Modern engines blend both ("hybrid rendering").</p></div>
-  <div class="insight-card"><i class="fas fa-tachometer-alt"></i><h4>Budget Driven</h4><p>At 60 FPS you have ~16 ms per frame. Rendering is a constant negotiation between visual fidelity and that fixed time budget.</p></div>
-</div>
+- **A pipeline, not magic.** Every frame is a fixed sequence: transform geometry, decide which pixels it covers, then shade them. Knowing the stages tells you where time goes.
+- **Massively parallel.** A GPU runs thousands of threads at once; performance comes from feeding that parallelism evenly, not from clever serial tricks.
+- **Rasterize vs trace.** Rasterization is fast and approximate; ray tracing is accurate and expensive. Modern engines blend both ("hybrid rendering").
+- **Budget-driven.** At 60 FPS you have ~16 ms per frame — rendering is a constant negotiation between visual fidelity and that fixed time budget.
 
 ## The Rendering Pipeline
 
@@ -109,10 +102,7 @@ The two dominant paradigms for visibility determination take opposite approaches
 | Hardware | Universal, decades of optimization | RT cores (RTX, RDNA2+) needed for real-time |
 | Typical use | Primary visibility, real-time base | Shadows, reflections, GI in hybrid pipelines |
 
-<div class="tip-card" markdown="1">
-#### Hybrid Rendering Is the Norm
-Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for speed, then fire rays only for the effects where rasterization fails — shadows, reflections, and indirect light. This pays the ray-tracing cost only where it buys the most visual quality. UE5's Lumen and ray-traced shadows are exactly this strategy.
-</div>
+**Hybrid rendering is the norm.** Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for speed, then fire rays only for the effects where rasterization fails — shadows, reflections, and indirect light. This pays the ray-tracing cost only where it buys the most visual quality; UE5's Lumen and ray-traced shadows are exactly this strategy.
 
 ## Lighting and Shading
 
@@ -429,14 +419,12 @@ Reduce draw calls:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The pipeline is fixed</h4><p>Vertices → triangles → fragments → framebuffer. Knowing which stage dominates a frame is the first step in optimizing it.</p></div>
-  <div class="takeaway-card"><h4>Rasterize first, trace selectively</h4><p>Rasterization wins on speed; ray tracing wins on accuracy. Hybrid pipelines rasterize visibility and trace only shadows, reflections, and GI.</p></div>
-  <div class="takeaway-card"><h4>PBR is the material standard</h4><p>Albedo, metallic, and roughness drive a physically grounded Cook-Torrance BRDF that behaves consistently under any lighting.</p></div>
-  <div class="takeaway-card"><h4>Draw calls and overdraw cost</h4><p>Batching, instancing, LODs, and culling exist to reduce CPU-side draw calls and wasted GPU shading.</p></div>
-  <div class="takeaway-card"><h4>Avoid warp divergence</h4><p>The GPU shades 32/64 threads in lock-step. Branchy shaders and uneven work waste lanes — keep work uniform.</p></div>
-  <div class="takeaway-card"><h4>TAA + upscaling are default</h4><p>Temporal accumulation (TAA) plus DLSS/FSR now deliver the best quality-per-millisecond for anti-aliasing.</p></div>
-</div>
+- **The pipeline is fixed.** Vertices → triangles → fragments → framebuffer. Knowing which stage dominates a frame is the first step in optimizing it.
+- **Rasterize first, trace selectively.** Rasterization wins on speed; ray tracing wins on accuracy. Hybrid pipelines rasterize visibility and trace only shadows, reflections, and GI.
+- **PBR is the material standard.** Albedo, metallic, and roughness drive a physically grounded Cook-Torrance BRDF that behaves consistently under any lighting.
+- **Draw calls and overdraw cost.** Batching, instancing, LODs, and culling exist to reduce CPU-side draw calls and wasted GPU shading.
+- **Avoid warp divergence.** The GPU shades 32/64 threads in lock-step. Branchy shaders and uneven work waste lanes — keep work uniform.
+- **TAA + upscaling are default.** Temporal accumulation (TAA) plus DLSS/FSR now deliver the best quality-per-millisecond for anti-aliasing.
 
 ## See Also
 - [Game Development](../gamedev/) - Game engines, physics, and multiplayer systems

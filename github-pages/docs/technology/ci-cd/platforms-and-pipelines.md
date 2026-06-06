@@ -9,10 +9,7 @@ hide_title: true
 
 [CI/CD](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Platforms & Pipeline Design</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Choosing a CI/CD platform, structuring pipelines, and testing strategies that keep feedback fast.</p>
-</div>
+Choosing a CI/CD platform, structuring pipelines, and testing strategies that keep feedback fast.
 
 ## Popular CI/CD Platforms
 
@@ -254,11 +251,8 @@ performance-test:
   <a href="deployment.html">Deployment Strategies ➡</a>
 </nav>
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="deployment.html">Deployment Strategies</a> — blue-green, canary, rolling, and feature flags</li>
-    <li><a href="security-and-operations.html">Security, GitOps & Operations</a> — securing pipelines and GitOps</li>
-    <li><a href="../docker/">Docker</a> — consistent build environments</li>
-  </ul>
-</div>
+## See Also
+
+- [Deployment Strategies](deployment.html) — blue-green, canary, rolling, and feature flags
+- [Security, GitOps & Operations](security-and-operations.html) — securing pipelines and GitOps
+- [Docker](../docker/) — consistent build environments

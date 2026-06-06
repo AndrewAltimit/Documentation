@@ -4,15 +4,9 @@ title: "AI: Deep Learning Theory"
 permalink: /docs/technology/ai/deep-learning-theory.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Deep Learning Theory
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Deep Learning Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Why deep networks can fit anything, how gradients flow, and what makes them generalize despite being wildly overparameterized.</p>
-</div>
 
 Deep learning works astonishingly well, yet for years it lacked the theoretical scaffolding that explains *why*. This page collects the core results that now form that scaffolding: the **universal approximation** theorems that bound what networks can represent, the **backpropagation** algorithm that makes training tractable, the **optimization landscape** that gradient descent actually traverses, the **initialization and normalization** theory that keeps signals alive across hundreds of layers, the **neural tangent kernel** that linearizes wide networks, the **double-descent** phenomenon that overturned classical wisdom, and the **generalization** puzzle that ties it all together.
 

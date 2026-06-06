@@ -8,19 +8,11 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">FLUX Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">FLUX.1's transformer architecture, flow matching, and guidance distillation — and how to actually run dev, schnell, and pro.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; FLUX Guide
 
-<div class="code-example" markdown="1">
 A deep dive into FLUX.1 — Black Forest Labs' transformer-based diffusion family. How flow matching and guidance distillation work, the differences between dev / schnell / pro, optimal settings, and the surrounding ecosystem of LoRAs, ControlNets, and quantized builds.
-</div>
 
 ## Overview
 
@@ -28,23 +20,9 @@ FLUX represents the current state-of-the-art in open diffusion models, with revo
 
 The practical consequences are dramatic: FLUX rarely botches hands, holds spatial and physical consistency far better than prior open models, renders legible text, and follows long natural-language prompts faithfully — at the cost of higher VRAM requirements and slower inference than SDXL.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Flow Matching, Not DDPM</h4>
-    <p>FLUX learns a velocity field that transports noise to data along near-straight paths, so it needs fewer steps than classic noise-prediction diffusion.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-compress-arrows-alt"></i>
-    <h4>Guidance Is Distilled In</h4>
-    <p>Classifier-free guidance is baked into the weights. You keep <code>cfg = 1.0</code> and steer with a separate <code>guidance</code> scalar instead.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Three Tiers, One Architecture</h4>
-    <p>schnell (fast, Apache-2.0), dev (open-weights, high quality), and pro (API-only, best quality) share the same backbone.</p>
-  </div>
-</div>
+- **Flow Matching, Not DDPM.** FLUX learns a velocity field that transports noise to data along near-straight paths, so it needs fewer steps than classic noise-prediction diffusion.
+- **Guidance Is Distilled In.** Classifier-free guidance is baked into the weights. You keep `cfg = 1.0` and steer with a separate `guidance` scalar instead.
+- **Three Tiers, One Architecture.** schnell (fast, Apache-2.0), dev (open-weights, high quality), and pro (API-only, best quality) share the same backbone.
 
 ## Technical Specifications
 
@@ -268,19 +246,14 @@ The trap is **settings, not prompts**. SDXL uses `cfg_scale ≈ 7.5` at ~30 step
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **FLUX is a flow-matching transformer**, not a U-Net — it learns a velocity field and generates by integrating an ODE, which is why it needs fewer steps.
 - **Guidance is distilled into the weights.** Keep `cfg = 1.0` and steer with the `guidance` scalar (~3.5); raising CFG breaks the output.
 - **Pick the variant for your constraints:** schnell for fast/commercial (Apache-2.0), dev for top-quality local work, pro for API-only best quality, fp8/GGUF to fit smaller cards.
 - **Strengths:** state-of-the-art quality, reliable anatomy, legible text, excellent natural-language prompt adherence.
 - **Costs:** 12 GB+ VRAM, 2-3x slower than SDXL, and a non-commercial license on dev.
 - **The ecosystem has matured** — LoRAs, ControlNets, and quantized builds are all available, but they live in the transformer lineage and do not interchange with SDXL add-ons.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Base Models Comparison](base-models-comparison.html) - Where FLUX fits among SD 1.5, SDXL, SD3, and Pony
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Diffusion, flow matching, and the latent space
@@ -290,4 +263,3 @@ The trap is **settings, not prompts**. SDXL uses `cfg_scale ≈ 7.5` at ~30 step
 - [ControlNet](controlnet.html) - Structural control, including FLUX-native variants
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

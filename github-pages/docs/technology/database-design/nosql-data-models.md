@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">NoSQL Data Models</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Document, key-value, wide-column, graph, and time-series stores — and how to model for each</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# NoSQL Data Models
 
 ## NoSQL: When Relational Isn't the Right Fit
 
@@ -357,14 +354,9 @@ Real systems rarely pick one. A single product might use **PostgreSQL** as the s
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, consensus, distributed transactions, and the NewSQL stores that bring SQL back to scale</li>
-    <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the relational counterpart: normalization, relationships, and design patterns</li>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — B+ trees vs. LSM trees, the storage engines underneath many of these stores</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — how indexes and planners work in the relational world</li>
-    <li><a href="./">Database Design hub</a></li>
-    <li><a href="../aws/">AWS</a> — managed NoSQL services (DynamoDB, DocumentDB, Neptune, Timestream)</li>
-  </ul>
-</div>
+- [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, consensus, distributed transactions, and the NewSQL stores that bring SQL back to scale
+- [Data Modeling & Normalization](modeling.html) — the relational counterpart: normalization, relationships, and design patterns
+- [Storage Engines & Recovery](storage-internals.html) — B+ trees vs. LSM trees, the storage engines underneath many of these stores
+- [Indexing & Query Execution](indexing-and-queries.html) — how indexes and planners work in the relational world
+- [Database Design hub](./)
+- [AWS](../aws/) — managed NoSQL services (DynamoDB, DocumentDB, Neptune, Timestream)

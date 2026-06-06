@@ -13,71 +13,11 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The Unity of Space, Time, and Gravity</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Relativity encompasses two interrelated theories by Albert Einstein: special relativity and general relativity. These theories revolutionized our understanding of space, time, gravity, and the universe. They describe how measurements of various quantities are relative to the velocities of observers and how massive objects warp spacetime.</p>
-  
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-rocket"></i>
-      <h4>Special Relativity</h4>
-      <p>Space and time unite at high speeds</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-globe"></i>
-      <h4>General Relativity</h4>
-      <p>Gravity as curved spacetime</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-atom"></i>
-      <h4>E = mc²</h4>
-      <p>Mass and energy are equivalent</p>
-    </div>
-  </div>
-</div>
+Relativity comprises two interrelated theories by Albert Einstein. **Special relativity** (1905) shows that space and time unite at high speeds, with measurements depending on the observer's velocity. **General relativity** (1915) recasts gravity as curved spacetime. Together they yield $E = mc^2$ and reshaped our understanding of space, time, gravity, and the universe.
 
 ## Explore Relativity
 
-### Foundations
-
-<div class="command-grid">
-  <a href="special-relativity.html" class="nav-card">
-    <h4><i class="fas fa-rocket"></i> Special Relativity</h4>
-    <p>The two postulates, Lorentz transformations, time dilation, length contraction, $E=mc^2$, relativistic dynamics, and four-vectors.</p>
-  </a>
-  <a href="general-relativity.html" class="nav-card">
-    <h4><i class="fas fa-globe"></i> General Relativity</h4>
-    <p>The equivalence principle, the Einstein field equations, the Schwarzschild solution, gravitational time dilation, geodesics, and experimental tests.</p>
-  </a>
-</div>
-
-### Graduate Topics &amp; Deep Dives
-
-<div class="command-grid">
-  <a href="advanced.html" class="nav-card">
-    <h4><i class="fas fa-superscript"></i> Graduate Topics Hub</h4>
-    <p>Sub-hub for the graduate formalism and frontiers: where each deep-dive below fits, the prerequisites, and the path through them.</p>
-  </a>
-  <a href="tensor-formalism.html" class="nav-card">
-    <h4><i class="fas fa-square-root-alt"></i> Tensor Formalism</h4>
-    <p>Tensor calculus, the metric, covariant derivatives, the Riemann and Ricci tensors, and a full derivation of the Einstein field equations.</p>
-  </a>
-  <a href="black-holes.html" class="nav-card">
-    <h4><i class="fas fa-circle"></i> Black Holes</h4>
-    <p>Schwarzschild and Kerr geometries, horizons, singularities, the Penrose process, and black-hole thermodynamics.</p>
-  </a>
-  <a href="cosmology.html" class="nav-card">
-    <h4><i class="fas fa-globe-americas"></i> Cosmology</h4>
-    <p>The FLRW metric, the Friedmann equations, the expanding universe, the cosmological constant, and the standard ΛCDM model.</p>
-  </a>
-  <a href="gravitational-waves.html" class="nav-card">
-    <h4><i class="fas fa-wave-square"></i> Gravitational Waves</h4>
-    <p>Linearized gravity, the transverse-traceless gauge, the quadrupole formula, binary inspirals, and detection with LIGO.</p>
-  </a>
-  <a href="quantum-gravity.html" class="nav-card">
-    <h4><i class="fas fa-atom"></i> Quantum Gravity</h4>
-    <p>Why general relativity and quantum theory clash, the information paradox, and the string-theory and loop approaches to a unified theory.</p>
-  </a>
-</div>
+The two foundational pages — [Special Relativity](special-relativity.html) and [General Relativity](general-relativity.html) — cover the conceptual and mathematical core. The graduate deep-dives (tensor formalism, black holes, cosmology, gravitational waves, quantum gravity) are reference material; the [Graduate Topics Hub](advanced.html) explains how they fit together. Full descriptions are in the [What You'll Find](#what-youll-find) table below.
 
 ### The Logic of Relativity
 
@@ -118,50 +58,22 @@ graph TD
 | [Gravitational Waves](gravitational-waves.html) | Linearized gravity, the quadrupole formula, binary inspirals, detection with LIGO |
 | [Quantum Gravity](quantum-gravity.html) | Why GR and quantum theory clash, the information paradox, string and loop approaches |
 
-<div class="tip-card">
-  <h4>Level and prerequisites</h4>
-  <p>The conceptual core — postulates, time dilation, $E=mc^2$, gravity as curvature — needs only algebra and a willingness to abandon "common sense" about absolute time. The Lorentz transformations and four-vectors use a little linear algebra. The graduate formalism (tensor calculus, the Riemann tensor, exact black-hole solutions) is reference material and can be skipped on a first read. Read <a href="special-relativity.html">Special Relativity</a> first; <a href="general-relativity.html">General Relativity</a> assumes it.</p>
-</div>
+**Level and prerequisites.** The conceptual core — postulates, time dilation, $E=mc^2$, gravity as curvature — needs only algebra and a willingness to abandon "common sense" about absolute time. The Lorentz transformations and four-vectors use a little linear algebra. The graduate formalism (tensor calculus, the Riemann tensor, exact black-hole solutions) is reference material and can be skipped on a first read. Read [Special Relativity](special-relativity.html) first; [General Relativity](general-relativity.html) assumes it.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The speed of light is absolute</h4>
-    <p>$c$ is the same in every inertial frame; simultaneity, length, and time become observer-dependent.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Space and time are one</h4>
-    <p>Special relativity unifies them into spacetime, with the invariant interval $ds^2$ replacing separate distances and durations.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mass is energy</h4>
-    <p>$E = mc^2$ (more generally $E^2 = (pc)^2 + (mc^2)^2$) — rest mass is a reservoir of energy.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Gravity is geometry</h4>
-    <p>General relativity recasts gravity as the curvature of spacetime: $G_{\mu\nu} = 8\pi G\, T_{\mu\nu}$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Free fall follows geodesics</h4>
-    <p>Objects in free fall move along the straightest possible paths through curved spacetime.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Confirmed across scales</h4>
-    <p>From GPS clock corrections to gravitational waves and black-hole images, relativity passes every test.</p>
-  </div>
-</div>
+- **The speed of light is absolute.** $c$ is the same in every inertial frame; simultaneity, length, and time become observer-dependent.
+- **Space and time are one.** Special relativity unifies them into spacetime, with the invariant interval $ds^2$ replacing separate distances and durations.
+- **Mass is energy.** $E = mc^2$ (more generally $E^2 = (pc)^2 + (mc^2)^2$) — rest mass is a reservoir of energy.
+- **Gravity is geometry.** General relativity recasts gravity as the curvature of spacetime: $G_{\mu\nu} = 8\pi G\, T_{\mu\nu}$.
+- **Free fall follows geodesics.** Objects in free fall move along the straightest possible paths through curved spacetime.
+- **Confirmed across scales.** From GPS clock corrections to gravitational waves and black-hole images, relativity passes every test.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../classical-mechanics/">Classical Mechanics</a> — Newtonian mechanics, recovered in the low-speed, weak-gravity limit.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — unifying special relativity with quantum mechanics.</li>
-    <li><a href="../string-theory/">String Theory</a> — a leading candidate for quantum gravity and extra dimensions.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the quantum theory that relativity is reconciled with in QFT.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — numerical relativity and gravitational-wave simulations.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Classical Mechanics](../classical-mechanics/) — Newtonian mechanics, recovered in the low-speed, weak-gravity limit.
+- [Quantum Field Theory](../quantum-field-theory.html) — unifying special relativity with quantum mechanics.
+- [String Theory](../string-theory/) — a leading candidate for quantum gravity and extra dimensions.
+- [Quantum Mechanics](../quantum-mechanics/) — the quantum theory that relativity is reconciled with in QFT.
+- [Computational Physics](../computational-physics/) — numerical relativity and gravitational-wave simulations.
+- [Physics Hub](../) — browse all physics topics.

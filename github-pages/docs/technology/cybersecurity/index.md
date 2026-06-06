@@ -6,34 +6,12 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Cybersecurity</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Protecting systems, networks, and data from digital threats</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Cybersecurity</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.75rem; opacity: 0.9;">Protecting systems, networks, and data from digital threats</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. It spans a wide range of technologies, processes, and practices designed to safeguard digital assets. This hub builds from everyday risks (passwords, public WiFi) up through cryptography, web and cloud security, attack techniques, and incident response.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-key"></i>
-    <h4>Cryptography</h4>
-    <p>Hashing, salting, and encryption that protect secrets at rest and in transit</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bug"></i>
-    <h4>Attack Techniques</h4>
-    <p>How injection, phishing, and lateral movement actually work</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Defense &amp; Response</h4>
-    <p>Defense-in-depth, zero trust, and what to do when prevention fails</p>
-  </div>
-</div>
-
-> **Threat model first.** Security is about reducing risk against a realistic set of attackers, not achieving perfection. Every control below is a trade-off between protection, cost, and usability.
+Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. This hub builds from everyday risks (passwords, public WiFi) up through cryptography, web and cloud security, attack techniques, and incident response. The recurring theme is **threat modeling**: security reduces risk against a realistic set of attackers rather than achieving perfection, and every control is a trade-off between protection, cost, and usability.
 
 ## How the Topics Fit Together
 
@@ -66,46 +44,19 @@ flowchart TD
 
 ---
 
-## Quick Navigation
+## Guides in This Hub
 
-<div class="command-grid">
-  <a class="nav-card" href="cryptography.html">
-    <h3>Cryptography</h3>
-    <p>Symmetric and public-key encryption, ECC, post-quantum algorithms, zero-knowledge and homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing.</p>
-  </a>
-  <a class="nav-card" href="application-and-cloud-security.html">
-    <h3>Application Security</h3>
-    <p>SQL injection, XSS, CSRF, authentication and session handling, JWTs, the OWASP Top 10, and secure-by-design web development.</p>
-  </a>
-  <a class="nav-card" href="cloud-and-container-security.html">
-    <h3>Cloud &amp; Container Security</h3>
-    <p>The shared-responsibility model, IAM and identity, cloud posture management, container hardening, and Kubernetes workload security.</p>
-  </a>
-  <a class="nav-card" href="attacks-and-defense.html">
-    <h3>Attacks &amp; Network Defense</h3>
-    <p>Firewalls, VPNs, and IDS/IPS; social engineering, supply chain and ransomware; side-channel and ML attacks.</p>
-  </a>
-  <a class="nav-card" href="operations-and-response.html">
-    <h3>Security Operations &amp; Response</h3>
-    <p>The hub for running security day to day — the SOC, incident response, and compliance. Branches into the three guides below.</p>
-  </a>
-  <a class="nav-card" href="incident-response.html">
-    <h3>Incident Response &amp; Forensics</h3>
-    <p>What to do when prevention fails: detect, contain, eradicate, recover, and run a blameless post-mortem.</p>
-  </a>
-  <a class="nav-card" href="security-operations.html">
-    <h3>Security Operations</h3>
-    <p>The SOC, SIEM pipelines, detection engineering, threat hunting, and offensive testing (pentests, red/blue/purple teams).</p>
-  </a>
-  <a class="nav-card" href="compliance-and-governance.html">
-    <h3>Compliance &amp; Governance</h3>
-    <p>Turning security into a program — frameworks, risk management, GDPR/PCI, people, and metrics.</p>
-  </a>
-  <a class="nav-card" href="privacy-engineering.html">
-    <h3>Privacy Engineering</h3>
-    <p>Protecting people, not just data — privacy by design, data minimization, differential privacy, and legal obligations.</p>
-  </a>
-</div>
+| Guide | What it covers |
+|-------|----------------|
+| [Cryptography](cryptography.html) | Symmetric and public-key encryption, ECC, post-quantum, zero-knowledge and homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing |
+| [Application Security](application-and-cloud-security.html) | SQL injection, XSS, CSRF, authentication and session handling, JWTs, the OWASP Top 10, and secure-by-design development |
+| [Cloud & Container Security](cloud-and-container-security.html) | Shared-responsibility model, IAM and identity, cloud posture management, container hardening, and Kubernetes workload security |
+| [Attacks & Network Defense](attacks-and-defense.html) | Firewalls, VPNs, and IDS/IPS; social engineering, supply chain and ransomware; side-channel and ML attacks |
+| [Security Operations & Response](operations-and-response.html) | Hub for running security day to day — the SOC, incident response, and compliance; branches into the three guides below |
+| [Incident Response & Forensics](incident-response.html) | When prevention fails: detect, contain, eradicate, recover, and run a blameless post-mortem |
+| [Security Operations](security-operations.html) | The SOC, SIEM pipelines, detection engineering, threat hunting, and offensive testing (pentests, red/blue/purple teams) |
+| [Compliance & Governance](compliance-and-governance.html) | Turning security into a program — frameworks, risk management, GDPR/PCI, people, and metrics |
+| [Privacy Engineering](privacy-engineering.html) | Protecting people, not just data — privacy by design, data minimization, differential privacy, and legal obligations |
 
 ---
 
@@ -186,56 +137,14 @@ This is why websites use HTTPS—the 'S' stands for Secure. But how does HTTPS a
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Basics stop most attacks</h4>
-    <p>Strong unique passwords, MFA, encryption, and timely patching defeat the overwhelming majority of real-world intrusions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Defense in depth</h4>
-    <p>No single control is perfect. Layered, overlapping defenses ensure one failure does not become a full compromise.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Think like an attacker</h4>
-    <p>Understanding how injection, phishing, and lateral movement actually work is what lets you defend against them.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Security is everyone's job</h4>
-    <p>Technology cannot protect against careless users — culture, training, and usable controls are part of the system.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Plan for failure</h4>
-    <p>Assume breaches will happen. Detection, logging, and a rehearsed incident-response plan limit the damage when they do.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>It's an ongoing journey</h4>
-    <p>Every new technology brings new vulnerabilities and every defense spawns new attacks — continuous learning is the only constant.</p>
-  </div>
-</div>
+- **Basics stop most attacks.** Strong unique passwords, MFA, encryption, and timely patching defeat the overwhelming majority of real-world intrusions.
+- **Defense in depth.** No single control is perfect; layered, overlapping defenses ensure one failure does not become a full compromise.
+- **Think like an attacker.** Understanding how injection, phishing, and lateral movement actually work is what lets you defend against them.
+- **Security is everyone's job.** Technology cannot protect against careless users — culture, training, and usable controls are part of the system.
+- **Plan for failure.** Assume breaches will happen; detection, logging, and a rehearsed incident-response plan limit the damage when they do.
+- **It's an ongoing journey.** Every new technology brings new vulnerabilities and every defense spawns new attacks.
 
-### Your Next Steps
-
-```python
-def start_your_security_journey():
-    steps = [
-        "Enable MFA on all important accounts",
-        "Use a password manager",
-        "Keep software updated",
-        "Learn to recognize phishing",
-        "Understand what data you're protecting",
-        "Practice incident response",
-        "Stay informed about new threats",
-        "Share knowledge with others"
-    ]
-
-    for step in steps:
-        take_action(step)
-        # Security improves one step at a time
-
-    return "You're now more secure than 90% of targets"
-```
-
-Remember: Perfect security doesn't exist, but good security is achievable. Start where you are, use what you have, do what you can. Every improvement makes you a harder target, and in cybersecurity, you don't have to outrun the bear—just the other hikers.
+A practical starting checklist: enable MFA on important accounts, use a password manager, keep software updated, learn to recognize phishing, know what data you're protecting, and rehearse incident response. Perfect security doesn't exist, but every improvement makes you a harder target.
 
 ---
 
@@ -293,15 +202,8 @@ Remember: Perfect security doesn't exist, but good security is achievable. Start
 
 ## See Also
 
-- [Cryptography](cryptography.html) — encryption, post-quantum, and the math behind it
-- [Application Security](application-and-cloud-security.html) — injection, XSS, auth, and the OWASP Top 10
-- [Cloud & Container Security](cloud-and-container-security.html) — IAM, posture, and container hardening
-- [Attacks & Network Defense](attacks-and-defense.html) — firewalls, VPNs, and how attackers think
-- [Security Operations & Response](operations-and-response.html) — the SOC, incident response, and compliance hub
-- [Incident Response & Forensics](incident-response.html) — detect, contain, eradicate, recover
-- [Security Operations](security-operations.html) — SIEM, detection engineering, and threat hunting
-- [Compliance & Governance](compliance-and-governance.html) — frameworks, risk, GDPR/PCI
-- [Privacy Engineering](privacy-engineering.html) — privacy by design and data minimization
+The nine in-hub guides are listed in [Guides in This Hub](#guides-in-this-hub) above. Related sections elsewhere on the site:
+
 - [Networking](../networking/) — the protocols and routing security defends
 - [AWS](../aws/) — cloud security controls and the shared-responsibility model
 - [Docker](../docker/) — container isolation and image security

@@ -8,23 +8,12 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker Essentials</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Quick reference for container commands and operations</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Docker Essentials</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Quick reference for container commands and operations</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">This is a <strong>command cheat sheet</strong> — the Docker commands you reach for during daily development, grouped by task. It assumes you already know what containers are. For the concepts behind these commands (images, layers, namespaces, networking, security), start with the <a href="docker/">Docker section</a>.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Cheat sheet vs. concepts</h4>
-  <ul>
-    <li><strong>This page (Essentials)</strong> — fast command lookup for the terminal.</li>
-    <li><a href="docker/fundamentals.html">Docker Fundamentals</a> — how images, layers, and the runtime actually work.</li>
-    <li><a href="docker/dockerfiles.html">Dockerfiles</a> and <a href="docker/advanced.html">Advanced Docker</a> — building and optimizing your own images.</li>
-  </ul>
-</div>
+A **command cheat sheet** — the Docker commands you reach for during daily development, grouped by task. It assumes you already know what containers are. For the concepts behind these commands, see [Docker Fundamentals](docker/fundamentals.html) (how images, layers, and the runtime work) and [Dockerfiles](docker/dockerfiles.html) / [Advanced Docker](docker/advanced.html) (building and optimizing your own images).
 
 ### Jump to a task
 
@@ -392,24 +381,17 @@ docker container prune --filter "until=24h"
 
 ## Key Takeaways
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Build → run → ship:</strong> <code>docker build</code> makes images, <code>docker run</code> starts containers, <code>push</code>/<code>pull</code> move images through a registry.</li>
-    <li><strong>Use <code>-d</code> for background, <code>-it</code> for an interactive shell, <code>-p</code> to publish ports, <code>-v</code> to mount volumes.</strong></li>
-    <li><strong><code>docker compose up -d</code></strong> manages multi-container apps from a single YAML file.</li>
-    <li><strong>Reclaim disk with <code>docker system prune</code></strong> — add <code>-a --volumes</code> for an aggressive cleanup.</li>
-    <li><strong>Debug live containers</strong> with <code>logs -f</code>, <code>exec -it ... bash</code>, <code>stats</code>, and <code>inspect</code>.</li>
-  </ul>
-</div>
+- **Build → run → ship:** `docker build` makes images, `docker run` starts containers, `push`/`pull` move images through a registry.
+- Use `-d` for background, `-it` for an interactive shell, `-p` to publish ports, `-v` to mount volumes.
+- `docker compose up -d` manages multi-container apps from a single YAML file.
+- Reclaim disk with `docker system prune` — add `-a --volumes` for an aggressive cleanup.
+- Debug live containers with `logs -f`, `exec -it ... bash`, `stats`, and `inspect`.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="docker/fundamentals.html">Docker Fundamentals</a> — core concepts and architecture explained</li>
-    <li><a href="docker/storage-security.html">Docker Storage &amp; Security</a> — volumes, networking, and security best practices</li>
-    <li><a href="docker/dockerfiles.html">Dockerfiles Guide</a> — building custom images</li>
-    <li><a href="docker/advanced.html">Advanced Docker</a> — multi-stage builds, optimization, and orchestration</li>
-    <li><a href="kubernetes/">Kubernetes</a> — container orchestration at scale</li>
-    <li><a href="ci-cd/">CI/CD</a> — automating Docker workflows in pipelines</li>
-  </ul>
-</div>
+## See Also
+
+- [Docker Fundamentals](docker/fundamentals.html) — core concepts and architecture explained
+- [Docker Storage & Security](docker/storage-security.html) — volumes, networking, and security best practices
+- [Dockerfiles Guide](docker/dockerfiles.html) — building custom images
+- [Advanced Docker](docker/advanced.html) — multi-stage builds, optimization, and orchestration
+- [Kubernetes](kubernetes/) — container orchestration at scale
+- [CI/CD](ci-cd/) — automating Docker workflows in pipelines

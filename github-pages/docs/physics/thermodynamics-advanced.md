@@ -3,30 +3,15 @@ layout: docs
 title: "Thermodynamics: Advanced Topics"
 description: Graduate-level thermodynamics — Legendre structure and the thermodynamic potentials, Maxwell relations, critical phenomena and the renormalization group, non-equilibrium thermodynamics, and stochastic/quantum thermodynamics.
 permalink: /docs/physics/thermodynamics-advanced.html
-hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Thermodynamics: Advanced Topics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A graduate reference: the Legendre structure of the potentials, critical phenomena and the renormalization group, and the modern non-equilibrium, stochastic, and quantum extensions.</p>
-</div>
-
 [Thermodynamics](./thermodynamics.html) &raquo; Advanced Topics
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="intro-card">
-  <p class="lead-text">This page is the denser, formula-forward continuation of <a href="./thermodynamics.html">Thermodynamics</a>. It assumes the four laws, the four potentials, and the engine cycles, and builds the formal machinery on top: the Legendre-transform structure that relates the potentials, the complete set of Maxwell relations, the theory of continuous phase transitions and the renormalization group, and the twentieth- and twenty-first-century extensions to systems far from equilibrium — Onsager's reciprocity, the fluctuation theorems, and stochastic and quantum thermodynamics.</p>
-</div>
-
-<div class="tip-card">
-  <h4>How to read this page</h4>
-  <p>For the microscopic story behind the statistical sections, see <a href="statistical-mechanics/">Statistical Mechanics</a>, which develops ensembles and the partition function in full. This reference is deliberately formula-forward: each section states the central relations precisely and explains what they buy you, rather than re-deriving the elementary material covered on the main page.</p>
-</div>
+This page is the denser, formula-forward continuation of [Thermodynamics](./thermodynamics.html). It assumes the four laws, the four potentials, and the engine cycles, and builds the formal machinery on top: the Legendre-transform structure that relates the potentials, the complete set of Maxwell relations, the theory of continuous phase transitions and the renormalization group, and the modern extensions to systems far from equilibrium — Onsager's reciprocity, the fluctuation theorems, and stochastic and quantum thermodynamics. For the microscopic story behind the statistical sections, see [Statistical Mechanics](statistical-mechanics/).
 
 ## Legendre Transformations and Thermodynamic Potentials
 
@@ -71,10 +56,7 @@ $$
 
 From these, every first-order equation of state is a partial derivative — for example $T = (\partial U/\partial S)_{V,N}$, $P = -(\partial F/\partial V)_{T,N}$, and $N = -(\partial \Omega/\partial \mu)_{T,V}$.
 
-<div class="principle-card">
-  <h4>Why the transform matters physically</h4>
-  <p>The natural variables of a potential are precisely the quantities an experiment controls. A reaction in an open beaker is held at fixed $T$ and $P$, so the relevant potential is $G$; a gas sealed in a rigid box at fixed temperature is governed by $F$; a system exchanging particles with a reservoir (an adsorbed monolayer, an electron gas) is governed by $\Omega$. In each case <em>minimizing the matching potential</em> identifies equilibrium, and the Legendre transform is what guarantees these descriptions all carry the same physical content.</p>
-</div>
+**Why the transform matters physically.** The natural variables of a potential are precisely the quantities an experiment controls. A reaction in an open beaker is held at fixed $T$ and $P$, so the relevant potential is $G$; a gas sealed in a rigid box at fixed temperature is governed by $F$; a system exchanging particles with a reservoir (an adsorbed monolayer, an electron gas) is governed by $\Omega$. In each case *minimizing the matching potential* identifies equilibrium, and the Legendre transform guarantees these descriptions all carry the same physical content.
 
 ### The Euler Relation and Gibbs–Duhem
 
@@ -103,10 +85,7 @@ Each potential is an exact differential, so its mixed second partials are equal.
 | $F$ | $T, V, N$ | $\left(\dfrac{\partial S}{\partial V}\right)_{T,N} = \left(\dfrac{\partial P}{\partial T}\right)_{V,N}$ |
 | $G$ | $T, P, N$ | $\left(\dfrac{\partial S}{\partial P}\right)_{T,N} = -\left(\dfrac{\partial V}{\partial T}\right)_{P,N}$ |
 
-<div class="tip-card">
-  <h4>What Maxwell relations are for</h4>
-  <p>They convert quantities you cannot easily measure into quantities you can. The entropy change of a gas with volume, $(\partial S/\partial V)_T$, is not directly accessible, but the Maxwell relation equates it to $(\partial P/\partial T)_V$ — a slope read straight off the equation of state. The same trick yields the energy equation $(\partial U/\partial V)_T = T(\partial P/\partial T)_V - P$, which vanishes for an ideal gas and is nonzero (and computable) for a van der Waals gas.</p>
-</div>
+**What Maxwell relations are for.** They convert quantities you cannot easily measure into quantities you can. The entropy change of a gas with volume, $(\partial S/\partial V)_T$, is not directly accessible, but the Maxwell relation equates it to $(\partial P/\partial T)_V$ — a slope read straight off the equation of state. The same trick yields the energy equation $(\partial U/\partial V)_T = T(\partial P/\partial T)_V - P$, which vanishes for an ideal gas and is nonzero (and computable) for a van der Waals gas.
 
 ### The Thermodynamic Square
 
@@ -221,14 +200,13 @@ The thermal and field eigenvalues are exactly the $y_t$ and $y_h$ of the scaling
 
 **Universality:** Because only the relevant couplings survive coarse-graining, every microscopic model that flows to the same fixed point shares the same critical exponents. Systems are grouped into **universality classes** set by dimensionality $d$, the symmetry of the order parameter, and the range of interactions — which is why a uniaxial ferromagnet and the liquid–gas critical point of a simple fluid share the 3D Ising exponents.
 
-<div class="example-card">
-  <h4>Worked sketch: the Gaussian fixed point and $\epsilon$-expansion</h4>
-  <p>For the $\phi^4$ field theory, a momentum-shell RG step generates the flow of the quartic coupling $u$. In $d = 4 - \epsilon$ dimensions the one-loop recursion is</p>
-  $$
-  \frac{du}{d\ell} = \epsilon\, u - C\, u^2,
-  $$
-  <p>with $C > 0$ a geometric constant and $\ell = \ln b$. For $\epsilon > 0$ this has a nontrivial stable fixed point $u^* = \epsilon / C$ — the <strong>Wilson–Fisher fixed point</strong> — which controls criticality below four dimensions. Expanding the exponents in powers of $\epsilon$ (e.g. $\nu = 1/2 + \epsilon/12 + \ldots$) and extrapolating to $\epsilon = 1$ gives strikingly good estimates for the 3D Ising exponents, the calculation for which Wilson received the 1982 Nobel Prize.</p>
-</div>
+**Worked sketch — the Gaussian fixed point and $\epsilon$-expansion.** For the $\phi^4$ field theory, a momentum-shell RG step generates the flow of the quartic coupling $u$. In $d = 4 - \epsilon$ dimensions the one-loop recursion is
+
+$$
+\frac{du}{d\ell} = \epsilon\, u - C\, u^2,
+$$
+
+with $C > 0$ a geometric constant and $\ell = \ln b$. For $\epsilon > 0$ this has a nontrivial stable fixed point $u^* = \epsilon / C$ — the **Wilson-Fisher fixed point** — which controls criticality below four dimensions. Expanding the exponents in powers of $\epsilon$ (e.g. $\nu = 1/2 + \epsilon/12 + \ldots$) and extrapolating to $\epsilon = 1$ gives strikingly good estimates for the 3D Ising exponents, the calculation for which Wilson received the 1982 Nobel Prize.
 
 ## Statistical Foundations
 
@@ -624,14 +602,9 @@ When these conditions fail — for example when $\kappa_T < 0$ on a van der Waal
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="./thermodynamics.html">Thermodynamics</a> — the foundational laws, processes, potentials, and engine cycles this page builds on.</li>
-    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
-    <li><a href="condensed-matter/">Condensed Matter Physics</a> — phase transitions, criticality, and the renormalization group in real materials.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical and quantum thermodynamics.</li>
-    <li><a href="relativity/">Relativity</a> — black-hole thermodynamics and the Bekenstein–Hawking entropy.</li>
-    <li><a href="computational-physics/">Computational Physics</a> — Monte Carlo and molecular dynamics for thermal systems.</li>
-  </ul>
-</div>
+- [Thermodynamics](./thermodynamics.html) — the foundational laws, processes, potentials, and engine cycles this page builds on.
+- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation that *derives* thermodynamics from counting microstates.
+- [Condensed Matter Physics](condensed-matter/) — phase transitions, criticality, and the renormalization group in real materials.
+- [Quantum Mechanics](quantum-mechanics/) — quantized energy levels underlying quantum statistical and quantum thermodynamics.
+- [Relativity](relativity/) — black-hole thermodynamics and the Bekenstein-Hawking entropy.
+- [Computational Physics](computational-physics/) — Monte Carlo and molecular dynamics for thermal systems.

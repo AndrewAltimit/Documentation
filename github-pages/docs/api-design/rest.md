@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #1a2980 0%, #26d0ce 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">API Design: REST</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Resources, HTTP semantics, versioning, pagination, hypermedia, idempotency, and the contracts (OpenAPI, RFC 7807) that make a web API durable.</p>
-</div>
-
 [API Design](./) &raquo; REST
 
-<div class="intro-card">
-  <p class="lead-text">REST is not a protocol or a framework — it is an <em>architectural style</em>: a set of constraints that, when honored, give an API the scaling, evolvability, and cache-friendliness of the web itself. In practice "REST" has come to mean "JSON over HTTP", but the value comes from taking the underlying ideas seriously: model your domain as <strong>resources</strong> with stable identifiers, manipulate them with the <strong>uniform interface</strong> of HTTP methods and status codes, keep every request <strong>stateless</strong>, and let responses describe their own cacheability and next actions. This page covers the constraints that define REST, how to model resources and choose URIs, the precise semantics of HTTP methods and status codes, strategies for versioning, pagination, filtering, idempotency, and rate limiting, the RFC 7807 problem-details error format, and the OpenAPI contracts that turn all of this into tooling.</p>
-</div>
+REST is not a protocol or a framework — it is an *architectural style*: a set of constraints that, when honored, give an API the scaling, evolvability, and cache-friendliness of the web itself. In practice "REST" has come to mean "JSON over HTTP", but the value comes from taking the underlying ideas seriously: model your domain as **resources** with stable identifiers, manipulate them with the **uniform interface** of HTTP methods and status codes, keep every request **stateless**, and let responses describe their own cacheability and next actions. Four ideas anchor everything below:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-cube"></i>
-    <h4>Resources, not actions</h4>
-    <p>A REST API exposes nouns (<code>/orders/42</code>) acted on by a fixed verb set, not an open-ended catalog of RPC procedures.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-exchange-alt"></i>
-    <h4>The uniform interface is the point</h4>
-    <p>Methods, status codes, headers, and media types are a shared contract every client and proxy already understands.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-feather"></i>
-    <h4>Stateless scales</h4>
-    <p>Each request carries everything needed to serve it, so any server can handle any request and you scale by adding boxes.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-redo"></i>
-    <h4>Safety and idempotency are guarantees</h4>
-    <p>GET must not change state; PUT/DELETE can be retried safely. Clients and proxies rely on these properties.</p>
-  </div>
-</div>
+- **Resources, not actions.** An API exposes nouns (`/orders/42`) acted on by a fixed verb set, not an open-ended catalog of RPC procedures.
+- **The uniform interface is the point.** Methods, status codes, headers, and media types are a shared contract every client and proxy already understands.
+- **Stateless scales.** Each request carries everything needed to serve it, so any server can handle any request and you scale by adding boxes.
+- **Safety and idempotency are guarantees.** GET must not change state; PUT/DELETE can be retried safely — clients and proxies rely on it.
+
+This page covers the constraints that define REST, resource and URI modeling, the precise semantics of HTTP methods and status codes, versioning, pagination, filtering, idempotency, rate limiting, the RFC 7807 problem-details error format, and the OpenAPI contracts that turn all of this into tooling.
 
 ## Table of contents
 {: .no_toc .text-delta }

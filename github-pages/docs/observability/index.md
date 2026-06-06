@@ -15,13 +15,6 @@ toc: false  # Index pages typically don't need TOC
 Observability is the practice of instrumenting systems so that their internal behavior can be inferred from the telemetry they emit. Modern services are distributed, dynamic, and partially failing at all times; you cannot SSH into one box and read a log file to understand them. This hub frames the core idea — observability as a property you design *into* a system — and routes you into focused pages for each of the three pillars: metrics, logging, and tracing.
 </div>
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-chart-line"></i><h4>Metrics tell you <em>what</em></h4><p>Cheap, aggregatable numeric time series — request rate, error rate, latency, saturation. The backbone of dashboards and alerting, but they lose per-event detail.</p></div>
-  <div class="insight-card"><i class="fas fa-file-alt"></i><h4>Logs tell you <em>why</em></h4><p>Discrete, timestamped, high-cardinality event records. Structured logs let you query the exact circumstances of a single failing request after the fact.</p></div>
-  <div class="insight-card"><i class="fas fa-route"></i><h4>Traces tell you <em>where</em></h4><p>A causally-linked path of a request across services. Traces localize latency and errors in a system no single team fully owns.</p></div>
-  <div class="insight-card"><i class="fas fa-bullseye"></i><h4>SLOs turn signals into decisions</h4><p>Service Level Objectives and error budgets convert raw telemetry into an agreed definition of "healthy" — and a rule for when to stop shipping features and fix reliability.</p></div>
-</div>
-
 ## Overview
 
 Observability is the ability to understand the internal state of a system purely from the data it exposes — its metrics, logs, and traces — without shipping new code to ask a new question. The term is borrowed from control theory, where a system is *observable* if its internal state can be reconstructed from its outputs over time. Applied to software, the bar is practical: when something breaks at 3 a.m., can you diagnose a novel failure mode with the telemetry you already collect, or do you have to add a log line and redeploy to find out what happened?
@@ -114,23 +107,6 @@ The error budget reframes reliability from an absolute ("never go down") to an e
 
 The pages below go deep on each of the three pillars. Read them in pillar order, or jump straight to whichever signal you're currently trying to wrangle.
 
-<div class="command-grid">
-  <a href="metrics.html" class="nav-card">
-    <h4><i class="fas fa-chart-line"></i> Metrics &amp; Monitoring</h4>
-    <p>Counters, gauges, and histograms; the four golden signals (RED/USE); Prometheus, PromQL, dashboards, and threshold vs. burn-rate alerting.</p>
-  </a>
-  <a href="logging.html" class="nav-card">
-    <h4><i class="fas fa-file-alt"></i> Logging</h4>
-    <p>Structured vs. unstructured logs, log levels, correlation IDs, aggregation pipelines, sampling, retention, and cost control at scale.</p>
-  </a>
-  <a href="tracing.html" class="nav-card">
-    <h4><i class="fas fa-route"></i> Distributed Tracing</h4>
-    <p>Spans, trace context propagation, sampling strategies, OpenTelemetry, and locating latency and errors across a microservice call graph.</p>
-  </a>
-</div>
-
-### What You'll Find
-
 | Page | What it covers |
 |------|----------------|
 | [Metrics & Monitoring](metrics.html) | Counters/gauges/histograms, golden signals (RED & USE), Prometheus + PromQL, dashboards, alerting |
@@ -150,29 +126,22 @@ In short: distributed systems and Kubernetes create the complexity, AWS and othe
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Observability ≠ monitoring</h4><p>Monitoring answers known questions; observability lets you ask new ones after the fact. Modern distributed systems need both.</p></div>
-  <div class="takeaway-card"><h4>Use all three pillars</h4><p>Metrics for the <em>what</em>, logs for the <em>why</em>, traces for the <em>where</em>. Correlate them so an alert leads to a trace leads to the failing log line.</p></div>
-  <div class="takeaway-card"><h4>Structure your telemetry</h4><p>Structured, high-cardinality logs and labeled metrics are queryable; free-text strings and unlabeled counters are not.</p></div>
-  <div class="takeaway-card"><h4>Define SLOs, not vibes</h4><p>An SLI is a good/valid ratio; an SLO is a target; the error budget is what you spend on shipping features.</p></div>
-  <div class="takeaway-card"><h4>100% is the wrong target</h4><p>Aim for the lowest reliability users won't notice — it maximizes the budget available for change.</p></div>
-  <div class="takeaway-card"><h4>Instrument once</h4><p>OpenTelemetry emits all three signals from a shared context, so correlation is built in rather than bolted on.</p></div>
-</div>
+- **Observability is not monitoring.** Monitoring answers known questions; observability lets you ask new ones after the fact. Modern distributed systems need both.
+- **Use all three pillars.** Metrics for the *what*, logs for the *why*, traces for the *where*. Correlate them so an alert leads to a trace leads to the failing log line.
+- **Structure your telemetry.** Structured, high-cardinality logs and labeled metrics are queryable; free-text strings and unlabeled counters are not.
+- **Define SLOs, not vibes.** An SLI is a good/valid ratio; an SLO is a target; the error budget is what you spend on shipping features.
+- **100% is the wrong target.** Aim for the lowest reliability users won't notice — it maximizes the budget available for change.
+- **Instrument once.** OpenTelemetry emits all three signals from a shared context, so correlation is built in rather than bolted on.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="metrics.html">Metrics &amp; Monitoring</a> — the golden signals, Prometheus, and alerting.</li>
-    <li><a href="logging.html">Logging</a> — structured logs, correlation IDs, and aggregation pipelines.</li>
-    <li><a href="tracing.html">Distributed Tracing</a> — spans, context propagation, and OpenTelemetry.</li>
-    <li><a href="../distributed-systems/">Distributed Systems</a> — the emergent, multi-node behavior observability exists to illuminate.</li>
-    <li><a href="../technology/kubernetes/">Kubernetes</a> — the ephemeral, dynamic environment that makes observability mandatory.</li>
-    <li><a href="../technology/aws/">AWS Cloud Services</a> — CloudWatch, X-Ray, and managed metric/trace backends.</li>
-    <li><a href="../technology/networking/">Networking</a> — the substrate whose latency and loss show up first in your metrics.</li>
-  </ul>
-</div>
+- **[Metrics & Monitoring](metrics.html)** — the golden signals, Prometheus, and alerting.
+- **[Logging](logging.html)** — structured logs, correlation IDs, and aggregation pipelines.
+- **[Distributed Tracing](tracing.html)** — spans, context propagation, and OpenTelemetry.
+- **[Distributed Systems](../distributed-systems/)** — the emergent, multi-node behavior observability exists to illuminate.
+- **[Kubernetes](../technology/kubernetes/)** — the ephemeral, dynamic environment that makes observability mandatory.
+- **[AWS Cloud Services](../technology/aws/)** — CloudWatch, X-Ray, and managed metric/trace backends.
+- **[Networking](../technology/networking/)** — the substrate whose latency and loss show up first in your metrics.
 
 ### Further Reading
 

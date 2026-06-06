@@ -4,20 +4,13 @@ title: "Quantum Mechanics: Research Frontiers"
 permalink: /docs/physics/quantum-mechanics/qm-research-frontiers.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Research Frontiers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Where quantum mechanics is still being written: many-body theory, geometric phases, topological matter, measurement-induced phenomena, and the open questions driving current research.</p>
-</div>
+## Research Frontiers
 
 [Quantum Mechanics](./) &raquo; Research Frontiers
 
-<div class="tip-card">
-  <h4>Level and scope</h4>
-  <p>This page collects the active research directions that grow directly out of the quantum-mechanical formalism. It is graduate-level reference material and assumes comfort with Dirac notation, density matrices, and second quantization (all developed on the <a href="formalism.html">States, Operators &amp; Dynamics</a> and <a href="computing-and-advanced.html">Computing, Information &amp; Advanced Formalism</a> pages). The emphasis here is on <em>why</em> these are frontiers — what is understood, what is not, and where the field is moving.</p>
-</div>
+**Level and scope.** This page collects the active research directions that grow directly out of the quantum-mechanical formalism. It is graduate-level reference material and assumes comfort with Dirac notation, density matrices, and second quantization (all developed on the [States, Operators & Dynamics](formalism.html) and [Computing, Information & Advanced Formalism](computing-and-advanced.html) pages). The emphasis here is on *why* these are frontiers — what is understood, what is not, and where the field is moving.
 
 Most of an introductory course presents quantum mechanics as a finished theory: postulates, the Schrödinger equation, a handful of solvable systems. The frontier is what happens when those rules are pushed into regimes where they are hard to solve, where new organizing principles emerge, or where the foundational assumptions themselves are stress-tested. Five themes dominate the contemporary landscape, and they are the subject of this page:
 
@@ -110,7 +103,6 @@ def create_mps(N, d, D):
         else:
             nodes[i][2] ^ nodes[i + 1][0]
     return nodes
-
 
 def dmrg_step(mps, mpo, site):
     """
@@ -339,5 +331,3 @@ These frontiers do not respect disciplinary boundaries. The same mathematics rec
 - [Statistical Mechanics](../statistical-mechanics/) — thermalization, partition functions, and quantum phase transitions.
 - [Condensed Matter Physics](../condensed-matter/) — where topological matter and strong correlation are realized experimentally.
 - [Quantum Mechanics Hub](./) — back to the section overview.
-</content>
-</invoke>

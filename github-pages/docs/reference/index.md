@@ -11,9 +11,7 @@ toc: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive resource for commands, formulas, algorithms, and best practices</p>
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">A single-page cheat sheet for the things you look up constantly — CLI commands, physics constants and equations, Big-O complexity, API conventions, regex, and pre-flight checklists. Skim the cards, or jump straight to a section below. <strong>Tip:</strong> use <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd> on Mac) to find anything instantly.</p>
-</div>
+A single-page cheat sheet for the things you look up constantly — CLI commands, physics constants and equations, Big-O complexity, API conventions, regex, and pre-flight checklists. Skim the cards, or jump straight to a section below. **Tip:** use <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd> on Mac) to find anything instantly.
 
 ## Quick Navigation
 

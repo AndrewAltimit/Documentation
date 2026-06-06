@@ -8,41 +8,19 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Base Models Comparison</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Choosing a diffusion foundation: SD 1.5, SD 2.x, SDXL, SD3, FLUX, and the SDXL fine-tunes — compared by parameters, architecture, license, and strengths.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; Base Models Comparison
 
-<div class="code-example" markdown="1">
 The hub for picking a base model. Start with the comparison table and selection guide here, then dive into a per-family page — <a href="sdxl-guide.html">SDXL</a>, <a href="sd3-guide.html">SD3</a>, <a href="flux-guide.html">FLUX</a>, or the <a href="pony-and-finetunes.html">Pony / community fine-tunes</a> — for the full architecture, settings, and ecosystem treatment.
-</div>
 
 ## Choosing a Base Model
 
 The base model (checkpoint) is the single most important choice you make — it sets the ceiling for quality, the resolution you work at, the VRAM you need, and which LoRAs and ControlNets you can use. This page compares the major families so you can match a model to your task, hardware, and ecosystem. If you only remember one thing: **SDXL is the safest all-rounder**, and the rest are specializations around it.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-balance-scale"></i>
-    <h4>No Single Winner</h4>
-    <p>Match the model to your task, hardware, and ecosystem — SDXL is the safest all-rounder.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-code-branch"></i>
-    <h4>Two Lineages</h4>
-    <p>U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). Add-ons don't cross between them.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-memory"></i>
-    <h4>VRAM Decides</h4>
-    <p>4-6 GB favors SD 1.5; 8-12 GB suits SDXL; FLUX wants 12 GB+ (or a quantized build).</p>
-  </div>
-</div>
+- **No Single Winner.** Match the model to your task, hardware, and ecosystem — SDXL is the safest all-rounder.
+- **Two Lineages.** U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). Add-ons don't cross between them.
+- **VRAM Decides.** 4-6 GB favors SD 1.5; 8-12 GB suits SDXL; FLUX wants 12 GB+ (or a quantized build).
 
 ## The Comparison Table
 
@@ -151,24 +129,10 @@ Pony Diffusion, Illustrious, and NoobAI are all **fine-tunes of SDXL**, not new 
 
 Once you have chosen a family, these pages cover its architecture, optimal settings, ecosystem, and migration notes in full depth.
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-expand"></i> <a href="sdxl-guide.html">SDXL Guide</a></h4>
-    <p>Dual text encoders, size/crop conditioning, the base+refiner pipeline, and the fine-tune ecosystem built on SDXL.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-vector-square"></i> <a href="sd3-guide.html">SD3 Guide</a></h4>
-    <p>The MM-DiT backbone, triple text encoding, rectified-flow training, in-image text, and SD3.5 licensing.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-stream"></i> <a href="flux-guide.html">FLUX Guide</a></h4>
-    <p>Flow matching, guidance distillation, dev / schnell / pro variants, and the FLUX node workflow.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-paint-brush"></i> <a href="pony-and-finetunes.html">Pony &amp; Fine-Tunes</a></h4>
-    <p>Pony, Illustrious, NoobAI, and Animagine — score/tag conventions and when to pick a fine-tune over a base.</p>
-  </div>
-</div>
+- **[SDXL Guide](sdxl-guide.html)** — dual text encoders, size/crop conditioning, the base+refiner pipeline, and the fine-tune ecosystem built on SDXL.
+- **[SD3 Guide](sd3-guide.html)** — the MM-DiT backbone, triple text encoding, rectified-flow training, in-image text, and SD3.5 licensing.
+- **[FLUX Guide](flux-guide.html)** — flow matching, guidance distillation, dev / schnell / pro variants, and the FLUX node workflow.
+- **[Pony & Fine-Tunes](pony-and-finetunes.html)** — Pony, Illustrious, NoobAI, and Animagine: score/tag conventions and when to pick a fine-tune over a base.
 
 ## Model Selection Guide
 
@@ -280,19 +244,14 @@ The two traps worth memorizing: SDXL's **dual encoders reward sentences** over S
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **There is no single "best" model** — match the model to your task, hardware, and required ecosystem.
 - **Default to SDXL** for the best balance of quality, speed, and mature LoRA/ControlNet support.
 - **Choose FLUX** for state-of-the-art photorealism, coherence, and text rendering when you have the VRAM (12 GB+); use **schnell** if you need a commercial license.
 - **Keep SD 1.5** for low-VRAM setups, fastest iteration, and access to its enormous legacy ecosystem.
 - **Two lineages, two add-on ecosystems:** U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). LoRAs and ControlNets do not cross between them.
 - **Mind the license:** SD 1.5/SDXL are permissive; SD3 carries a revenue-capped community license; **FLUX.1-dev is non-commercial** while schnell is Apache-2.0.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [SDXL Guide](sdxl-guide.html) - The safe-default all-rounder in depth
 - [SD3 Guide](sd3-guide.html) - The MM-DiT transformer family
@@ -305,4 +264,3 @@ The two traps worth memorizing: SDXL's **dual encoders reward sentences** over S
 - [ControlNet](controlnet.html) - Precise control over generation
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

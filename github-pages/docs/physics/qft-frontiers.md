@@ -6,44 +6,20 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "rocket"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">QFT: Modern Frontiers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Scattering amplitudes, holography, anomalies, and the bridges from quantum field theory to quantum gravity.</p>
-</div>
+## QFT: Modern Frontiers
 
 [Quantum Field Theory](quantum-field-theory.html) &raquo; Modern Frontiers
 
 Standard quantum field theory — Lagrangians, Feynman diagrams, renormalization — is enormously successful but conceals deep structure. Over the last few decades a set of reformulations and discoveries has revealed that scattering amplitudes are far simpler than the diagrams suggest, that strongly coupled gauge theories can be dual to gravity in one higher dimension, that some classical symmetries are unavoidably destroyed by quantization, and that field theory itself carries the seeds of quantum gravity. This page is a companion to the [main QFT page](quantum-field-theory.html); it assumes that material (gauge theory, the path integral, renormalization, spontaneous symmetry breaking) and develops the modern frontier in full.
 
-<div class="intro-card">
-  <p class="lead-text">The unifying theme is that <strong>physics is simpler than its standard formulation</strong>. Feynman diagrams are a redundant, gauge-dependent bookkeeping of an object — the on-shell amplitude — that is far more compact. Spacetime locality and unitarity may be <em>emergent</em> rather than fundamental. And the boundary of a region of spacetime can encode everything inside it. These are not separate curiosities: the amplitudes program, holography, and anomaly inflow keep turning out to be different views of the same mathematics.</p>
-</div>
+The unifying theme is that **physics is simpler than its standard formulation**. Feynman diagrams are a redundant, gauge-dependent bookkeeping of an object — the on-shell amplitude — that is far more compact. Spacetime locality and unitarity may be *emergent* rather than fundamental. And the boundary of a region of spacetime can encode everything inside it. These are not separate curiosities: the amplitudes program, holography, and anomaly inflow keep turning out to be different views of the same mathematics.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Amplitudes over diagrams</h4>
-    <p>On-shell recursion and unitarity reconstruct amplitudes without ever writing a Lagrangian or a loop integral by brute force.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-globe"></i>
-    <h4>Holography</h4>
-    <p>A gravitational theory in <em>d+1</em> dimensions is equivalent to a field theory living on its <em>d</em>-dimensional boundary.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-ban"></i>
-    <h4>Anomalies</h4>
-    <p>Symmetries that survive classically but are broken by the quantum measure — fatal when gauged, predictive when global.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-infinity"></i>
-    <h4>Toward quantum gravity</h4>
-    <p>Effective field theory, asymptotic safety, and holography frame how (and whether) gravity becomes a consistent QFT.</p>
-  </div>
-</div>
+- **Amplitudes over diagrams.** On-shell recursion and unitarity reconstruct amplitudes without ever writing a Lagrangian or a loop integral by brute force.
+- **Holography.** A gravitational theory in *d+1* dimensions is equivalent to a field theory living on its *d*-dimensional boundary.
+- **Anomalies.** Symmetries that survive classically but are broken by the quantum measure — fatal when gauged, predictive when global.
+- **Toward quantum gravity.** Effective field theory, asymptotic safety, and holography frame how (and whether) gravity becomes a consistent QFT.
 
 ### What You'll Find on This Page
 
@@ -251,43 +227,18 @@ $$A_n^{\text{gauge}} = g^{n-2} \sum_i \frac{c_i\, n_i}{D_i} \quad\longrightarrow
 
 Schematically, "gravity = gauge $\times$ gauge". This is not just an amplitude curiosity: it has produced state-of-the-art predictions for the gravitational two-body problem relevant to gravitational-wave observatories, deriving classical post-Minkowskian dynamics by squaring gauge-theory amplitudes. It also hints that gravity is, at some deep level, the square of a simpler gauge theory — tying the [amplitudes program](#the-modern-amplitudes-program) back to the quantum-gravity question.
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Amplitudes are simple</h4>
-    <p>On-shell recursion and unitarity reconstruct amplitudes from physical data alone; the Lagrangian's complexity is redundant.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Holography is exact (in AdS)</h4>
-    <p>A gravity theory in the bulk equals a CFT on the boundary; strong coupling on one side is weak curvature on the other.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Anomalies are double-edged</h4>
-    <p>Global anomalies predict real physics ($\pi^0 \to \gamma\gamma$); gauge anomalies must cancel, constraining the particle content.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Gravity is an EFT</h4>
-    <p>General relativity is predictive below $M_{\text{Pl}}$ and needs only a UV completion — asymptotic safety, strings, or holography.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Entanglement builds geometry</h4>
-    <p>Ryu-Takayanagi ties boundary entanglement entropy to bulk minimal-surface area — spacetime emerges from information.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Gravity = gauge squared</h4>
-    <p>The double copy turns gauge amplitudes into gravity amplitudes, powering gravitational-wave two-body predictions.</p>
-  </div>
-</div>
+- **Amplitudes are simple.** On-shell recursion and unitarity reconstruct amplitudes from physical data alone; the Lagrangian's complexity is redundant.
+- **Holography is exact (in AdS).** A gravity theory in the bulk equals a CFT on the boundary; strong coupling on one side is weak curvature on the other.
+- **Anomalies are double-edged.** Global anomalies predict real physics ($\pi^0 \to \gamma\gamma$); gauge anomalies must cancel, constraining the particle content.
+- **Gravity is an EFT.** General relativity is predictive below $M_{\text{Pl}}$ and needs only a UV completion — asymptotic safety, strings, or holography.
+- **Entanglement builds geometry.** Ryu-Takayanagi ties boundary entanglement entropy to bulk minimal-surface area — spacetime emerges from information.
+- **Gravity = gauge squared.** The double copy turns gauge amplitudes into gravity amplitudes, powering gravitational-wave two-body predictions.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — the foundations: gauge theory, renormalization, the path integral, and spontaneous symmetry breaking that this page builds on.</li>
-    <li><a href="string-theory/">String Theory</a> — the framework where AdS/CFT and the double copy originate.</li>
-    <li><a href="string-theory/dualities-and-branes.html">D-Branes, Dualities &amp; M-Theory</a> — the brane construction behind the AdS/CFT correspondence.</li>
-    <li><a href="relativity/">Relativity</a> — general relativity, black holes, and the Bekenstein-Hawking entropy that motivates holography.</li>
-    <li><a href="condensed-matter/">Condensed Matter Physics</a> — where holographic methods (AdS/CMT) model strange metals and superconductors.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](quantum-field-theory.html) — the foundations: gauge theory, renormalization, the path integral, and spontaneous symmetry breaking that this page builds on.
+- [String Theory](string-theory/) — the framework where AdS/CFT and the double copy originate.
+- [D-Branes, Dualities & M-Theory](string-theory/dualities-and-branes.html) — the brane construction behind the AdS/CFT correspondence.
+- [Relativity](relativity/) — general relativity, black holes, and the Bekenstein-Hawking entropy that motivates holography.
+- [Condensed Matter Physics](condensed-matter/) — where holographic methods (AdS/CMT) model strange metals and superconductors.
+- [Physics Hub](index.html) — browse all physics topics.

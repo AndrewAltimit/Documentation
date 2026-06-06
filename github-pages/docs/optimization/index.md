@@ -13,18 +13,12 @@ toc_icon: "tachometer-alt"
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master profiling-driven development, eliminate bottlenecks, and build responsive applications that scale</p>
 </div>
 
-<div class="hub-intro">
-  <p class="lead">Master the art and science of performance optimization. From profiling-driven development to hardware-aware programming, learn systematic approaches to eliminate bottlenecks, achieve target frame rates, and build responsive applications that scale across platforms.</p>
-</div>
+Performance optimization is the systematic process of identifying and eliminating bottlenecks to achieve target frame rates, reduce latency, minimize memory usage, and improve overall responsiveness. Effective optimization is profiling-driven, hardware-aware, and applies the right technique at the right level of the stack. Four principles run through every area:
 
-Performance optimization is the systematic process of identifying and eliminating bottlenecks to achieve target frame rates, reduce latency, minimize memory usage, and improve overall application responsiveness. Effective optimization requires profiling-driven decisions, understanding hardware characteristics, and applying appropriate techniques at the right level of the software stack.
-
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-chart-line"></i><h4>Measure before you cut</h4><p>Intuition about bottlenecks is usually wrong. Profile in a release build, on real workloads, before changing a line.</p></div>
-  <div class="insight-card"><i class="fas fa-superscript"></i><h4>Big O beats micro-tuning</h4><p>An $O(n^2) \to O(n \log n)$ algorithmic fix dwarfs any amount of constant-factor hand-optimization.</p></div>
-  <div class="insight-card"><i class="fas fa-memory"></i><h4>Memory is the modern bottleneck</h4><p>A cache miss costs ~200 cycles. Data-oriented layout (SoA) often beats raw compute optimization.</p></div>
-  <div class="insight-card"><i class="fas fa-stopwatch-20"></i><h4>Budget, then defend it</h4><p>Convert your FPS target to a millisecond budget per frame, then track regressions in CI so wins don't erode.</p></div>
-</div>
+- **Measure before you cut.** Intuition about bottlenecks is usually wrong. Profile in a release build, on real workloads, before changing a line.
+- **Big O beats micro-tuning.** An $O(n^2) \to O(n \log n)$ algorithmic fix dwarfs any amount of constant-factor hand-optimization.
+- **Memory is the modern bottleneck.** A cache miss costs ~200 cycles. Data-oriented layout (SoA) often beats raw compute optimization.
+- **Budget, then defend it.** Convert your FPS target to a millisecond budget per frame, then track regressions in CI so wins don't erode.
 
 ## Explore the Areas
 
@@ -201,14 +195,12 @@ Profiling-driven development starts with the right instrument for the bottleneck
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Profile, don't guess</h4><p>Always measure in a release build on representative, worst-case workloads before optimizing anything.</p></div>
-  <div class="takeaway-card"><h4>Fix the biggest win first</h4><p>Algorithmic complexity, then the hottest path the profiler reveals. Defer micro-optimizations until they're justified.</p></div>
-  <div class="takeaway-card"><h4>Respect the memory hierarchy</h4><p>Cache-friendly data-oriented layouts and pooling often beat raw compute changes by avoiding ~200-cycle misses.</p></div>
-  <div class="takeaway-card"><h4>Know your bound</h4><p>CPU- vs GPU-bound, fill-rate vs geometry vs bandwidth — the bottleneck class dictates which fixes matter.</p></div>
-  <div class="takeaway-card"><h4>Optimize per platform</h4><p>Mobile fights thermals and battery; consoles offer fixed hardware; PC demands scalable quality settings.</p></div>
-  <div class="takeaway-card"><h4>Guard against regressions</h4><p>Automated performance tests in CI catch the slow creep of frame-time and memory regressions over time.</p></div>
-</div>
+- **Profile, don't guess.** Always measure in a release build on representative, worst-case workloads before optimizing anything.
+- **Fix the biggest win first.** Algorithmic complexity, then the hottest path the profiler reveals. Defer micro-optimizations until they're justified.
+- **Respect the memory hierarchy.** Cache-friendly data-oriented layouts and pooling often beat raw compute changes by avoiding ~200-cycle misses.
+- **Know your bound.** CPU- vs GPU-bound, fill-rate vs geometry vs bandwidth — the bottleneck class dictates which fixes matter.
+- **Optimize per platform.** Mobile fights thermals and battery; consoles offer fixed hardware; PC demands scalable quality settings.
+- **Guard against regressions.** Automated performance tests in CI catch the slow creep of frame-time and memory regressions over time.
 
 ## Related Documentation
 
@@ -230,5 +222,3 @@ Profiling-driven development starts with the right instrument for the bottleneck
 ---
 
 *This performance optimization guide combines theoretical foundations with practical, production-tested techniques. For suggestions or contributions, visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation).*
-</content>
-</invoke>

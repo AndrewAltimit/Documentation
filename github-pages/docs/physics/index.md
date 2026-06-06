@@ -11,9 +11,7 @@ toc: false  # Index pages typically don't need TOC
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fundamental laws that govern matter, energy, space, and time — from falling apples to the quantum vacuum.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">A reference-wiki for physics: rigorous mathematics paired with physical intuition. Each page builds from the core idea (why it matters) through the formalism (the equations) to where it applies. Pick a topic below, or follow a guided path if you are just getting started.</p>
-</div>
+A reference wiki for physics, pairing rigorous mathematics with physical intuition. Each page builds from the core idea through the formalism to where it applies. Pick a topic below, or follow a guided path if you are just getting started.
 
 ## Browse by Topic
 
@@ -115,33 +113,17 @@ graph TD
 
 ## Guided Paths
 
-<div class="command-grid">
-  <div class="step-card">
-    <h4>New to physics</h4>
-    <p>Start with <a href="classical-mechanics/">Classical Mechanics</a> to build intuition for force, energy, and motion before anything else.</p>
-  </div>
-  <div class="step-card">
-    <h4>Undergraduate sequence</h4>
-    <p>Classical Mechanics → <a href="quantum-mechanics/">Quantum Mechanics</a> → <a href="thermodynamics.html">Thermodynamics</a> → <a href="statistical-mechanics/">Statistical Mechanics</a> → <a href="relativity/">Relativity</a>.</p>
-  </div>
-  <div class="step-card">
-    <h4>Graduate / research</h4>
-    <p>Dive into <a href="quantum-field-theory.html">QFT</a>, <a href="condensed-matter/">Condensed Matter</a>, or <a href="string-theory/">String Theory</a>, and use <a href="computational-physics/">Computational Physics</a> as a toolbox.</p>
-  </div>
-</div>
+- **New to physics:** start with [Classical Mechanics](classical-mechanics/) to build intuition for force, energy, and motion.
+- **Undergraduate sequence:** Classical Mechanics → [Quantum Mechanics](quantum-mechanics/) → [Thermodynamics](thermodynamics.html) → [Statistical Mechanics](statistical-mechanics/) → [Relativity](relativity/).
+- **Graduate / research:** dive into [QFT](quantum-field-theory.html), [Condensed Matter](condensed-matter/), or [String Theory](string-theory/), with [Computational Physics](computational-physics/) as a toolbox.
 
 ## Related Resources
 
-<div class="see-also-card">
-  <h4>Cross-Disciplinary Links</h4>
-  <ul>
-    <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> — where quantum mechanics meets information processing.</li>
-    <li><a href="../advanced/quantum-algorithms-research/">Quantum Algorithms Research</a> — advanced quantum information and algorithms.</li>
-    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — statistical-mechanics connections to machine learning.</li>
-    <li><a href="../advanced/">Advanced Research Topics</a> — graduate-level physics and mathematics.</li>
-    <li><a href="../reference/#physics-formulas--constants">Physics Reference</a> — CODATA constants, key equations, and unit conversions.</li>
-  </ul>
-</div>
+- [Quantum Computing](../technology/quantumcomputing.html) — where quantum mechanics meets information processing.
+- [Quantum Algorithms Research](../advanced/quantum-algorithms-research/) — advanced quantum information and algorithms.
+- [AI Mathematics](../advanced/ai-mathematics/) — statistical-mechanics connections to machine learning.
+- [Advanced Research Topics](../advanced/) — graduate-level physics and mathematics.
+- [Physics Reference](../reference/#physics-formulas--constants) — CODATA constants, key equations, and unit conversions.
 
 ---
 

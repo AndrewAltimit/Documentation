@@ -7,39 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Event-Driven Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Event sourcing, CQRS, sagas, outbox/inbox, schema evolution, and idempotent consumers — the building blocks of systems that treat events as the source of truth.</p>
-</div>
-
 [Event-Driven](./) &raquo; Patterns
 
-<div class="intro-card">
-  <p class="lead-text">Once services communicate by publishing facts rather than calling each other, a recurring set of problems appears: how do you persist state as events, serve fast queries over them, coordinate a multi-service transaction without a distributed lock, reliably publish an event in the same breath as a database write, evolve an event's schema for a decade without breaking old consumers, and survive the duplicate deliveries that any real broker will hand you? This page catalogs the standard answers — event sourcing, CQRS, the saga pattern, the transactional outbox and consumer-side inbox, event versioning with a schema registry, idempotent consumers, eventual consistency, and projections/read models — with the trade-offs that decide when each earns its keep.</p>
-</div>
+Once services communicate by publishing facts rather than calling each other, a recurring set of problems appears: how do you persist state as events, serve fast queries over them, coordinate a multi-service transaction without a distributed lock, reliably publish an event in the same breath as a database write, evolve an event's schema for a decade without breaking old consumers, and survive the duplicate deliveries any real broker hands you? This page catalogs the standard answers — event sourcing, CQRS, sagas, the transactional outbox and consumer-side inbox, event versioning with a schema registry, idempotent consumers, eventual consistency, and projections/read models — with the trade-offs that decide when each earns its keep. Four ideas anchor them:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-history"></i>
-    <h4>Events can be the source of truth</h4>
-    <p>Event sourcing persists <em>what happened</em>, not just current state — giving you audit, time-travel, and rebuildable read models for free.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-code-branch"></i>
-    <h4>Separate the write and read shapes</h4>
-    <p>CQRS lets a normalized, invariant-enforcing write model coexist with denormalized read models tuned per query.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-exchange-alt"></i>
-    <h4>The outbox kills the dual-write bug</h4>
-    <p>Insert the event in the same transaction as the state change; a relay publishes it. The DB and the log never diverge.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-redo"></i>
-    <h4>Consumers must be idempotent</h4>
-    <p>At-least-once delivery is the norm. Processing an event twice must equal processing it once, or correctness is a coin flip.</p>
-  </div>
-</div>
+- **Events can be the source of truth.** Event sourcing persists *what happened*, not just current state — giving you audit, time-travel, and rebuildable read models for free.
+- **Separate the write and read shapes.** CQRS lets a normalized, invariant-enforcing write model coexist with denormalized read models tuned per query.
+- **The outbox kills the dual-write bug.** Insert the event in the same transaction as the state change; a relay publishes it, so the DB and the log never diverge.
+- **Consumers must be idempotent.** At-least-once delivery is the norm; processing an event twice must equal processing it once, or correctness is a coin flip.
 
 ## Table of contents
 {: .no_toc .text-delta }

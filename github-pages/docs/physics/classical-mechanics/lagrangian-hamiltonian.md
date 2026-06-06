@@ -4,29 +4,21 @@ title: "Classical Mechanics: Lagrangian & Hamiltonian Mechanics"
 permalink: /docs/physics/classical-mechanics/lagrangian-hamiltonian.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Lagrangian &amp; Hamiltonian Mechanics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The principle of least action, generalized coordinates, phase space, Poisson brackets, and Hamilton-Jacobi theory.</p>
-</div>
-
 [Classical Mechanics](./)
+
+The principle of least action, generalized coordinates, phase space, Poisson brackets, and Hamilton-Jacobi theory.
 
 ## Lagrangian Mechanics: A New Perspective
 
 ### Beyond Forces: Why We Need Lagrangian Mechanics
 
-Imagine trying to analyze a bead sliding on a curved wire. With Newton's laws, you'd need to constantly track the constraint force from the wire—a mathematical nightmare. Lagrange asked a brilliant question: what if we could ignore constraint forces entirely?
-
-The answer revolutionized physics. Instead of thinking about forces, Lagrange focused on energy and the *path* a system takes through its possible configurations.
+Analyzing a bead sliding on a curved wire with Newton's laws means constantly tracking the constraint force from the wire. Lagrange's reformulation sidesteps this entirely: instead of forces, it focuses on energy and the *path* a system takes through its possible configurations, so constraint forces never need to be computed.
 
 ### The Principle of Least Action
 
-Here's the profound insight: among all possible paths between two points, a system follows the path that minimizes (or, more precisely, extremizes) a quantity called "action":
+Among all possible paths between two points, a system follows the path that extremizes (usually minimizes) a quantity called the **action**:
 
 **Action:**
 
@@ -45,22 +37,23 @@ $$
 
 These equations provide a powerful alternative to Newton's laws. No constraint forces appear—they're automatically accounted for by choosing appropriate coordinates.
 
-<div class="example-card">
-  <h4>Worked Example: the simple pendulum the easy way</h4>
-  <p>A mass $m$ swings on a rigid rod of length $\ell$. With Newton you would resolve the tension and gravity along the arc — bookkeeping that involves a force (the tension) you do not even care about. Lagrange asks only for the energies, written in the single natural coordinate, the angle $\theta$:</p>
-  $$L = T - V = \tfrac{1}{2}m\ell^2\dot{\theta}^2 - mg\ell(1 - \cos\theta)$$
-  <p>Now turn the crank. The two pieces of the Euler-Lagrange equation are</p>
-  $$\frac{\partial L}{\partial \dot{\theta}} = m\ell^2\dot{\theta}, \qquad \frac{\partial L}{\partial \theta} = -mg\ell\sin\theta,$$
-  <p>so $\frac{d}{dt}(m\ell^2\dot{\theta}) - (-mg\ell\sin\theta) = 0$, which collapses to the familiar pendulum equation:</p>
-  $$\ddot{\theta} + \frac{g}{\ell}\sin\theta = 0.$$
-  <p>The tension never appeared — the rigid-rod constraint was absorbed the instant we chose $\theta$ as the coordinate. For small swings, $\sin\theta \approx \theta$ gives simple harmonic motion with $\omega = \sqrt{g/\ell}$, recovering the result of the earlier oscillations section from a completely different starting point.</p>
-</div>
+**Worked example — the simple pendulum the easy way.** A mass $m$ swings on a rigid rod of length $\ell$. With Newton you would resolve the tension and gravity along the arc — bookkeeping that involves a force (the tension) you do not even care about. Lagrange asks only for the energies, written in the single natural coordinate, the angle $\theta$:
+
+$$L = T - V = \tfrac{1}{2}m\ell^2\dot{\theta}^2 - mg\ell(1 - \cos\theta)$$
+
+The two pieces of the Euler-Lagrange equation are
+
+$$\frac{\partial L}{\partial \dot{\theta}} = m\ell^2\dot{\theta}, \qquad \frac{\partial L}{\partial \theta} = -mg\ell\sin\theta,$$
+
+so $\frac{d}{dt}(m\ell^2\dot{\theta}) - (-mg\ell\sin\theta) = 0$, which collapses to the familiar pendulum equation:
+
+$$\ddot{\theta} + \frac{g}{\ell}\sin\theta = 0.$$
+
+The tension never appeared — the rigid-rod constraint was absorbed the instant we chose $\theta$ as the coordinate. For small swings, $\sin\theta \approx \theta$ gives simple harmonic motion with $\omega = \sqrt{g/\ell}$, recovering the earlier oscillations result from a completely different starting point.
 
 ### Generalized Coordinates: Freedom from Cartesian Tyranny
 
-Here's another liberation: we're not stuck with x, y, z coordinates. Use whatever coordinates make the problem simple!
-
-**Examples:**
+The formulation is not restricted to $x, y, z$ — any set of coordinates that pins down the configuration will do, and the natural choice usually makes the problem simple:
 - Pendulum? Use the angle θ instead of (x, y)
 - Particle on a sphere? Use spherical coordinates (θ, φ)
 - Double pendulum? Use two angles (θ₁, θ₂)
@@ -81,7 +74,7 @@ $$
 
 ### Noether's Theorem: The Deep Connection
 
-Emmy Noether discovered one of the most profound results in physics: every symmetry in nature corresponds to a conservation law. This isn't coincidence—it's fundamental to how the universe works.
+Emmy Noether's theorem states that every continuous symmetry of the action corresponds to a conservation law:
 
 **The Symmetry-Conservation Dictionary:**
 
@@ -100,7 +93,7 @@ $$
 
 ### Example: Double Pendulum - Where Newton Struggles
 
-The double pendulum perfectly illustrates why we need Lagrangian mechanics. With Newton's approach, you'd need to track tension forces in both rods, which constantly change direction. With Lagrange? Just write down the energy:
+The double pendulum illustrates the payoff. Newton's approach would require tracking the tension forces in both rods, which constantly change direction. Lagrange needs only the energy:
 
 ```python
 def double_pendulum_lagrangian(theta1, theta2, theta1_dot, theta2_dot, 
@@ -120,9 +113,7 @@ def double_pendulum_lagrangian(theta1, theta2, theta1_dot, theta2_dot,
 
 ### The Limitation of Lagrangian Mechanics
 
-Lagrangian mechanics is powerful, but it still thinks in terms of trajectories through configuration space. What if we want to think more abstractly about the *state* of a system? What if we want to understand the geometry of all possible motions? What if we want to connect classical mechanics to quantum mechanics? 
-
-These questions led Hamilton to reformulate mechanics once again, creating a framework so elegant and powerful that it remains central to theoretical physics today...
+Lagrangian mechanics still thinks in terms of trajectories through configuration space. To reason more abstractly about the *state* of a system, the geometry of all possible motions, or the bridge to quantum mechanics, Hamilton reformulated mechanics once more — into the framework that remains central to theoretical physics today.
 
 ### The Three Formulations at a Glance
 
@@ -141,9 +132,7 @@ All three describe the *same physics* — they predict identical motion — but 
 
 ### From Configuration Space to Phase Space
 
-Hamilton realized that instead of thinking about positions and velocities, we should think about positions and momenta as independent variables. This seems like a minor change, but it revolutionizes our perspective.
-
-**Why the change?** In phase space:
+Hamilton's key step was to treat positions and *momenta* as the independent variables, rather than positions and velocities. This apparently minor change reshapes the whole perspective. In phase space:
 - The evolution of a system becomes a flow
 - Conservation laws become geometric properties
 - The connection to quantum mechanics becomes clear

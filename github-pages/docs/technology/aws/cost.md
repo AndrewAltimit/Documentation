@@ -9,12 +9,7 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Cost Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Understand what drives your bill, then put automated guardrails — budgets, anomaly detection, lifecycle policies, and Spot — in place to keep it predictable.</p>
-</div>
-
-The cloud's pay-as-you-go model is powerful, but without proper management, costs can spiral. The key is understanding how pricing works and implementing automated controls from the start. This page walks through where cloud spend comes from and gives you ready-to-adapt Terraform and boto3 building blocks for keeping it under control.
+The cloud's pay-as-you-go model is powerful, but without management, costs can spiral. The key is understanding how pricing works and putting automated guardrails — budgets, anomaly detection, lifecycle policies, and Spot — in place from the start. This page walks through where cloud spend comes from and gives ready-to-adapt Terraform and boto3 building blocks for keeping it under control.
 
 ---
 
@@ -563,20 +558,9 @@ class SpotInstanceManager:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Cost Is a Design Constraint</h4>
-    <p>Right-size, use the appropriate pricing model (Spot, Savings Plans, Reserved), and set billing alerts early. Optimization is continuous, not a one-time cleanup.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Automate the Guardrails</h4>
-    <p>Budgets, cost anomaly detection, and lifecycle policies catch overspend without anyone watching a dashboard. Codify them so they ship with every environment.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Tag for Attribution</h4>
-    <p>Enforced cost-allocation tags (Environment, CostCenter, Project) turn one big bill into per-team, per-project numbers you can actually act on.</p>
-  </div>
-</div>
+- **Cost is a design constraint.** Right-size, use the appropriate pricing model (Spot, Savings Plans, Reserved), and set billing alerts early. Optimization is continuous, not a one-time cleanup.
+- **Automate the guardrails.** Budgets, cost anomaly detection, and lifecycle policies catch overspend without anyone watching a dashboard. Codify them so they ship with every environment.
+- **Tag for attribution.** Enforced cost-allocation tags (Environment, CostCenter, Project) turn one big bill into per-team, per-project numbers you can actually act on.
 
 ---
 

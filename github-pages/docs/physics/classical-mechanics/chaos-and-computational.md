@@ -7,19 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Chaos &amp; Nonlinear Dynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Sensitive dependence, Lyapunov exponents, Poincaré sections, bifurcations, KAM theory, strange attractors, and the routes to chaos.</p>
-</div>
-
 [Classical Mechanics](./) &raquo; Chaos &amp; Nonlinear Dynamics
 
-<div class="tip-card">
-  <h4>This page is part of a three-way split</h4>
-  <p>The chapter formerly titled "Chaos, Modern Topics &amp; Computation" has been divided. This page covers <strong>chaos and nonlinear dynamics</strong>. The geometric machinery (symplectic manifolds, phase-space flow, fiber bundles, geometric phases) now lives in <a href="geometric-mechanics.html">Geometric Formalism</a>, and the numerical machinery (symplectic and variational integrators, molecular dynamics, N-body methods) now lives in <a href="computational-classical-mechanics.html">Computational Methods</a>.</p>
-</div>
+Sensitive dependence, Lyapunov exponents, Poincaré sections, bifurcations, KAM theory, strange attractors, and the routes to chaos. The related geometric machinery lives in [Geometric Formalism](geometric-mechanics.html), and the numerical machinery in [Computational Methods](computational-classical-mechanics.html).
 
 ## When Predictability Breaks Down
 
@@ -62,10 +52,7 @@ An $n$-dimensional system has a full **Lyapunov spectrum** $\lambda_1 \geq \lamb
 
 The reciprocal $1/\lambda_1$ is the **Lyapunov time**, the characteristic timescale on which prediction degrades. For the inner Solar System it is roughly 5 million years; for a typical turbulent flow, a fraction of a second.
 
-<div class="tip-card">
-  <h4>Computing the maximal exponent in practice</h4>
-  <p>Integrate two trajectories started a tiny distance $\delta_0$ apart, let them evolve for a short time, measure the new separation $\delta_1$, accumulate $\ln(\delta_1/\delta_0)$, then <em>renormalize</em> — pull the second trajectory back to distance $\delta_0$ along the separation direction — and repeat. Averaging the logarithms over many such steps gives $\lambda_1$ without the perturbation saturating at the attractor's size. The double-pendulum script below uses the simpler (un-renormalized) version, valid only in the early exponential-growth window before saturation.</p>
-</div>
+**Computing the maximal exponent in practice.** Integrate two trajectories started a tiny distance $\delta_0$ apart, let them evolve for a short time, measure the new separation $\delta_1$, accumulate $\ln(\delta_1/\delta_0)$, then *renormalize* — pull the second trajectory back to distance $\delta_0$ along the separation direction — and repeat. Averaging the logarithms over many such steps gives $\lambda_1$ without the perturbation saturating at the attractor's size. The double-pendulum script below uses the simpler (un-renormalized) version, valid only in the early exponential-growth window before saturation.
 
 ## Poincaré Sections
 
@@ -106,10 +93,7 @@ then **most** invariant tori survive — they are merely deformed slightly, not 
 
 The reason rational-frequency tori are the fragile ones is **resonance**. When the frequencies are commensurate ($\omega \cdot k = 0$ for some integer $k$), the perturbation drives the system in step with its own motion, and the resulting **small denominators** $1/(\omega \cdot k)$ in the perturbation series blow up. KAM's deep technical achievement (a super-convergent Newton-type iteration) is to show that the Diophantine "very irrational" tori are protected from these resonances and persist. Between the surviving tori, near each resonance, lies a thin chaotic layer; as $\varepsilon$ grows these layers widen and merge, and the last KAM tori break down — the **transition to global chaos** (governed quantitatively by Chirikov's resonance-overlap criterion and, for the most robust "golden-ratio" torus, Greene's residue method).
 
-<div class="tip-card">
-  <h4>The surprising payoff: why the Solar System survives</h4>
-  <p>The Solar System is mildly chaotic — the planets' positions have a Lyapunov time of only a few million years. Yet it has not flown apart in 4.6 billion years. KAM theory explains why: most of the planetary tori are protected, so the chaos is confined to thin resonant layers rather than spreading globally. Regular and chaotic motion coexist, and the regular majority keeps the system bounded.</p>
-</div>
+**Why the Solar System survives.** The Solar System is mildly chaotic — the planets' positions have a Lyapunov time of only a few million years — yet it has not flown apart in 4.6 billion years. KAM theory explains why: most of the planetary tori are protected, so the chaos is confined to thin resonant layers rather than spreading globally. Regular and chaotic motion coexist, and the regular majority keeps the system bounded.
 
 **Applications of KAM and resonance theory:**
 
@@ -337,14 +321,9 @@ For the *numerical* tools needed to simulate these systems faithfully over long 
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="geometric-mechanics.html">Geometric Formalism</a> — symplectic geometry, phase-space flow, and Liouville's theorem that make Hamiltonian Poincaré maps area-preserving and underpin KAM tori.</li>
-    <li><a href="computational-classical-mechanics.html">Computational Methods</a> — symplectic and variational integrators for simulating chaotic and Hamiltonian systems without spurious energy drift.</li>
-    <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — action-angle variables and phase space, the setting in which KAM theory and Poincaré sections are formulated.</li>
-    <li><a href="newtonian.html">Newtonian Mechanics</a> — the equations of motion (e.g. the double pendulum) that become chaotic once they are nonlinear.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.</li>
-    <li><a href="./">Classical Mechanics Hub</a> — back to the overview.</li>
-  </ul>
-</div>
+- [Geometric Formalism](geometric-mechanics.html) — symplectic geometry, phase-space flow, and Liouville's theorem that make Hamiltonian Poincaré maps area-preserving and underpin KAM tori.
+- [Computational Methods](computational-classical-mechanics.html) — symplectic and variational integrators for simulating chaotic and Hamiltonian systems without spurious energy drift.
+- [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) — action-angle variables and phase space, the setting in which KAM theory and Poincaré sections are formulated.
+- [Newtonian Mechanics](newtonian.html) — the equations of motion (e.g. the double pendulum) that become chaotic once they are nonlinear.
+- [Statistical Mechanics](../statistical-mechanics/) — how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.
+- [Classical Mechanics Hub](./) — back to the overview.

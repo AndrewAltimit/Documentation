@@ -6,14 +6,12 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Infrastructure as Code: Theory and Practice</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2rem;">Terraform</h1>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">Infrastructure as Code: theory and practice</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Terraform revolutionizes infrastructure management by treating your servers, networks, and services as code. Instead of manually clicking through cloud provider interfaces or writing fragile scripts, you describe what you want in simple configuration files, and Terraform figures out how to make it happen.</p>
-</div>
+Terraform manages infrastructure as code: instead of clicking through cloud consoles or writing fragile scripts, you describe servers, networks, and services in declarative configuration files, and Terraform figures out how to create, update, and destroy them to match.
 
 ## Why Learn Terraform?
 
@@ -74,20 +72,9 @@ Push Terraform's boundaries with meta-programming, dynamic configuration generat
 
 ## Key Capabilities
 
-<div class="key-insights">
-  <div class="insight-card">
-    <h4>Smart Dependencies</h4>
-    <p>Automatically determines the right order to create resources</p>
-  </div>
-  <div class="insight-card">
-    <h4>Reliable Updates</h4>
-    <p>Safely transforms current state to desired state</p>
-  </div>
-  <div class="insight-card">
-    <h4>Error Prevention</h4>
-    <p>Catches configuration mistakes before they reach production</p>
-  </div>
-</div>
+- **Smart dependencies** — automatically determines the right order to create resources from their references.
+- **Reliable updates** — plans and applies the minimal change set to move from current to desired state.
+- **Error prevention** — validates and plans configuration, catching mistakes before they reach production.
 
 ---
 

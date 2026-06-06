@@ -9,10 +9,7 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Finite Elements &amp; Fluid Dynamics</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Finite Elements &amp; Fluid Dynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Discretizing complex geometries with finite elements, and simulating flow with Navier-Stokes and lattice methods.</p>
-</div>
+Discretizing complex geometries with finite elements, and simulating flow with Navier-Stokes and lattice methods.
 
 ## Finite Element Methods
 

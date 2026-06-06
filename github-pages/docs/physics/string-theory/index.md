@@ -9,48 +9,22 @@ hide_title: true
 <!-- Custom styles for string theory visualizations -->
 <link rel="stylesheet" href="{{ '/assets/css/physics-string-theory.css' | relative_url }}">
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">String Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The Quest for a Theory of Everything</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem;">
+  <h1 style="color: white; margin: 0; font-size: 2rem;">String Theory</h1>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">The Quest for a Theory of Everything</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">String theory is a theoretical framework in which the point-like particles of particle physics are replaced by one-dimensional objects called strings. It attempts to describe all fundamental forces and forms of matter in a single, unified theory. String theory potentially provides a quantum theory of gravity and has profoundly influenced our understanding of spacetime, quantum mechanics, and cosmology.</p>
-  
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-wave-square"></i>
-      <h4>Vibrating Strings</h4>
-      <p>Particles as vibrational modes</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-layer-group"></i>
-      <h4>Extra Dimensions</h4>
-      <p>Beyond our 4D spacetime</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-infinity"></i>
-      <h4>Quantum Gravity</h4>
-      <p>Unifying all forces</p>
-    </div>
-  </div>
-</div>
+String theory is a theoretical framework in which the point-like particles of particle physics are replaced by one-dimensional objects called strings. It attempts to describe all fundamental forces and forms of matter in a single, unified theory. String theory potentially provides a quantum theory of gravity and has profoundly influenced our understanding of spacetime, quantum mechanics, and cosmology.
 
-<p style="font-size: 1.05rem;">This hub covers the foundations: what strings are, the classical and quantum theory of a single string, and the five superstring theories. Three companion pages continue the story:</p>
+This hub covers the foundations: what strings are, the classical and quantum theory of a single string, and the five superstring theories. Three companion pages continue the story:
 
-<ul>
-  <li><a href="dualities-and-branes.html"><strong>D-Branes, Dualities &amp; M-Theory</strong></a> — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology.</li>
-  <li><a href="frontiers-and-formalism.html"><strong>Criticisms &amp; Research Frontiers</strong></a> — open problems, current research directions, experimental prospects, and the live debates over the theory's scientific status.</li>
-  <li><a href="string-theory-formalism.html"><strong>Graduate Formalism</strong></a> — the full graduate-level mathematical machinery: worldsheet CFT, RNS and Green-Schwarz superstrings, BRST quantization, D-brane actions, Calabi-Yau compactification, and the AdS/CFT dictionary.</li>
-</ul>
+- [**D-Branes, Dualities & M-Theory**](dualities-and-branes.html) — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology.
+- [**Criticisms & Research Frontiers**](frontiers-and-formalism.html) — open problems, current research directions, experimental prospects, and the live debates over the theory's scientific status.
+- [**Graduate Formalism**](string-theory-formalism.html) — the full graduate-level mathematical machinery: worldsheet CFT, RNS and Green-Schwarz superstrings, BRST quantization, D-brane actions, Calabi-Yau compactification, and the AdS/CFT dictionary.
 
 ## Fundamental Concepts
 
-<div class="principle-card">
-  <h4>Why replace particles with strings?</h4>
-  <p>The motivation is a crisis at the meeting point of our two best theories. Quantum field theory treats particles as <em>points</em>, and general relativity treats gravity as <em>spacetime curvature</em>. Try to combine them — to quantize gravity the way we quantized electromagnetism — and the calculations spew uncontrollable infinities. A point particle has zero size, so interactions happen at a single spacetime point where field strengths blow up; for gravity these divergences cannot be renormalized away.</p>
-  <p>String theory's one radical move fixes this: smear the point out into a tiny one-dimensional <strong>string</strong> roughly $10^{-35}$ m long. Interactions are now spread over the smooth tube of a worldsheet rather than crammed into a single point, and the infinities soften into finite answers. The unexpected bonus: one of the string's natural vibration modes is a massless spin-2 particle with exactly the properties of the <strong>graviton</strong>. String theory does not just <em>tolerate</em> gravity — it predicts it.</p>
-</div>
+**Why replace particles with strings?** The motivation is a crisis at the meeting point of our two best theories. Quantum field theory treats particles as *points*, and general relativity treats gravity as *spacetime curvature*. Try to combine them — to quantize gravity the way we quantized electromagnetism — and the calculations spew uncontrollable infinities. A point particle has zero size, so interactions happen at a single spacetime point where field strengths blow up; for gravity these divergences cannot be renormalized away. String theory's one radical move fixes this: smear the point out into a tiny one-dimensional **string** roughly $10^{-35}$ m long. Interactions are now spread over the smooth tube of a worldsheet rather than crammed into a single point, and the infinities soften into finite answers. The unexpected bonus: one of the string's natural vibration modes is a massless spin-2 particle with exactly the properties of the **graviton**. String theory does not just *tolerate* gravity — it predicts it.
 
 <div class="concepts-section">
   <div class="string-types">
@@ -900,65 +874,29 @@ By the mid-1980s, the demand for quantum consistency had narrowed the field to e
 | Heterotic $SO(32)$ | closed (hybrid L/R movers) | $N=1$ | yes | $SO(32)$ |
 | Heterotic $E_8 \times E_8$ | closed (hybrid L/R movers) | $N=1$ | yes | $E_8 \times E_8$ |
 
-<div class="takeaway-card">
-  <h4>Five theories, one framework</h4>
-  <p>Having five "theories of everything" looked like an embarrassment of riches — surely a unique theory should be unique? The resolution came in the 1990s "second superstring revolution": these five are not rivals but five low-energy windows onto a single underlying 11-dimensional structure, <strong>M-theory</strong>, connected by the dualities (T, S, and their combinations) mapped in the diagram above. The apparent multiplicity is an artifact of looking at weak coupling.</p>
-</div>
+**Five theories, one framework.** Having five "theories of everything" looked like an embarrassment of riches — surely a unique theory should be unique? The resolution came in the 1990s "second superstring revolution": these five are not rivals but five low-energy windows onto a single underlying 11-dimensional structure, **M-theory**, connected by the dualities (T, S, and their combinations) mapped in the diagram above. The apparent multiplicity is an artifact of looking at weak coupling.
 
 The dualities sketched above — and the D-branes, M-theory, compactification, and holography they connect — are developed in detail on the next page: **[D-Branes, Dualities &amp; M-Theory](dualities-and-branes.html)**.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Strings, not points</h4>
-    <p>Replacing point particles with one-dimensional strings gives a finite, self-consistent theory of quantum gravity.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Vibrations are particles</h4>
-    <p>Different vibrational modes of a single string correspond to different particles — including a massless spin-2 graviton.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Extra dimensions are required</h4>
-    <p>Consistency forces 10 (superstring) or 11 (M-theory) dimensions; the extra ones are compactified, e.g. on Calabi–Yau manifolds.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Dualities unify the theories</h4>
-    <p>T-duality, S-duality, and M-theory show the five superstring theories are limits of one underlying framework.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Holography is concrete</h4>
-    <p>AdS/CFT relates gravity in the bulk to a field theory on the boundary, a tool now used well beyond string theory.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Testability is the open challenge</h4>
-    <p>The vast landscape of vacua and Planck-scale energies make direct experimental tests its central unsolved difficulty.</p>
-  </div>
-</div>
+- **Strings, not points.** Replacing point particles with one-dimensional strings gives a finite, self-consistent theory of quantum gravity.
+- **Vibrations are particles.** Different vibrational modes of a single string correspond to different particles — including a massless spin-2 graviton.
+- **Extra dimensions are required.** Consistency forces 10 (superstring) or 11 (M-theory) dimensions; the extra ones are compactified, e.g. on Calabi–Yau manifolds.
+- **Dualities unify the theories.** T-duality, S-duality, and M-theory show the five superstring theories are limits of one underlying framework.
+- **Holography is concrete.** AdS/CFT relates gravity in the bulk to a field theory on the boundary, a tool now used well beyond string theory.
+- **Testability is the open challenge.** The vast landscape of vacua and Planck-scale energies make direct experimental tests its central unsolved difficulty.
 
 ## Continue Reading
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="dualities-and-branes.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">D-Branes, Dualities &amp; M-Theory →</h4>
-    <p style="margin: 0;">D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black-hole entropy, and string cosmology.</p>
-  </a>
-  <a class="nav-card" href="frontiers-and-formalism.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Criticisms, Research &amp; Graduate Formalism →</h4>
-    <p style="margin: 0;">Open problems, current research, experimental prospects, and the full graduate-level mathematical formalism.</p>
-  </a>
-</div>
+- [D-Branes, Dualities & M-Theory](dualities-and-branes.html) — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black-hole entropy, and string cosmology.
+- [Criticisms, Research & Graduate Formalism](frontiers-and-formalism.html) — Open problems, current research, experimental prospects, and the full graduate-level mathematical formalism.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — the point-particle starting point that string theory extends.</li>
-    <li><a href="../relativity/">Relativity</a> — general relativity and the spacetime geometry string theory must reproduce.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the quantum foundations underlying string quantization.</li>
-    <li><a href="../condensed-matter/">Condensed Matter Physics</a> — AdS/CMT, where holographic methods find experimental traction.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — black-hole thermodynamics and microstate counting.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](../quantum-field-theory.html) — the point-particle starting point that string theory extends.
+- [Relativity](../relativity/) — general relativity and the spacetime geometry string theory must reproduce.
+- [Quantum Mechanics](../quantum-mechanics/) — the quantum foundations underlying string quantization.
+- [Condensed Matter Physics](../condensed-matter/) — AdS/CMT, where holographic methods find experimental traction.
+- [Statistical Mechanics](../statistical-mechanics/) — black-hole thermodynamics and microstate counting.
+- [Physics Hub](../) — browse all physics topics.

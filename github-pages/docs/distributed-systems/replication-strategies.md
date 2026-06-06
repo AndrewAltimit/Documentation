@@ -7,23 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Replication Strategies</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Keeping copies of data in sync across machines — leaders, quorums, lag, and the conflicts you cannot avoid</p>
-</div>
-
 [Distributed Systems](./) &raquo; Replication Strategies
 
-<div class="code-example" markdown="1">
-**Replication** means keeping a copy of the same data on multiple machines. You do it for three reasons: **availability** (survive a node failure), **latency** (serve reads from a replica geographically close to the user), and **read throughput** (spread reads across many copies). The hard part is not making copies — it is keeping them *consistent* while writes keep arriving and machines keep failing. This page covers the three replication architectures, the quorum math that lets you tune the consistency/availability trade-off, the session guarantees that make weak consistency tolerable, and the failover and conflict-resolution machinery you need in production.
-</div>
+**Replication** means keeping a copy of the same data on multiple machines. You do it for three reasons: **availability** (survive a node failure), **latency** (serve reads from a replica geographically close to the user), and **read throughput** (spread reads across many copies). The hard part is not making copies — it is keeping them *consistent* while writes keep arriving and machines keep failing. This page covers the three replication architectures, the quorum math that lets you tune the consistency/availability trade-off, the session guarantees that make weak consistency tolerable, and the failover and conflict-resolution machinery you need in production. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-crown"></i><h4>One writer is simplest</h4><p>Single-leader replication is the default in most databases because it sidesteps write conflicts entirely — but the leader is a bottleneck and a failure point.</p></div>
-  <div class="insight-card"><i class="fas fa-calculator"></i><h4>R + W &gt; N buys overlap</h4><p>Quorum reads and writes guarantee that any read set intersects the latest write set, giving strong-ish consistency without a single leader.</p></div>
-  <div class="insight-card"><i class="fas fa-hourglass-half"></i><h4>Lag is unavoidable</h4><p>Asynchronous replication always trails. The question is not whether replicas are stale, but how stale, and whether your clients can tell.</p></div>
-  <div class="insight-card"><i class="fas fa-code-branch"></i><h4>Concurrent writes conflict</h4><p>The moment you allow more than one node to accept writes, you must define what happens when two of them disagree. There is no way to dodge it.</p></div>
-</div>
+- **One writer is simplest.** Single-leader replication is the default in most databases because it sidesteps write conflicts entirely — but the leader is a bottleneck and a failure point.
+- **R + W > N buys overlap.** Quorum reads and writes guarantee that any read set intersects the latest write set, giving strong-ish consistency without a single leader.
+- **Lag is unavoidable.** Asynchronous replication always trails. The question is not whether replicas are stale, but how stale, and whether your clients can tell.
+- **Concurrent writes conflict.** The moment you allow more than one node to accept writes, you must define what happens when two of them disagree — there is no way to dodge it.
 
 ## Why Replicate at All
 

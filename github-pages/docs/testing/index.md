@@ -15,13 +15,6 @@ toc: false  # Index pages typically don't need TOC
 Comprehensive documentation for software testing and quality assurance, from the fast unit tests at the base of the pyramid to the property-based, fuzz, and chaos techniques that find the bugs nothing else can. This hub frames the testing discipline as a whole and routes you into focused pages for the everyday practices and the advanced ones.
 </div>
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Shape your suite like a pyramid</h4><p>Many fast, isolated unit tests at the base; fewer integration tests in the middle; a thin layer of slow end-to-end tests on top. Inverting it makes suites brittle and glacially slow.</p></div>
-  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Fast feedback drives quality</h4><p>A test suite that runs in seconds gets run on every save; one that takes an hour gets skipped. Speed at the base is what makes testing a habit rather than a chore.</p></div>
-  <div class="insight-card"><i class="fas fa-bug"></i><h4>Tests encode intent, not just correctness</h4><p>A good test is executable documentation of what the code is <em>supposed</em> to do. When it fails, it should tell you which behavior broke — not merely that something did.</p></div>
-  <div class="insight-card"><i class="fas fa-dice"></i><h4>Examples miss; generators find</h4><p>Hand-picked example tests only cover the cases you imagined. Property-based testing, fuzzing, and chaos engineering explore the space you didn't — where the real bugs hide.</p></div>
-</div>
-
 ## Overview
 
 Testing is the engineering discipline of building justified confidence that software behaves as intended — and keeps doing so as it changes. It is not about proving the absence of bugs (which is generally impossible) but about systematically reducing the probability and blast radius of the bugs that remain. A good test suite is a safety net that lets a team refactor aggressively, ship continuously, and sleep at night.
@@ -70,62 +63,32 @@ Line and branch **coverage** tell you which code the suite *executed*, not wheth
 
 ## Explore the Topics
 
-The two areas below are ordered so that **everyday craft comes before advanced techniques**: master fast, trustworthy unit and integration tests first, then layer on the generative and resilience techniques that find what example-based tests cannot.
-
-<div class="command-grid">
-  <a href="unit-and-integration.html" class="nav-card">
-    <h4><i class="fas fa-vial"></i> Unit &amp; Integration Testing</h4>
-    <p>The base and middle of the pyramid: writing fast, isolated unit tests, test doubles (mocks, stubs, fakes, spies), TDD, integration testing against real databases and services, and the F.I.R.S.T. discipline that keeps a suite trustworthy.</p>
-  </a>
-  <a href="advanced-testing.html" class="nav-card">
-    <h4><i class="fas fa-flask"></i> Advanced Testing</h4>
-    <p>Beyond hand-written examples: property-based testing, fuzzing, mutation testing, snapshot and contract testing, performance and load testing, and chaos engineering for distributed systems.</p>
-  </a>
-</div>
-
-### What You'll Find
+The two areas below are ordered so that **everyday craft comes before advanced techniques**: master fast, trustworthy unit and integration tests first, then layer on the generative and resilience techniques that find what example-based tests cannot. Make tests drive design (practice TDD so tests shape interfaces, not just verify them); then move up to generative and system-level techniques — property-based testing and fuzzing for the inputs you'd never type, mutation testing to prove your assertions bite, and performance/load/chaos testing for behavior under the stress, partition, and failure that production eventually imposes.
 
 | Page | What it covers |
 |------|----------------|
 | [Unit & Integration Testing](unit-and-integration.html) | The testing pyramid in practice, test structure (Arrange-Act-Assert), test doubles, test-driven development, integration testing with real dependencies, fixtures, and managing flakiness |
 | [Advanced Testing](advanced-testing.html) | Property-based testing, fuzzing, mutation testing, snapshot and contract testing, performance/load testing, and chaos engineering |
 
-## Learning Path
-
-There is no single correct route, but the following order builds each idea on the one before it:
-
-1. **Get the shape right.** Internalize the testing pyramid above so you push coverage to the cheapest level that catches each bug.
-2. **Master the base.** Read [Unit & Integration Testing](unit-and-integration.html) for the everyday craft — fast isolated tests, the right test double for each seam, and integration tests that exercise real wiring without becoming slow and flaky.
-3. **Make tests drive design.** Practice test-driven development to let tests shape the interfaces you write, not just verify them after the fact.
-4. **Find what examples miss.** Move to [Advanced Testing](advanced-testing.html): let property-based testing and fuzzing generate the inputs you'd never think of, and use mutation testing to measure whether your assertions actually bite.
-5. **Test the system, not just the code.** Apply performance, load, and chaos techniques to verify behavior under stress, partition, and failure — the conditions production will eventually impose.
-
 To see how these practices slot into an automated pipeline, see [CI/CD Pipelines](../technology/ci-cd/); for the failure-injection techniques specific to multi-node systems, see [Testing & Chaos Engineering](../distributed-systems/testing-distributed-systems.html) in the Distributed Systems hub.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Shape the suite like a pyramid</h4><p>Many fast unit tests, fewer integration tests, a thin layer of end-to-end tests. Push every check to the cheapest level that can catch the bug.</p></div>
-  <div class="takeaway-card"><h4>Optimize for fast feedback</h4><p>A suite that runs in seconds gets run constantly; a slow one gets skipped. Speed at the base is what makes testing a habit.</p></div>
-  <div class="takeaway-card"><h4>Make tests F.I.R.S.T.</h4><p>Fast, Independent, Repeatable, Self-validating, Timely. A flaky or order-dependent test is worse than no test — it teaches the team to ignore red.</p></div>
-  <div class="takeaway-card"><h4>Coverage is a floor</h4><p>It tells you what ran, not what was verified. Use it to find untested code, not as the number you optimize.</p></div>
-  <div class="takeaway-card"><h4>Generate the inputs you can't imagine</h4><p>Property-based testing and fuzzing explore the input space example tests miss; mutation testing proves your assertions actually bite.</p></div>
-  <div class="takeaway-card"><h4>Test under failure, not just success</h4><p>Performance, load, and chaos testing reveal the behavior that only emerges under stress, latency, and partition.</p></div>
-</div>
+- **Shape the suite like a pyramid.** Many fast unit tests, fewer integration tests, a thin layer of end-to-end tests. Push every check to the cheapest level that can catch the bug.
+- **Optimize for fast feedback.** A suite that runs in seconds gets run constantly; a slow one gets skipped. Speed at the base is what makes testing a habit.
+- **Make tests F.I.R.S.T.** Fast, Independent, Repeatable, Self-validating, Timely. A flaky or order-dependent test is worse than no test — it teaches the team to ignore red.
+- **Coverage is a floor.** It tells you what ran, not what was verified. Use it to find untested code, not as the number you optimize.
+- **Generate the inputs you can't imagine.** Property-based testing and fuzzing explore the input space example tests miss; mutation testing proves your assertions actually bite.
+- **Test under failure, not just success.** Performance, load, and chaos testing reveal the behavior that only emerges under stress, latency, and partition.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="unit-and-integration.html">Unit &amp; Integration Testing</a> — the everyday craft at the base and middle of the pyramid.</li>
-    <li><a href="advanced-testing.html">Advanced Testing</a> — property-based, fuzz, mutation, and chaos techniques.</li>
-    <li><a href="../technology/ci-cd/">CI/CD Pipelines</a> — where tests run automatically as a release gate.</li>
-    <li><a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a> — chaos engineering and fault injection for multi-node systems.</li>
-    <li><a href="../technology/git/">Git</a> — the version control workflow tests guard against regressions in.</li>
-    <li><a href="../technology/cybersecurity/">Cybersecurity</a> — fuzzing and security testing for finding exploitable defects.</li>
-  </ul>
-</div>
+- **[Unit & Integration Testing](unit-and-integration.html)** — the everyday craft at the base and middle of the pyramid.
+- **[Advanced Testing](advanced-testing.html)** — property-based, fuzz, mutation, and chaos techniques.
+- **[CI/CD Pipelines](../technology/ci-cd/)** — where tests run automatically as a release gate.
+- **[Testing Distributed Systems](../distributed-systems/testing-distributed-systems.html)** — chaos engineering and fault injection for multi-node systems.
+- **[Git](../technology/git/)** — the version control workflow tests guard against regressions in.
+- **[Cybersecurity](../technology/cybersecurity/)** — fuzzing and security testing for finding exploitable defects.
 
 ### Further Reading
 

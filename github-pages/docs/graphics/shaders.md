@@ -9,23 +9,16 @@ toc_icon: "code"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Shader Programming</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Writing the GPU programs that transform geometry and shade every pixel</p>
-</div>
+# Shader Programming
 
 [3D Graphics &amp; Rendering](3d-rendering.html) &raquo; Shader Programming
 
-<div class="hub-intro">
-  <p class="lead">A shader is a small program that runs on the GPU, executed in parallel across thousands of vertices or pixels. Shaders are the programmable heart of the rendering pipeline: they decide where geometry lands on screen, how light interacts with a surface, and how the final image is filtered. This page covers the programmable pipeline, the major shader stages, GLSL and HLSL fundamentals, physically based shading, the common effects shaders implement, and the performance realities of writing code that runs a million times per frame.</p>
-</div>
+A shader is a small program that runs on the GPU, executed in parallel across thousands of vertices or pixels. Shaders are the programmable heart of the rendering pipeline: they decide where geometry lands on screen, how light interacts with a surface, and how the final image is filtered. This page covers the programmable pipeline, the major shader stages, GLSL and HLSL fundamentals, physically based shading, common effects, and the performance realities of writing code that runs a million times per frame. Four ideas shape how shaders are written:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-microchip"></i><h4>SPMD, Not Serial</h4><p>One shader is written once but executed for every vertex or fragment in lock-step. You write code from the perspective of a single element and let the hardware fan it out.</p></div>
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>Stages Pass Data Forward</h4><p>The vertex stage outputs interpolated values the fragment stage consumes. Most shader bugs are mismatched or wrongly-spaced varyings.</p></div>
-  <div class="insight-card"><i class="fas fa-lightbulb"></i><h4>Lighting Is Math</h4><p>A surface's appearance is a function evaluated per pixel — dot products of normals and light directions, fed through a BRDF.</p></div>
-  <div class="insight-card"><i class="fas fa-stopwatch"></i><h4>Cost Multiplies</h4><p>An instruction in a fragment shader runs once per covered pixel — millions of times per frame. Small inefficiencies become whole milliseconds.</p></div>
-</div>
+- **SPMD, not serial.** One shader is written once but executed for every vertex or fragment in lock-step. You write code from the perspective of a single element and let the hardware fan it out.
+- **Stages pass data forward.** The vertex stage outputs interpolated values the fragment stage consumes. Most shader bugs are mismatched or wrongly-spaced varyings.
+- **Lighting is math.** A surface's appearance is a function evaluated per pixel — dot products of normals and light directions, fed through a BRDF.
+- **Cost multiplies.** An instruction in a fragment shader runs once per covered pixel — millions of times per frame. Small inefficiencies become whole milliseconds.
 
 ## The Programmable Pipeline
 
@@ -507,15 +500,13 @@ A disciplined workflow — isolate the stage, visualize the suspect value, captu
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Write for one element</h4><p>A shader processes a single vertex or fragment; the GPU fans it out across thousands in lock-step. Think SPMD, not loops.</p></div>
-  <div class="takeaway-card"><h4>Vertex out, fragment in</h4><p>The vertex stage writes varyings the rasterizer interpolates and the fragment stage consumes. Always renormalize interpolated normals.</p></div>
-  <div class="takeaway-card"><h4>PBR is the standard</h4><p>Albedo, metallic, and roughness feed a Cook-Torrance (GGX) BRDF that behaves correctly under any lighting.</p></div>
-  <div class="takeaway-card"><h4>Maps fake geometry</h4><p>Normal, parallax, and displacement maps add surface detail in the shader at a fraction of the cost of real triangles.</p></div>
-  <div class="takeaway-card"><h4>Sampling is quad-based</h4><p>Fragments shade in 2×2 quads so mip selection has derivatives — which is why texturing in divergent branches misbehaves.</p></div>
-  <div class="takeaway-card"><h4>Divergence and overdraw cost</h4><p>Lock-step warps punish branchy shaders, and overdraw shades pixels twice. Uniform work and depth pre-passes pay off.</p></div>
-  <div class="takeaway-card"><h4>Visualize to debug</h4><p>No printf — output values as color and capture frames in RenderDoc to inspect any pixel's shader inputs.</p></div>
-</div>
+- **Write for one element.** A shader processes a single vertex or fragment; the GPU fans it out across thousands in lock-step. Think SPMD, not loops.
+- **Vertex out, fragment in.** The vertex stage writes varyings the rasterizer interpolates and the fragment stage consumes. Always renormalize interpolated normals.
+- **PBR is the standard.** Albedo, metallic, and roughness feed a Cook-Torrance (GGX) BRDF that behaves correctly under any lighting.
+- **Maps fake geometry.** Normal, parallax, and displacement maps add surface detail in the shader at a fraction of the cost of real triangles.
+- **Sampling is quad-based.** Fragments shade in 2×2 quads so mip selection has derivatives — which is why texturing in divergent branches misbehaves.
+- **Divergence and overdraw cost.** Lock-step warps punish branchy shaders, and overdraw shades pixels twice. Uniform work and depth pre-passes pay off.
+- **Visualize to debug.** No printf — output values as color and capture frames in RenderDoc to inspect any pixel's shader inputs.
 
 ## See Also
 - [3D Graphics &amp; Rendering](3d-rendering.html) - The pipeline, lighting, and GPU architecture these shaders run on
@@ -523,3 +514,4 @@ A disciplined workflow — isolate the stage, visualize the suspect value, captu
 - [Game Development](../gamedev/) - Engines and real-time rendering in context
 - [VR/AR Development](../vr-ar/) - Stereo rendering and XR-specific shading concerns
 - [Unreal Engine](../technology/unreal.html) - Nanite, Lumen, and the material editor
+

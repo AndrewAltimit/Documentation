@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Replication &amp; Consensus</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Replication topologies, streaming &amp; logical replication, Raft/Paxos, read replicas, failover, and quorums</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Replication & Consensus
 
 ## Why Replicate at All?
 
@@ -143,10 +140,7 @@ CREATE SUBSCRIPTION orders_sub
   PUBLICATION orders_pub;
 ```
 
-<div class="tip-card">
-  <h4>Rule of thumb</h4>
-  <p>Use <strong>physical/streaming</strong> replication for high-availability standbys and read replicas of an entire database — it is fastest and yields a byte-identical, instantly-promotable copy. Reach for <strong>logical</strong> replication when you need to replicate a <em>subset</em>, cross versions/engines, perform a zero-downtime major upgrade, or feed a CDC pipeline.</p>
-</div>
+> **Rule of thumb.** Use **physical/streaming** replication for high-availability standbys and read replicas of an entire database — it is fastest and yields a byte-identical, instantly-promotable copy. Reach for **logical** replication when you need to replicate a *subset*, cross versions/engines, perform a zero-downtime major upgrade, or feed a CDC pipeline.
 
 ## Read Replicas & Replication Lag
 
@@ -382,13 +376,8 @@ Cassandra exposes these as per-query *consistency levels* (`ONE`, `QUORUM`, `ALL
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Closely related:</strong> <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, distributed transactions (2PC/Saga), and the NoSQL data models these techniques underpin.</li>
-    <li><strong>Foundations:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the write-ahead log that physical replication streams.</li>
-    <li><strong>Correctness:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — ACID and isolation, the single-node story replication must preserve.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="../aws/">AWS</a> for managed replication (RDS read replicas, Multi-AZ failover) and <a href="../networking/">Networking</a> for the protocols beneath these clusters.</li>
-  </ul>
-</div>
+- **Closely related:** [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, distributed transactions (2PC/Saga), and the NoSQL data models these techniques underpin.
+- **Foundations:** [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that physical replication streams.
+- **Correctness:** [Transactions & Concurrency](transactions-and-concurrency.html) — ACID and isolation, the single-node story replication must preserve.
+- **Up:** [Database Design hub](./)
+- See also: [AWS](../aws/) for managed replication (RDS read replicas, Multi-AZ failover) and [Networking](../networking/) for the protocols beneath these clusters.

@@ -8,44 +8,17 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Database Crash Course</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The essentials of tables, SQL, and data modeling — enough to be productive fast</p>
-</div>
+# Database Crash Course
 
-<div class="intro-card">
-  <p class="lead-text">This is the <strong>fast on-ramp</strong> to databases: what they are, how relational data is structured, and the handful of SQL statements that do most of the work. It is deliberately concise. When you need depth — normalization theory, indexing internals, distributed databases, query planning — head to the companion deep-dive.</p>
-</div>
-
-<div class="tip-card">
-  <h4>This page vs. Database Design</h4>
-  <ul>
-    <li><strong>This page (Crash Course)</strong> — concepts and core SQL to get started; read top to bottom.</li>
-    <li><a href="database-design/">Database Design</a> — the comprehensive reference: normalization, indexing strategy, query execution, sharding/replication, NoSQL, and tuning.</li>
-  </ul>
-</div>
+This is the **fast on-ramp** to databases: what they are, how relational data is structured, and the handful of SQL statements that do most of the work. It is deliberately concise — read it top to bottom. When you need depth (normalization theory, indexing internals, distributed databases, query planning), head to the comprehensive [Database Design](database-design/) reference.
 
 ## What is a database?
 
-A **database** is an organized, persistent collection of structured data. A **database management system (DBMS)** — PostgreSQL, MySQL, SQLite, MongoDB — is the software that stores it, answers queries, enforces rules, and coordinates many users reading and writing at once without corrupting each other's data.
+A **database** is an organized, persistent collection of structured data. A **database management system (DBMS)** — PostgreSQL, MySQL, SQLite, MongoDB — is the software that stores it, answers queries, enforces rules, and coordinates many users reading and writing at once without corrupting each other's data. Three properties distinguish a database from a pile of files:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-table"></i>
-    <h4>Structure</h4>
-    <p>Data lives in defined shapes (tables or documents), not loose files</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Integrity</h4>
-    <p>Constraints and transactions keep data valid and consistent</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bolt"></i>
-    <h4>Speed at scale</h4>
-    <p>Indexes make finding one row among millions near-instant</p>
-  </div>
-</div>
+- **Structure** — data lives in defined shapes (tables or documents), not loose files.
+- **Integrity** — constraints and transactions keep data valid and consistent.
+- **Speed at scale** — indexes make finding one row among millions near-instant.
 
 ## Two big families: SQL vs NoSQL
 
@@ -60,10 +33,7 @@ The first decision is which kind of database fits your data and access patterns.
 | **Best for** | Structured data with relationships | High write volume, evolving or hierarchical data |
 | **Examples** | PostgreSQL, MySQL, SQLite | MongoDB, Redis, Cassandra, Neo4j |
 
-<div class="takeaway-card">
-  <h4>Rule of thumb</h4>
-  <p>Start with a relational database (PostgreSQL is an excellent default). Reach for NoSQL when a concrete requirement — huge scale, a document-shaped data model, sub-millisecond key lookups, or graph traversal — actually demands it.</p>
-</div>
+> **Rule of thumb.** Start with a relational database (PostgreSQL is an excellent default). Reach for NoSQL when a concrete requirement — huge scale, a document-shaped data model, sub-millisecond key lookups, or graph traversal — actually demands it.
 
 ## The relational model in one picture
 
@@ -177,18 +147,10 @@ An index is a separate data structure that lets the database find rows without s
 CREATE INDEX idx_customers_email ON customers(email);
 ```
 
-<div class="pros-cons-grid">
-  <div class="pros-section">
-    <h4>Indexes help</h4>
-    <div class="pro-item">Speed up <code>WHERE</code>, <code>JOIN</code>, and <code>ORDER BY</code> on the indexed columns</div>
-    <div class="pro-item">Enforce uniqueness (a unique index)</div>
-  </div>
-  <div class="cons-section">
-    <h4>Indexes cost</h4>
-    <div class="con-item">Extra disk space</div>
-    <div class="con-item">Slower writes — every <code>INSERT</code>/<code>UPDATE</code> must update the index</div>
-  </div>
-</div>
+Indexes are a trade-off:
+
+- **They help:** speed up `WHERE`, `JOIN`, and `ORDER BY` on the indexed columns, and can enforce uniqueness (a unique index).
+- **They cost:** extra disk space, and slower writes — every `INSERT`/`UPDATE` must update the index too.
 
 Index the columns you frequently filter or join on; don't index everything. See [Database Design → Indexing](database-design/indexing-and-queries.html#indexing-making-queries-lightning-fast) for B-tree internals and composite-index ordering.
 
@@ -271,25 +233,18 @@ sqlite> CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT);
 
 ## Key Takeaways
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Relational databases store data in linked tables;</strong> primary and foreign keys define the relationships.</li>
-    <li><strong>SQL's core is CRUD:</strong> <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, plus <code>JOIN</code> to combine tables.</li>
-    <li><strong>Indexes trade write speed and space for dramatically faster reads</strong> — add them to columns you filter on.</li>
-    <li><strong>Transactions give all-or-nothing safety</strong> with ACID guarantees.</li>
-    <li><strong>Default to relational (PostgreSQL); choose NoSQL</strong> only when a specific requirement justifies it.</li>
-  </ul>
-</div>
+- **Relational databases store data in linked tables;** primary and foreign keys define the relationships.
+- **SQL's core is CRUD:** `SELECT`, `INSERT`, `UPDATE`, `DELETE`, plus `JOIN` to combine tables.
+- **Indexes trade write speed and space for dramatically faster reads** — add them to columns you filter on.
+- **Transactions give all-or-nothing safety** with ACID guarantees.
+- **Default to relational (PostgreSQL); choose NoSQL** only when a specific requirement justifies it.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="database-design/">Database Design</a> — the full reference: normalization, indexing internals, query execution, distributed databases, and tuning</li>
-    <li><a href="aws/databases.html">AWS Databases</a> — managed RDS, DynamoDB, and Aurora</li>
-    <li><a href="docker-essentials.html">Docker Essentials</a> — run databases locally for development</li>
-    <li><a href="../distributed-systems/">Distributed Systems</a> — consistency, replication, and the CAP theorem in depth</li>
-  </ul>
-</div>
+## See Also
+
+- [Database Design](database-design/) — the full reference: normalization, indexing internals, query execution, distributed databases, and tuning
+- [AWS Databases](aws/databases.html) — managed RDS, DynamoDB, and Aurora
+- [Docker Essentials](docker-essentials.html) — run databases locally for development
+- [Distributed Systems](../distributed-systems/) — consistency, replication, and the CAP theorem in depth
 
 ## References
 

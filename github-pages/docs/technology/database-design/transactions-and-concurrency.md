@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Transactions &amp; Concurrency</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Locking, MVCC, serializability, isolation levels, and database security</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Transactions & Concurrency
 
 ## Transactions and Concurrency: Managing Simultaneous Access
 
@@ -306,12 +303,7 @@ user = User.query.filter_by(username=username).first()
 
 ## Next Steps
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a></li>
-    <li><strong>Next:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> — how WAL makes durability and recovery possible.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="../cybersecurity/">Cybersecurity</a> for defense-in-depth beyond the database layer.</li>
-  </ul>
-</div>
+- **Previous:** [Indexing & Query Execution](indexing-and-queries.html)
+- **Next:** [Storage Engines & Recovery](storage-internals.html) — how WAL makes durability and recovery possible.
+- **Up:** [Database Design hub](./)
+- See also: [Cybersecurity](../cybersecurity/) for defense-in-depth beyond the database layer.

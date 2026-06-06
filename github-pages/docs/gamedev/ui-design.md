@@ -9,23 +9,16 @@ toc_icon: "window-maximize"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">UI/UX & Menu Architecture</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Immediate vs retained mode, menu state machines, HUDs, responsive scaling, and accessible input navigation</p>
-</div>
+# UI/UX & Menu Architecture
 
 [Game Development](./) &raquo; UI/UX & Menu Architecture
 
-<div class="hub-intro">
-  <p class="lead">A game's user interface is the membrane between the player and the simulation: it surfaces state (health, ammo, objectives), accepts intent (move, confirm, pause), and frames the entire experience through menus and overlays. Unlike application UI, game UI must redraw every frame inside a tight budget, work across mouse, controller, and touch simultaneously, scale from a phone to a 4K TV viewed from a couch, and remain legible and operable for players with a wide range of abilities. This page covers the two architectural paradigms (immediate vs retained mode), menu and screen state management, HUD design, responsive scaling and safe areas, focus-based input navigation, and accessibility.</p>
-</div>
+A game's user interface is the membrane between the player and the simulation: it surfaces state (health, ammo, objectives), accepts intent (move, confirm, pause), and frames the experience through menus and overlays. Unlike application UI, game UI must redraw every frame inside a tight budget, work across mouse, controller, and touch simultaneously, scale from a phone to a 4K TV viewed from a couch, and remain legible and operable for players with a wide range of abilities. This page covers the two architectural paradigms (immediate vs retained mode), menu and screen state management, HUD design, responsive scaling and safe areas, focus-based input navigation, and accessibility. Four ideas anchor good game UI:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-sync"></i><h4>UI is per-frame, not event-driven</h4><p>Game UI lives inside the render loop. Even "static" menus are rebuilt or re-evaluated every frame, so the cost model is throughput, not idle event handling.</p></div>
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Screens are a state machine</h4><p>Menus, pause, inventory, and dialogs form a stack of screens with clear transitions. Modeling them as a stack-based state machine prevents tangled input and focus bugs.</p></div>
-  <div class="insight-card"><i class="fas fa-gamepad"></i><h4>Design for focus, not the cursor</h4><p>A controller has no pointer. Every interactive element needs a defined focus order and directional neighbors, or the UI is simply unusable on a gamepad.</p></div>
-  <div class="insight-card"><i class="fas fa-universal-access"></i><h4>Accessibility is core, not a toggle</h4><p>Safe areas, scalable text, remappable input, and colorblind-safe coding are baseline requirements that also make the UI better for everyone.</p></div>
-</div>
+- **UI is per-frame, not event-driven.** Game UI lives inside the render loop. Even "static" menus are rebuilt or re-evaluated every frame, so the cost model is throughput, not idle event handling.
+- **Screens are a state machine.** Menus, pause, inventory, and dialogs form a stack of screens with clear transitions. Modeling them as a stack-based state machine prevents tangled input and focus bugs.
+- **Design for focus, not the cursor.** A controller has no pointer. Every interactive element needs a defined focus order and directional neighbors, or the UI is simply unusable on a gamepad.
+- **Accessibility is core, not a toggle.** Safe areas, scalable text, remappable input, and colorblind-safe coding are baseline requirements that also make the UI better for everyone.
 
 ## Immediate Mode vs Retained Mode
 
@@ -384,14 +377,12 @@ A practical test: navigate the entire UI with a controller, with the pointer dis
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Retained for the game, immediate for tools</h4><p>Ship player-facing UI in a retained-mode framework (UMG, uGUI, Godot Control) and use immediate mode (ImGui) for debug overlays. The choice is about who owns widget state.</p></div>
-  <div class="takeaway-card"><h4>Screens are a stack</h4><p>Model menus, pause, inventory, and dialogs as a screen stack with clear input routing and draw-below/update-below rules. It dissolves the hardest UI bugs.</p></div>
-  <div class="takeaway-card"><h4>HUDs observe, never drive</h4><p>Decouple the HUD from the simulation with events; keep it legible-when-ignored and classify elements as diegetic, spatial, meta, or non-diegetic by intent.</p></div>
-  <div class="takeaway-card"><h4>Anchor to safe areas</h4><p>Use anchors plus a reference resolution to scale across displays, and pin all critical UI inside the title-safe / device safe-area rectangle so notches and overscan never clip it.</p></div>
-  <div class="takeaway-card"><h4>Design for focus first</h4><p>Build a focus graph with directional navigation and route input through a semantic action layer so controller, keyboard, and touch all work — and remapping is possible.</p></div>
-  <div class="takeaway-card"><h4>Accessibility is architecture</h4><p>Scalable text, colorblind-safe coding, remappable input, captions, and screen-reader nodes belong in the core UI systems, not in a bolted-on options menu.</p></div>
-</div>
+- **Retained for the game, immediate for tools.** Ship player-facing UI in a retained-mode framework (UMG, uGUI, Godot Control) and use immediate mode (ImGui) for debug overlays. The choice is about who owns widget state.
+- **Screens are a stack.** Model menus, pause, inventory, and dialogs as a screen stack with clear input routing and draw-below/update-below rules. It dissolves the hardest UI bugs.
+- **HUDs observe, never drive.** Decouple the HUD from the simulation with events; keep it legible-when-ignored and classify elements as diegetic, spatial, meta, or non-diegetic by intent.
+- **Anchor to safe areas.** Use anchors plus a reference resolution to scale across displays, and pin all critical UI inside the title-safe / device safe-area rectangle so notches and overscan never clip it.
+- **Design for focus first.** Build a focus graph with directional navigation and route input through a semantic action layer so controller, keyboard, and touch all work — and remapping is possible.
+- **Accessibility is architecture.** Scalable text, colorblind-safe coding, remappable input, captions, and screen-reader nodes belong in the core UI systems, not in a bolted-on options menu.
 
 ## See Also
 - [Game Development](./) - The hub: engines, the game loop, ECS, and core systems

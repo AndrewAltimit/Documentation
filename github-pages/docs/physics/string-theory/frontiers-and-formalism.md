@@ -4,7 +4,6 @@ title: "String Theory: Criticisms & Research Frontiers"
 permalink: /docs/physics/string-theory/frontiers-and-formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 <!-- Custom styles for string theory visualizations -->
@@ -12,10 +11,7 @@ hide_title: true
 
 [String Theory](./) &raquo; Criticisms &amp; Research Frontiers
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Criticisms &amp; Research Frontiers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The open problems, the misconceptions, the live research directions, and what an experiment could ever see.</p>
-</div>
+## Criticisms & Research Frontiers
 
 String theory is contested, unfinished, and influential out of all proportion to its experimental support. This page takes that seriously. It lays out the legitimate scientific **criticisms** (and the popular misconceptions that obscure them), the structural tension between the **landscape** of vacua and the **Swampland** program that tries to fence it in, the directions where the field is most alive today — **holography and quantum information**, the **scattering-amplitudes** program — and a candid account of **experimental signatures and phenomenology**: what a collider, a gravitational-wave detector, or a cosmological survey could plausibly observe, and why nothing has yet.
 
@@ -45,17 +41,13 @@ Perhaps the most-cited practical criticism is simply the **energy gap**. The nat
 
 ### Common Misconceptions
 
-<div class="principle-card">
-  <h4>Setting the record straight</h4>
-  <ul>
-    <li><strong>"String theory has been proven."</strong> No. It has produced no confirmed experimental prediction; the string scale lies roughly $10^{15}$ times beyond current colliders. It is a mathematically rich framework, not an established theory of nature.</li>
-    <li><strong>"String theory has been ruled out."</strong> Also no. The non-observation of supersymmetry at the LHC weakens some <em>specific</em> low-energy models but does not falsify the framework, whose characteristic effects sit far above accessible energies.</li>
-    <li><strong>"The extra dimensions are just a mathematical trick."</strong> They are taken as physically real but <em>compactified</em> — curled up so small (near the Planck length, in most scenarios) that they are invisible at everyday scales, much as a garden hose looks one-dimensional from afar.</li>
-    <li><strong>"The landscape of $\sim 10^{500}$ vacua means the theory predicts nothing."</strong> The landscape is a serious challenge, but the complementary <em>Swampland</em> program argues that most conceivable low-energy theories are <em>not</em> consistent with quantum gravity — turning "anything goes" into sharp, in-principle-testable constraints.</li>
-    <li><strong>"Strings are tiny vibrating bits of ordinary matter."</strong> No. Strings are the fundamental objects; "matter" is not made <em>of</em> something more basic that the strings are built from. Different vibrational modes of one string <em>are</em> the different particles — the electron and the graviton are the same object in different states.</li>
-    <li><strong>"It's purely abstract with no impact."</strong> Even absent experimental confirmation, string theory has delivered concrete tools used elsewhere: AdS/CFT now models quark–gluon plasma and strange metals, and microstate counting gave the first statistical derivation of black-hole entropy.</li>
-  </ul>
-</div>
+**Setting the record straight:**
+- **"String theory has been proven."** No. It has produced no confirmed experimental prediction; the string scale lies roughly $10^{15}$ times beyond current colliders. It is a mathematically rich framework, not an established theory of nature.
+- **"String theory has been ruled out."** Also no. The non-observation of supersymmetry at the LHC weakens some *specific* low-energy models but does not falsify the framework, whose characteristic effects sit far above accessible energies.
+- **"The extra dimensions are just a mathematical trick."** They are taken as physically real but *compactified* — curled up so small (near the Planck length, in most scenarios) that they are invisible at everyday scales, much as a garden hose looks one-dimensional from afar.
+- **"The landscape of $\sim 10^{500}$ vacua means the theory predicts nothing."** The landscape is a serious challenge, but the complementary *Swampland* program argues that most conceivable low-energy theories are *not* consistent with quantum gravity — turning "anything goes" into sharp, in-principle-testable constraints.
+- **"Strings are tiny vibrating bits of ordinary matter."** No. Strings are the fundamental objects; "matter" is not made *of* something more basic that the strings are built from. Different vibrational modes of one string *are* the different particles — the electron and the graviton are the same object in different states.
+- **"It's purely abstract with no impact."** Even absent experimental confirmation, string theory has delivered concrete tools used elsewhere: AdS/CFT now models quark–gluon plasma and strange metals, and microstate counting gave the first statistical derivation of black-hole entropy.
 
 ## The Landscape and the Swampland
 
@@ -231,16 +223,7 @@ Several foundational questions remain genuinely open and define the field's rese
 
 ---
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="dualities-and-branes.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">← D-Branes, Dualities &amp; M-Theory</h4>
-    <p style="margin: 0;">D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology.</p>
-  </a>
-  <a class="nav-card" href="string-theory-formalism.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Graduate Formalism →</h4>
-    <p style="margin: 0;">Worldsheet CFT, superstring quantization, the duality web, AdS/CFT, and black-hole entropy — the mathematics underneath.</p>
-  </a>
-</div>
+**Previous:** [D-Branes, Dualities & M-Theory](dualities-and-branes.html) — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology. **Up:** [Graduate Formalism](string-theory-formalism.html) — Worldsheet CFT, superstring quantization, the duality web, AdS/CFT, and black-hole entropy — the mathematics underneath.
 
 ## See Also
 

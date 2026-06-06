@@ -9,19 +9,13 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Monte Carlo &amp; Molecular Dynamics</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monte Carlo &amp; Molecular Dynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Sampling huge state spaces with randomness, and following particles through time with Newton's laws.</p>
-</div>
+Sampling huge state spaces with randomness, and following particles through time with Newton's laws.
 
 ## Monte Carlo Methods
 
 Monte Carlo methods trade exactness for scalability: instead of evaluating a sum or integral over every point in a vast space, they *sample* it randomly and average. The estimate's error falls as $1/\sqrt{N}$ no matter how many dimensions the space has — the property that makes Monte Carlo indispensable for statistical mechanics (summing over $2^N$ spin configurations), quantum field theory (path integrals), and Bayesian inference. The trade-off is statistical noise: to halve the error you must quadruple the samples.
 
-<div class="insight-card">
-  <h4>The curse — and blessing — of dimensionality</h4>
-  <p>A grid with 100 points per axis needs $100^d$ evaluations in $d$ dimensions: hopeless beyond a handful of axes. Monte Carlo sidesteps this entirely — its $1/\sqrt{N}$ error is <em>independent of dimension</em>. This is why simulating $10^{23}$-particle systems is even thinkable.</p>
-</div>
+**The curse — and blessing — of dimensionality.** A grid with 100 points per axis needs $100^d$ evaluations in $d$ dimensions: hopeless beyond a handful of axes. Monte Carlo sidesteps this entirely — its $1/\sqrt{N}$ error is *independent of dimension*. This is why simulating $10^{23}$-particle systems is even thinkable.
 
 ### Basic Monte Carlo Principles
 

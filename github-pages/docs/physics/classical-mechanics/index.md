@@ -13,32 +13,12 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The foundation of physics describing motion and forces, from Newton's laws to the elegant formulations of Lagrange and Hamilton.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Classical mechanics is the physics of everyday motion — how forces, energy, and momentum dictate the paths of everything from thrown balls to orbiting planets. This topic is built in three layers: first Newton's force-based picture, then the deeper energy-based formulations of Lagrange and Hamilton, and finally the modern, geometric view that connects mechanics to chaos, quantum theory, and computation. Use the cards below to jump to a layer, or read them in order for a guided arc — intuition before formalism.</p>
-</div>
+Classical mechanics is the physics of everyday motion — how forces, energy, and momentum dictate the paths of everything from thrown balls to orbiting planets. It is built in three layers: Newton's force-based picture, the deeper energy-based formulations of Lagrange and Hamilton, and the modern geometric view that connects mechanics to chaos, quantum theory, and computation. Four ideas run through all of it:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-rocket"></i>
-    <h4>Force changes motion</h4>
-    <p>Newton's $F = ma$ — objects keep their velocity unless a net force acts.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-recycle"></i>
-    <h4>Symmetry conserves quantities</h4>
-    <p>Energy, momentum, and angular momentum are conserved because of underlying symmetries (Noether).</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-route"></i>
-    <h4>Action is extremized</h4>
-    <p>The Lagrangian view: a system follows the path that extremizes $S = \int L\,dt$.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-random"></i>
-    <h4>Determinism has limits</h4>
-    <p>Nonlinear systems can be chaotic — perfectly deterministic yet practically unpredictable.</p>
-  </div>
-</div>
+- **Force changes motion.** Newton's $F = ma$ — objects keep their velocity unless a net force acts.
+- **Symmetry conserves quantities.** Energy, momentum, and angular momentum are conserved because of underlying symmetries (Noether's theorem).
+- **Action is extremized.** A system follows the path that extremizes $S = \int L\,dt$.
+- **Determinism has limits.** Nonlinear systems can be chaotic — perfectly deterministic yet practically unpredictable.
 
 ## Explore Classical Mechanics
 
@@ -138,50 +118,22 @@ All three describe the *same physics* — they predict identical motion — but 
 | Best for | Direct force problems, intuition | Complex/constrained systems, symmetries | Phase-space geometry, chaos, the bridge to QM |
 | Mathematical home | Vectors in space | Configuration space (tangent bundle) | Phase space (cotangent bundle) |
 
-<div class="tip-card">
-  <h4>Which one should you reach for?</h4>
-  <p>Use <strong>Newton</strong> when forces are simple and you want physical intuition. Switch to <strong>Lagrange</strong> the moment constraints appear (a bead on a wire, a double pendulum) — choosing the right generalized coordinates makes constraint forces vanish. Move to <strong>Hamilton</strong> when you care about the <em>structure</em> of all possible motions, conserved quantities, statistical mechanics, or the route to quantum theory.</p>
-</div>
+**Which one should you reach for?** Use **Newton** when forces are simple and you want physical intuition. Switch to **Lagrange** the moment constraints appear (a bead on a wire, a double pendulum) — choosing the right generalized coordinates makes constraint forces vanish. Move to **Hamilton** when you care about the *structure* of all possible motions, conserved quantities, statistical mechanics, or the route to quantum theory.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Three formulations, one physics</h4>
-    <p>Newtonian, Lagrangian, and Hamiltonian mechanics are equivalent — but each makes different problems easy and reveals different structure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Conservation laws come from symmetry</h4>
-    <p>Noether's theorem ties time-translation to energy, space-translation to momentum, and rotation to angular momentum.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Phase space is the natural arena</h4>
-    <p>Hamiltonian dynamics lives in $(q,p)$ phase space, where the geometry (symplectic structure) is preserved by the flow.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Action is fundamental</h4>
-    <p>The principle of least action underlies all of physics and is the bridge to quantum mechanics via the path integral.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Determinism is not predictability</h4>
-    <p>Chaotic systems obey exact laws yet diverge exponentially, limiting long-term prediction (the butterfly effect).</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>It is a limiting case</h4>
-    <p>Classical mechanics emerges from quantum mechanics ($\hbar \to 0$) and relativity ($v \ll c$); know where it breaks down.</p>
-  </div>
-</div>
+- **Three formulations, one physics.** Newtonian, Lagrangian, and Hamiltonian mechanics are equivalent, but each makes different problems easy and reveals different structure.
+- **Conservation laws come from symmetry.** Noether's theorem ties time-translation to energy, space-translation to momentum, and rotation to angular momentum.
+- **Phase space is the natural arena.** Hamiltonian dynamics lives in $(q,p)$ phase space, where the symplectic structure is preserved by the flow.
+- **Action is fundamental.** The principle of least action underlies all of physics and is the bridge to quantum mechanics via the path integral.
+- **Determinism is not predictability.** Chaotic systems obey exact laws yet diverge exponentially, limiting long-term prediction (the butterfly effect).
+- **It is a limiting case.** Classical mechanics emerges from quantum mechanics ($\hbar \to 0$) and relativity ($v \ll c$); know where it breaks down.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — where classical mechanics meets the microscopic world and emerges as the $\hbar \to 0$ limit.</li>
-    <li><a href="../relativity/">Relativity</a> — what replaces Newtonian mechanics when speeds approach $c$ or gravity gets strong.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — bridging Newton's laws for many particles to thermodynamics.</li>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — energy, work, and heat in mechanical systems.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — symplectic integrators and numerical methods for complex mechanical systems.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Mechanics](../quantum-mechanics/) — where classical mechanics meets the microscopic world and emerges as the $\hbar \to 0$ limit.
+- [Relativity](../relativity/) — what replaces Newtonian mechanics when speeds approach $c$ or gravity gets strong.
+- [Statistical Mechanics](../statistical-mechanics/) — bridging Newton's laws for many particles to thermodynamics.
+- [Thermodynamics](../thermodynamics.html) — energy, work, and heat in mechanical systems.
+- [Computational Physics](../computational-physics/) — symplectic integrators and numerical methods for complex mechanical systems.
+- [Physics Hub](../) — browse all physics topics.

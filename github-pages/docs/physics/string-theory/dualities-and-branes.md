@@ -4,7 +4,6 @@ title: "String Theory: D-Branes, Dualities & M-Theory"
 permalink: /docs/physics/string-theory/dualities-and-branes.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 <!-- Custom styles for string theory visualizations -->
@@ -12,10 +11,7 @@ hide_title: true
 
 [String Theory](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">D-Branes, Dualities &amp; M-Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How the five superstring theories connect — and what their extended objects reveal about quantum gravity.</p>
-</div>
+## D-Branes, Dualities & M-Theory
 
 The [five superstring theories](./) are not rivals but limits of a single framework. This page develops the objects and equivalences that stitch them together: the **D-branes** on which open strings end, the **T-** and **S-dualities** that relate seemingly different theories, the 11-dimensional **M-theory** that unifies them, and the **compactification** and **holography** that connect the framework to four-dimensional physics, black holes, and cosmology.
 
@@ -230,16 +226,7 @@ Challenges and proposals:
 
 ---
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="./" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">← String Theory (Overview)</h4>
-    <p style="margin: 0;">Strings, the classical and quantum theory, and the five superstring theories.</p>
-  </a>
-  <a class="nav-card" href="frontiers-and-formalism.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Criticisms, Research &amp; Graduate Formalism →</h4>
-    <p style="margin: 0;">Open problems, current research, experimental prospects, and the graduate-level formalism.</p>
-  </a>
-</div>
+**Previous:** [String Theory (Overview)](./) — Strings, the classical and quantum theory, and the five superstring theories. **Up:** [Criticisms, Research & Graduate Formalism](frontiers-and-formalism.html) — Open problems, current research, experimental prospects, and the graduate-level formalism.
 
 ## See Also
 

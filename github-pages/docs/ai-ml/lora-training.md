@@ -8,35 +8,13 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">LoRA Training Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Create custom AI models for your specific styles, characters, or concepts using Low-Rank Adaptation without massive computing resources.</p>
-</div>
-
-<div class="code-example" markdown="1">
 Create custom AI models that generate your specific styles, characters, or concepts - all without needing massive computing resources.
-</div>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-images"></i>
-    <h4>Data Over Everything</h4>
-    <p>A small, clean, well-captioned dataset beats a large noisy one. Curation and captioning decide most of your result.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sliders-h"></i>
-    <h4>Tune the Essentials</h4>
-    <p>Rank, learning rate, and step count are the levers that matter most. Start conservative and adjust from samples.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-balance-scale"></i>
-    <h4>Avoid Overfitting</h4>
-    <p>Watch for baked-in backgrounds and rigidity. Validate with varied prompts and stop before the model memorizes.</p>
-  </div>
-</div>
+- **Data Over Everything.** A small, clean, well-captioned dataset beats a large noisy one. Curation and captioning decide most of your result.
+- **Tune the Essentials.** Rank, learning rate, and step count are the levers that matter most. Start conservative and adjust from samples.
+- **Avoid Overfitting.** Watch for baked-in backgrounds and rigidity. Validate with varied prompts and stop before the model memorizes.
 
 ## Why Train Your Own LoRA?
 
@@ -402,18 +380,13 @@ Start with a small dataset and simple settings. If results are not quite right, 
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **LoRA = a tiny low-rank correction** $\Delta W = BA$ added to frozen base weights — you train millions of parameters, not billions, producing a 20-200MB file.
 - **Data quality beats quantity.** 15-30 well-captioned, varied images often beat hundreds of repetitive ones; a unique trigger word avoids vocabulary conflicts.
 - **Rank trades capacity for size, and alpha scales its strength** ($W' = W + \frac{\alpha}{r}BA$). Low rank (4-16) for styles, higher (32-128) for complex subjects; set alpha equal to rank if unsure.
 - **Watch the loss and the samples, not just the step count.** Stop when samples match your intent and loss stabilizes; save checkpoints so you can pick the best, not the last.
 - **Overfitting is the #1 failure** — too many steps or too little data makes the LoRA reproduce training images instead of generalizing.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Model Types](model-types.html) - How LoRAs, checkpoints, and embeddings relate
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The base models you'll train on
@@ -422,4 +395,3 @@ Start with a small dataset and simple settings. If results are not quite right, 
 - [ControlNet](controlnet.html) - Combine LoRAs with ControlNet for precision control
 - [Advanced Techniques](advanced-techniques.html) - Expert LoRA usage patterns
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

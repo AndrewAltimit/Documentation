@@ -9,10 +9,7 @@ toc_label: "On This Page"
 toc_icon: "hdd"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Storage Services</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">S3 object storage, EBS block storage, and EFS file systems for every use case from static websites to high-performance databases.</p>
-</div>
+AWS storage falls into three shapes: S3 object storage, EBS block storage, and EFS shared file systems. This page covers when to use each and how to operate them well, from static websites to high-performance databases.
 
 ## Why Storage Services Matter
 
@@ -250,24 +247,10 @@ flowchart TD
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Three Shapes of Storage</h4>
-    <p>Object (S3) for anything reached over HTTP/API, block (EBS) for a single instance's mounted disk, file (EFS) for a filesystem shared across many instances.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>S3 Classes Track Access Frequency</h4>
-    <p>Pay for the access pattern you actually have. Lifecycle policies move aging data from Standard to IA to Glacier automatically.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>gp3 Is the Sensible EBS Default</h4>
-    <p>Best price-to-performance for most workloads; reserve io2 for databases that need guaranteed high IOPS, and resize without downtime as you grow.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Encrypt and Snapshot by Default</h4>
-    <p>Turn on default encryption, block public access on S3, and back EBS volumes with regular snapshots — these are cheap insurance against the worst days.</p>
-  </div>
-</div>
+- **Three shapes of storage.** Object (S3) for anything reached over HTTP/API, block (EBS) for a single instance's mounted disk, file (EFS) for a filesystem shared across many instances.
+- **S3 classes track access frequency.** Pay for the access pattern you actually have; lifecycle policies move aging data from Standard to IA to Glacier automatically.
+- **gp3 is the sensible EBS default.** Best price-to-performance for most workloads; reserve io2 for databases needing guaranteed high IOPS, and resize without downtime as you grow.
+- **Encrypt and snapshot by default.** Turn on default encryption, block public access on S3, and back EBS volumes with regular snapshots — cheap insurance against the worst days.
 
 ## See Also
 

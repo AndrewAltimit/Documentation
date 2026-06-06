@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Container Runtimes &amp; Alternatives</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The OCI spec, runc/containerd/CRI-O, sandboxed runtimes (gVisor, Kata), Firecracker microVMs, and WebAssembly — and when to choose each over Docker.</p>
-</div>
-
 [Technology](./) &raquo; Container Runtimes &amp; Alternatives
 
-<div class="intro-card">
-  <p class="lead-text">"Docker" is a brand, not a runtime. Underneath the friendly CLI sits a <strong>stack of standardized components</strong> — an image format, a high-level daemon, and a low-level runtime that actually talks to the kernel. Once you understand that stack, you can swap pieces in and out: replace the daemon with containerd or CRI-O, replace the low-level runtime with a sandbox like gVisor or a microVM like Kata/Firecracker, or step outside containers entirely with WebAssembly. This page maps the landscape and gives you a decision framework for picking the right isolation boundary for a workload.</p>
-</div>
+"Docker" is a brand, not a runtime. Underneath the friendly CLI sits a **stack of standardized components** — an image format, a high-level daemon, and a low-level runtime that actually talks to the kernel. Once you understand that stack, you can swap pieces in and out: replace the daemon with containerd or CRI-O, replace the low-level runtime with a sandbox like gVisor or a microVM like Kata/Firecracker, or step outside containers entirely with WebAssembly. This page maps the landscape and gives a decision framework for picking the right isolation boundary for a workload.
 
 <div class="tip-card">
   <h4>Where this fits</h4>
@@ -212,17 +205,15 @@ Firecracker connects back to the container world through **Kata** (which can use
 
 ## WebAssembly and WASI: A Next-Generation Runtime
 
-While Docker and traditional container runtimes have revolutionized application deployment, the technology continues to evolve. One of the most promising developments is the emergence of WebAssembly as a potential container runtime alternative. This represents a significant shift in how we think about application isolation and portability.
+WebAssembly (WASM) and the WebAssembly System Interface (WASI) are a potential paradigm shift in container technology: a lightweight, secure, portable alternative that runs anywhere — browsers, servers, edge devices. Unlike traditional containers, which share the host kernel, WebAssembly provides a fully sandboxed execution environment.
 
 ### WASM/WASI as Container Runtime Alternative
-
-WebAssembly (WASM) and the WebAssembly System Interface (WASI) represent a potential paradigm shift in container technology, offering a lightweight, secure, and portable alternative to traditional container runtimes. Unlike traditional containers that share the host kernel, WebAssembly provides a completely sandboxed execution environment that can run anywhere — from browsers to servers to edge devices.
 
 Crucially, WASM is a *different kind of isolation* than everything above. runc, gVisor, and Kata all isolate an OS process — they differ only in how strong the boundary around that process is. WebAssembly does not run an OS process at all: it runs a **bytecode module inside a virtual machine** that has no inherent access to the host. The boundary is the VM itself.
 
 #### Understanding WebAssembly
 
-To appreciate why WebAssembly is relevant to containerization, let's examine its core characteristics that make it suitable as a container runtime alternative:
+The characteristics that make WebAssembly viable as a container runtime:
 
 **Core Characteristics:**
 - **Binary Instruction Format**: Designed for stack-based virtual machines
@@ -292,7 +283,7 @@ int main() {
 }
 ```
 
-With these extended capabilities, WebAssembly becomes viable for a broader range of applications. But how do we actually run WebAssembly modules as containers? There are two camps: standalone runtimes, and OCI-integrated runtimes.
+These extended capabilities widen WASM's reach. Running a WASM module *as a container* involves two camps: standalone runtimes and OCI-integrated runtimes.
 
 #### The runtimes: Wasmtime, WasmEdge, Wasmer, and crun
 
@@ -326,8 +317,6 @@ sudo crun --runtime=/usr/bin/crun-wasm run wasm-container
 ```
 
 The other integration path is **runwasi**, a containerd shim that runs WASM modules directly as containerd-managed workloads — this is the mechanism behind the Kubernetes `RuntimeClass` examples below. Either way, the orchestrator sees an ordinary OCI workload; the runtime quietly executes bytecode instead of a Linux process.
-
-Now that we've seen how WebAssembly can function as a container runtime, let's examine the compelling advantages it offers over traditional container technologies.
 
 ### Advantages of WASM Containers
 
@@ -368,7 +357,7 @@ fn open_under_preopened(dir_fd: Fd, path: &str) -> Result<Fd, Errno> {
 }
 ```
 
-These advantages make WebAssembly particularly attractive for modern cloud-native applications. But how do we manage WebAssembly containers at scale? The answer lies in integrating with existing orchestration platforms.
+Managing WASM containers at scale reuses the existing orchestration platforms.
 
 ### WASM Container Orchestration
 
@@ -413,8 +402,6 @@ impl Provider for WasmProvider {
 }
 ```
 
-While the integration with Kubernetes and other orchestration platforms is promising, it's important to understand where WebAssembly containers excel and where traditional containers might still be the better choice.
-
 ### Use Cases and Limitations
 
 **Ideal Use Cases:**
@@ -429,8 +416,6 @@ While the integration with Kubernetes and other orchestration platforms is promi
 - **Language Support**: Not all languages compile efficiently to WASM
 - **System Calls**: Limited compared to native containers
 - **Debugging**: More challenging than traditional containers
-
-Despite these limitations, many organizations are exploring WebAssembly for specific workloads. If you're considering this transition, here's a practical approach to migration.
 
 ### Migration Path
 
@@ -466,8 +451,6 @@ class ContainerMigrationStrategy:
                 return self.rollback(app)
 ```
 
-To make informed decisions about migration, it's essential to understand the real-world performance characteristics of WebAssembly containers compared to traditional Docker containers.
-
 ### Performance Characteristics
 
 The table below sketches how the two runtimes compare across a few common workload shapes. Startup and memory are reported in the same units across rows so the trend is visible; per-request latency is roughly comparable once warm, which is the key takeaway — **WASM's win is in cold start and footprint, not steady-state throughput.**
@@ -481,7 +464,7 @@ The table below sketches how the two runtimes compare across a few common worklo
 | API gateway | Docker | ~1000 ms | ~0.2 ms | ~100 MB |
 | API gateway | WASM | ~0.5 ms | ~0.25 ms | ~5 MB |
 
-Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services. As the technology matures, we can expect even more improvements. Let's look at what's on the horizon.
+Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services.
 
 ### Future Developments
 

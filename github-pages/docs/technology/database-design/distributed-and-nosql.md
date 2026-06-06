@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed &amp; NoSQL Databases</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">CAP, consensus, distributed transactions, NoSQL models, and choosing the right database</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Distributed & NoSQL Databases
 
 ## Scaling Beyond One Machine
 
@@ -23,21 +20,6 @@ This page is the **hub** for that material. It frames the trade-offs and points 
 - **[Replication & Consensus](replication-and-consensus.html)** — how copies of data are kept in sync, and how Raft/Paxos let a cluster agree on a leader and an ordered log even when machines crash.
 - **[Distributed Transactions](distributed-transactions.html)** — making `N` independent participants all-commit-or-all-abort: 2PC/3PC, sagas, the outbox pattern, and idempotency.
 - **[NoSQL Data Models](nosql-data-models.html)** — document, key-value, wide-column, graph, and time-series stores, and how to model for each.
-
-<div class="command-grid">
-  <a href="replication-and-consensus.html" class="nav-card">
-    <h4><i class="fas fa-network-wired"></i> Replication &amp; Consensus</h4>
-    <p>Replication topologies, streaming vs. logical replication, Raft and Paxos, read replicas and lag, failover, and quorum reads/writes.</p>
-  </a>
-  <a href="distributed-transactions.html" class="nav-card">
-    <h4><i class="fas fa-code-branch"></i> Distributed Transactions</h4>
-    <p>Two-phase commit and why it blocks, 3PC, sagas with compensation, the transactional outbox, idempotency, and exactly-once semantics.</p>
-  </a>
-  <a href="nosql-data-models.html" class="nav-card">
-    <h4><i class="fas fa-database"></i> NoSQL Data Models</h4>
-    <p>Document, key-value, wide-column, graph, and time-series stores — their core abstractions, sweet spots, and query-first modeling.</p>
-  </a>
-</div>
 
 ## The CAP Theorem: Pick Two
 
@@ -340,10 +322,7 @@ CREATE TABLE user_purchase_history (
 );
 ```
 
-<div class="tip-card">
-  <h4>Dialect note: inline index syntax</h4>
-  <p>The inline <code>INDEX idx_name (cols)</code> clause inside <code>CREATE TABLE</code> above is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table without those clauses and add each index with a separate <code>CREATE INDEX</code> statement.</p>
-</div>
+> **Dialect note: inline index syntax.** The inline `INDEX idx_name (cols)` clause inside `CREATE TABLE` above is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table without those clauses and add each index with a separate `CREATE INDEX` statement.
 
 **3. Plan for maintenance**
 
@@ -438,14 +417,9 @@ Each project builds on the last, gradually introducing the complexity real datab
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Mechanics:</strong> <a href="replication-and-consensus.html">Replication &amp; Consensus</a> — how copies stay in sync and how Raft/Paxos agree under failure.</li>
-    <li><strong>Atomicity at scale:</strong> <a href="distributed-transactions.html">Distributed Transactions</a> — 2PC/3PC, sagas, outbox, and idempotency.</li>
-    <li><strong>Data models:</strong> <a href="nosql-data-models.html">NoSQL Data Models</a> — document, key-value, wide-column, graph, and time-series stores.</li>
-    <li><strong>Foundations:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> and <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — the single-node story distribution must preserve.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="../aws/">AWS</a> for managed and serverless database services, and <a href="../networking/">Networking</a> for the protocols behind distributed systems.</li>
-  </ul>
-</div>
+- **Mechanics:** [Replication & Consensus](replication-and-consensus.html) — how copies stay in sync and how Raft/Paxos agree under failure.
+- **Atomicity at scale:** [Distributed Transactions](distributed-transactions.html) — 2PC/3PC, sagas, outbox, and idempotency.
+- **Data models:** [NoSQL Data Models](nosql-data-models.html) — document, key-value, wide-column, graph, and time-series stores.
+- **Foundations:** [Storage Engines & Recovery](storage-internals.html) and [Transactions & Concurrency](transactions-and-concurrency.html) — the single-node story distribution must preserve.
+- **Up:** [Database Design hub](./)
+- See also: [AWS](../aws/) for managed and serverless database services, and [Networking](../networking/) for the protocols behind distributed systems.

@@ -9,38 +9,11 @@ toc_icon: "cog"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Please Build</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">High-performance polyglot build system for monorepos</p>
-</div>
+[Technology](./) &raquo; Please Build
 
+Please (the `plz` command) is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax. Built for polyglot monorepos, it emphasizes correctness, reproducibility, and speed: targets declare their inputs so Please rebuilds only what changed, builds run hermetically and content-addressed so they reproduce everywhere, and one consistent build spans Go, Python, Java, C++, Rust, and more.
 
-<div class="intro-card">
-  <p class="lead-text">Please (the <code>plz</code> command) is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax and philosophy. Designed for polyglot environments and monorepos, Please emphasizes correctness, reproducibility, and speed. This guide covers everything from basic setup to advanced remote execution.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Build Graph</h4>
-    <p>Targets declare inputs; Please rebuilds only what changed</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-cube"></i>
-    <h4>Hermetic &amp; Cached</h4>
-    <p>Isolated, content-addressed builds that are reproducible everywhere</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-language"></i>
-    <h4>Polyglot</h4>
-    <p>One consistent build across Go, Python, Java, C++, Rust, and more</p>
-  </div>
-</div>
-
-<div class="tip-card">
-  <h4>When does a tool like Please earn its keep?</h4>
-  <p>For a single-language app, your language's native tool (<code>go build</code>, <code>npm</code>, <code>cargo</code>) is simpler. Please shines in <strong>polyglot monorepos</strong> where you need one consistent, cached, parallel build across many languages — and where reproducibility and incremental rebuilds across a large dependency graph actually matter.</p>
-</div>
+**When does a tool like Please earn its keep?** For a single-language app, your language's native tool (`go build`, `npm`, `cargo`) is simpler. Please shines in **polyglot monorepos** where you need one consistent, cached, parallel build across many languages — and where reproducibility and incremental rebuilds across a large dependency graph actually matter.
 
 ### How Please thinks: the build graph
 
@@ -60,32 +33,12 @@ Change `utils` and Please rebuilds `lib`, `app`, and `lib_test`; change only the
 
 ## Key Features
 
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><i class="fas fa-language"></i> Language Agnostic</h4>
-    <p>First-class rules for Go, Python, Java, C++, JavaScript, and Rust, with custom rules for anything else.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-cube"></i> Hermetic Builds</h4>
-    <p>Each action runs in an isolated sandbox, so the same inputs always produce the same outputs.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-bolt"></i> Parallel &amp; Incremental</h4>
-    <p>Independent targets build concurrently; content-addressed caching rebuilds only what changed.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-network-wired"></i> Remote Execution</h4>
-    <p>Fan builds out across a worker pool and share a remote cache for team-wide speedups.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-puzzle-piece"></i> Extensible</h4>
-    <p>Write custom rules in <code>build_defs</code> using a Python-like dialect (Starlark-style).</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-diagram-project"></i> Queryable Graph</h4>
-    <p>Inspect, visualize, and reason about dependencies with <code>plz query</code>.</p>
-  </div>
-</div>
+- **Language-agnostic** — first-class rules for Go, Python, Java, C++, JavaScript, and Rust, with custom rules for anything else.
+- **Hermetic builds** — each action runs in an isolated sandbox, so the same inputs always produce the same outputs.
+- **Parallel and incremental** — independent targets build concurrently; content-addressed caching rebuilds only what changed.
+- **Remote execution** — fan builds out across a worker pool and share a remote cache for team-wide speedups.
+- **Extensible** — write custom rules in `build_defs` using a Python-like dialect (Starlark-style).
+- **Queryable graph** — inspect, visualize, and reason about dependencies with `plz query`.
 
 ### How it compares
 
@@ -99,10 +52,7 @@ Please occupies the same niche as Bazel and Buck — correct, cached, graph-driv
 | **Remote cache / exec** | Built-in (REAPI) | Built-in (REAPI) | None |
 | **Rule language** | Python-like build defs | Starlark | N/A |
 
-<div class="tip-card">
-  <h4>Both Please and Bazel speak REAPI</h4>
-  <p>Remote caching and execution use the <strong>Remote Execution API</strong> standard, so Please can share a cache/executor backend (such as BuildBarn or BuildBuddy) with other REAPI-compatible build tools.</p>
-</div>
+> **Both Please and Bazel speak REAPI.** Remote caching and execution use the **Remote Execution API** standard, so Please can share a cache/executor backend (such as BuildBarn or BuildBuddy) with other REAPI-compatible build tools.
 
 ## Installation
 
@@ -116,10 +66,7 @@ curl -sSfL https://get.please.build | bash
 curl -sSfL https://get.please.build | bash -s -- --version=17.8.0
 ```
 
-<div class="tip-card">
-  <h4>Pin the version</h4>
-  <p>Pin a specific release here and in <code>.plzconfig</code> — check the <a href="https://github.com/thought-machine/please/releases">releases page</a> for the current one. Pinning is what keeps every machine on an identical <code>plz</code>.</p>
-</div>
+> **Pin the version.** Pin a specific release here and in `.plzconfig` — check the [releases page](https://github.com/thought-machine/please/releases) for the current one. Pinning is what keeps every machine on an identical `plz`.
 
 ### Alternative Installation Methods
 
@@ -165,10 +112,7 @@ plz init plugin python
 plz init plugin java
 ```
 
-<div class="tip-card">
-  <h4>Plugins, not templates</h4>
-  <p>Older guides reference per-language <code>plz init --template=…</code> flags; current Please uses the plugin system above. Check <code>plz init --help</code> for the options your installed version supports.</p>
-</div>
+> **Plugins, not templates.** Older guides reference per-language `plz init --template=…` flags; current Please uses the plugin system above. Check `plz init --help` for the options your installed version supports.
 
 ## Configuration
 
@@ -278,10 +222,7 @@ go_test(
 )
 ```
 
-<div class="tip-card">
-  <h4>Hermeticity gotcha</h4>
-  <p>Because builds run in a sandbox, a target can only see files it explicitly declares as <code>srcs</code> or <code>deps</code>. A build that "works on my machine" but fails under Please is almost always reading an undeclared file. List every input — that strictness is exactly what makes the build reproducible.</p>
-</div>
+> **Hermeticity gotcha.** Because builds run in a sandbox, a target can only see files it explicitly declares as `srcs` or `deps`. A build that "works on my machine" but fails under Please is almost always reading an undeclared file. List every input — that strictness is exactly what makes the build reproducible.
 
 ### Cross-Language Dependencies
 
@@ -436,10 +377,7 @@ test:
       junit: plz-out/log/test_results.xml
 ```
 
-<div class="tip-card">
-  <h4>Pin the version in CI</h4>
-  <p>The <code>version</code> field in <code>.plzconfig</code> makes Please self-bootstrap to that exact release on every machine, so the bootstrap script in CI and every developer's laptop all run the same <code>plz</code>. Combined with a shared remote cache, this is what makes "it builds the same everywhere" true rather than aspirational.</p>
-</div>
+> **Pin the version in CI.** The `version` field in `.plzconfig` makes Please self-bootstrap to that exact release on every machine, so the CI bootstrap script and every developer's laptop all run the same `plz`. Combined with a shared remote cache, this is what makes "it builds the same everywhere" true rather than aspirational.
 
 ### Remote Caching for CI
 
@@ -690,15 +628,11 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 
 ## Key Takeaways
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Please targets polyglot monorepos</strong> — one build system across Go, Python, Java, C++, and more, with a gentler learning curve than Bazel.</li>
-    <li><strong>The build graph drives everything:</strong> declare inputs and deps in <code>BUILD</code> files, and Please rebuilds only what changed.</li>
-    <li><strong>Content-addressed caching plus parallelism</strong> deliver fast, incremental builds; remote caching and execution scale this across a team.</li>
-    <li><strong>Hermetic builds</strong> make results reproducible — the same inputs always produce the same outputs.</li>
-    <li><strong>Use native tooling for single-language projects;</strong> reach for Please when scale, polyglot needs, or reproducibility justify it.</li>
-  </ul>
-</div>
+- **Please targets polyglot monorepos** — one build system across Go, Python, Java, C++, and more, with a gentler learning curve than Bazel.
+- **The build graph drives everything:** declare inputs and deps in `BUILD` files, and Please rebuilds only what changed.
+- **Content-addressed caching plus parallelism** deliver fast, incremental builds; remote caching and execution scale this across a team.
+- **Hermetic builds** make results reproducible — the same inputs always produce the same outputs.
+- **Use native tooling for single-language projects;** reach for Please when scale, polyglot needs, or reproducibility justify it.
 
 ## Resources
 
@@ -709,12 +643,9 @@ For more FAQs, see the [official FAQ](https://please.build/faq.html).
 - [Build Language Reference](https://please.build/language.html)
 - [Please FAQ](https://please.build/faq.html) - Common questions and answers
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="ci-cd/">CI/CD</a> — wire Please builds into automated pipelines</li>
-    <li><a href="git/">Git Version Control</a> — monorepo strategies and large-repo tooling</li>
-    <li><a href="docker/">Docker</a> — package Please build artifacts into container images</li>
-    <li><a href="kubernetes/">Kubernetes</a> — deploy the services Please builds</li>
-  </ul>
-</div>
+## See Also
+
+- [CI/CD](ci-cd/) — wire Please builds into automated pipelines
+- [Git Version Control](git/) — monorepo strategies and large-repo tooling
+- [Docker](docker/) — package Please build artifacts into container images
+- [Kubernetes](kubernetes/) — deploy the services Please builds

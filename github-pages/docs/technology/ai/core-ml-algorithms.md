@@ -4,15 +4,9 @@ title: "AI: Core ML Algorithms"
 permalink: /docs/technology/ai/core-ml-algorithms.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Core ML Algorithms
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Core ML Algorithms</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The classical workhorses — regression, trees, boosting, SVMs, k-NN, and clustering — that still win most tabular problems.</p>
-</div>
 
 Before deep learning dominated perception and language, a compact toolbox of classical algorithms solved—and still solves—the majority of real-world prediction problems. On structured/tabular data they remain the default: they train in seconds, are easy to interpret, need little tuning, and routinely beat neural networks on the kind of spreadsheet-shaped data most organizations actually have. This page is a practical reference to that toolbox: linear and logistic regression, decision trees, random forests, gradient boosting (XGBoost and LightGBM), support vector machines, k-nearest neighbors, clustering, and the ensembling ideas that tie them together. Every section pairs the intuition and the math with runnable scikit-learn code.
 

@@ -7,17 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Computational Methods</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Numerical quantum mechanics: exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, and time-propagation methods — with working code.</p>
-</div>
+## Computational Methods
 
 [Quantum Mechanics](./) &raquo; Computational Methods
 
-<div class="tip-card">
-  <h4>Level and scope</h4>
-  <p>This page is a reference for the numerical methods used to solve quantum problems that have no closed-form answer. It assumes the linear-algebra and operator language developed on the <a href="formalism.html">Formalism</a> page, and complements the conceptual <a href="computing-and-advanced.html">Computing &amp; Advanced Formalism</a> page. The recurring theme is the <em>curse of dimensionality</em>: the Hilbert space of an N-particle system grows exponentially, so every method below is, at heart, a strategy for taming or sidestepping that exponential.</p>
-</div>
+**Level and scope.** This page is a reference for the numerical methods used to solve quantum problems that have no closed-form answer. It assumes the linear-algebra and operator language developed on the [Formalism](formalism.html) page, and complements the conceptual [Computing & Advanced Formalism](computing-and-advanced.html) page. The recurring theme is the *curse of dimensionality*: the Hilbert space of an N-particle system grows exponentially, so every method below is, at heart, a strategy for taming or sidestepping that exponential.
 
 ## The Curse of Dimensionality
 
@@ -108,10 +102,7 @@ Conserved quantities block-diagonalize $\hat{H}$. If $[\hat{H}, \hat{Q}] = 0$, t
 
 Combining symmetries routinely pushes ED from $N \approx 20$ to $N \approx 40$ for the largest sector — the difference between intractable and a coffee break.
 
-<div class="info-card">
-  <h4>When to use ED</h4>
-  <p>Small systems, when you need the <em>exact</em> answer (full spectrum, degeneracies, dynamical correlation functions, finite-temperature properties via the full eigenbasis), or as the ground-truth benchmark for approximate methods. The hard ceiling is memory: the state vector alone is <code>16 × 2^N</code> bytes in complex128.</p>
-</div>
+**When to use ED.** Small systems, when you need the *exact* answer (full spectrum, degeneracies, dynamical correlation functions, finite-temperature properties via the full eigenbasis), or as the ground-truth benchmark for approximate methods. The hard ceiling is memory: the state vector alone is `16 × 2^N` bytes in complex128.
 
 ## Tensor Networks and DMRG
 
@@ -243,10 +234,7 @@ def dmrg_step(mps, mpo, site):
     return discarded_weight(S)  # convergence / truncation diagnostic
 ```
 
-<div class="info-card">
-  <h4>Beyond 1D</h4>
-  <p>The MPS area law is special to one dimension. In 2D, ground-state entanglement grows with the boundary length, so an MPS needs <code>D</code> exponential in the width — DMRG on cylinders works for moderate widths but degrades fast. Genuinely 2D networks (PEPS, Projected Entangled Pair States) restore the area law but are far costlier to contract. The <a href="https://github.com/ITensor/ITensors.jl">ITensor</a> library implements all of these.</p>
-</div>
+**Beyond 1D.** The MPS area law is special to one dimension. In 2D, ground-state entanglement grows with the boundary length, so an MPS needs `D` exponential in the width — DMRG on cylinders works for moderate widths but degrades fast. Genuinely 2D networks (PEPS, Projected Entangled Pair States) restore the area law but are far costlier to contract. The [ITensor](https://github.com/ITensor/ITensors.jl) library implements all of these.
 
 ## Quantum Monte Carlo
 
@@ -324,10 +312,7 @@ $$
 
 where $\Delta f$ is a free-energy difference. This **sign problem** is the central obstacle of QMC; it is NP-hard in general, with no universal cure. The standard workarounds — the fixed-node approximation in DMC, or restricting to sign-problem-free (stoquastic) models like unfrustrated bosons and bipartite antiferromagnets — define the boundary of what QMC can reach.
 
-<div class="info-card">
-  <h4>When to use QMC</h4>
-  <p>Large systems in any dimension, especially bosons, unfrustrated spins, and continuum electronic-structure problems where a good trial wavefunction exists. Avoid it (or accept the fixed-node bias) for frustrated magnets and generic fermions, where the sign problem bites.</p>
-</div>
+**When to use QMC.** Large systems in any dimension, especially bosons, unfrustrated spins, and continuum electronic-structure problems where a good trial wavefunction exists. Avoid it (or accept the fixed-node bias) for frustrated magnets and generic fermions, where the sign problem bites.
 
 ## Time Propagation Methods
 

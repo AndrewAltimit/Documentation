@@ -4,17 +4,13 @@ title: "Statistical Mechanics: Phase Transitions & Graduate Formalism"
 permalink: /docs/physics/statistical-mechanics/phase-transitions-and-advanced.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 <!-- Custom styles are now loaded via main.scss -->
 
 [Statistical Mechanics](./)
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Phase Transitions &amp; Graduate Formalism</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Critical Phenomena, Fluctuations, Non-equilibrium Dynamics, and Advanced Field-Theoretic Methods</p>
-</div>
+Critical phenomena, fluctuations, non-equilibrium dynamics, and advanced field-theoretic methods.
 
 ## Phase Transitions
 
@@ -143,71 +139,26 @@ hide_title: true
       </div>
     </div>
   </div>
-  
-  <div class="critical-phenomena">
-    <h3><i class="fas fa-chart-line"></i> Critical Phenomena</h3>
-    <p class="intro">Near critical point, observables follow power laws:</p>
-    
-    <div class="critical-exponents">
-      <div class="exponent-card">
-        <div class="symbol">C</div>
-        <div class="name">Specific heat</div>
-        <div class="scaling">$C \sim |t|^{-\alpha}$</div>
-      </div>
-      <div class="exponent-card">
-        <div class="symbol">m</div>
-        <div class="name">Order parameter</div>
-        <div class="scaling">$m \sim |t|^{\beta}$ <span class="condition">(t < 0)</span></div>
-      </div>
-      <div class="exponent-card">
-        <div class="symbol">χ</div>
-        <div class="name">Susceptibility</div>
-        <div class="scaling">$\chi \sim |t|^{-\gamma}$</div>
-      </div>
-      <div class="exponent-card">
-        <div class="symbol">ξ</div>
-        <div class="name">Correlation length</div>
-        <div class="scaling">$\xi \sim |t|^{-\nu}$</div>
-      </div>
-    </div>
-    
-    <div class="reduced-temp">
-      <p>Reduced temperature: $t = \frac{T-T_c}{T_c}$</p>
-    </div>
-  </div>
-  
-  <div class="universality-box">
-    <h3><i class="fas fa-infinity"></i> Universality</h3>
-    <p>Systems with same dimensionality and symmetry have identical critical exponents</p>
-    
-    <div class="scaling-relations">
-      <h4>Scaling Relations</h4>
-      <div class="relation-grid">
-        <div class="relation">
-          <span class="name">Rushbrooke:</span>
-          <span class="equation">$\alpha + 2\beta + \gamma = 2$</span>
-        </div>
-        <div class="relation">
-          <span class="name">Widom:</span>
-          <span class="equation">$\gamma = \beta(\delta - 1)$</span>
-        </div>
-        <div class="relation">
-          <span class="name">Fisher:</span>
-          <span class="equation">$\gamma = \nu(2 - \eta)$</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="universality-classes">
-      <h4>Universality Classes</h4>
-      <div class="class-examples">
-        <span class="class-tag">2D Ising</span>
-        <span class="class-tag">3D XY</span>
-        <span class="class-tag">Percolation</span>
-      </div>
-    </div>
-  </div>
 </div>
+
+### Critical Phenomena
+
+Near a critical point, observables follow power laws in the reduced temperature $t = (T-T_c)/T_c$:
+
+| Exponent | Observable | Scaling |
+|----------|-----------|---------|
+| $\alpha$ | Specific heat $C$ | $C \sim \lvert t\rvert^{-\alpha}$ |
+| $\beta$ | Order parameter $m$ | $m \sim \lvert t\rvert^{\beta}$ (for $t < 0$) |
+| $\gamma$ | Susceptibility $\chi$ | $\chi \sim \lvert t\rvert^{-\gamma}$ |
+| $\nu$ | Correlation length $\xi$ | $\xi \sim \lvert t\rvert^{-\nu}$ |
+
+### Universality
+
+Systems with the same dimensionality and symmetry share identical critical exponents (examples of universality classes: 2D Ising, 3D XY, percolation). The exponents are not independent but obey **scaling relations**:
+
+- **Rushbrooke:** $\alpha + 2\beta + \gamma = 2$
+- **Widom:** $\gamma = \beta(\delta - 1)$
+- **Fisher:** $\gamma = \nu(2 - \eta)$
 
 ## Fluctuations
 

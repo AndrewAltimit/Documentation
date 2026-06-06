@@ -4,26 +4,15 @@ title: "Relativity: Toward Quantum Gravity"
 permalink: /docs/physics/relativity/quantum-gravity.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./) &raquo; Toward Quantum Gravity
 
-<!-- Custom styles are now loaded via main.scss -->
+## Toward Quantum Gravity
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Toward Quantum Gravity</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Why General Relativity and Quantum Mechanics Collide — and the Roads Out</p>
-</div>
+General relativity describes gravity as the smooth, classical geometry of spacetime. Quantum mechanics describes matter and the other three forces as quantum fields living *on* a fixed background. A complete theory must do both at once — and at the **Planck scale**, where the two descriptions overlap, naïvely combining them fails. This page explains *why* the two frameworks conflict, why the obvious fix (quantizing the metric like any other field) breaks down as a **non-renormalizable** theory, and surveys the leading research programs: string theory, loop quantum gravity, asymptotic safety, and causal set theory. It closes with the **holographic principle**, the most surprising structural clue any of these programs has produced. It assumes [General Relativity](general-relativity.html) and the field-theory background of [Quantum Field Theory](../quantum-field-theory.html).
 
-<div class="section-intro">
-  <p>General relativity describes gravity as the smooth, classical geometry of spacetime. Quantum mechanics describes matter and the other three forces as quantum fields living <em>on</em> a fixed background. A complete theory must do both at once — and at the <strong>Planck scale</strong>, where the two descriptions overlap, naïvely combining them fails. This page explains <strong>why</strong> the two frameworks conflict, why the obvious fix (quantizing the metric like any other field) breaks down as a <strong>non-renormalizable</strong> theory, and surveys the leading research programs that try to repair it: string theory, loop quantum gravity, asymptotic safety, and causal set theory. It closes with the <strong>holographic principle</strong>, the most surprising structural clue any of these programs has produced. It assumes the conceptual material on <a href="general-relativity.html">General Relativity</a> and the field-theory background of <a href="../quantum-field-theory.html">Quantum Field Theory</a>.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Conventions used below</h4>
-  <p>We work in <strong>natural units</strong> with $\hbar = c = 1$, so mass, energy, and inverse length share dimensions. The <strong>Planck scale</strong> is set by Newton's constant $G$: the Planck mass is $M_P = G^{-1/2} \approx 1.22 \times 10^{19}\ \text{GeV}$, the Planck length $\ell_P = G^{1/2} \approx 1.6 \times 10^{-35}\ \text{m}$, and the Planck time $t_P \approx 5.4 \times 10^{-44}\ \text{s}$. These are the scales at which quantum-gravitational effects become $O(1)$.</p>
-</div>
+**Conventions.** We work in **natural units** with $\hbar = c = 1$, so mass, energy, and inverse length share dimensions. The **Planck scale** is set by Newton's constant $G$: the Planck mass is $M_P = G^{-1/2} \approx 1.22 \times 10^{19}\ \text{GeV}$, the Planck length $\ell_P = G^{1/2} \approx 1.6 \times 10^{-35}\ \text{m}$, and the Planck time $t_P \approx 5.4 \times 10^{-44}\ \text{s}$. These are the scales at which quantum-gravitational effects become $O(1)$.
 
 ## Why General Relativity and Quantum Mechanics Conflict
 
@@ -227,51 +216,25 @@ The honest summary: we have several internally consistent, partly overlapping ca
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The conflict is structural</h4>
-    <p>GR makes spacetime dynamical; QFT needs a fixed background and a global time. A quantum metric undermines the very notions QFT is built on.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Gravity is non-renormalizable</h4>
-    <p>Because $[G] = (\text{mass})^{-2}$, the coupling grows with energy and needs infinitely many counterterms — proven divergent at two loops.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Effective field theory still works</h4>
-    <p>Below $M_P$, quantized gravity gives unambiguous low-energy predictions; new physics need only enter at the Planck scale.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Four leading roads</h4>
-    <p>String theory, loop quantum gravity, asymptotic safety, and causal sets differ in what they keep from known physics and what they sacrifice.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Information lives on boundaries</h4>
-    <p>Black-hole entropy scales with area, not volume — the holographic principle, made exact by AdS/CFT.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>No confirmed theory yet</h4>
-    <p>The Planck scale is far beyond experiment; quantum gravity remains theory-driven, guided by consistency and a few robust clues.</p>
-  </div>
-</div>
+- **The conflict is structural.** GR makes spacetime dynamical; QFT needs a fixed background and a global time. A quantum metric undermines the very notions QFT is built on.
+- **Gravity is non-renormalizable.** Because $[G] = (\text{mass})^{-2}$, the coupling grows with energy and needs infinitely many counterterms — proven divergent at two loops.
+- **Effective field theory still works.** Below $M_P$, quantized gravity gives unambiguous low-energy predictions; new physics need only enter at the Planck scale.
+- **Four leading roads.** String theory, loop quantum gravity, asymptotic safety, and causal sets differ in what they keep from known physics and what they sacrifice.
+- **Information lives on boundaries.** Black-hole entropy scales with area, not volume — the holographic principle, made exact by AdS/CFT.
+- **No confirmed theory yet.** The Planck scale is far beyond experiment; quantum gravity remains theory-driven, guided by consistency and a few robust clues.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue in Relativity</h4>
-  <ul>
-    <li><a href="general-relativity.html">General Relativity</a> — the classical theory being quantized: the equivalence principle and the field equations.</li>
-    <li><a href="tensor-formalism.html">Tensor Formalism &amp; the Field Equations</a> — the differential geometry and the Einstein–Hilbert action expanded above.</li>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — black-hole thermodynamics, Hawking radiation, and the information paradox in detail.</li>
-    <li><a href="./">Relativity</a> — overview and navigation hub.</li>
-  </ul>
-</div>
+Continue in relativity:
 
-<div class="see-also-card">
-  <h4>Related topics</h4>
-  <ul>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — the relativistic quantum framework whose methods and renormalization gravity resists.</li>
-    <li><a href="../string-theory/">String Theory</a> — the leading candidate developed in full: branes, dualities, and the landscape.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the quantum framework that must be reconciled with curved spacetime.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [General Relativity](general-relativity.html) — the classical theory being quantized: the equivalence principle and the field equations.
+- [Tensor Formalism & the Field Equations](tensor-formalism.html) — the differential geometry and the Einstein–Hilbert action expanded above.
+- [Graduate Formalism & Frontiers](advanced.html) — black-hole thermodynamics, Hawking radiation, and the information paradox in detail.
+- [Relativity](./) — overview and navigation hub.
+
+Related topics:
+
+- [Quantum Field Theory](../quantum-field-theory.html) — the relativistic quantum framework whose methods and renormalization gravity resists.
+- [String Theory](../string-theory/) — the leading candidate developed in full: branes, dualities, and the landscape.
+- [Quantum Mechanics](../quantum-mechanics/) — the quantum framework that must be reconciled with curved spacetime.
+- [Physics Hub](../) — browse all physics topics.

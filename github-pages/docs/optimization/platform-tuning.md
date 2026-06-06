@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Platform-Specific Tuning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Mobile thermals, console fixed-hardware tuning, PC scalability presets, and compiler PGO</p>
-</div>
+# Platform-Specific Tuning
 
 [Performance Optimization](./) &raquo; Platform-Specific Tuning
 
-<div class="code-example" markdown="1">
 A frame-time budget is not a single number — it is three different numbers on three different classes of hardware. A 16.67 ms/frame target that is comfortable on a desktop GPU is a thermal-throttle death sentence on a phone, a known-quantity engineering problem on a console, and a scalability matrix on PC. This page covers how to tune for each: managing **power and thermal** envelopes on mobile, exploiting **fixed hardware** on consoles, exposing **scalable quality presets** on PC, and squeezing the last few percent out of every platform with **compiler optimizations and profile-guided optimization (PGO)**.
-</div>
 
 ## Table of contents
 {: .no_toc .text-delta }

@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Cryptography</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Encryption, post-quantum algorithms, and the mathematics that protect your data</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Cryptography</p>
 
-<div class="intro-card">
-  <p class="lead-text">Cryptography is the foundation every other security control rests on. This page builds from symmetric and public-key encryption through modern techniques — elliptic curves, post-quantum algorithms, zero-knowledge proofs, and homomorphic encryption — and finishes with the mathematical foundations of RSA, elliptic curves, and secret sharing.</p>
-</div>
+# Cryptography
+
+Cryptography is the foundation every other security control rests on. This page builds from symmetric and public-key encryption through modern techniques — elliptic curves, post-quantum algorithms, zero-knowledge proofs, and homomorphic encryption — and finishes with the mathematical foundations of RSA, elliptic curves, and secret sharing.
 
 ## The Foundation: Encryption
 

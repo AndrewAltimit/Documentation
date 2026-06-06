@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Design Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Multi-container composition patterns, hardened images, and runtime security for production workloads.</p>
-</div>
-
 [Docker](./) &raquo; Design Patterns
 
-<div class="intro-card">
-  <p class="lead-text">A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic <strong>multi-container design patterns</strong> — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to <strong>image and runtime security patterns</strong> (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.</p>
-</div>
+A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic **multi-container design patterns** — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to **image and runtime security patterns** (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.
 
 ## Why Multi-Container Patterns Exist
 
@@ -43,12 +36,8 @@ flowchart TB
 
 The **sidecar** runs alongside the main container and augments it without the application being aware. The classic example is log forwarding: the application writes logs to a shared volume, and a sidecar tails that volume and ships the logs elsewhere. The application never learns where its logs go.
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-sync-alt"></i> Sidecar Pattern</h4>
-      <p>Deploy helper containers alongside your main application container</p>
-      <pre><code class="language-yaml"># Logging sidecar example (compose.yaml)
+```yaml
+# Logging sidecar example (compose.yaml)
 services:
   app:
     image: my-app:latest
@@ -64,10 +53,8 @@ services:
       - ELASTICSEARCH_HOST=elasticsearch
 
 volumes:
-  logs:</code></pre>
-    </div>
-  </div>
-</div>
+  logs:
+```
 
 **How it works.** Both containers mount the named volume `logs`. The app mounts it read-write at `/var/log/app` and writes log files there. The `log-forwarder` mounts the same volume read-only (`:ro`), tails the files, and forwards each line to Elasticsearch. Because the volume is shared, no network round-trip or log API is needed between them.
 
@@ -84,12 +71,8 @@ volumes:
 
 An **ambassador** is a proxy container that brokers the main container's *outbound* (or inbound) network communication. The application connects to `localhost` as if the dependency were local; the ambassador handles the real work — TLS, retries, service discovery, load balancing, circuit breaking — transparently.
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-shield-alt"></i> Ambassador Pattern</h4>
-      <p>Proxy container that handles external communication</p>
-      <pre><code class="language-yaml"># Service mesh ambassador
+```yaml
+# Service mesh ambassador
 services:
   app:
     image: my-app:latest
@@ -100,10 +83,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml</code></pre>
-    </div>
-  </div>
-</div>
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+```
 
 **How it works.** The key line is `network_mode: "service:envoy"`: it places the `app` container in the *same network namespace* as `envoy`. They now share one loopback interface and one set of ports. The app dials `localhost:9000` for its database; Envoy is listening there and forwards the connection to the real, possibly remote, database — adding mutual TLS, connection pooling, and retries along the way. The application's code stays ignorant of all of it.
 
@@ -115,12 +96,8 @@ services:
 
 An **adapter** (sometimes called a *normalizer*) standardizes the output of a container so the outside world sees a uniform interface. Where the ambassador adapts the *connection*, the adapter adapts the *data or interface shape* — most often to expose a legacy or third-party app's metrics, logs, or health in a format your platform expects.
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-code-branch"></i> Adapter Pattern</h4>
-      <p>Standardize output from different containers</p>
-      <pre><code class="language-yaml"># Metrics adapter example
+```yaml
+# Metrics adapter example
 services:
   legacy-app:
     image: legacy-app:latest
@@ -131,10 +108,8 @@ services:
       - LEGACY_APP_URL=http://legacy-app:8080
       - METRICS_PATH=/legacy/stats
     ports:
-      - "9090:9090"</code></pre>
-    </div>
-  </div>
-</div>
+      - "9090:9090"
+```
 
 **How it works.** The `legacy-app` exposes statistics in its own idiosyncratic format at `/legacy/stats`. Your monitoring stack speaks Prometheus, which expects metrics in the OpenMetrics text format on a `/metrics` endpoint. The `metrics-adapter` polls the legacy endpoint, translates each value into a Prometheus metric, and serves the result on port `9090`. Prometheus scrapes the adapter; neither the legacy app nor Prometheus needs to change.
 
@@ -226,9 +201,8 @@ The composition patterns above shape *how containers run together*; the next two
 
 A "distroless" image contains *only* your application and its runtime dependencies — no shell, no package manager, no `ls`, no `cat`. There is nothing for an attacker who lands a remote-code-execution bug to pivot with: no `sh` to spawn, no `curl` to exfiltrate, no `apt` to install tools. The image is also dramatically smaller, which means fewer CVEs to patch and faster pulls.
 
-<div class="security-patterns">
-  <h4>Distroless Images</h4>
-  <pre><code class="language-dockerfile"># Multi-stage build with distroless
+```dockerfile
+# Multi-stage build with distroless
 FROM golang:1.23 AS builder
 WORKDIR /app
 COPY . .
@@ -238,8 +212,8 @@ RUN CGO_ENABLED=0 go build -o myapp .
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /app/myapp /
 USER nonroot:nonroot
-ENTRYPOINT ["/myapp"]</code></pre>
-</div>
+ENTRYPOINT ["/myapp"]
+```
 
 **How it works.** A multi-stage build does all the messy compilation in a full `golang` image, then copies *only the resulting static binary* into `gcr.io/distroless/static`. `CGO_ENABLED=0` produces a statically linked binary with no libc dependency, so the runtime image needs nothing but the binary itself. The `:nonroot` tag and `USER nonroot:nonroot` ensure the process runs as an unprivileged user.
 
@@ -286,9 +260,8 @@ Each control closes a path an attacker would otherwise use: `read_only` prevents
 
 Image hardening shrinks the attack surface; **runtime detection** catches the cases where an attacker gets in anyway. The pattern is to watch system calls and container behavior against a policy of what is expected, and alert (or block) on anything outside it.
 
-<div class="security-patterns">
-  <h4>Runtime Security with Falco</h4>
-  <pre><code class="language-yaml"># falco-rules.yaml
+```yaml
+# falco-rules.yaml
 - rule: Unauthorized Process in Container
   desc: Detect unauthorized process execution
   condition: >
@@ -298,8 +271,8 @@ Image hardening shrinks the attack surface; **runtime detection** catches the ca
   output: >
     Unauthorized process in container
     (user=%user.name command=%proc.cmdline container=%container.name)
-  priority: WARNING</code></pre>
-</div>
+  priority: WARNING
+```
 
 **How it works.** [Falco](https://falco.org/) is a CNCF runtime-security engine that taps the kernel's system-call stream (via eBPF) and evaluates each event against rules like the one above. The rule fires when a process starts inside a container whose name is *not* on an allowlist and whose image is *not* trusted — a strong signal that an attacker has spawned a shell or dropped a tool inside a container that should only ever run its one known process. Because distroless images have *no* extra processes, this rule pairs naturally with them: any unexpected process is, by construction, anomalous.
 

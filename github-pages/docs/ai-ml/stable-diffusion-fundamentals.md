@@ -8,17 +8,9 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Stable Diffusion Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Understand how AI transforms text descriptions into detailed images through the diffusion process, and master the parameters that control your results.</p>
-</div>
-
-<div class="code-example" markdown="1">
 How AI transforms text descriptions into detailed images, and why understanding the process helps you get better results.
-</div>
 
 ## Why Learn How Stable Diffusion Works?
 
@@ -429,18 +421,13 @@ With this foundation, you are ready to explore:
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Generation is iterative denoising.** Starting from random noise, the U-Net predicts and removes noise step by step, steered by your prompt, then the VAE decodes the final latent.
 - **Three networks cooperate:** the text encoder (translates words), the U-Net/DiT (denoises), and the VAE (compresses/decompresses). LoRAs modify the U-Net.
 - **The big four parameters** are steps (25-35 is plenty), CFG scale ($\hat\varepsilon = \varepsilon_{\text{uncond}} + w(\varepsilon_{\text{cond}} - \varepsilon_{\text{uncond}})$, use 5-9), sampler (DPM++ 2M is a great default), and seed (fix it for reproducibility).
 - **Generate at native resolution, then upscale** — going larger up front causes repetition artifacts.
 - **Prompt order matters:** put the most important elements first; use negative prompts and light weighting rather than heavy stacking.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation for Stable Diffusion
 - [LoRA Training](lora-training.html) - Train custom models and styles
@@ -449,4 +436,3 @@ With this foundation, you are ready to explore:
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [Advanced Techniques](advanced-techniques.html) - Expert generation techniques
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

@@ -4,17 +4,13 @@ title: "Statistical Mechanics: Classical & Quantum Statistical Mechanics"
 permalink: /docs/physics/statistical-mechanics/classical-and-quantum.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 <!-- Custom styles are now loaded via main.scss -->
 
 [Statistical Mechanics](./)
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Classical &amp; Quantum Statistical Mechanics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Partition Functions, Quantum Statistics, and Ideal and Interacting Gases</p>
-</div>
+Partition functions, quantum statistics, and ideal and interacting gases.
 
 ## Classical Statistical Mechanics
 
@@ -145,20 +141,11 @@ $$Z = \frac{1}{N!h^{3N}} \int e^{-\beta H(\mathbf{r},\mathbf{p})} d\Gamma$$
   
   <div class="equipartition-box">
     <h3><i class="fas fa-equals"></i> Equipartition Theorem</h3>
-    <p>Each quadratic term in the energy contributes $\frac{1}{2}k_B T$ to the average energy</p>
-    
-    <div class="example-grid">
-      <div class="example-card">
-        <h4>Harmonic Oscillator</h4>
-        <p>$\langle E \rangle = k_B T$</p>
-        <span class="detail">(kinetic + potential)</span>
-      </div>
-      <div class="example-card">
-        <h4>Ideal Gas Molecule</h4>
-        <p>$\langle E_{trans} \rangle = \frac{3}{2}k_B T$</p>
-        <span class="detail">(3 translational DOF)</span>
-      </div>
-    </div>
+    <p>Each quadratic term in the energy contributes $\frac{1}{2}k_B T$ to the average energy. For example:</p>
+    <ul>
+      <li><strong>Harmonic oscillator:</strong> $\langle E \rangle = k_B T$ (kinetic + potential)</li>
+      <li><strong>Ideal gas molecule:</strong> $\langle E_{\text{trans}} \rangle = \frac{3}{2}k_B T$ (3 translational DOF)</li>
+    </ul>
   </div>
 </div>
 

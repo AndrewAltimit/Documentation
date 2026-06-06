@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Microservices &amp; Event-Driven Architecture</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Decomposing systems into services, wiring them with synchronous calls and asynchronous events, and using Kafka, event sourcing, and CQRS to keep them loosely coupled.</p>
-</div>
-
 [Distributed Systems](./) &raquo; Microservices &amp; Event-Driven Architecture
 
-<div class="intro-card">
-  <p class="lead-text">A microservice architecture trades the simplicity of a single deployable for independent scaling, independent deployment, and team autonomy — at the cost of turning every in-process function call into a network call that can be slow, fail, or arrive out of order. The discipline of microservices is mostly the discipline of <em>communication</em>: deciding where to draw service boundaries, choosing between synchronous request/response and asynchronous events, and building the messaging backbone (queues, log-structured streams like Kafka) that lets services stay loosely coupled. This page covers service decomposition, API gateways, the sync-vs-async decision, message queues and event streaming, event-driven architecture, and the event sourcing / CQRS patterns that fall out of treating events as the source of truth.</p>
-</div>
+A microservice architecture trades the simplicity of a single deployable for independent scaling, independent deployment, and team autonomy — at the cost of turning every in-process function call into a network call that can be slow, fail, or arrive out of order. The discipline of microservices is mostly the discipline of *communication*: deciding where to draw service boundaries, choosing between synchronous request/response and asynchronous events, and building the messaging backbone (queues, log-structured streams like Kafka) that lets services stay loosely coupled. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-cubes"></i>
-    <h4>Boundaries follow business capabilities</h4>
-    <p>Good services own a single capability and its data; bad ones share a database and chat constantly across the wire.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-plug"></i>
-    <h4>Async decouples in time</h4>
-    <p>A message broker lets a producer and consumer run, fail, and scale independently — the queue absorbs the difference.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>The log is a database turned inside out</h4>
-    <p>Kafka stores an ordered, replayable history of events; consumers materialize whatever views they need from it.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-history"></i>
-    <h4>Events can be the source of truth</h4>
-    <p>Event sourcing persists <em>what happened</em>, not just current state, giving you audit, time-travel, and rebuildable read models.</p>
-  </div>
-</div>
+- **Boundaries follow business capabilities.** Good services own a single capability and its data; bad ones share a database and chat constantly across the wire.
+- **Async decouples in time.** A message broker lets a producer and consumer run, fail, and scale independently — the queue absorbs the difference.
+- **The log is a database turned inside out.** Kafka stores an ordered, replayable history of events; consumers materialize whatever views they need from it.
+- **Events can be the source of truth.** Event sourcing persists *what happened*, not just current state, giving you audit, time-travel, and rebuildable read models.
+
+This page covers service decomposition, API gateways, the sync-vs-async decision, message queues and event streaming, event-driven architecture, and the event sourcing / CQRS patterns that fall out of treating events as the source of truth.
 
 ## Table of contents
 {: .no_toc .text-delta }

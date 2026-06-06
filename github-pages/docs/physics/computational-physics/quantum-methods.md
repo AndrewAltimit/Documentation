@@ -9,10 +9,7 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Quantum Computational Methods</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computational Methods</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Evolving wavefunctions in time and finding electronic ground states — the numerical heart of quantum simulation.</p>
-</div>
+Evolving wavefunctions in time and finding electronic ground states — the numerical heart of quantum simulation.
 
 ## Time-Dependent Schrödinger Equation
 

@@ -3,48 +3,20 @@ layout: docs
 title: Fluid Mechanics
 description: The continuum mechanics of liquids and gases — kinematics, the Euler and Navier-Stokes equations, viscosity and the Reynolds number, Bernoulli, potential flow, boundary layers, and turbulence.
 permalink: /docs/physics/fluid-mechanics.html
-hide_title: true
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Fluid Mechanics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Newton's laws written for a continuum: how liquids and gases flow, from a dripping tap to a turbulent jet.</p>
-</div>
-
 [Physics](./) &raquo; Fluid Mechanics
 
-<!-- Custom styles are now loaded via main.scss -->
+Fluid mechanics is classical mechanics applied to matter that has no fixed shape. A fluid cannot resist shear at rest — push it sideways and it keeps deforming forever — so instead of tracking individual molecules we describe a smoothed-out *velocity field* $\mathbf{u}(\mathbf{x}, t)$ filling space. From two conservation laws (mass and momentum) plus a constitutive relation for stress, the entire subject unfolds: the inviscid Euler equations, the Navier-Stokes equations, the lift on a wing, the drag on a sphere, and the still-unsolved problem of turbulence. Four ideas anchor it:
 
-<div class="intro-card">
-  <p class="lead-text">Fluid mechanics is classical mechanics applied to matter that has no fixed shape. A fluid cannot resist shear at rest — push it sideways and it keeps deforming forever — so instead of tracking individual molecules we describe a smoothed-out <em>velocity field</em> $\mathbf{u}(\mathbf{x}, t)$ filling space. From two conservation laws (mass and momentum) plus a constitutive relation for stress, the entire subject unfolds: the elegant inviscid Euler equations, the formidable Navier-Stokes equations, the lift on a wing, the drag on a sphere, and the still-unsolved problem of turbulence.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-water"></i>
-    <h4>The continuum hypothesis</h4>
-    <p>We replace $10^{23}$ molecules with smooth fields of density, velocity, and pressure.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-arrows-alt"></i>
-    <h4>The material derivative</h4>
-    <p>Newton's law follows a moving fluid parcel: $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-tint"></i>
-    <h4>Viscosity sets the regime</h4>
-    <p>The Reynolds number $Re = UL/\nu$ decides whether flow is smooth or chaotic.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-tornado"></i>
-    <h4>Turbulence is open</h4>
-    <p>Existence and smoothness of 3D Navier-Stokes is a Clay Millennium Prize Problem.</p>
-  </div>
-</div>
+- **The continuum hypothesis** — replace $10^{23}$ molecules with smooth fields of density, velocity, and pressure.
+- **The material derivative** — Newton's law follows a moving fluid parcel: $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$.
+- **Viscosity sets the regime** — the Reynolds number $Re = UL/\nu$ decides whether flow is smooth or chaotic.
+- **Turbulence is open** — existence and smoothness of 3D Navier-Stokes is a Clay Millennium Prize Problem.
 
 ### What You'll Find on This Page
 
@@ -91,10 +63,7 @@ $$Kn = \frac{\lambda}{L},$$
 
 the ratio of the molecular mean free path $\lambda$ to the characteristic length $L$ of the flow. The continuum description is valid when $Kn \ll 1$. For air at room conditions $\lambda \approx 70$ nm, so the hypothesis holds superbly for everyday flows but breaks down in rarefied gases (high-altitude reentry, vacuum systems) and microfluidic channels, where kinetic theory or the Boltzmann equation must take over.
 
-<div class="principle-card">
-  <h4>What makes a fluid a fluid</h4>
-  <p>A solid resists shear: deform it and it pushes back with a stress proportional to the <em>strain</em>. A fluid cannot do this — any nonzero shear stress, however small, sets it flowing indefinitely. A fluid therefore resists not strain but the <em>rate of strain</em>. This single property, encoded in the constitutive law for the stress tensor, is what distinguishes the equations of fluid mechanics from those of elasticity, and it is what makes flow possible.</p>
-</div>
+**What makes a fluid a fluid.** A solid resists shear: deform it and it pushes back with a stress proportional to the *strain*. A fluid cannot do this — any nonzero shear stress, however small, sets it flowing indefinitely. A fluid therefore resists not strain but the *rate of strain*. This property, encoded in the constitutive law for the stress tensor, is what distinguishes the equations of fluid mechanics from those of elasticity, and what makes flow possible.
 
 ### Lagrangian vs. Eulerian Descriptions
 
@@ -226,10 +195,7 @@ Dividing the momentum equation by $\rho$ and introducing the **kinematic viscosi
 
 $$\frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\frac{1}{\rho}\nabla p + \nu\nabla^2\mathbf{u} + \mathbf{g}.$$
 
-<div class="theory-card">
-  <h4>Reading the equation term by term</h4>
-  <p>Each term is a force per unit mass on a fluid parcel: $\partial_t\mathbf{u}$ is the local (unsteady) acceleration; $(\mathbf{u}\cdot\nabla)\mathbf{u}$ is convective acceleration, the <em>nonlinear</em> heart of the equation that couples scales and breeds turbulence; $-\tfrac{1}{\rho}\nabla p$ is the pressure-gradient force that enforces incompressibility; $\nu\nabla^2\mathbf{u}$ is viscous diffusion of momentum that smooths sharp gradients and dissipates energy into heat; and $\mathbf{g}$ collects body forces. The interplay of the nonlinear convective term against the linear viscous term — quantified by the Reynolds number — determines everything about the character of the flow.</p>
-</div>
+**Reading the equation term by term.** Each term is a force per unit mass on a fluid parcel: $\partial_t\mathbf{u}$ is the local (unsteady) acceleration; $(\mathbf{u}\cdot\nabla)\mathbf{u}$ is convective acceleration, the *nonlinear* heart of the equation that couples scales and breeds turbulence; $-\tfrac{1}{\rho}\nabla p$ is the pressure-gradient force that enforces incompressibility; $\nu\nabla^2\mathbf{u}$ is viscous diffusion of momentum that smooths sharp gradients and dissipates energy into heat; and $\mathbf{g}$ collects body forces. The interplay of the nonlinear convective term against the linear viscous term — quantified by the Reynolds number — determines the character of the flow.
 
 The pressure in incompressible flow is not an independent thermodynamic variable: it is a **Lagrange multiplier** that instantaneously adjusts to keep $\nabla\cdot\mathbf{u} = 0$. Taking the divergence of the momentum equation yields a Poisson equation for the pressure, $\nabla^2 p = -\rho\,\nabla\cdot[(\mathbf{u}\cdot\nabla)\mathbf{u}]$, which is solved subject to the velocity field at each instant.
 
@@ -307,10 +273,7 @@ whose derivative gives the velocity, $dw/dz = u - iv$. The full power of complex
 
 Superposing a uniform stream with a doublet yields **flow past a cylinder**; adding a vortex produces lift via the **Kutta-Joukowski theorem**, $L = \rho U \Gamma$ per unit span.
 
-<div class="theory-card">
-  <h4>D'Alembert's paradox</h4>
-  <p>Potential flow predicts that a body moving steadily through an unbounded ideal fluid experiences <em>zero drag</em> — the pressure distribution is fore-aft symmetric and cancels. This blatantly contradicts experience: real bodies feel drag. The resolution, supplied by Prandtl a century and a half later, is that viscosity, no matter how small, cannot be neglected in the thin layer next to the body. That boundary layer separates, leaves a low-pressure wake, and breaks the symmetry. Potential flow is the right answer almost everywhere — except exactly where the drag is decided.</p>
-</div>
+**D'Alembert's paradox.** Potential flow predicts that a body moving steadily through an unbounded ideal fluid experiences *zero drag* — the pressure distribution is fore-aft symmetric and cancels. This contradicts experience: real bodies feel drag. The resolution, supplied by Prandtl a century and a half later, is that viscosity, no matter how small, cannot be neglected in the thin layer next to the body. That boundary layer separates, leaves a low-pressure wake, and breaks the symmetry. Potential flow is the right answer almost everywhere — except exactly where the drag is decided.
 
 ## Boundary Layers
 
@@ -372,10 +335,7 @@ representing momentum transport by turbulent fluctuations. Writing an equation f
 
 The incompressible Navier-Stokes equations describe the world with spectacular accuracy, yet we cannot prove they always have sensible solutions. The **Navier-Stokes existence and smoothness problem** is one of the seven Clay Mathematics Institute Millennium Prize Problems, carrying a US \$1,000,000 award.
 
-<div class="principle-card">
-  <h4>The open question, precisely</h4>
-  <p>Given smooth, finite-energy initial velocity data in three dimensions, does the incompressible Navier-Stokes equation always possess a smooth solution for all time? Or can the nonlinear vortex-stretching term concentrate energy at ever-smaller scales until the velocity (or its gradients) blows up to infinity in finite time — a <em>singularity</em>? No one knows. We cannot prove solutions stay smooth, and we cannot exhibit a counterexample.</p>
-</div>
+**The open question, precisely.** Given smooth, finite-energy initial velocity data in three dimensions, does the incompressible Navier-Stokes equation always possess a smooth solution for all time? Or can the nonlinear vortex-stretching term concentrate energy at ever-smaller scales until the velocity (or its gradients) blows up to infinity in finite time — a *singularity*? No one knows. We cannot prove solutions stay smooth, and we cannot exhibit a counterexample.
 
 The state of knowledge is sharply asymmetric:
 
@@ -386,43 +346,18 @@ The difficulty is fundamentally the same nonlinearity that produces turbulence: 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Fluids are continua</h4>
-    <p>For $Kn \ll 1$ we replace molecules with smooth fields and write conservation laws as PDEs for $\rho$, $\mathbf{u}$, and $p$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Follow the parcel</h4>
-    <p>The material derivative $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$ turns Newton's law into the Euler and Navier-Stokes equations.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Viscosity is the difference</h4>
-    <p>Adding the Newtonian viscous stress $\mu\nabla^2\mathbf{u}$ to Euler gives Navier-Stokes and enforces no-slip at walls.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>One number rules the regime</h4>
-    <p>The Reynolds number $Re = UL/\nu$ sets dynamic similarity and the laminar-to-turbulent transition.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Viscosity hides in thin layers</h4>
-    <p>Boundary layers ($\delta/L \sim Re^{-1/2}$) carry the drag and resolve d'Alembert's paradox via separation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Turbulence is still open</h4>
-    <p>Kolmogorov's $-5/3$ cascade describes it statistically, but 3D Navier-Stokes smoothness is an unsolved Millennium Problem.</p>
-  </div>
-</div>
+- **Fluids are continua.** For $Kn \ll 1$ we replace molecules with smooth fields and write conservation laws as PDEs for $\rho$, $\mathbf{u}$, and $p$.
+- **Follow the parcel.** The material derivative $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$ turns Newton's law into the Euler and Navier-Stokes equations.
+- **Viscosity is the difference.** Adding the Newtonian viscous stress $\mu\nabla^2\mathbf{u}$ to Euler gives Navier-Stokes and enforces no-slip at walls.
+- **One number rules the regime.** The Reynolds number $Re = UL/\nu$ sets dynamic similarity and the laminar-to-turbulent transition.
+- **Viscosity hides in thin layers.** Boundary layers ($\delta/L \sim Re^{-1/2}$) carry the drag and resolve d'Alembert's paradox via separation.
+- **Turbulence is still open.** Kolmogorov's $-5/3$ cascade describes it statistically, but 3D Navier-Stokes smoothness is an unsolved Millennium Problem.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="classical-mechanics/">Classical Mechanics</a> — Newton's laws and the variational principles fluid mechanics is built on.</li>
-    <li><a href="thermodynamics.html">Thermodynamics</a> — the energy equation and equation of state for compressible flow.</li>
-    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the kinetic-theory foundation underneath the continuum hypothesis.</li>
-    <li><a href="computational-physics/">Computational Physics</a> — numerical methods for PDEs, CFD, and turbulence simulation.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-    <li><a href="../reference/#physics-formulas--constants">Physics Reference</a> — constants, key equations, and unit conversions.</li>
-  </ul>
-</div>
+- [Classical Mechanics](classical-mechanics/) — Newton's laws and the variational principles fluid mechanics is built on.
+- [Thermodynamics](thermodynamics.html) — the energy equation and equation of state for compressible flow.
+- [Statistical Mechanics](statistical-mechanics/) — the kinetic-theory foundation underneath the continuum hypothesis.
+- [Computational Physics](computational-physics/) — numerical methods for PDEs, CFD, and turbulence simulation.
+- [Physics Hub](index.html) — browse all physics topics.
+- [Physics Reference](../reference/#physics-formulas--constants) — constants, key equations, and unit conversions.

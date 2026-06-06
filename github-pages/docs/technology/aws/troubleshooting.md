@@ -9,12 +9,7 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Troubleshooting &amp; Emergency Response</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A systematic guide to diagnosing the most common AWS failures, plus an emergency playbook for the moments when production is down.</p>
-</div>
-
-Even experienced cloud architects encounter issues. This page helps you diagnose and fix common AWS problems quickly, and gives you a calm, ordered checklist to run when production is on fire.
+Even experienced cloud architects encounter issues. This page helps you diagnose and fix the most common AWS failures quickly, and gives you a calm, ordered checklist to run when production is on fire.
 
 ---
 
@@ -324,20 +319,9 @@ Master troubleshooting these four areas and you'll solve 90% of AWS problems.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Observe Before You Troubleshoot</h4>
-    <p>CloudWatch metrics, logs, and traces turn outages into diagnosable events. Start from data — caller identity, recent changes, alarm state — not guesses.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Most Failures Are One of Four Things</h4>
-    <p>Permissions, networking, service limits, and configuration cover the large majority of AWS problems. Check those four first.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Have a Playbook Ready</h4>
-    <p>When production is down is the wrong time to improvise. A short, ordered checklist for the first five minutes keeps the response calm and effective.</p>
-  </div>
-</div>
+- **Observe before you troubleshoot.** CloudWatch metrics, logs, and traces turn outages into diagnosable events. Start from data — caller identity, recent changes, alarm state — not guesses.
+- **Most failures are one of four things.** Permissions, networking, service limits, and configuration cover the large majority of AWS problems. Check those four first.
+- **Have a playbook ready.** When production is down is the wrong time to improvise. A short, ordered checklist for the first five minutes keeps the response calm and effective.
 
 ---
 

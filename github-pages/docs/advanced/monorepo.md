@@ -9,10 +9,7 @@ toc: true
 toc_sticky: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monorepo Strategies and Management</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">What a monorepo is, the polyrepo trade-off, the core concepts that define it, and when adopting one actually pays off</p>
-</div>
+# Monorepo Strategies and Management
 
 [Advanced Topics](./) &raquo; Monorepo Strategies and Management
 
@@ -24,12 +21,10 @@ toc_sticky: true
 
 A monorepo (monolithic repository) is a software development strategy where code for multiple projects is stored in a single repository. This approach has gained significant traction among large tech companies and is increasingly adopted by teams of all sizes.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-code-branch"></i><h4>One repo, many projects</h4><p>A monorepo is not a monolith. Many independently-deployable projects share one version-controlled tree, enabling atomic cross-project changes.</p></div>
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>The build graph is everything</h4><p>Modern monorepo tools model projects as a dependency DAG, so they can build, test, and deploy only what a change actually affects.</p></div>
-  <div class="insight-card"><i class="fas fa-database"></i><h4>Caching makes it scale</h4><p>Content-addressed local and remote caches mean a given input is built once, ever — across the whole team and CI fleet.</p></div>
-  <div class="insight-card"><i class="fas fa-balance-scale-right"></i><h4>It's a trade-off</h4><p>You trade per-team autonomy and small clones for shared tooling and frictionless code reuse. Worth it when projects are coupled; costly when they aren't.</p></div>
-</div>
+- **One repo, many projects.** A monorepo is not a monolith. Many independently-deployable projects share one version-controlled tree, enabling atomic cross-project changes.
+- **The build graph is everything.** Modern monorepo tools model projects as a dependency DAG, so they can build, test, and deploy only what a change actually affects.
+- **Caching makes it scale.** Content-addressed local and remote caches mean a given input is built once, ever — across the whole team and CI fleet.
+- **It's a trade-off.** You trade per-team autonomy and small clones for shared tooling and frictionless code reuse. Worth it when projects are coupled; costly when they aren't.
 
 ## What is a Monorepo?
 
@@ -266,14 +261,12 @@ The largest monorepos in industry validate the core concepts above — and show 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>A monorepo organizes source, not runtime</h4><p>It is about one repository of many independently-deployable projects — orthogonal to whether you ship a monolith or microservices.</p></div>
-  <div class="takeaway-card"><h4>Single source of truth removes version skew</h4><p>One version of every internal package per commit eliminates internal diamond conflicts and "which version is running?" entirely.</p></div>
-  <div class="takeaway-card"><h4>Atomic changes are the killer feature</h4><p>One commit can change a library and every consumer together, making cross-cutting refactors routine and history coherent.</p></div>
-  <div class="takeaway-card"><h4>It moves complexity, it doesn't remove it</h4><p>Inter-repo coordination cost is traded for graph-aware tooling and VCS-scaling cost. You choose where the hard problems live.</p></div>
-  <div class="takeaway-card"><h4>Coupling is the deciding question</h4><p>Adopt when projects share code and change together; keep polyrepos when teams need autonomy, isolation, or divergent stacks.</p></div>
-  <div class="takeaway-card"><h4>Adopt gradually</h4><p>Start with the most coupled projects, prove the tooling, and migrate the rest as the trade-off justifies it — not in a big bang.</p></div>
-</div>
+- **A monorepo organizes source, not runtime.** It is about one repository of many independently-deployable projects — orthogonal to whether you ship a monolith or microservices.
+- **Single source of truth removes version skew.** One version of every internal package per commit eliminates internal diamond conflicts and "which version is running?" entirely.
+- **Atomic changes are the killer feature.** One commit can change a library and every consumer together, making cross-cutting refactors routine and history coherent.
+- **It moves complexity, it doesn't remove it.** Inter-repo coordination cost is traded for graph-aware tooling and VCS-scaling cost. You choose where the hard problems live.
+- **Coupling is the deciding question.** Adopt when projects share code and change together; keep polyrepos when teams need autonomy, isolation, or divergent stacks.
+- **Adopt gradually.** Start with the most coupled projects, prove the tooling, and migrate the rest as the trade-off justifies it — not in a big bang.
 
 ## See Also
 

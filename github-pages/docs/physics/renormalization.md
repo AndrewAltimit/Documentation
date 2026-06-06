@@ -4,13 +4,9 @@ title: "QFT: Renormalization & the Renormalization Group"
 permalink: /docs/physics/renormalization.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Renormalization &amp; the Renormalization Group</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Why loop integrals diverge, how regularization and renormalization extract finite physics, and how the renormalization group reveals that physics depends on the scale you probe.</p>
-</div>
+## Renormalization & the Renormalization Group
 
 [Quantum Field Theory](quantum-field-theory.html) &raquo; Renormalization &amp; the Renormalization Group
 
@@ -269,43 +265,18 @@ The renormalization group also reaches far beyond particle physics: it is the sa
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Divergences are about high energy</h4>
-    <p>Loop integrals over arbitrarily energetic virtual particles produce UV infinities; power counting predicts which diagrams diverge and how badly.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Regularization, then renormalization</h4>
-    <p>A regulator (cutoff, Pauli–Villars, or dimensional) makes integrals finite; counterterms absorb the divergences into bare parameters we never measure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Schemes differ, physics doesn't</h4>
-    <p>On-shell, MS, and $\overline{\text{MS}}$ define renormalized parameters differently but agree on every observable.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Couplings run</h4>
-    <p>The beta function makes couplings scale-dependent: QED grows toward the UV (Landau pole), QCD shrinks (asymptotic freedom) and confines in the IR.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The RG is invariance under rescaling</h4>
-    <p>The Callan–Symanzik equation enforces independence from the arbitrary scale $\mu$; fixed points are scale-invariant theories.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Renormalizability is emergent</h4>
-    <p>In the Wilsonian/EFT picture, irrelevant operators die as $(E/\Lambda)^n$ — so low-energy physics automatically looks renormalizable.</p>
-  </div>
-</div>
+- **Divergences are about high energy.** Loop integrals over arbitrarily energetic virtual particles produce UV infinities; power counting predicts which diagrams diverge and how badly.
+- **Regularization, then renormalization.** A regulator (cutoff, Pauli–Villars, or dimensional) makes integrals finite; counterterms absorb the divergences into bare parameters we never measure.
+- **Schemes differ, physics doesn't.** On-shell, MS, and $\overline{\text{MS}}$ define renormalized parameters differently but agree on every observable.
+- **Couplings run.** The beta function makes couplings scale-dependent: QED grows toward the UV (Landau pole), QCD shrinks (asymptotic freedom) and confines in the IR.
+- **The RG is invariance under rescaling.** The Callan–Symanzik equation enforces independence from the arbitrary scale $\mu$; fixed points are scale-invariant theories.
+- **Renormalizability is emergent.** In the Wilsonian/EFT picture, irrelevant operators die as $(E/\Lambda)^n$ — so low-energy physics automatically looks renormalizable.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — the full framework: fields, gauge symmetry, the Standard Model, and path integrals.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
-    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — critical phenomena and the origin of Wilson's renormalization group.</li>
-    <li><a href="condensed-matter/">Condensed Matter Physics</a> — universality and RG flows in many-body systems.</li>
-    <li><a href="string-theory/">String Theory</a> — one proposed UV completion that sidesteps QFT's infinities.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](quantum-field-theory.html) — the full framework: fields, gauge symmetry, the Standard Model, and path integrals.
+- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation that QFT generalizes.
+- [Statistical Mechanics](statistical-mechanics/) — critical phenomena and the origin of Wilson's renormalization group.
+- [Condensed Matter Physics](condensed-matter/) — universality and RG flows in many-body systems.
+- [String Theory](string-theory/) — one proposed UV completion that sidesteps QFT's infinities.
+- [Physics Hub](index.html) — browse all physics topics.

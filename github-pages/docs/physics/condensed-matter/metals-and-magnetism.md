@@ -4,26 +4,17 @@ title: "Condensed Matter: Metals & Magnetism"
 permalink: /docs/physics/condensed-matter/metals-and-magnetism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Condensed Matter Physics](./) &raquo; Metals &amp; Magnetism
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Metals &amp; Magnetism</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From the electron sea to spontaneous magnetic order</p>
-</div>
+## Metals & Magnetism
 
-<div class="intro-card">
-  <p class="lead-text">Two of the oldest puzzles in solid-state physics — why metals conduct and why iron is magnetic — turn out to share a common moral: a metal is not a box of independent electrons, and a magnet is not a box of independent spins. Both are <strong>collective</strong> quantum states. This page follows the historical refinement of the metallic state (Drude → Sommerfeld → Landau's Fermi liquid), introduces the Fermi surface and electronic screening, and then builds magnetism from the exchange interaction up through the Heisenberg and Ising models, spin waves, and the mean-field theory of magnetic phase transitions.</p>
-</div>
+Two of the oldest puzzles in solid-state physics — why metals conduct and why iron is magnetic — turn out to share a common moral: a metal is not a box of independent electrons, and a magnet is not a box of independent spins. Both are **collective** quantum states. This page follows the historical refinement of the metallic state (Drude → Sommerfeld → Landau's Fermi liquid), introduces the Fermi surface and electronic screening, and then builds magnetism from the exchange interaction up through the Heisenberg and Ising models, spin waves, and the mean-field theory of magnetic phase transitions.
 
-<div class="principle-card">
-  <h4>The big idea: the Pauli principle does the heavy lifting</h4>
-  <p>Almost everything surprising on this page traces back to fermion statistics. Electrons cannot share a quantum state, so at low temperature they stack up to the Fermi energy, leaving only a thin shell near the Fermi surface thermally active — that single fact rescues the metallic heat capacity, fixes the spin susceptibility, and (through the exchange energy that the antisymmetry of the wavefunction demands) makes magnetism possible in the first place. Magnetism is the Pauli principle made macroscopic: the spins align not because they are tiny bar magnets feeling each other's fields — that effect is a thousand times too weak — but because aligning them lets the electrons avoid each other and lower their electrostatic energy.</p>
-</div>
+**The big idea: the Pauli principle does the heavy lifting.** Almost everything surprising on this page traces back to fermion statistics. Electrons cannot share a quantum state, so at low temperature they stack up to the Fermi energy, leaving only a thin shell near the Fermi surface thermally active — that single fact rescues the metallic heat capacity, fixes the spin susceptibility, and (through the exchange energy that the antisymmetry of the wavefunction demands) makes magnetism possible in the first place. Magnetism is the Pauli principle made macroscopic: the spins align not because they are tiny bar magnets feeling each other's fields — that effect is a thousand times too weak — but because aligning them lets the electrons avoid each other and lower their electrostatic energy.
 
 ## Metals and Fermi Liquids
 
@@ -64,10 +55,7 @@ $$C_V = \gamma T, \qquad \gamma = \frac{\pi^2 k_B^2 g(E_F)}{3}.$$
 
 The coefficient $\gamma$ (the **Sommerfeld coefficient**) is directly proportional to the density of states at the Fermi level, $g(E_F)$, making low-temperature heat-capacity measurements a clean experimental probe of $g(E_F)$. The same factor $g(E_F)$ governs the Pauli spin susceptibility below, so the two quantities can be cross-checked.
 
-<div class="insight-card">
-  <h4>Why the Sommerfeld correction is small</h4>
-  <p>At room temperature $k_BT/E_F \approx 300/50{,}000 \approx 0.6\%$. Only that tiny fraction of the conduction electrons is "awake"; the rest are frozen deep inside the Fermi sea, unable to change state because every nearby level is already occupied. Drude's mistake was to let all $N$ electrons absorb heat classically — overcounting the thermally active population by a factor of $E_F/k_BT \sim 100$.</p>
-</div>
+**Why the Sommerfeld correction is small.** At room temperature $k_BT/E_F \approx 300/50{,}000 \approx 0.6\%$. Only that tiny fraction of the conduction electrons is "awake"; the rest are frozen deep inside the Fermi sea, unable to change state because every nearby level is already occupied. Drude's mistake was to let all $N$ electrons absorb heat classically — overcounting the thermally active population by a factor of $E_F/k_BT \sim 100$.
 
 ### The Fermi Surface
 
@@ -111,10 +99,7 @@ Expanding the angular dependence of $f$ in Legendre polynomials yields the dimen
 
 The theory also predicts a distinctive **collective mode** — zero sound, an oscillation of the Fermi surface shape that propagates even in the collisionless regime where ordinary (first) sound cannot. A divergence in one of these renormalizations signals an instability: $1 + F_0^a \to 0$ heralds the **Stoner ferromagnetic instability** (the spin susceptibility diverges and the metal magnetizes), tying Fermi-liquid theory directly to the magnetism discussed next.
 
-<div class="insight-card">
-  <h4>When the Fermi liquid breaks down</h4>
-  <p>The whole edifice rests on quasiparticles being long-lived: phase space restricts the electron–electron scattering rate to $1/\tau \sim (E - E_F)^2$, so excitations near $E_F$ are arbitrarily sharp. This fails in one dimension (replaced by the <em>Luttinger liquid</em>, where excitations fractionalize into separate spin and charge waves) and apparently fails in the "strange metal" phase of high-$T_c$ cuprates, where resistivity rises <em>linearly</em> in $T$ rather than quadratically — one of the central open problems in condensed matter.</p>
-</div>
+**When the Fermi liquid breaks down.** The whole edifice rests on quasiparticles being long-lived: phase space restricts the electron–electron scattering rate to $1/\tau \sim (E - E_F)^2$, so excitations near $E_F$ are arbitrarily sharp. This fails in one dimension (replaced by the *Luttinger liquid*, where excitations fractionalize into separate spin and charge waves) and apparently fails in the "strange metal" phase of high-$T_c$ cuprates, where resistivity rises *linearly* in $T$ rather than quadratically — one of the central open problems in condensed matter.
 
 ## Magnetism
 
@@ -208,50 +193,22 @@ $$M(T) = M(0)\left[1 - \left(\frac{T}{T^*}\right)^{3/2}\right],$$
 
 and a corresponding $T^{3/2}$ magnon heat capacity, both confirmed by experiment. Magnon dispersions are mapped directly by **inelastic neutron scattering**, making spin waves one of the most precisely tested predictions in magnetism.
 
-<div class="insight-card">
-  <h4>Why dimension and symmetry decide whether order survives</h4>
-  <p>The <strong>Mermin–Wagner theorem</strong> states that a continuous symmetry cannot be spontaneously broken at finite temperature in one or two dimensions: the soft, long-wavelength magnons (Goldstone modes) are so easy to excite that they destroy the order. This is exactly why the 2D Heisenberg model has no finite-temperature order, while the 2D <em>Ising</em> model — whose discrete symmetry has no Goldstone mode — does. The gapless quadratic magnon is the loophole and the executioner at once.</p>
-</div>
+**Why dimension and symmetry decide whether order survives.** The **Mermin–Wagner theorem** states that a continuous symmetry cannot be spontaneously broken at finite temperature in one or two dimensions: the soft, long-wavelength magnons (Goldstone modes) are so easy to excite that they destroy the order. This is exactly why the 2D Heisenberg model has no finite-temperature order, while the 2D *Ising* model — whose discrete symmetry has no Goldstone mode — does. The gapless quadratic magnon is the loophole and the executioner at once.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Three models, one metal</h4>
-    <p>Drude gives Ohm's law and the Hall effect; Sommerfeld fixes the heat capacity with Fermi statistics; Landau rescues the picture for interacting electrons via quasiparticles.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Only the Fermi surface matters</h4>
-    <p>Conduction, heat capacity, magnetism, and screening are all controlled by the thin shell of states near $E_F$, not by the filled sea beneath.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Screening tames the Coulomb force</h4>
-    <p>The mobile electron sea converts long-range $1/r$ interactions into short-range Yukawa potentials, with Friedel oscillations betraying the Fermi surface.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Exchange, not dipoles, makes magnets</h4>
-    <p>Magnetic order is an electrostatic effect enforced by the Pauli principle — orders of magnitude stronger than dipole–dipole coupling.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mean-field theory predicts transitions</h4>
-    <p>The Weiss field gives $T_C$, $T_N$, the Curie–Weiss law, and mean-field critical exponents — corrected by the renormalization group near the transition.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Magnons are the magnetic phonons</h4>
-    <p>Quantized spin waves carry the low-energy excitations of an ordered magnet, giving the Bloch $T^{3/2}$ law and direct neutron-scattering signatures.</p>
-  </div>
-</div>
+- **Three models, one metal.** Drude gives Ohm's law and the Hall effect; Sommerfeld fixes the heat capacity with Fermi statistics; Landau rescues the picture for interacting electrons via quasiparticles.
+- **Only the Fermi surface matters.** Conduction, heat capacity, magnetism, and screening are all controlled by the thin shell of states near $E_F$, not by the filled sea beneath.
+- **Screening tames the Coulomb force.** The mobile electron sea converts long-range $1/r$ interactions into short-range Yukawa potentials, with Friedel oscillations betraying the Fermi surface.
+- **Exchange, not dipoles, makes magnets.** Magnetic order is an electrostatic effect enforced by the Pauli principle — orders of magnitude stronger than dipole–dipole coupling.
+- **Mean-field theory predicts transitions.** The Weiss field gives $T_C$, $T_N$, the Curie–Weiss law, and mean-field critical exponents — corrected by the renormalization group near the transition.
+- **Magnons are the magnetic phonons.** Quantized spin waves carry the low-energy excitations of an ordered magnet, giving the Bloch $T^{3/2}$ law and direct neutron-scattering signatures.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and the electronic properties that underpin metals and magnetism.</li>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — what happens when the electron sea or the spin lattice condenses into a new ordered state.</li>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green's functions, and the many-body machinery behind Fermi-liquid theory and spin waves.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the Ising model, mean-field theory, and the physics of phase transitions and critical exponents.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the Pauli principle and exchange that make both metals and magnetism quantum from the start.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and the electronic properties that underpin metals and magnetism.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — what happens when the electron sea or the spin lattice condenses into a new ordered state.
+- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — second quantization, Green's functions, and the many-body machinery behind Fermi-liquid theory and spin waves.
+- [Statistical Mechanics](../statistical-mechanics/) — the Ising model, mean-field theory, and the physics of phase transitions and critical exponents.
+- [Quantum Mechanics](../quantum-mechanics/) — the Pauli principle and exchange that make both metals and magnetism quantum from the start.
+- [Physics Hub](../) — browse all physics topics.

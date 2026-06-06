@@ -7,24 +7,13 @@ toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 section: technology
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Branching Techniques</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Feature flags, branch protection, release branching, naming conventions, and automation</p>
-</div>
 
 [Technology](./) &raquo; [Git Branching Strategies](branching.html) &raquo; Advanced Branching Techniques
 
-<div class="intro-card">
-  <p class="lead-text">Once you have picked a <a href="branching.html">branching strategy</a>, the day-to-day quality of life on a team comes from the patterns layered on top of it: feature flags that decouple deploy from release, branch protection rules that enforce review and CI, consistent naming so branches are self-documenting, a disciplined release-branch flow for versioned products, and automation that stops bad practices before they reach the remote. This page collects those production techniques and the common pitfalls they solve.</p>
-</div>
+Once you have picked a [branching strategy](branching.html), the day-to-day quality of life on a team comes from the patterns layered on top of it: feature flags that decouple deploy from release, branch protection rules that enforce review and CI, consistent naming so branches are self-documenting, a disciplined release-branch flow for versioned products, and automation that stops bad practices before they reach the remote. This page collects those production techniques and the common pitfalls they solve.
 
-<div class="tip-card">
-  <h4>Where this fits</h4>
-  <p>This is the companion to <a href="branching.html">Git Branching Strategies</a>, which compares the four core workflows. Start there to choose a model; come here for the tooling that makes it work in practice. For command syntax see the <a href="git-reference.html">Git Command Reference</a>; for pipeline wiring see <a href="ci-cd/">CI/CD</a>.</p>
-</div>
+This is the companion to [Git Branching Strategies](branching.html), which compares the four core workflows. Start there to choose a model; come here for the tooling that makes it work in practice. For command syntax see the [Git Command Reference](git-reference.html); for pipeline wiring see [CI/CD](ci-cd/).
 
 ## Feature Branch Workflow
 
@@ -83,10 +72,7 @@ This allows:
 - Gradual rollouts (1% → 10% → 100%)
 - Quick rollbacks without redeployment — just flip the flag off
 
-<div class="tip-card">
-  <h4>Flags are not free</h4>
-  <p>Every flag is a branch in your runtime code, and stale flags accumulate into the same kind of complexity that long-lived Git branches create. Treat flags as temporary: track them, set a removal date, and delete the dead code path once a feature is fully rolled out.</p>
-</div>
+**Flags are not free:** every flag is a branch in your runtime code, and stale flags accumulate into the same kind of complexity that long-lived Git branches create. Treat flags as temporary — track them, set a removal date, and delete the dead code path once a feature is fully rolled out.
 
 **Popular Feature Flag Services:**
 
@@ -299,27 +285,18 @@ jobs:
 
 ## Key Takeaways
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Feature flags decouple deploy from release,</strong> enabling continuous delivery even with incomplete features — but track and retire flags like any other technical debt.</li>
-    <li><strong>Enforce the workflow with automation</strong> — branch protection rules, naming checks, and required CI status checks beat documentation alone.</li>
-    <li><strong>Server-side checks are authoritative;</strong> local hooks are convenience that developers can bypass.</li>
-    <li><strong>Short-lived branches</strong> and frequent integration remain the single biggest lever against merge conflicts.</li>
-    <li><strong>Align release branches with semantic versioning</strong> so a branch's name signals the impact of its change.</li>
-  </ul>
-</div>
+- **Feature flags decouple deploy from release,** enabling continuous delivery even with incomplete features — but track and retire flags like any other technical debt.
+- **Enforce the workflow with automation** — branch protection rules, naming checks, and required CI status checks beat documentation alone.
+- **Server-side checks are authoritative;** local hooks are convenience that developers can bypass.
+- **Short-lived branches** and frequent integration remain the single biggest lever against merge conflicts.
+- **Align release branches with semantic versioning** so a branch's name signals the impact of its change.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="branching.html">Git Branching Strategies</a> — the four core workflows and how to choose between them</li>
-    <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch, merge, and rebase operations</li>
-    <li><a href="git/">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
-    <li><a href="ci-cd/">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
-  </ul>
-</div>
+- [Git Branching Strategies](branching.html) — the four core workflows and how to choose between them
+- [Git Command Reference](git-reference.html) — command syntax for branch, merge, and rebase operations
+- [Git Version Control](git/) — internals, architecture, and distributed VCS fundamentals
+- [CI/CD](ci-cd/) — wiring branching strategies into continuous integration pipelines
 
 ## References
 

@@ -7,21 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Multiplayer Networking</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Authoritative servers, client-side prediction, lag compensation, and the netcode tradeoffs behind responsive online play.</p>
-</div>
+# Multiplayer Networking
 
 [Game Development](./) &raquo; Multiplayer Networking
 
-Multiplayer networking is the discipline of making many machines agree on the state of a shared world while the network between them is slow, lossy, and out of order. Unlike a single-player game where the simulation is the truth, an online game has to reconcile what each player *sees* with what *actually happened* on a remote authority — and it has to do so within a budget of milliseconds, or the game feels sluggish and cheaters thrive. This page covers the network topologies (client-server vs peer-to-peer), the authoritative-server model that underpins competitive games, the prediction-and-reconciliation loop that hides latency from the local player, lag compensation for fair hit detection, interpolation and extrapolation for smooth remote entities, the three data models for transmitting state (snapshots, delta state-sync, and RPC), the fundamental netcode tradeoffs, and the basics of matchmaking.
+Multiplayer networking is the discipline of making many machines agree on the state of a shared world while the network between them is slow, lossy, and out of order. Unlike a single-player game where the simulation is the truth, an online game has to reconcile what each player *sees* with what *actually happened* on a remote authority — within a budget of milliseconds, or the game feels sluggish and cheaters thrive. This page covers network topologies (client-server vs peer-to-peer), the authoritative-server model, the prediction-and-reconciliation loop that hides latency from the local player, lag compensation for fair hit detection, interpolation and extrapolation for smooth remote entities, the three data models for transmitting state (snapshots, delta state-sync, and RPC), the netcode tradeoffs, and matchmaking. Four ideas underpin all of it:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-server"></i><h4>The server is the only truth</h4><p>In competitive games, clients merely <em>predict</em>; the authoritative server simulates the real world and corrects clients. This is the only robust defense against cheating.</p></div>
-  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Hide latency, never wait for it</h4><p>Round-trip time is bounded by physics. Client-side prediction shows the local player an instant result and reconciles when the server's authoritative answer arrives.</p></div>
-  <div class="insight-card"><i class="fas fa-history"></i><h4>Fairness means rewinding time</h4><p>Lag compensation rewinds the server's world to when the shooter actually fired, so a player who aimed correctly on their screen lands the shot despite latency.</p></div>
-  <div class="insight-card"><i class="fas fa-stream"></i><h4>Send deltas, not the world</h4><p>Bandwidth is finite. Transmit only what changed since the last acknowledged state, quantize aggressively, and prioritize entities by relevance.</p></div>
-</div>
+- **The server is the only truth.** In competitive games, clients merely *predict*; the authoritative server simulates the real world and corrects clients. This is the only robust defense against cheating.
+- **Hide latency, never wait for it.** Round-trip time is bounded by physics. Client-side prediction shows the local player an instant result and reconciles when the server's authoritative answer arrives.
+- **Fairness means rewinding time.** Lag compensation rewinds the server's world to when the shooter actually fired, so a player who aimed correctly on their screen lands the shot despite latency.
+- **Send deltas, not the world.** Bandwidth is finite. Transmit only what changed since the last acknowledged state, quantize aggressively, and prioritize entities by relevance.
 
 ## Network Topologies: Client-Server vs Peer-to-Peer
 
@@ -279,10 +274,8 @@ Every netcode decision is a tradeoff between four scarce resources: **latency**,
 
 - **Authority placement.** Full server authority maximizes cheat resistance but costs a round trip and server money; giving clients authority over their own movement is cheaper and snappier but trusts the client. Most games split the difference: clients are authoritative over *cosmetic* state and *predicted* over movement, while the server stays authoritative over anything that affects other players (damage, scoring, pickups).
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-balance-scale"></i><h4>No free lunch</h4><p>You cannot simultaneously minimize latency, bandwidth, and CPU while maximizing fairness. Pick the two that matter for your genre and tune the rest.</p></div>
-  <div class="insight-card"><i class="fas fa-shield-alt"></i><h4>Relevancy is dual-purpose</h4><p>Only sending nearby entities saves bandwidth <em>and</em> denies cheaters the data wallhacks need.</p></div>
-</div>
+- **No free lunch.** You cannot simultaneously minimize latency, bandwidth, and CPU while maximizing fairness. Pick the two that matter for your genre and tune the rest.
+- **Relevancy is dual-purpose.** Only sending nearby entities saves bandwidth *and* denies cheaters the data wallhacks need.
 
 ## Matchmaking Basics
 

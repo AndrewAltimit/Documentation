@@ -11,15 +11,13 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Discover your personalized learning path through the documentation.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Every expert was once a beginner. This interactive map helps you navigate from wherever you are to wherever you want to be &mdash; drag the nodes, follow the connections, and chart your own route through the documentation. Prefer a plain list? See the <a href="./">complete documentation index</a>. Already know the topic? <a href="../search.html">Search</a> jumps you straight there.</p>
-</div>
+Drag the nodes, follow the connections, and chart a route through the documentation. Prefer a plain list? See the [complete documentation index](./). Already know the topic? [Search](../search.html) jumps you straight there.
 
 {% include topic-map.html %}
 
 ## Pick Your Level
 
-<p>Not sure where to jump in? Each track below collects a handful of pages at the right depth. Start anywhere &mdash; the map above shows how they connect.</p>
+Each track collects a handful of pages at the right depth; the map above shows how they connect.
 
 <div class="quick-start-grid">
   <div class="quick-start-card">
@@ -159,7 +157,7 @@ flowchart LR
 
 ## Learning Paths by Role
 
-<p>Already know what you do day to day? These role-focused cards collect the pages that matter most for each discipline &mdash; a curated reading list you can work straight down.</p>
+Role-focused reading lists &mdash; the pages that matter most for each discipline, in order.
 
 <div class="quick-start-grid">
   <div class="quick-start-card">
@@ -250,10 +248,8 @@ flowchart LR
 ---
 
 <div class="cta-section">
-  <h2>Ready to Start Your Journey?</h2>
-  <p>Pick a topic that interests you and dive in. Remember, every expert started exactly where you are now.</p>
-  <a href="#pick-your-level" class="btn btn-primary">Choose Your Starting Point</a>
-  <a href="/" class="btn btn-secondary">Back to Documentation Home</a>
+  <a href="#pick-your-level" class="btn btn-primary">Choose a starting point</a>
+  <a href="/" class="btn btn-secondary">Documentation home</a>
 </div>
 
 <style>

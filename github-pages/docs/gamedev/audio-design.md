@@ -7,10 +7,7 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Audio Design &amp; Implementation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Game audio fundamentals, middleware, spatial sound, adaptive music, mixing, and DSP</p>
-</div>
+# Audio Design & Implementation
 
 [Game Development](./) &raquo; Audio Design &amp; Implementation
 
@@ -353,14 +350,12 @@ Mobile adds **battery and thermal** pressure (decoding and mixing are continuous
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Voices are the scarce resource</h4><p>Every sound is a voice with decode, DSP, and mix cost. Priority, virtualization, instance caps, and distance culling keep simultaneous voices inside budget.</p></div>
-  <div class="takeaway-card"><h4>Middleware abstracts events from assets</h4><p>Wwise/FMOD let code post abstract events and parameters while designers author randomization, layering, attenuation, and mixing without recompiling.</p></div>
-  <div class="takeaway-card"><h4>3D audio is attenuation plus localization</h4><p>An authored attenuation curve sets distance falloff and culling; constant-power panning and HRTF place the source; occlusion and reverb situate it in the world.</p></div>
-  <div class="takeaway-card"><h4>Adaptive music = horizontal + vertical</h4><p>Re-sequence segments quantized to bars for phase changes; fade stem layers by an intensity parameter for moment-to-moment tension; punctuate with stingers.</p></div>
-  <div class="takeaway-card"><h4>Mix on buses, with ducking</h4><p>Route voices into category buses, put expensive DSP there, and use ducking/sidechaining and snapshots so dialogue stays intelligible across game states.</p></div>
-  <div class="takeaway-card"><h4>Budget per platform from day one</h4><p>Voices, CPU, and memory are fixed pools. Stream long assets, keep short SFX resident, profile on target hardware, not the dev PC.</p></div>
-</div>
+- **Voices are the scarce resource.** Every sound is a voice with decode, DSP, and mix cost. Priority, virtualization, instance caps, and distance culling keep simultaneous voices inside budget.
+- **Middleware abstracts events from assets.** Wwise/FMOD let code post abstract events and parameters while designers author randomization, layering, attenuation, and mixing without recompiling.
+- **3D audio is attenuation plus localization.** An authored attenuation curve sets distance falloff and culling; constant-power panning and HRTF place the source; occlusion and reverb situate it in the world.
+- **Adaptive music = horizontal + vertical.** Re-sequence segments quantized to bars for phase changes; fade stem layers by an intensity parameter for moment-to-moment tension; punctuate with stingers.
+- **Mix on buses, with ducking.** Route voices into category buses, put expensive DSP there, and use ducking/sidechaining and snapshots so dialogue stays intelligible across game states.
+- **Budget per platform from day one.** Voices, CPU, and memory are fixed pools. Stream long assets, keep short SFX resident, profile on target hardware, not the dev PC.
 
 ## See Also
 

@@ -6,37 +6,9 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Harnessing quantum mechanics for exponential computational advantage</p>
-</div>
-
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="intro-card">
-  <p class="lead-text">Quantum computing harnesses superposition, entanglement, and interference to process information in ways classical machines cannot — solving certain problems exponentially faster. This page builds from qubits and gates up through the landmark algorithms (Shor, Grover), the practical realities of the noisy NISQ era, and the platforms you can program today.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-atom"></i>
-    <h4>Qubits</h4>
-    <p>Superposition and entanglement replace deterministic 0/1 bits</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-calculator"></i>
-    <h4>Algorithms</h4>
-    <p>Shor and Grover show where quantum beats classical — and where it doesn't</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-microchip"></i>
-    <h4>NISQ Reality</h4>
-    <p>Noise and error correction define what hardware can do today</p>
-  </div>
-</div>
+Quantum computing harnesses superposition, entanglement, and interference to process information in ways classical machines cannot — solving certain problems exponentially faster. This page builds from **qubits and gates** (superposition and entanglement replace deterministic 0/1 bits), up through the landmark **algorithms** (Shor and Grover show where quantum beats classical and where it doesn't), the practical realities of the noisy **NISQ era** (where noise and error correction define what hardware can do today), and the platforms you can program now.
 
 > **For the physics underneath this, see the [Quantum Mechanics](../physics/quantum-mechanics/) page; for rigorous complexity theory, see [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/).**
 
@@ -1037,16 +1009,14 @@ estimator = Estimator(backend)
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Superposition + entanglement + interference** are the three ingredients of every quantum algorithm: prepare many possibilities at once, correlate them, then steer amplitude toward the answer.
 - **A qubit is a unit vector** $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$ with $|\alpha|^2+|\beta|^2=1$; $n$ qubits span $2^n$ dimensions, but a single measurement returns only $n$ classical bits.
 - **Quantum gates are reversible (unitary).** A universal set such as $\{H, T, \text{CNOT}\}$ can approximate any computation.
 - **Speedups are selective.** Shor's (factoring) is exponential but needs fault tolerance; Grover's (search) is quadratic; HHL and QPE power chemistry and ML subroutines with important caveats.
 - **Error correction is the gating challenge.** Surface codes and the threshold theorem turn many noisy physical qubits into a few reliable logical ones — today's ~1000:1 overhead is the road to fault tolerance.
-</div>
 
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
+
 - [Quantum Computing Hub](../quantum-computing/) - Learning paths, quick start, and topic map
 - [Quantum Mechanics](../physics/quantum-mechanics/) - Fundamental quantum principles
 - [Quantum Field Theory](../physics/quantum-field-theory.html) - Advanced quantum theory
@@ -1056,4 +1026,3 @@ estimator = Estimator(backend)
 - [AWS](aws/) - AWS Braket quantum computing service
 - [AI](ai/) - Quantum machine learning algorithms
 - [Cybersecurity](cybersecurity/) - Post-quantum cryptography
-</div>

@@ -9,41 +9,10 @@ toc: false  # Index pages typically don't need TOC
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Every page, organized by category &mdash; from beginner guides to graduate-level theory.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">This is the complete listing of every page on the site, grouped by category. Not sure where to start? Jump to a section below, browse the <a href="topic-map.html">visual topic map</a>, or <a href="../search.html">search</a> if you already know what you're after.</p>
-
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-server"></i>
-      <h4><a href="#technology">Technology</a></h4>
-      <p>Infrastructure, DevOps, cloud, and game/real-time development</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-sitemap"></i>
-      <h4><a href="#architecture--operations">Architecture &amp; Operations</a></h4>
-      <p>Observability, APIs, testing, and event-driven systems</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-brain"></i>
-      <h4><a href="#aiml---generative-ai">AI / ML</a></h4>
-      <p>Generative AI, model training, and workflows</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-atom"></i>
-      <h4><a href="#physics">Physics</a></h4>
-      <p>Classical mechanics to string theory</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-flask"></i>
-      <h4><a href="#specialized-hubs">Hubs &amp; Advanced</a></h4>
-      <p>Curated topic hubs and graduate-level theory</p>
-    </div>
-  </div>
-</div>
+The complete listing of every page on the site, grouped by category &mdash; [Technology](#technology), [Architecture & Operations](#architecture--operations), [AI / ML](#aiml---generative-ai), [Physics](#physics), and the [specialized](#specialized-hubs) and [research](#research--advanced-topics) hubs. You can also browse the [visual topic map](topic-map.html) or [search](../search.html) directly.
 
 <div class="tip-card" markdown="1">
-#### New here? Start at a hub
-Each major area has a hub page that orients you and recommends a reading path: the [Quantum Computing Hub](quantum-computing/), [Distributed Systems Hub](distributed-systems/), [Performance Optimization Hub](optimization/), [AI/ML Hub](ai-ml/), and the [Physics Hub](physics/). The lists below are the full index; the hubs are the guided way in.
+**New here? Start at a hub.** Each major area has a hub page that orients you and recommends a reading path: the [Quantum Computing Hub](quantum-computing/), [Distributed Systems Hub](distributed-systems/), [Performance Optimization Hub](optimization/), [AI/ML Hub](ai-ml/), and the [Physics Hub](physics/). The lists below are the full index; the hubs are the guided way in.
 </div>
 
 

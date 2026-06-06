@@ -8,39 +8,15 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "robot"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Game AI Systems</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Techniques and systems for creating intelligent, responsive NPCs and game behaviors that prioritize engaging gameplay over optimal decision-making.</p>
-</div>
-
-<div class="code-example" markdown="1">
 How games make characters feel alive: pathfinding, decision-making, steering, and the performance tricks that keep hundreds of agents thinking inside a single frame.
-</div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.</p>
-</div>
+Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-route"></i>
-    <h4>Pathfinding</h4>
-    <p>NavMeshes and A* find routes through the world; hierarchical search and smoothing keep it fast and natural.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sitemap"></i>
-    <h4>Decision Making</h4>
-    <p>FSMs, behavior trees, utility AI, and GOAP decide what an agent should do next.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-tachometer-alt"></i>
-    <h4>Performance</h4>
-    <p>LOD for AI, time-slicing, and spatial partitioning keep many agents within frame budget.</p>
-  </div>
-</div>
+- **Pathfinding.** NavMeshes and A* find routes through the world; hierarchical search and smoothing keep it fast and natural.
+- **Decision Making.** FSMs, behavior trees, utility AI, and GOAP decide what an agent should do next.
+- **Performance.** LOD for AI, time-slicing, and spatial partitioning keep many agents within frame budget.
 
 > **Read this as a layered stack.** Decision (*what to do*) feeds steering (*how to move*) feeds animation (*how to look*). Each section below maps to one of these layers, progressing from movement up to learned behavior.
 
@@ -554,22 +530,16 @@ Efficient queries:
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Game AI optimizes for fun, not optimality.** Believable, appropriately-challenging behavior beats perfect play, all under hard real-time budgets.
 - **Layer the system:** decision (FSM/behavior tree/utility/GOAP) → steering (pathfinding + avoidance) → animation. Each layer has a clear job.
 - **A* is the pathfinding workhorse** — $f(n) = g(n) + h(n)$ with an admissible heuristic guarantees shortest paths; NavMeshes make it practical in 3D.
 - **Behavior trees scale better than FSMs** for complex agents; utility AI and GOAP add flexibility when hand-authored logic gets unwieldy.
 - **Performance is a first-class concern:** LOD for AI, time-slicing, and spatial partitioning keep hundreds of agents within frame budget.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Game Development](../gamedev/) - Game development fundamentals
 - [Unreal Engine](../technology/unreal.html) - UE5 AI systems and behavior frameworks
 - [Performance Optimization](../optimization/) - Optimization techniques for real-time systems
 - [AI Fundamentals](../technology/ai/) - Machine learning foundations behind ML-driven NPCs
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

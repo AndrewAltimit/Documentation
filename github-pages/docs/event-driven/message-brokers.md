@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Message Brokers &amp; Streaming</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The asynchronous backbone of event-driven systems — queues vs. logs, Kafka and RabbitMQ internals, cloud brokers, and the hard problems of ordering, exactly-once, and backpressure.</p>
-</div>
-
 [Event-Driven](./) &raquo; Message Brokers &amp; Streaming
 
-<div class="intro-card">
-  <p class="lead-text">A message broker is the piece of infrastructure that lets one component publish a message and walk away while another consumes it later — decoupling producers and consumers <em>in time</em>, in <em>availability</em>, and in <em>throughput</em>. That decoupling is the whole point of event-driven architecture, and it is also where the subtlety lives: brokers differ on whether a message is a transient task or a durable fact, on how they distribute work, on what ordering they promise, and on what happens when a consumer falls behind or a message can never be processed. This page builds up the broker's role from first principles, then dissects the two dominant open-source brokers (Apache Kafka's partitioned log and RabbitMQ's exchange/queue routing), surveys the managed cloud options (SQS/SNS, Google Pub/Sub, Kinesis), and tackles the cross-cutting concerns every real deployment hits: delivery semantics, ordering, exactly-once, backpressure, and dead-letter queues.</p>
-</div>
+A message broker is the piece of infrastructure that lets one component publish a message and walk away while another consumes it later — decoupling producers and consumers *in time*, in *availability*, and in *throughput*. That decoupling is the whole point of event-driven architecture, and it is also where the subtlety lives: brokers differ on whether a message is a transient task or a durable fact, on how they distribute work, on what ordering they promise, and on what happens when a consumer falls behind or a message can never be processed. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-clock"></i>
-    <h4>Brokers decouple in time</h4>
-    <p>A producer and consumer need not be up at the same moment — the broker buffers the difference, absorbing bursts and tolerating downtime.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Queue vs. log is the first fork</h4>
-    <p>A queue hands a task to one worker and deletes it; a log retains an ordered, replayable history many consumers read independently.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sort-amount-down"></i>
-    <h4>Ordering is local, not global</h4>
-    <p>Strict ordering exists only within a partition or a single queue — partition by a stable key to keep one entity's events in order.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-redo"></i>
-    <h4>At-least-once is the default; idempotency is the cure</h4>
-    <p>Duplicates are normal under failure. "Exactly-once" is achieved by making consumers idempotent, not by trusting the wire.</p>
-  </div>
-</div>
+- **Brokers decouple in time.** Producer and consumer need not be up at the same moment — the broker buffers the difference, absorbing bursts and tolerating downtime.
+- **Queue vs. log is the first fork.** A queue hands a task to one worker and deletes it; a log retains an ordered, replayable history many consumers read independently.
+- **Ordering is local, not global.** Strict ordering exists only within a partition or a single queue — partition by a stable key to keep one entity's events in order.
+- **At-least-once is the default; idempotency is the cure.** Duplicates are normal under failure; "exactly-once" comes from making consumers idempotent, not from trusting the wire.
+
+This page builds up the broker's role from first principles, then dissects the two dominant open-source brokers (Kafka's partitioned log and RabbitMQ's exchange/queue routing), surveys managed cloud options (SQS/SNS, Google Pub/Sub, Kinesis), and tackles the cross-cutting concerns every deployment hits: delivery semantics, ordering, exactly-once, backpressure, and dead-letter queues.
 
 ## Table of contents
 {: .no_toc .text-delta }

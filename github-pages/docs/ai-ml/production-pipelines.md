@@ -8,37 +8,15 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Production Pipelines &amp; Automation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Move from clicking "Queue Prompt" to running reproducible, headless generation at scale — batch jobs, parameter sweeps, the ComfyUI API, queue management, and asset pipelines.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; Production Pipelines &amp; Automation
 
-<div class="code-example" markdown="1">
 A workflow that produces one good image by hand is a prototype. A production pipeline turns that workflow into a service: it accepts parameters, runs unattended, sweeps variations, recovers from failures, and files every output with the metadata needed to reproduce it. This guide covers the automation layer that sits on top of the generation techniques you already know.
-</div>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-robot"></i>
-    <h4>Headless First</h4>
-    <p>Export a workflow as API JSON, parameterize the nodes you care about, and submit it over HTTP — no browser, no clicking, fully scriptable.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-th"></i>
-    <h4>Sweep, Don't Guess</h4>
-    <p>Cartesian grids over prompts, seeds, CFG, and samplers turn tuning into a systematic search you can compare side by side.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Queue &amp; Recover</h4>
-    <p>A durable queue, WebSocket progress, retries, and structured outputs let a pipeline run for hours and survive failures.</p>
-  </div>
-</div>
+- **Headless First.** Export a workflow as API JSON, parameterize the nodes you care about, and submit it over HTTP — no browser, no clicking, fully scriptable.
+- **Sweep, Don't Guess.** Cartesian grids over prompts, seeds, CFG, and samplers turn tuning into a systematic search you can compare side by side.
+- **Queue &amp; Recover.** A durable queue, WebSocket progress, retries, and structured outputs let a pipeline run for hours and survive failures.
 
 ## Who This Is For and What It Covers
 
@@ -487,18 +465,13 @@ For a managed setup, put the dispatcher and servers in containers (the [ComfyUI 
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **API format is the foundation.** Export the workflow as API JSON, mutate only literal inputs (never connection `[id, index]` pairs), and POST to `/prompt`. Everything else is a loop around that.
 - **Track over WebSocket, fetch from history.** `client_id` ties events to your jobs; `executing` with `node: null` signals done; `/history` + `/view` retrieve the bytes.
 - **Sweep one axis at a time.** Fix the seed, vary one parameter, assemble a contact sheet — and remember the Cartesian product grows fast, so go coarse then fine.
 - **Bound the queue and make jobs idempotent.** Seeded, deterministically-named jobs are safe to retry; a manifest checkpoint lets a crashed run resume instead of restart.
 - **Provenance is non-negotiable.** Embed the workflow in the PNG, write a JSON sidecar, keep a lossless master, and derive delivery formats on demand.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [ComfyUI Guide](comfyui-guide.html) - Build the workflows this pipeline automates
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The parameters you sweep over
@@ -508,4 +481,3 @@ For a managed setup, put the dispatcher and servers in containers (the [ComfyUI 
 - [ControlNet](controlnet.html) - Conditioning inputs you upload via the API
 - [LoRA Training](lora-training.html) - Produce the custom models your pipeline serves
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

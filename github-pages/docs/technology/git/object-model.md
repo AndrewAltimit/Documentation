@@ -4,15 +4,11 @@ title: "Git Internals: Object Model & Storage"
 permalink: /docs/technology/git/object-model.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Git Internals](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Object Model &amp; Storage</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Content-addressable storage, the four object types, the three trees, and how it all lives on disk</p>
-</div>
+Content-addressable storage, the four object types, the three trees, and how it all lives on disk.
 
 ## Core Architecture
 
@@ -278,16 +274,7 @@ Git references are human-readable names that point to commit objects. The refere
 
 ---
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="./" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">← Git Internals (Hub)</h4>
-    <p style="margin: 0;">Overview, disambiguation, and the rest of the deep dive.</p>
-  </a>
-  <a class="nav-card" href="protocols-and-performance.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Protocols, Packs &amp; Performance →</h4>
-    <p style="margin: 0;">How the object store moves over the wire, the pack/index formats, and performance tuning.</p>
-  </a>
-</div>
+**Next:** [Protocols, Packs & Performance →](protocols-and-performance.html) — how the object store moves over the wire, the pack/index formats, and performance tuning. **Up:** [Git Internals (Hub)](./).
 
 ## See Also
 

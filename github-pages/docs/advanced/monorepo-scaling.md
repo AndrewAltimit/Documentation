@@ -9,10 +9,7 @@ toc: true
 toc_sticky: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monorepos: Scaling &amp; Engineering</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build graphs, remote execution, dependency rules, ownership, and the VCS techniques that keep a repository workable at billion-line scale</p>
-</div>
+# Monorepos: Scaling &amp; Engineering
 
 [Advanced Topics](./) &raquo; Monorepos: Scaling &amp; Engineering
 
@@ -20,16 +17,12 @@ toc_sticky: true
 **Advanced engineering deep-dive.** This page is for platform, build, and infrastructure engineers who already run a monorepo and need it to stay fast as it grows past the point where naïve "build everything" stops working. **Helpful background:** dependency graphs and topological ordering, distributed systems, content-addressed caching, and Git internals. For monorepo fundamentals, the polyrepo trade-off, and tool selection, start with [Monorepo Strategies and Management](../monorepo/). For pipeline basics see [CI/CD Pipelines](../../technology/ci-cd/); for the VCS mechanics see the [Git Reference](../../technology/git-reference.html).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">A monorepo's central problem is not <em>storage</em> — modern VCS can hold an enormous tree — it is <strong>work amplification</strong>. With <em>N</em> projects in one repository, the temptation is to rebuild and retest all <em>N</em> on every change, turning an O(1) edit into O(N) CI. Everything on this page is, at bottom, a technique to break that coupling: model the code as a graph, compute the small set a change actually affects, cache results so identical inputs are never recomputed, distribute the remaining work across many machines, and keep the working tree on disk small enough to clone and index. Get these right and a 100-engineer monorepo feels as fast as a single small repo; get them wrong and CI becomes the bottleneck that dooms the whole strategy.</p>
-</div>
+A monorepo's central problem is not *storage* — modern VCS can hold an enormous tree — it is **work amplification**. With *N* projects in one repository, the temptation is to rebuild and retest all *N* on every change, turning an O(1) edit into O(N) CI. Everything on this page is, at bottom, a technique to break that coupling: model the code as a graph, compute the small set a change actually affects, cache results so identical inputs are never recomputed, distribute the remaining work across many machines, and keep the working tree on disk small enough to clone and index. Get these right and a 100-engineer monorepo feels as fast as a single small repo; get them wrong and CI becomes the bottleneck that dooms the whole strategy.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>The graph is the substrate</h4><p>Every scaling technique — affected analysis, caching, remote execution, parallelism — is an operation on the project dependency DAG. Without an accurate graph, none of them are sound.</p></div>
-  <div class="insight-card"><i class="fas fa-bullseye"></i><h4>Affected, not everything</h4><p>A change touches a set of files; those map to nodes; the transitive reverse-dependency closure of those nodes is the only work that must run. Everything else is provably unaffected.</p></div>
-  <div class="insight-card"><i class="fas fa-server"></i><h4>Push work off the laptop</h4><p>Remote execution turns a build into a distributed map over a worker pool; remote caching means an input built anywhere is built once, ever, across the whole org.</p></div>
-  <div class="insight-card"><i class="fas fa-hard-drive"></i><h4>Don't materialize what you don't need</h4><p>Sparse checkout and virtual filesystems let a developer see and edit a billion-file repo while only a few thousand files ever hit local disk.</p></div>
-</div>
+- **The graph is the substrate.** Every scaling technique — affected analysis, caching, remote execution, parallelism — is an operation on the project dependency DAG. Without an accurate graph, none of them are sound.
+- **Affected, not everything.** A change touches a set of files; those map to nodes; the transitive reverse-dependency closure of those nodes is the only work that must run. Everything else is provably unaffected.
+- **Push work off the laptop.** Remote execution turns a build into a distributed map over a worker pool; remote caching means an input built anywhere is built once, ever, across the whole org.
+- **Don't materialize what you don't need.** Sparse checkout and virtual filesystems let a developer see and edit a billion-file repo while only a few thousand files ever hit local disk.
 
 ## The Build Graph as the Unit of Scale
 
@@ -443,12 +436,10 @@ git config core.untrackedcache true
 git config core.preloadindex true  # parallelize index lstat on platforms without fsmonitor
 ```
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-clone"></i><h4>Clone less</h4><p>Partial clone (<code>--filter=blob:none</code>) keeps full history but fetches file contents lazily, shrinking clone from hours to seconds on a huge repo.</p></div>
-  <div class="insight-card"><i class="fas fa-folder-tree"></i><h4>Materialize less</h4><p>Cone-mode sparse checkout writes only the subtrees a developer declares, so the on-disk working tree is bounded by their area of ownership.</p></div>
-  <div class="insight-card"><i class="fas fa-eye"></i><h4>Scan less</h4><p>A filesystem monitor makes <code>git status</code> O(changed files) instead of O(tree), keeping everyday commands instant.</p></div>
-  <div class="insight-card"><i class="fas fa-magic"></i><h4>Virtualize the rest</h4><p>Scalar / VFS / EdenFS present the whole repo while hydrating blobs on first access — the only way Windows- and Meta-scale repos stay usable.</p></div>
-</div>
+- **Clone less.** Partial clone (`--filter=blob:none`) keeps full history but fetches file contents lazily, shrinking clone from hours to seconds on a huge repo.
+- **Materialize less.** Cone-mode sparse checkout writes only the subtrees a developer declares, so the on-disk working tree is bounded by their area of ownership.
+- **Scan less.** A filesystem monitor makes `git status` O(changed files) instead of O(tree), keeping everyday commands instant.
+- **Virtualize the rest.** Scalar / VFS / EdenFS present the whole repo while hydrating blobs on first access — the only way Windows- and Meta-scale repos stay usable.
 
 ## Putting It Together: A Scaling Checklist
 
@@ -465,14 +456,12 @@ git config core.preloadindex true  # parallelize index lstat on platforms withou
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The graph is the unit of scale</h4><p>Affected analysis, caching, and distribution are all operations on the project DAG; an inaccurate graph makes every one of them unsound.</p></div>
-  <div class="takeaway-card"><h4>Affected = reverse-reachability</h4><p>The set to rebuild is the transitive downstream closure of changed nodes — a linear-time BFS over reversed edges, independent of unaffected repo size.</p></div>
-  <div class="takeaway-card"><h4>Cache keys are content hashes</h4><p>Hashing inputs (including dependencies' keys) makes caching and affected analysis two views of the same computation; remote caches share the result org-wide.</p></div>
-  <div class="takeaway-card"><h4>Critical path bounds parallelism</h4><p>Remote execution shrinks total work but cannot beat the longest dependency chain; shortening that chain is the only way past the floor.</p></div>
-  <div class="takeaway-card"><h4>Boundaries keep the DAG shallow</h4><p>Visibility rules, single-version policy, and phantom-dependency detection prevent the graph from collapsing into a rebuild-everything mud ball.</p></div>
-  <div class="takeaway-card"><h4>Decouple repo size from disk</h4><p>Partial clone, cone sparse checkout, fsmonitor, and virtual filesystems let a billion-file repo feel local while only a few thousand files hit disk.</p></div>
-</div>
+- **The graph is the unit of scale.** Affected analysis, caching, and distribution are all operations on the project DAG; an inaccurate graph makes every one of them unsound.
+- **Affected = reverse-reachability.** The set to rebuild is the transitive downstream closure of changed nodes — a linear-time BFS over reversed edges, independent of unaffected repo size.
+- **Cache keys are content hashes.** Hashing inputs (including dependencies' keys) makes caching and affected analysis two views of the same computation; remote caches share the result org-wide.
+- **Critical path bounds parallelism.** Remote execution shrinks total work but cannot beat the longest dependency chain; shortening that chain is the only way past the floor.
+- **Boundaries keep the DAG shallow.** Visibility rules, single-version policy, and phantom-dependency detection prevent the graph from collapsing into a rebuild-everything mud ball.
+- **Decouple repo size from disk.** Partial clone, cone sparse checkout, fsmonitor, and virtual filesystems let a billion-file repo feel local while only a few thousand files hit disk.
 
 ## See Also
 

@@ -10,41 +10,14 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Thermodynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The science of heat, energy, and work, governing everything from steam engines to the fate of the universe.</p>
-</div>
-
 [Physics](./) &raquo; Thermodynamics
 
-<!-- Custom styles are now loaded via main.scss -->
+Thermodynamics is the physics of energy in transit. It does not care what a system is made of — atoms, photons, or black holes obey the same four laws. Born from the practical question "how much work can I get from heat?", it grew into one of the most universal frameworks in science, constraining everything from chemical reactions to the arrow of time itself. Four results summarize it:
 
-<div class="intro-card">
-  <p class="lead-text">Thermodynamics is the physics of energy in transit. It does not care what a system is made of — atoms, photons, or black holes obey the same four laws. Born from the practical question "how much work can I get from heat?", it grew into one of the most universal frameworks in science, constraining everything from chemical reactions to the arrow of time itself.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-balance-scale"></i>
-    <h4>Energy is conserved</h4>
-    <p>The First Law: you can't get something for nothing — energy only changes form.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-arrow-trend-up"></i>
-    <h4>Entropy increases</h4>
-    <p>The Second Law: isolated systems run downhill toward disorder, defining time's direction.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-snowflake"></i>
-    <h4>Absolute zero is unreachable</h4>
-    <p>The Third Law: entropy approaches a constant as $T \to 0$, and you can never quite get there.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-cogs"></i>
-    <h4>Efficiency has a ceiling</h4>
-    <p>No engine beats Carnot: $\eta_{\max} = 1 - T_C/T_H$, set purely by the two temperatures.</p>
-  </div>
-</div>
+- **Energy is conserved** (First Law) — energy only changes form; you can't get something for nothing.
+- **Entropy increases** (Second Law) — isolated systems run downhill toward disorder, defining time's direction.
+- **Absolute zero is unreachable** (Third Law) — entropy approaches a constant as $T \to 0$, and you can never quite get there.
+- **Efficiency has a ceiling** — no engine beats Carnot: $\eta_{\max} = 1 - T_C/T_H$, set purely by the two temperatures.
 
 ## Why Thermodynamics?
 
@@ -56,10 +29,7 @@ $$\eta_{\max} = 1 - \frac{T_C}{T_H},$$
 
 and on nothing else — not the working fluid, not the mechanism, not the engineer's ingenuity. This was the first hint that heat obeys a law of its own, one that *forbids* certain processes that energy conservation alone would happily allow. You can build a machine that turns work entirely into heat (friction does it for free), but you can never build one that turns heat entirely into work. That asymmetry is invisible at the level of Newton's reversible equations and only emerges from statistics — there are simply overwhelmingly more disordered microstates than ordered ones.
 
-<div class="principle-card">
-  <h4>Why microscopic mechanics alone is not enough</h4>
-  <p>Newton's laws are perfectly time-reversible: run a film of two colliding billiard balls backward and it still looks physical. Yet a dropped glass never spontaneously reassembles, and heat never flows on its own from cold to hot. Nothing in the microscopic equations singles out a direction for time — that arrow is a <em>thermodynamic</em> statement about entropy, a property of the ensemble of microstates, not of any single trajectory. Thermodynamics adds exactly the ingredient mechanics lacks: a direction for spontaneous change and a hard ceiling on what energy conversions are possible. This is why it is sometimes called the most portable theory in physics — its laws hold whether the working substance is steam, a magnet, light, or a black hole.</p>
-</div>
+**Why microscopic mechanics alone is not enough.** Newton's laws are perfectly time-reversible: run a film of two colliding billiard balls backward and it still looks physical. Yet a dropped glass never spontaneously reassembles, and heat never flows on its own from cold to hot. Nothing in the microscopic equations singles out a direction for time — that arrow is a *thermodynamic* statement about entropy, a property of the ensemble of microstates, not of any single trajectory. Thermodynamics adds exactly the ingredient mechanics lacks: a direction for spontaneous change and a hard ceiling on energy conversions. Its laws hold whether the working substance is steam, a magnet, light, or a black hole, which is why it is called the most portable theory in physics.
 
 The rest of this page builds that framework from the ground up: the four laws that fix the rules, the state functions that summarize a system's condition, the idealized processes that connect states, the engine cycles that turn the Carnot bound into hardware, and the free energies that predict which way a process will run. For the graduate-level machinery built on top of these foundations — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics — see [Thermodynamics: Advanced Topics](thermodynamics-advanced.html).
 
@@ -100,10 +70,7 @@ $$dS \geq 0$$
 
 For a reversible process: $dS = \frac{\delta Q_{rev}}{T}$
 
-<div class="principle-card">
-  <h4>Intuition: entropy and the arrow of time</h4>
-  <p>The microscopic laws of physics are time-reversible — a film of two billiard balls colliding looks fine played backward. Yet a shattered glass never reassembles. The Second Law explains why: there are vastly more disordered microstates than ordered ones, so an isolated system overwhelmingly evolves toward higher entropy simply by probability. Entropy thus gives time a direction, distinguishing past from future even though the underlying equations do not.</p>
-</div>
+The deeper reason behind the Second Law is statistical: there are vastly more disordered microstates than ordered ones, so an isolated system overwhelmingly evolves toward higher entropy simply by probability. Entropy thereby gives time a direction even though the underlying equations are reversible.
 
 #### Third Law
 As temperature approaches absolute zero, the entropy approaches a constant $S_0$ (zero for a perfect crystal, per the Nernst statement):
@@ -121,10 +88,7 @@ The four laws were discovered out of order — the First and Second came first i
 | Second | Entropy of an isolated system never decreases | *Forbids* perpetual motion of the second kind (100% heat-to-work) | $dS \geq 0$ |
 | Third | Entropy approaches a constant as $T \to 0$ | *Forbids* reaching absolute zero in finite steps | $\lim_{T \to 0} S = S_0$ |
 
-<div class="tip-card">
-  <h4>Why four laws are enough</h4>
-  <p>The Zeroth gives you a thermometer, the First a ledger for energy, the Second a direction for time and a ceiling on efficiency, and the Third a fixed reference point for entropy. Everything else on this page — enthalpy, free energies, Maxwell relations, engine cycles — is bookkeeping built on top of these four statements. They hold whether the working substance is steam, a magnet, light, or a black hole, which is why thermodynamics is often called the most portable theory in physics.</p>
-</div>
+**Why four laws are enough.** The Zeroth gives you a thermometer, the First a ledger for energy, the Second a direction for time and a ceiling on efficiency, and the Third a fixed reference point for entropy. Everything else on this page — enthalpy, free energies, Maxwell relations, engine cycles — is bookkeeping built on top of these four statements.
 
 ## Thermodynamic Processes
 
@@ -246,10 +210,7 @@ The four potentials $U, H, F, G$ are not different physics — they are the *sam
 | Helmholtz $F$ | $U - TS$ | $T, V$ | constant $T, V$ | Statistical mechanics, sealed rigid container |
 | Gibbs $G$ | $U - TS + PV$ | $T, P$ | constant $T, P$ | Chemistry, phase equilibria (lab conditions) |
 
-<div class="tip-card">
-  <h4>Why free energy, not energy?</h4>
-  <p>A hot cup of coffee cooling in a room does not minimize its energy — it dumps energy to the room. What the combined system minimizes is the <em>free</em> energy, which balances the system's drive toward lower energy against the universe's drive toward higher entropy ($F = U - TS$ trades off the two). Because most lab and biological processes happen at fixed temperature and pressure, the Gibbs free energy $G$ is the single most useful quantity in chemistry: $\Delta G < 0$ is the universal criterion for "this will happen on its own."</p>
-</div>
+**Why free energy, not energy?** A hot cup of coffee cooling in a room does not minimize its energy — it dumps energy to the room. What the combined system minimizes is the *free* energy, which balances the system's drive toward lower energy against the universe's drive toward higher entropy ($F = U - TS$ trades off the two). Because most lab and biological processes happen at fixed temperature and pressure, the Gibbs free energy $G$ is the single most useful quantity in chemistry: $\Delta G < 0$ is the universal criterion for "this will happen on its own."
 
 ## Maxwell Relations
 
@@ -274,12 +235,11 @@ Efficiency: $\eta = 1 - \frac{T_C}{T_H}$
 
 Where $T_H$ is the hot reservoir temperature and $T_C$ is the cold reservoir temperature.
 
-<div class="example-card">
-  <h4>Worked Example: Why power plants "waste" heat</h4>
-  <p>A steam turbine takes in superheated steam at $T_H = 810\ \text{K}$ and rejects heat to a river at $T_C = 300\ \text{K}$. The <em>maximum</em> efficiency any engine could achieve between these reservoirs is:</p>
-  $$\eta_{\max} = 1 - \frac{T_C}{T_H} = 1 - \frac{300}{810} \approx 0.63 = 63\%$$
-  <p>Real plants reach ~40% because of friction, finite-rate heat transfer, and other irreversibilities. The remaining ~60% of the input energy is <strong>not lost to bad engineering</strong> — the Second Law forbids converting it all to work. To improve efficiency you must raise $T_H$ (hotter steam, better materials) or lower $T_C$ (colder cooling water). This single inequality explains why every thermal power station on Earth dumps heat into a river, cooling tower, or the sky.</p>
-</div>
+**Worked example — why power plants "waste" heat.** A steam turbine takes in superheated steam at $T_H = 810\ \text{K}$ and rejects heat to a river at $T_C = 300\ \text{K}$. The *maximum* efficiency any engine could achieve between these reservoirs is
+
+$$\eta_{\max} = 1 - \frac{T_C}{T_H} = 1 - \frac{300}{810} \approx 0.63 = 63\%.$$
+
+Real plants reach ~40% because of friction, finite-rate heat transfer, and other irreversibilities. The remaining ~60% of the input energy is **not lost to bad engineering** — the Second Law forbids converting it all to work. To improve efficiency you must raise $T_H$ (hotter steam, better materials) or lower $T_C$ (colder cooling water). This single inequality explains why every thermal power station on Earth dumps heat into a river, cooling tower, or the sky.
 
 ### Carnot Refrigerator
 Coefficient of Performance (COP):
@@ -458,10 +418,7 @@ Console output shows:
 
 ## Where to Go Next
 
-<div class="tip-card">
-  <h4>Beyond the fundamentals</h4>
-  <p>Everything above is the working core of classical thermodynamics — the four laws, the state functions, the idealized processes, the engine cycles, and the free energies. The graduate-level machinery built on these foundations lives on its own page: the formal Legendre-transform structure relating the potentials, the Euler and Gibbs–Duhem relations, the full set of Maxwell relations and the thermodynamic square, critical phenomena and the renormalization group, and the modern non-equilibrium, stochastic, quantum, and information-theoretic extensions. See <a href="thermodynamics-advanced.html">Thermodynamics: Advanced Topics</a>. For the microscopic story that <em>derives</em> these laws from counting microstates, see <a href="statistical-mechanics/">Statistical Mechanics</a>.</p>
-</div>
+Everything above is the working core of classical thermodynamics — the four laws, the state functions, the idealized processes, the engine cycles, and the free energies. The graduate-level machinery built on these foundations lives on its own page: the formal Legendre-transform structure relating the potentials, the Euler and Gibbs-Duhem relations, the full set of Maxwell relations and the thermodynamic square, critical phenomena and the renormalization group, and the modern non-equilibrium, stochastic, quantum, and information-theoretic extensions — see [Thermodynamics: Advanced Topics](thermodynamics-advanced.html). For the microscopic story that *derives* these laws from counting microstates, see [Statistical Mechanics](statistical-mechanics/).
 
 ---
 
@@ -476,43 +433,18 @@ Console output shows:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Four laws, no exceptions</h4>
-    <p>Zeroth defines temperature, First conserves energy, Second drives entropy upward, Third sets the zero of entropy at $T=0$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>State functions vs. path functions</h4>
-    <p>$U, H, S, G, F$ depend only on the state; heat $Q$ and work $W$ depend on the path taken between states.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Free energy predicts spontaneity</h4>
-    <p>At constant $T,P$ a process runs forward when $\Delta G < 0$; the system seeks minimum free energy, not minimum energy.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Carnot bounds every engine</h4>
-    <p>$\eta_{\max} = 1 - T_C/T_H$ caps all heat engines; refrigerators are bounded by the analogous COP.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Maxwell relations link the unmeasurable</h4>
-    <p>Equality of mixed partials turns hard-to-measure quantities like $(\partial S/\partial V)_T$ into easy ones like $(\partial P/\partial T)_V$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>It bridges to the microscopic</h4>
-    <p>Statistical mechanics derives every thermodynamic law from counting microstates: $S = k_B \ln \Omega$.</p>
-  </div>
-</div>
+- **Four laws, no exceptions.** Zeroth defines temperature, First conserves energy, Second drives entropy upward, Third sets the zero of entropy at $T=0$.
+- **State functions vs. path functions.** $U, H, S, G, F$ depend only on the state; heat $Q$ and work $W$ depend on the path taken between states.
+- **Free energy predicts spontaneity.** At constant $T,P$ a process runs forward when $\Delta G < 0$; the system seeks minimum free energy, not minimum energy.
+- **Carnot bounds every engine.** $\eta_{\max} = 1 - T_C/T_H$ caps all heat engines; refrigerators are bounded by the analogous COP.
+- **Maxwell relations link the unmeasurable.** Equality of mixed partials turns hard-to-measure quantities like $(\partial S/\partial V)_T$ into easy ones like $(\partial P/\partial T)_V$.
+- **It bridges to the microscopic.** Statistical mechanics derives every thermodynamic law from counting microstates: $S = k_B \ln \Omega$.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="thermodynamics-advanced.html">Thermodynamics: Advanced Topics</a> — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics.</li>
-    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the microscopic foundation that <em>derives</em> thermodynamics from counting microstates.</li>
-    <li><a href="classical-mechanics/">Classical Mechanics</a> — work, energy, and the mechanical origin of the First Law.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — quantized energy levels underlying quantum statistical mechanics.</li>
-    <li><a href="relativity/">Relativity</a> — black-hole thermodynamics and the Bekenstein–Hawking entropy.</li>
-    <li><a href="computational-physics/">Computational Physics</a> — Monte Carlo and molecular dynamics for thermal systems.</li>
-  </ul>
-</div>
+- [Thermodynamics: Advanced Topics](thermodynamics-advanced.html) — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics.
+- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation that *derives* thermodynamics from counting microstates.
+- [Classical Mechanics](classical-mechanics/) — work, energy, and the mechanical origin of the First Law.
+- [Quantum Mechanics](quantum-mechanics/) — quantized energy levels underlying quantum statistical mechanics.
+- [Relativity](relativity/) — black-hole thermodynamics and the Bekenstein-Hawking entropy.
+- [Computational Physics](computational-physics/) — Monte Carlo and molecular dynamics for thermal systems.

@@ -6,27 +6,16 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Container Orchestration at Scale</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Kubernetes</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Container orchestration at scale</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally developed by Google and now maintained by the Cloud Native Computing Foundation (CNCF), Kubernetes has become the de facto standard for container orchestration in production environments.</p>
-</div>
+Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally built at Google and now maintained by the Cloud Native Computing Foundation (CNCF), it is the de facto standard for running containers in production.
 
 ## Why Kubernetes?
 
-Running containers on a single machine is straightforward. But what happens when you need to run hundreds of containers across dozens of servers, ensure they stay healthy, handle traffic spikes, and deploy updates without downtime? This is where Kubernetes becomes essential.
-
-**Consider the following scenario**: Your web application runs in containers and traffic has grown beyond what a single server can handle. You need to:
-- Run multiple copies of your application across different servers
-- Automatically restart crashed containers
-- Route user requests to healthy instances
-- Deploy new versions without interrupting service
-- Scale up during peak hours and down during quiet periods
-
-Without Kubernetes, you would need custom scripts, manual intervention, and constant monitoring. Kubernetes handles all of this automatically through a declarative approach: you describe what you want, and Kubernetes makes it happen.
+Running containers on a single machine is straightforward. The hard part is running hundreds of them across dozens of servers while keeping them healthy, absorbing traffic spikes, and deploying updates without downtime. When a web application outgrows a single server, you need to run multiple copies across servers, restart crashed containers automatically, route requests to healthy instances, roll out new versions without interrupting service, and scale up at peak and down at quiet times. Without Kubernetes that means custom scripts, manual intervention, and constant monitoring. Kubernetes handles it through a declarative model: you describe the desired state and it continuously reconciles reality toward it.
 
 ## Learning Path
 
@@ -80,23 +69,6 @@ Going beyond stateless apps: storage, controllers, and day-two operations.
 </div>
 
 ---
-
-## Key Capabilities
-
-<div class="key-insights">
-  <div class="insight-card">
-    <h4>Container Orchestration</h4>
-    <p>Automated deployment and management</p>
-  </div>
-  <div class="insight-card">
-    <h4>Auto-scaling</h4>
-    <p>Dynamic resource allocation</p>
-  </div>
-  <div class="insight-card">
-    <h4>Self-healing</h4>
-    <p>Automatic recovery and rollbacks</p>
-  </div>
-</div>
 
 ## When to Use Kubernetes
 

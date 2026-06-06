@@ -9,38 +9,15 @@ toc_icon: "robot"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">MLOps &amp; Production</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Taking models from a notebook to a reliable, observable, continuously-improving production service.</p>
-</div>
-
 [AI/ML Documentation](./) &raquo; MLOps &amp; Production
 
-<div class="code-example" markdown="1">
 Training a model is the easy 10%. The other 90% is shipping it: reproducible data and training pipelines, tracked experiments, versioned models in a registry, automated deployment, traffic-shifting rollouts, drift monitoring, and the triggers that retrain or roll back when reality moves.
-</div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">MLOps is DevOps for machine learning — but with an extra moving part. A traditional service depends only on code; an ML service depends on <strong>code + data + model artifacts</strong>, and all three drift over time. The discipline below is about making that three-way dependency reproducible, automated, and observable so that a model in production keeps doing what it was trained to do.</p>
-</div>
+MLOps is DevOps for machine learning — but with an extra moving part. A traditional service depends only on code; an ML service depends on **code + data + model artifacts**, and all three drift over time. The discipline below is about making that three-way dependency reproducible, automated, and observable so that a model in production keeps doing what it was trained to do.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Reproducible Pipelines</h4>
-    <p>Version data and code together so any model can be rebuilt bit-for-bit from a commit hash.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-box-archive"></i>
-    <h4>Track &amp; Register</h4>
-    <p>Log every experiment, then promote the winning artifact through a model registry with stages and approvals.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>Deploy &amp; Watch</h4>
-    <p>Canary and A/B rollouts, drift monitoring, automated retraining triggers, and one-click rollback.</p>
-  </div>
-</div>
+- **Reproducible Pipelines.** Version data and code together so any model can be rebuilt bit-for-bit from a commit hash.
+- **Track &amp; Register.** Log every experiment, then promote the winning artifact through a model registry with stages and approvals.
+- **Deploy &amp; Watch.** Canary and A/B rollouts, drift monitoring, automated retraining triggers, and one-click rollback.
 
 > **Read this as a loop, not a line.** Data feeds training, training produces a registered model, the model is deployed and served, serving emits telemetry, telemetry detects drift, drift triggers retraining — and the loop closes. Each section below is one arc of that circle.
 
@@ -510,23 +487,17 @@ There is no single "MLOps platform" you must adopt; the value is in *connecting*
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **ML depends on code + data + model — version all three.** DVC pins data to a commit; experiment tracking tags runs with code SHA and data hash so any model is rebuildable.
 - **The lifecycle is a closed loop, not a pipeline.** Monitoring feeds two edges back: retraining (model is stale) and rollback (model is broken).
 - **The registry is the system of record.** Versioned artifacts move through staging gates with lineage; promotion is gated by quality checks and canaries.
 - **CI/CD for ML adds Continuous Training and quality gates** — a build fails unless the new model beats the current one on held-out data.
 - **A canary asks "is it healthy?"; an A/B test asks "is it better?"** Use progressive delivery to shrink blast radius and statistics to prove impact.
 - **Models fail silently — monitor for drift.** Data drift (PSI/KS on inputs) is detectable immediately; concept drift needs labels or estimation. Drift triggers retraining; rollback reverts a bad deploy in one reversible step.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [LoRA Training](lora-training.html) - Training custom models that feed the pipelines above
 - [ComfyUI Guide](comfyui-guide.html) - Node-based generation workflows and API automation
 - [Base Models Comparison](base-models-comparison.html) - Choosing the foundation a production model builds on
 - [Game AI Systems](game-ai.html) - Real-time inference under hard latency budgets
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

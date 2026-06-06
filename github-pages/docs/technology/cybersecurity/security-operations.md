@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Security Operations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The SOC, SIEM pipelines, detection engineering, threat hunting, and offensive testing</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Security Operations</p>
 
-<div class="intro-card">
-  <p class="lead-text">Security operations is the day-to-day work of keeping an organization defended: collecting and correlating telemetry in a SIEM, engineering detections that fire on real attacks (and not on noise), continuously monitoring for compromise, proactively hunting for adversaries that slipped past automated alerts, and validating all of it with offensive testing — penetration tests and red/blue/purple team exercises. This page covers how a Security Operations Center (SOC) is built and run end to end.</p>
-</div>
+# Security Operations
+
+Security operations is the day-to-day work of keeping an organization defended: collecting and correlating telemetry in a SIEM, engineering detections that fire on real attacks (and not on noise), continuously monitoring for compromise, proactively hunting for adversaries that slipped past automated alerts, and validating all of it with offensive testing — penetration tests and red/blue/purple team exercises. This page covers how a Security Operations Center (SOC) is built and run end to end.
 
 ## The Security Operations Center (SOC)
 

@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Algorithmic Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Complexity analysis in practice, choosing the right data structure, spatial partitioning, caching, memoization, and amortization</p>
-</div>
+# Algorithmic Optimization
 
 [Performance Optimization](./) &raquo; Algorithmic Optimization
 
-<div class="code-example" markdown="1">
 The single most valuable optimization is rarely a faster line of code — it is a *better algorithm*. A change from $O(n^2)$ to $O(n \log n)$ shrinks a one-second operation on a million elements to a few milliseconds, a speedup no amount of constant-factor tuning can match. This page covers how complexity analysis plays out in real systems: reading the asymptotics that actually matter, choosing data structures by their operation profile, partitioning space to avoid all-pairs work, and trading memory for time through caching, memoization, and amortization. For the constant-factor and hardware-level work that comes *after* the algorithm is right, see [CPU Optimization](./cpu-optimization.html) and [Memory Optimization](./memory-optimization.html).
-</div>
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -297,14 +292,12 @@ In practice you rarely write these proofs, but recognizing *which* bound a struc
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Complexity class first</h4><p>An O(n²)→O(n log n) change dwarfs any constant-factor tuning at scale. Fix the asymptotics before touching the hot path.</p></div>
-  <div class="takeaway-card"><h4>But measure the constants</h4><p>Small n, cache locality, and amortized-vs-worst-case can make the "slower" Big O win on real hardware.</p></div>
-  <div class="takeaway-card"><h4>The structure is the algorithm</h4><p>Match the data structure to your operation profile; a contiguous array's locality often beats a node-based structure of equal Big O.</p></div>
-  <div class="takeaway-card"><h4>Partition space for locality</h4><p>Grids, octrees, and BVHs turn O(n²) all-pairs queries into O(n log n) by only testing nearby candidates.</p></div>
-  <div class="takeaway-card"><h4>Trade memory for time</h4><p>Memoization and caching collapse repeated work — but bound the cache and get invalidation right, or you leak memory and serve stale answers.</p></div>
-  <div class="takeaway-card"><h4>Know which bound you need</h4><p>Amortized O(1) is great for throughput and lethal for latency; pre-size or use fixed-capacity structures on real-time paths.</p></div>
-</div>
+- **Complexity class first.** An O(n²)→O(n log n) change dwarfs any constant-factor tuning at scale. Fix the asymptotics before touching the hot path.
+- **But measure the constants.** Small n, cache locality, and amortized-vs-worst-case can make the "slower" Big O win on real hardware.
+- **The structure is the algorithm.** Match the data structure to your operation profile; a contiguous array's locality often beats a node-based structure of equal Big O.
+- **Partition space for locality.** Grids, octrees, and BVHs turn O(n²) all-pairs queries into O(n log n) by only testing nearby candidates.
+- **Trade memory for time.** Memoization and caching collapse repeated work — but bound the cache and get invalidation right, or you leak memory and serve stale answers.
+- **Know which bound you need.** Amortized O(1) is great for throughput and lethal for latency; pre-size or use fixed-capacity structures on real-time paths.
 
 ## See Also
 
@@ -315,5 +308,3 @@ In practice you rarely write these proofs, but recognizing *which* bound a struc
 - **[Database Design](../technology/database-design/)** — B-tree indexes, query-plan caching, and page-oriented structures in action
 - **[3D Graphics & Rendering](../graphics/3d-rendering.html)** — BVHs and spatial structures driving culling and ray tracing
 - **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** — complexity and coordination costs at scale
-</content>
-</invoke>

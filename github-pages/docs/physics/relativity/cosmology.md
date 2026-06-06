@@ -4,26 +4,15 @@ title: "Relativity: Relativistic Cosmology"
 permalink: /docs/physics/relativity/cosmology.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./) &raquo; Relativistic Cosmology
 
-<!-- Custom styles are now loaded via main.scss -->
+## Relativistic Cosmology
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Relativistic Cosmology</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The FLRW Universe, the Friedmann Equations, and Cosmic History</p>
-</div>
+Cosmology applies the [Einstein field equations](general-relativity.html) to the universe as a whole. On scales larger than a few hundred megaparsecs the matter distribution is observed to be **homogeneous** (the same everywhere) and **isotropic** (the same in every direction). That single empirical input — the *cosmological principle* — collapses the ten coupled field equations into two ordinary differential equations for a single function of time, the scale factor $a(t)$. This page derives the FLRW metric, the Friedmann equations, and the cosmological constant; works out the expansion history of the standard $\Lambda$CDM model; defines the cosmological horizons; and closes with a brief account of inflation. It assumes [Tensor Formalism & the Field Equations](tensor-formalism.html) and the physics of [General Relativity](general-relativity.html).
 
-<div class="section-intro">
-  <p>Cosmology applies the <a href="general-relativity.html">Einstein field equations</a> to the universe as a whole. On scales larger than a few hundred megaparsecs the matter distribution is observed to be <strong>homogeneous</strong> (the same everywhere) and <strong>isotropic</strong> (the same in every direction). That single empirical input — the <em>cosmological principle</em> — collapses the ten coupled field equations into two ordinary differential equations for a single function of time, the scale factor $a(t)$. This page derives the FLRW metric, the Friedmann equations, and the cosmological constant; works out the expansion history of the standard $\Lambda$CDM model; defines the various cosmological horizons; and closes with a brief account of inflation. It assumes the geometry developed on <a href="tensor-formalism.html">Tensor Formalism &amp; the Field Equations</a> and the physics of <a href="general-relativity.html">General Relativity</a>.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Conventions used below</h4>
-  <p>We work in <strong>geometric units</strong> with $G = c = 1$ except where a constant is restored for physical clarity. The metric signature is <strong>(−,+,+,+)</strong>. The scale factor is normalized so that today $a(t_0) = a_0 = 1$, and a subscript $0$ denotes a present-day value. The <strong>Hubble parameter</strong> is $H \equiv \dot{a}/a$ with present value $H_0 \approx 67$–$73~\text{km s}^{-1}\text{Mpc}^{-1}$; the dimensionless <strong>density parameters</strong> are $\Omega_i \equiv \rho_i/\rho_{\rm crit}$ with $\rho_{\rm crit} = 3H^2/8\pi G$. An overdot denotes $d/dt$ in cosmic (comoving-observer proper) time.</p>
-</div>
+**Conventions.** We work in **geometric units** with $G = c = 1$ except where a constant is restored for clarity. The metric signature is **(−,+,+,+)**. The scale factor is normalized so that today $a(t_0) = a_0 = 1$, and a subscript $0$ denotes a present-day value. The **Hubble parameter** is $H \equiv \dot{a}/a$ with present value $H_0 \approx 67$–$73~\text{km s}^{-1}\text{Mpc}^{-1}$; the dimensionless **density parameters** are $\Omega_i \equiv \rho_i/\rho_{\rm crit}$ with $\rho_{\rm crit} = 3H^2/8\pi G$. An overdot denotes $d/dt$ in cosmic time.
 
 ## The Cosmological Principle
 
@@ -144,10 +133,7 @@ $$ds^2 = -\left(1+\frac{r^2}{\alpha^2}\right)dt^2 + \left(1+\frac{r^2}{\alpha^2}
 
 with curvature radius $\alpha = \sqrt{3/|\Lambda|}$. In de Sitter space $r = \alpha$ is a **cosmological event horizon**: an observer is causally cut off from events beyond it, and the horizon carries a Gibbons–Hawking temperature $T = H/2\pi$, the cosmological analogue of [Hawking radiation](black-holes.html#hawking-temperature). Anti-de Sitter space, by contrast, has no horizon and a timelike boundary at infinity; it is the arena of the AdS/CFT correspondence in [string theory](../string-theory/).
 
-<div class="tip-card">
-  <h4>The cosmological constant problem</h4>
-  <p>Quantum field theory predicts a vacuum energy density from zero-point fluctuations that, cut off at the Planck scale, exceeds the observed $\rho_\Lambda$ by roughly <strong>120 orders of magnitude</strong> — the largest discrepancy between theory and observation in physics. Why $\Lambda$ is so small but nonzero is unsolved; proposals range from quintessence (a slowly rolling scalar field with $w$ near but not exactly $-1$) to anthropic selection in a multiverse to modifications of gravity.</p>
-</div>
+**The cosmological constant problem.** Quantum field theory predicts a vacuum energy density from zero-point fluctuations that, cut off at the Planck scale, exceeds the observed $\rho_\Lambda$ by roughly **120 orders of magnitude** — the largest discrepancy between theory and observation in physics. Why $\Lambda$ is so small but nonzero is unsolved; proposals range from quintessence (a slowly rolling scalar field with $w$ near but not exactly $-1$) to anthropic selection in a multiverse to modifications of gravity.
 
 ## Expansion History
 
@@ -229,10 +215,7 @@ $$\chi_{\rm eh}(t) = \int_{t}^{\infty} \frac{dt'}{a(t')}$$
 
 In a matter-only or radiation-only universe this integral diverges — there is no event horizon, and given enough time we could signal any comoving point. But with dark energy driving $a \propto e^{Ht}$, the integral *converges*: distant galaxies are accelerating away faster than light can cross the growing gap, and an event horizon forms at proper radius $\approx 1/H_0 \approx 16$ billion light-years. Galaxies beyond it are receding superluminally (a consequence of stretching space, not local motion) and their light will never reach us. Over the coming $\sim 100$ Gyr nearly all galaxies outside the Local Group will redshift away and disappear.
 
-<div class="tip-card">
-  <h4>Particle horizon vs. event horizon</h4>
-  <p>The <strong>particle horizon</strong> looks <em>backward</em>: it bounds the part of the universe we can already <em>see</em>. The <strong>event horizon</strong> looks <em>forward</em>: it bounds the part we can ever <em>reach or influence</em>. A static or decelerating universe has a particle horizon but no event horizon; an accelerating (de Sitter–like) universe has both.</p>
-</div>
+**Particle horizon vs. event horizon.** The **particle horizon** looks *backward*: it bounds the part of the universe we can already *see*. The **event horizon** looks *forward*: it bounds the part we can ever *reach or influence*. A static or decelerating universe has a particle horizon but no event horizon; an accelerating (de Sitter–like) universe has both.
 
 ## A Brief Overview of Inflation
 
@@ -279,22 +262,16 @@ The chain is tight: the cosmological principle fixes the metric up to one functi
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Within Relativity</h4>
-  <ul>
-    <li><a href="tensor-formalism.html">Tensor Formalism &amp; the Field Equations</a> — the curvature machinery and Einstein equations used to derive the Friedmann equations.</li>
-    <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle, the field equations in context, and the Schwarzschild solution.</li>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — exact solutions (Kerr, de Sitter), horizons and Hawking/Gibbons–Hawking temperature, and quantum-gravity frontiers.</li>
-    <li><a href="./">Relativity Hub</a> — overview and navigation.</li>
-  </ul>
-</div>
+Within relativity:
 
-<div class="see-also-card">
-  <h4>Elsewhere in Physics</h4>
-  <ul>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — the adiabatic expansion underlying the continuity equation and the thermal history of the universe.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — vacuum energy, the inflaton field, and the origin of primordial fluctuations.</li>
-    <li><a href="../string-theory/">String Theory</a> — anti-de Sitter space and the AdS/CFT correspondence.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Tensor Formalism & the Field Equations](tensor-formalism.html) — the curvature machinery and Einstein equations used to derive the Friedmann equations.
+- [General Relativity](general-relativity.html) — the equivalence principle, the field equations in context, and the Schwarzschild solution.
+- [Graduate Formalism & Frontiers](advanced.html) — exact solutions (Kerr, de Sitter), horizons and Hawking/Gibbons–Hawking temperature, and quantum-gravity frontiers.
+- [Relativity Hub](./) — overview and navigation.
+
+Elsewhere in physics:
+
+- [Thermodynamics](../thermodynamics.html) — the adiabatic expansion underlying the continuity equation and the thermal history of the universe.
+- [Quantum Field Theory](../quantum-field-theory.html) — vacuum energy, the inflaton field, and the origin of primordial fluctuations.
+- [String Theory](../string-theory/) — anti-de Sitter space and the AdS/CFT correspondence.
+- [Physics Hub](../) — browse all physics topics.

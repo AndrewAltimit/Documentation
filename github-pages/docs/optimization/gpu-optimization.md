@@ -9,23 +9,16 @@ toc_icon: "microchip"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">GPU Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Profile the pipeline, find your bound, and feed thousands of parallel threads efficiently</p>
-</div>
+# GPU Optimization
 
 [Performance Optimization](./) &raquo; GPU Optimization
 
-<div class="hub-intro">
-  <p class="lead">The GPU is a massively parallel throughput machine, not a faster CPU. Optimizing it means keeping its execution units busy, moving data efficiently across a hierarchy of memories, and minimizing the synchronization that stalls the CPU and GPU on each other. This page covers GPU profilers, occupancy, memory coalescing, draw-call batching, shader optimization, and CPU-GPU synchronization.</p>
-</div>
+The GPU is a massively parallel throughput machine, not a faster CPU. Optimizing it means keeping its execution units busy, moving data efficiently across a hierarchy of memories, and minimizing the synchronization that stalls the CPU and GPU on each other. This page covers GPU profilers, occupancy, memory coalescing, draw-call batching, shader optimization, and CPU-GPU synchronization. Four governing ideas:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-search"></i><h4>Find the bound first</h4><p>A GPU frame is fill-rate, geometry, bandwidth, or ALU limited. The profiler tells you which — and every other decision follows from that answer.</p></div>
-  <div class="insight-card"><i class="fas fa-bolt"></i><h4>Occupancy hides latency</h4><p>The GPU covers ~400-cycle memory stalls by swapping to another warp. Too few warps in flight means the cores sit idle waiting on memory.</p></div>
-  <div class="insight-card"><i class="fas fa-grip-lines"></i><h4>Coalesce your memory</h4><p>Adjacent threads should touch adjacent addresses so one wide transaction serves a whole warp. Scattered access multiplies bandwidth cost.</p></div>
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Batch and don't stall</h4><p>Each draw call costs CPU validation; each readback stalls the pipeline. Batch geometry and keep the CPU and GPU running asynchronously.</p></div>
-</div>
+- **Find the bound first.** A GPU frame is fill-rate, geometry, bandwidth, or ALU limited. The profiler tells you which — and every other decision follows from that answer.
+- **Occupancy hides latency.** The GPU covers ~400-cycle memory stalls by swapping to another warp. Too few warps in flight means the cores sit idle waiting on memory.
+- **Coalesce your memory.** Adjacent threads should touch adjacent addresses so one wide transaction serves a whole warp. Scattered access multiplies bandwidth cost.
+- **Batch and don't stall.** Each draw call costs CPU validation; each readback stalls the pipeline. Batch geometry and keep the CPU and GPU running asynchronously.
 
 ## The GPU Execution Model
 
@@ -321,14 +314,12 @@ flowchart LR
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Capture, then classify the bound</h4><p>Profile a release-build worst case with RenderDoc/Nsight/RGP and decide whether you are fill-rate, geometry, bandwidth, or ALU limited before changing anything.</p></div>
-  <div class="takeaway-card"><h4>Occupancy hides latency</h4><p>Resident warps cover memory stalls. Watch register and shared-memory pressure, but chase only *enough* occupancy to hide your access latency — not a 100% number.</p></div>
-  <div class="takeaway-card"><h4>Coalesce and use SoA</h4><p>Make adjacent threads touch adjacent, aligned addresses so one wide transaction serves the warp. SoA layouts coalesce where AoS strides.</p></div>
-  <div class="takeaway-card"><h4>Batch and sort draws</h4><p>Instancing and indirect rendering cut per-call CPU cost; sorting by render target then shader then material minimizes expensive state changes.</p></div>
-  <div class="takeaway-card"><h4>Cut shader work and divergence</h4><p>Cheaper math, branchless selects, coherent branches, lower precision, and fewer live registers all raise per-invocation throughput.</p></div>
-  <div class="takeaway-card"><h4>Never stall the pipeline</h4><p>Defer readbacks by frames, multi-buffer updates behind fences, and run the CPU 2-3 frames ahead so neither processor waits idle.</p></div>
-</div>
+- **Capture, then classify the bound.** Profile a release-build worst case with RenderDoc/Nsight/RGP and decide whether you are fill-rate, geometry, bandwidth, or ALU limited before changing anything.
+- **Occupancy hides latency.** Resident warps cover memory stalls. Watch register and shared-memory pressure, but chase only *enough* occupancy to hide your access latency — not a 100% number.
+- **Coalesce and use SoA.** Make adjacent threads touch adjacent, aligned addresses so one wide transaction serves the warp. SoA layouts coalesce where AoS strides.
+- **Batch and sort draws.** Instancing and indirect rendering cut per-call CPU cost; sorting by render target then shader then material minimizes expensive state changes.
+- **Cut shader work and divergence.** Cheaper math, branchless selects, coherent branches, lower precision, and fewer live registers all raise per-invocation throughput.
+- **Never stall the pipeline.** Defer readbacks by frames, multi-buffer updates behind fences, and run the CPU 2-3 frames ahead so neither processor waits idle.
 
 ## See Also
 - [Performance Optimization](./) - The optimization hub: process, philosophy, and all subsystems

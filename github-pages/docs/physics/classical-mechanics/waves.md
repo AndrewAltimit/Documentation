@@ -4,17 +4,11 @@ title: "Classical Mechanics: Oscillations & Waves"
 permalink: /docs/physics/classical-mechanics/waves.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Oscillations &amp; Waves</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From a single mass on a spring to coupled oscillators, normal modes, the wave equation, dispersion, and the first hints of nonlinearity.</p>
-</div>
-
 [Classical Mechanics](./) &raquo; Oscillations &amp; Waves
+
+From a single mass on a spring to coupled oscillators, normal modes, the wave equation, dispersion, and the first hints of nonlinearity.
 
 ## Why Oscillations Are Everywhere
 

@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Health & Resource Management</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Teach Kubernetes what "healthy" means and how much your workloads cost: probes, requests and limits, QoS classes, scheduling, and horizontal autoscaling.</p>
-</div>
-
 [Kubernetes](./) &raquo; [Fundamentals](fundamentals.html) &raquo; Health & Resource Management
+
+Teach Kubernetes what "healthy" means and how much your workloads cost: probes, requests and limits, QoS classes, scheduling, and horizontal autoscaling.
 
 ## Why Health and Resources Go Together
 
@@ -357,24 +354,10 @@ Naively applying the formula every 15 seconds would cause **flapping** — rapid
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Three Probes, Three Jobs</h4>
-    <p>Liveness restarts a wedged container, readiness gates traffic, startup protects slow boots. Never point liveness at an external dependency.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>CPU Throttles, Memory Kills</h4>
-    <p>CPU is compressible (excess use is throttled); memory is not (excess use is OOMKilled). Always set memory requests and limits.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Requests Drive Everything</h4>
-    <p>The scheduler reserves against requests, not usage; QoS class derives from requests vs limits; HPA utilization is a percentage of the request.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Scale Out on Live Signal</h4>
-    <p>The HPA changes replica count from a simple ratio of current to target metric, clamped to min/max and dampened to avoid thrash.</p>
-  </div>
-</div>
+- **Three probes, three jobs.** Liveness restarts a wedged container, readiness gates traffic, startup protects slow boots. Never point liveness at an external dependency.
+- **CPU throttles, memory kills.** CPU is compressible (excess use is throttled); memory is not (excess use is OOMKilled). Always set memory requests and limits.
+- **Requests drive everything.** The scheduler reserves against requests, not usage; QoS class derives from requests vs limits; HPA utilization is a percentage of the request.
+- **Scale out on a live signal.** The HPA changes replica count from a simple ratio of current to target metric, clamped to min/max and dampened to avoid thrash.
 
 ---
 

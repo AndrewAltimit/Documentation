@@ -11,32 +11,12 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Where physics meets computation, using numerical algorithms and simulations to solve problems beyond analytical reach.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Computational physics is the third pillar of modern physics, sitting alongside theory and experiment. When equations are too hard to solve by hand — nonlinear dynamics, many interacting bodies, complex geometries — we turn the physics into algorithms and let computers do the work. This hub is a practical, code-first tour of the core numerical methods, from integrating differential equations to Monte Carlo sampling, molecular dynamics, fluid solvers, and GPU acceleration. Use the cards below to jump to a topic.</p>
-</div>
+Computational physics is the third pillar of modern physics, alongside theory and experiment. When equations are too hard to solve by hand — nonlinear dynamics, many interacting bodies, complex geometries — we turn the physics into algorithms and let computers do the work. This hub is a practical, code-first tour of the core numerical methods. Four ideas recur throughout:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-square-root-variable"></i>
-    <h4>Discretize the continuum</h4>
-    <p>Derivatives become finite differences, integrals become sums — turning calculus into arithmetic a computer can run.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-dice"></i>
-    <h4>Sample what you can't solve</h4>
-    <p>Monte Carlo methods use randomness to evaluate high-dimensional integrals and explore huge state spaces.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-scale-balanced"></i>
-    <h4>Respect the physics</h4>
-    <p>Good algorithms preserve conservation laws and stability — a fast method that drifts in energy is worthless.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-microchip"></i>
-    <h4>Scale with hardware</h4>
-    <p>Parallelism (MPI, GPUs) and machine learning push simulations to sizes no single processor could reach.</p>
-  </div>
-</div>
+- **Discretize the continuum.** Derivatives become finite differences, integrals become sums — turning calculus into arithmetic a computer can run.
+- **Sample what you can't solve.** Monte Carlo methods use randomness to evaluate high-dimensional integrals and explore huge state spaces.
+- **Respect the physics.** Good algorithms preserve conservation laws and stability — a fast method that drifts in energy is worthless.
+- **Scale with hardware.** Parallelism (MPI, GPUs) and machine learning push simulations to sizes no single processor could reach.
 
 ## Explore the Topics
 
@@ -451,45 +431,20 @@ def solve_poisson_spectral(f, L=2*np.pi, N=64):
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Start simple</h4>
-    <p>Master basic numerical methods (integration, ODE solvers, root finding) before reaching for complex algorithms.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Validate constantly</h4>
-    <p>Always check results against known analytic solutions, conserved quantities, and convergence as step size shrinks.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Optimize wisely</h4>
-    <p>Profile first, then optimize the actual bottlenecks; premature optimization wastes effort and obscures bugs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Use the right tool</h4>
-    <p>Match the algorithm to the problem: stiff ODEs need implicit solvers, high dimensions favor Monte Carlo.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mind numerical error</h4>
-    <p>Round-off, truncation, and stability (e.g. the CFL condition) determine whether a simulation is trustworthy.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Visualize for insight</h4>
-    <p>Good visualization turns raw arrays into physical understanding and exposes errors a table of numbers hides.</p>
-  </div>
-</div>
+- **Start simple.** Master basic numerical methods (integration, ODE solvers, root finding) before reaching for complex algorithms.
+- **Validate constantly.** Check results against known analytic solutions, conserved quantities, and convergence as step size shrinks.
+- **Optimize wisely.** Profile first, then optimize the actual bottlenecks; premature optimization wastes effort and obscures bugs.
+- **Use the right tool.** Match the algorithm to the problem: stiff ODEs need implicit solvers, high dimensions favor Monte Carlo.
+- **Mind numerical error.** Round-off, truncation, and stability (e.g. the CFL condition) determine whether a simulation is trustworthy.
+- **Visualize for insight.** Good visualization turns raw arrays into physical understanding and exposes errors a table of numbers hides.
 
 ---
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../classical-mechanics/">Classical Mechanics</a> — symplectic integrators, $N$-body problems, and chaos.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — numerical solutions of the Schrödinger equation.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — Monte Carlo sampling and molecular dynamics.</li>
-    <li><a href="../condensed-matter/">Condensed Matter Physics</a> — density-functional theory and band-structure calculations.</li>
-    <li><a href="../relativity/">Relativity</a> — numerical relativity and gravitational-wave simulations.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Classical Mechanics](../classical-mechanics/) — symplectic integrators, $N$-body problems, and chaos.
+- [Quantum Mechanics](../quantum-mechanics/) — numerical solutions of the Schrödinger equation.
+- [Statistical Mechanics](../statistical-mechanics/) — Monte Carlo sampling and molecular dynamics.
+- [Condensed Matter Physics](../condensed-matter/) — density-functional theory and band-structure calculations.
+- [Relativity](../relativity/) — numerical relativity and gravitational-wave simulations.
+- [Physics Hub](../) — browse all physics topics.

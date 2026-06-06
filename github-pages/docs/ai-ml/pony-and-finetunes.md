@@ -9,16 +9,9 @@ toc_icon: "cog"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Pony & Community Fine-Tunes</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Pony Diffusion and the major SDXL anime/stylized fine-tunes — their scoring and tag conventions, how they differ from a base checkpoint, and when to reach for one.</p>
-</div>
-
 [AI/ML Documentation](./) &raquo; [Base Models Comparison](base-models-comparison.html) &raquo; Pony &amp; Community Fine-Tunes
 
-<div class="code-example" markdown="1">
 A deep dive into the most popular community fine-tunes of SDXL — Pony Diffusion, Illustrious, NoobAI, and Animagine — including the `score_*` scoring system, danbooru tag conventions, and a decision guide for choosing a fine-tune over a stock base model.
-</div>
 
 ## Fine-Tunes vs. Base Models
 
@@ -26,23 +19,9 @@ A **base model** (sometimes called a *foundation* checkpoint) is trained from sc
 
 Pony Diffusion and its peers are all **fine-tunes of SDXL**. That single fact carries enormous practical consequences: because the underlying architecture, VAE, and latent space are unchanged, every Pony-family model shares SDXL's LoRAs, ControlNets, IP-Adapters, and tooling. You are not adopting a new ecosystem — you are adopting a new *dialect* of prompting on top of one you already have.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-language"></i>
-    <h4>Same Engine, New Dialect</h4>
-    <p>Pony, Illustrious, and NoobAI are SDXL underneath — they share its LoRAs and ControlNets but expect very different prompts.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-star-half-alt"></i>
-    <h4>Quality as a Tag</h4>
-    <p>Pony bakes a learned quality ladder (<code>score_9</code> … <code>score_4</code>) into the prompt; you steer aesthetics by naming a rating.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-tags"></i>
-    <h4>Booru Tagging</h4>
-    <p>These models think in danbooru tags, not sentences. Tag order, underscores, and known character names matter.</p>
-  </div>
-</div>
+- **Same Engine, New Dialect.** Pony, Illustrious, and NoobAI are SDXL underneath — they share its LoRAs and ControlNets but expect very different prompts.
+- **Quality as a Tag.** Pony bakes a learned quality ladder (`score_9` … `score_4`) into the prompt; you steer aesthetics by naming a rating.
+- **Booru Tagging.** These models think in danbooru tags, not sentences. Tag order, underscores, and known character names matter.
 
 ### What Fine-Tuning Changes (and What It Doesn't)
 
@@ -265,19 +244,14 @@ flowchart TD
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Pony, Illustrious, NoobAI, and Animagine are all SDXL fine-tunes** — same architecture, same LoRA/ControlNet ecosystem, different prompting dialects.
 - **Pony's `score_*` system is a learned quality dial.** Lead with `score_9, score_8_up, score_7_up` and push `score_4/5/6` into the negative prompt.
 - **Booru tagging is the core skill** for these models: count tags first, then character, attributes, clothing, pose, setting, style — order matters.
 - **Illustrious/NoobAI/Animagine drop the `score_*` prefix** for plain danbooru tags, trading Pony's quality dial for cleaner native tag recall.
 - **Choose a fine-tune for anime/stylized work and tag-based prompting; stay on a base model for photorealism, natural-language prompts, or in-image text.**
 - **LoRAs follow the branch they were trained on** — Pony LoRAs assume Pony priors, Illustrious LoRAs assume plain-tag priors.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, SD3, FLUX, and Pony side by side
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
@@ -286,4 +260,3 @@ flowchart TD
 - [ControlNet](controlnet.html) - Precise control that works across the SDXL family
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

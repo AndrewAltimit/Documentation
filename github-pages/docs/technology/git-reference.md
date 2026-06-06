@@ -2,27 +2,11 @@
 layout: docs
 title: "Git Command Reference"
 permalink: /docs/technology/git-reference.html
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Command Reference</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Comprehensive command syntax and examples for version control</p>
-</div>
+This is the **lookup page** — a command cheat sheet organized by task (initialize, stage, branch, sync, undo, recover). Scan it or use your browser's find (Ctrl/Cmd-F) for the syntax you need. If you are *learning* Git, start with the [Git Crash Course](git-crash-course.html); for *how Git works internally*, see [Git Version Control](git/); for *team workflows*, [Branching Strategies](branching.html).
 
-<div class="intro-card">
-  <p class="lead-text">This page is the <strong>lookup reference</strong>: the commands you reach for daily, the flags that are easy to forget, and the recovery moves you need exactly once — under pressure. It is organized by task (initialize, stage, branch, sync, undo, recover) so you can jump straight to the operation in front of you rather than read top to bottom.</p>
-</div>
-
-<div class="tip-card">
-  <h4>This is the lookup page</h4>
-  <p>Treat this as a <strong>command cheat sheet</strong> — scan or use your browser's find (Ctrl/Cmd-F) for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git/">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Two habits that prevent most lost work</h4>
-  <p>Before any history-rewriting command (<code>reset --hard</code>, <code>rebase</code>, <code>commit --amend</code> on shared work), remember: (1) <code>git reflog</code> records where <code>HEAD</code> has been, so almost nothing is truly gone — you can usually <code>git reset --hard HEAD@{n}</code> back to safety; (2) when collaborating, prefer <code>git push --force-with-lease</code> over <code>--force</code>, so you never silently clobber a teammate's pushed commits.</p>
-</div>
+Two habits prevent most lost work. Before any history-rewriting command (`reset --hard`, `rebase`, `commit --amend` on shared work): (1) `git reflog` records where `HEAD` has been, so almost nothing is truly gone — you can usually `git reset --hard HEAD@{n}` back to safety; (2) when collaborating, prefer `git push --force-with-lease` over `--force`, so you never silently clobber a teammate's pushed commits.
 
 ## Repository Initialization
 
@@ -155,10 +139,7 @@ git push <remote> <branch>           # Push specific branch
 git push -u origin <branch>          # Set upstream and push
 ```
 
-<div class="tip-card">
-  <h4>fetch vs pull</h4>
-  <p><code>git fetch</code> downloads remote changes but leaves your working branch untouched — you inspect, then merge or rebase deliberately. <code>git pull</code> is just <code>fetch</code> + <code>merge</code> (or <code>fetch</code> + <code>rebase</code> with <code>--rebase</code>) in one step. When in doubt, <code>fetch</code> first and look before you integrate.</p>
-</div>
+**`fetch` vs `pull`:** `git fetch` downloads remote changes but leaves your working branch untouched — you inspect, then merge or rebase deliberately. `git pull` is just `fetch` + `merge` (or `fetch` + `rebase` with `--rebase`) in one step. When in doubt, `fetch` first and look before you integrate.
 
 ## Undoing Changes
 
@@ -286,16 +267,12 @@ git push
 
 ## Best Practices
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Write messages in the imperative mood</strong> ("Add", "Fix", "Remove") with a concise first line under ~50 characters.</li>
-    <li><strong>Keep commits atomic</strong> — one logical change each, so they can be reviewed, reverted, or cherry-picked independently.</li>
-    <li><strong>Name branches descriptively</strong> with a type prefix (<code>feature/</code>, <code>bugfix/</code>, <code>hotfix/</code>).</li>
-    <li><strong>Sync before you push</strong> — <code>git pull --rebase</code> keeps history linear and avoids surprise conflicts.</li>
-    <li><strong>Review before you commit</strong> with <code>git diff --staged</code>, and stage selectively with <code>git add -p</code>.</li>
-    <li><strong>Prefer <code>--force-with-lease</code> over <code>--force</code></strong> so you never clobber a teammate's pushed work.</li>
-  </ul>
-</div>
+- **Write messages in the imperative mood** ("Add", "Fix", "Remove") with a concise first line under ~50 characters.
+- **Keep commits atomic** — one logical change each, so they can be reviewed, reverted, or cherry-picked independently.
+- **Name branches descriptively** with a type prefix (`feature/`, `bugfix/`, `hotfix/`).
+- **Sync before you push** — `git pull --rebase` keeps history linear and avoids surprise conflicts.
+- **Review before you commit** with `git diff --staged`, and stage selectively with `git add -p`.
+- **Prefer `--force-with-lease` over `--force`** so you never clobber a teammate's pushed work.
 
 ## Advanced Features (2023-2024)
 
@@ -505,12 +482,9 @@ git secrets --scan                  # Scan for secrets
 
 ---
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="git-crash-course.html">Git Crash Course</a> — the guided first walkthrough for newcomers</li>
-    <li><a href="git/">Git Version Control</a> — architecture, internals, and distributed VCS theory</li>
-    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
-    <li><a href="ci-cd/">CI/CD</a> — automating Git workflows with continuous integration pipelines</li>
-  </ul>
-</div>
+## See Also
+
+- [Git Crash Course](git-crash-course.html) — the guided first walkthrough for newcomers
+- [Git Version Control](git/) — architecture, internals, and distributed VCS theory
+- [Branching Strategies](branching.html) — Git Flow, GitHub Flow, and trunk-based development
+- [CI/CD](ci-cd/) — automating Git workflows with continuous integration pipelines

@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Observability: Metrics &amp; Monitoring</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Counters, gauges, histograms, PromQL, dashboards, RED/USE, and burn-rate alerting — the cheapest, most constant signal in the observability stack.</p>
-</div>
-
 [Observability Hub](./) &raquo; Metrics &amp; Monitoring
+
+Counters, gauges, histograms, PromQL, dashboards, RED/USE, and burn-rate alerting — the cheapest, most constant signal in the observability stack.
 
 ## Why Metrics
 

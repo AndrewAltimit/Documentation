@@ -6,10 +6,7 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Automata Theory &amp; Formal Languages</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From finite automata to Turing machines: the machines, grammars, and limits that define what can be computed</p>
-</div>
+# Automata Theory &amp; Formal Languages
 
 [Advanced Topics](./) &raquo; Automata Theory &amp; Formal Languages
 
@@ -17,16 +14,12 @@ hide_title: true
 **Graduate-level research page.** This is a rigorous treatment of automata, grammars, and computability intended for theoretical computer scientists, mathematicians, and graduate students. **Prerequisites:** discrete mathematics, set theory, mathematical induction, and basic logic. For applied uses of regular expressions or parsing instead, see the [Technology Hub](../../technology/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Automata theory asks a deceptively simple question: <strong>what can a machine compute, and what can it never compute, no matter how clever the program?</strong> The answer is a strict hierarchy of machine models — finite automata, pushdown automata, and Turing machines — each strictly more powerful than the last, each recognizing exactly one tier of a corresponding hierarchy of formal languages. The crown jewel is negative: there are perfectly well-posed questions (does this program halt?) that <em>no</em> machine can decide. This page develops the machines, the grammars they correspond to, the tools that pin down their exact power, and the impossibility results that bound computation itself.</p>
-</div>
+Automata theory asks a deceptively simple question: **what can a machine compute, and what can it never compute, no matter how clever the program?** The answer is a strict hierarchy of machine models — finite automata, pushdown automata, and Turing machines — each strictly more powerful than the last, each recognizing exactly one tier of a corresponding hierarchy of formal languages. The crown jewel is negative: there are perfectly well-posed questions (does this program halt?) that *no* machine can decide. This page develops the machines, the grammars they correspond to, the tools that pin down their exact power, and the impossibility results that bound computation itself.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>Machines = languages</h4><p>Each model of computation recognizes exactly one class of languages. Studying machines and studying grammars are two views of the same hierarchy.</p></div>
-  <div class="insight-card"><i class="fas fa-memory"></i><h4>Memory is power</h4><p>Finite automata have no memory, pushdown automata have a stack, Turing machines have unbounded tape. Each extra memory model strictly widens what is recognizable.</p></div>
-  <div class="insight-card"><i class="fas fa-compress"></i><h4>Pumping reveals limits</h4><p>The pumping lemmas exploit the pigeonhole principle: any long enough accepted string must contain a repeatable substructure, which proves certain languages are <em>not</em> regular or context-free.</p></div>
-  <div class="insight-card"><i class="fas fa-ban"></i><h4>Undecidability is real</h4><p>The halting problem and Rice's theorem show that nontrivial questions about program behavior are algorithmically unanswerable — a hard ceiling on what software can ever verify.</p></div>
-</div>
+- **Machines = languages.** Each model of computation recognizes exactly one class of languages. Studying machines and studying grammars are two views of the same hierarchy.
+- **Memory is power.** Finite automata have no memory, pushdown automata have a stack, Turing machines have unbounded tape. Each extra memory model strictly widens what is recognizable.
+- **Pumping reveals limits.** The pumping lemmas exploit the pigeonhole principle: any long enough accepted string must contain a repeatable substructure, which proves certain languages are *not* regular or context-free.
+- **Undecidability is real.** The halting problem and Rice's theorem show that nontrivial questions about program behavior are algorithmically unanswerable — a hard ceiling on what software can ever verify.
 
 ### How to Read This Page
 
@@ -288,14 +281,12 @@ A decider for $P$ applied to $\langle N \rangle$ would therefore decide whether 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Memory defines the ladder</h4><p>No memory gives regular languages, a stack gives context-free, a bounded tape gives context-sensitive, an unbounded tape gives recursively enumerable. Each rung is strictly higher.</p></div>
-  <div class="takeaway-card"><h4>NFA = DFA, but PDA &ne; DPDA</h4><p>Nondeterminism is free for finite automata (subset construction) but genuinely adds power to pushdown automata — palindromes need a nondeterministic stack.</p></div>
-  <div class="takeaway-card"><h4>Pumping proves non-membership</h4><p>The regular and context-free pumping lemmas exploit the pigeonhole principle to show languages like a&#8319;b&#8319; and a&#8319;b&#8319;c&#8319; fall outside their tiers.</p></div>
-  <div class="takeaway-card"><h4>Kleene unifies regular languages</h4><p>DFAs, NFAs, regular expressions, and right-linear grammars all describe exactly the same class — four faces of one definition.</p></div>
-  <div class="takeaway-card"><h4>Halting is undecidable</h4><p>Turing's diagonalization shows no program can decide whether arbitrary programs halt; the halting language is r.e. but not recursive.</p></div>
-  <div class="takeaway-card"><h4>Rice generalizes the ceiling</h4><p>Every nontrivial semantic property of program behavior is undecidable — which is precisely why verification tools approximate rather than decide.</p></div>
-</div>
+- **Memory defines the ladder.** No memory gives regular languages, a stack gives context-free, a bounded tape gives context-sensitive, an unbounded tape gives recursively enumerable. Each rung is strictly higher.
+- **NFA = DFA, but PDA &ne; DPDA.** Nondeterminism is free for finite automata (subset construction) but genuinely adds power to pushdown automata — palindromes need a nondeterministic stack.
+- **Pumping proves non-membership.** The regular and context-free pumping lemmas exploit the pigeonhole principle to show languages like a&#8319;b&#8319; and a&#8319;b&#8319;c&#8319; fall outside their tiers.
+- **Kleene unifies regular languages.** DFAs, NFAs, regular expressions, and right-linear grammars all describe exactly the same class — four faces of one definition.
+- **Halting is undecidable.** Turing's diagonalization shows no program can decide whether arbitrary programs halt; the halting language is r.e. but not recursive.
+- **Rice generalizes the ceiling.** Every nontrivial semantic property of program behavior is undecidable — which is precisely why verification tools approximate rather than decide.
 
 ## References
 

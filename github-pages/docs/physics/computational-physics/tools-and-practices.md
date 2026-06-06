@@ -9,10 +9,7 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Visualization, Libraries &amp; Best Practices</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Visualization, Libraries &amp; Best Practices</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Turning raw arrays into insight, the Python physics ecosystem, and the habits that keep simulations trustworthy.</p>
-</div>
+Turning raw arrays into insight, the Python physics ecosystem, and the habits that keep simulations trustworthy.
 
 ## Visualization and Analysis
 

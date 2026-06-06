@@ -11,32 +11,11 @@ toc_icon: "cog"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">ComfyUI Comprehensive Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build visual AI workflows by connecting nodes - from simple image generation to complex multi-model pipelines with full control over every step.</p>
-</div>
-
-<div class="code-example" markdown="1">
 Build visual AI workflows by connecting nodes, from simple image generation to complex multi-model pipelines.
-</div>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Think in Graphs</h4>
-    <p>Every generation is a node graph. Data flows from loaders through samplers to outputs, and you can branch or reroute any step.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-puzzle-piece"></i>
-    <h4>Compose, Don't Configure</h4>
-    <p>Instead of hidden menus, you wire components together — swap models, add ControlNet, or chain upscalers by connecting nodes.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-share-nodes"></i>
-    <h4>Save and Share Workflows</h4>
-    <p>Workflows export as portable JSON, so you can version, reuse, and share an entire pipeline as a single file.</p>
-  </div>
-</div>
+- **Think in Graphs.** Every generation is a node graph. Data flows from loaders through samplers to outputs, and you can branch or reroute any step.
+- **Compose, Don't Configure.** Instead of hidden menus, you wire components together — swap models, add ControlNet, or chain upscalers by connecting nodes.
+- **Save and Share Workflows.** Workflows export as portable JSON, so you can version, reuse, and share an entire pipeline as a single file.
 
 ## Why Use ComfyUI?
 
@@ -400,18 +379,13 @@ Start with the basic text-to-image workflow, then add complexity as you need it.
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Everything is a node.** Data flows left to right; a checkpoint's MODEL/CLIP/VAE outputs fan out to the sampler, text encoders, and decoder.
 - **The minimal graph** is Checkpoint → (CLIPTextEncode ×2 + EmptyLatentImage) → KSampler → VAEDecode → SaveImage. Every advanced workflow extends this.
 - **Caching makes iteration cheap.** Only nodes whose inputs changed re-run, so tweaking a prompt doesn't reload the model.
 - **Insert nodes to extend:** a LoraLoader between checkpoint and sampler, an upscaler after decode, a ControlNet branch into conditioning.
 - **Workflows are portable JSON** — but recipients need the same custom nodes and models.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts behind the generation process
 - [Model Types](model-types.html) - Understanding models, LoRAs, and VAEs
@@ -421,4 +395,3 @@ Start with the basic text-to-image workflow, then add complexity as you need it.
 - [Advanced Techniques](advanced-techniques.html) - Expert workflow patterns
 - [Output Formats](output-formats.html) - Image formats and optimization
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

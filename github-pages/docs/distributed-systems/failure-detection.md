@@ -4,19 +4,11 @@ title: "Distributed Systems: Failure Detection & Gossip"
 permalink: /docs/distributed-systems/failure-detection.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Failure Detection &amp; Gossip</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Heartbeats, the phi-accrual detector, epidemic protocols, anti-entropy, and SWIM</p>
-</div>
 
 [Distributed Systems](./) &raquo; Failure Detection &amp; Gossip
 
-<div class="code-example" markdown="1">
 A distributed system cannot tell the difference between a node that has *crashed* and one that is merely *slow* or *unreachable*. Failure detection is the discipline of converting that fundamental uncertainty into an actionable signal — a suspicion that a process is dead — and propagating that signal across the cluster cheaply and robustly. This page covers the spectrum from simple heartbeats to the phi-accrual detector used by Cassandra and Akka, and then the gossip family (epidemic dissemination, anti-entropy, Merkle trees, and SWIM) that membership systems use to keep that view consistent at scale.
-</div>
 
 ## Why Failure Detection Is Hard
 

@@ -7,39 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Async &amp; Event-Driven APIs</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Webhooks, server-sent events, WebSockets, long polling, async request-reply, and the AsyncAPI spec — pushing data instead of polling for it, and getting delivery guarantees right.</p>
-</div>
-
 [API Design](./) &raquo; Async &amp; Event-Driven APIs
 
-<div class="intro-card">
-  <p class="lead-text">A classic request-response API answers the client's question and hangs up. But much of what an integration actually needs is the opposite shape: the server has news — a payment cleared, a build finished, a price ticked — and wants to tell the client <em>when it happens</em>, not when the client next asks. This page surveys the family of asynchronous and event-driven API styles: webhooks for server-to-server callbacks, Server-Sent Events and WebSockets for browser streams, long polling as the lowest-common-denominator fallback, the async request-reply pattern for slow operations behind a synchronous facade, and event/streaming APIs over brokers. It then covers the <strong>AsyncAPI</strong> specification that documents all of these, and the cross-cutting concerns that decide whether an async API is correct at all: idempotency, ordering, and at-least-once vs exactly-once delivery.</p>
-</div>
+A classic request-response API answers the client's question and hangs up. But much of what an integration actually needs is the opposite shape: the server has news — a payment cleared, a build finished, a price ticked — and wants to tell the client *when it happens*, not when the client next asks. This page surveys the family of asynchronous and event-driven API styles — webhooks for server-to-server callbacks, Server-Sent Events and WebSockets for browser streams, long polling as the lowest-common-denominator fallback, the async request-reply pattern for slow operations behind a synchronous facade, and event/streaming APIs over brokers — then covers the **AsyncAPI** specification that documents them and the cross-cutting concerns that decide whether an async API is correct at all. Four ideas anchor it:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-bell"></i>
-    <h4>Push beats poll</h4>
-    <p>Webhooks and streams deliver events as they occur, eliminating the latency and wasted traffic of polling for "anything new yet?".</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-plug"></i>
-    <h4>Pick the transport for the direction</h4>
-    <p>One-way server-to-client favors SSE; bidirectional, low-latency interaction needs WebSockets; server-to-server uses webhooks.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-redo"></i>
-    <h4>At-least-once is the default</h4>
-    <p>Networks retry, so consumers must be idempotent — design every event handler to survive seeing the same event twice.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-file-contract"></i>
-    <h4>AsyncAPI is the OpenAPI of events</h4>
-    <p>A machine-readable contract for channels, messages, and bindings makes event-driven APIs documentable and tool-generatable.</p>
-  </div>
-</div>
+- **Push beats poll.** Webhooks and streams deliver events as they occur, eliminating the latency and wasted traffic of polling for "anything new yet?".
+- **Pick the transport for the direction.** One-way server-to-client favors SSE; bidirectional, low-latency interaction needs WebSockets; server-to-server uses webhooks.
+- **At-least-once is the default.** Networks retry, so consumers must be idempotent — design every event handler to survive seeing the same event twice.
+- **AsyncAPI is the OpenAPI of events.** A machine-readable contract for channels, messages, and bindings makes event-driven APIs documentable and tool-generatable.
 
 ## Table of contents
 {: .no_toc .text-delta }

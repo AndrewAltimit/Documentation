@@ -13,11 +13,7 @@ toc: false  # Index pages typically don't need TOC
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Harness quantum mechanics for computation beyond classical limits</p>
 </div>
 
-Quantum computing harnesses the bizarre phenomena of quantum mechanics to perform computations impossible for classical computers. From cryptography-breaking algorithms to molecular simulation and optimization, quantum computers promise to revolutionize how we solve complex problems across science, finance, and technology.
-
-<div class="code-example" markdown="1">
-**Ready to explore quantum computing?** Whether you're a curious beginner wondering how qubits work, a developer ready to write quantum circuits, or a researcher pushing the boundaries of quantum algorithms, this hub provides comprehensive resources to guide your quantum journey.
-</div>
+Quantum computing harnesses the phenomena of quantum mechanics to perform computations impractical for classical computers. From cryptography-breaking algorithms to molecular simulation and optimization, quantum computers promise to change how we solve hard problems across science, finance, and technology. This hub guides three audiences: the beginner wondering how qubits work, the developer ready to write quantum circuits, and the researcher pushing the boundaries of quantum algorithms.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -438,18 +434,15 @@ Ready to begin your quantum journey? Start with our [Introduction to Quantum Com
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Qubits are not just faster bits.** Superposition ($|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$) and entanglement give access to a $2^n$-dimensional state space, but measurement collapses it — algorithms must steer probability toward the right answer via interference.
 - **Speedups are problem-specific.** Grover's gives a quadratic edge for search; Shor's threatens RSA but needs fault-tolerant hardware; VQE/QAOA are heuristic NISQ-era tools today.
 - **We are in the NISQ era.** Real machines (IBM, Google Willow, IonQ) have hundreds to ~1000+ noisy qubits; surface-code error correction is the bridge to fault tolerance.
 - **You can start now.** A free cloud account plus Qiskit lets you run a Bell state on real hardware in an afternoon.
-</div>
 
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
+
 - [Introduction to Quantum Computing](../technology/quantumcomputing.html) - The full deep-dive (gates, algorithms, error correction, hardware)
 - [Quantum Mechanics](../physics/quantum-mechanics/) - The physics underpinning qubits
 - [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
 - [AI/ML Documentation](../ai-ml/) - Where quantum machine learning connects to classical ML
 - [Artificial Intelligence Hub](../artificial-intelligence/) - Quantum ML in context
-</div>
