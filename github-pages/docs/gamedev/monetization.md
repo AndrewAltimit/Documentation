@@ -9,18 +9,13 @@ toc_icon: "dollar-sign"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monetization &amp; Business Models</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How games make money — premium, free-to-play, subscription, and ads — and how to design in-game economies that respect the player</p>
-</div>
+# Monetization & Business Models
 
 [Game Development](./) &raquo; Monetization &amp; Business Models
 
-<div class="hub-intro">
-  <p class="lead">A game's business model is a design constraint as fundamental as its frame budget. It shapes what content you build, how you pace progression, and how players experience the first five minutes and the five-hundredth hour. Choosing well means aligning the way you earn revenue with the way players have fun; choosing badly means bolting a storefront onto a game that fights it. This page covers the major revenue models, the mechanics of in-app purchases and virtual economies, battle passes, the ethics of monetization design, and the platform/store rules you must build around.</p>
-</div>
+A game's business model is a design constraint as fundamental as its frame budget. It shapes what content you build, how you pace progression, and how players experience the first five minutes and the five-hundredth hour. Choosing well means aligning the way you earn revenue with the way players have fun; choosing badly means bolting a storefront onto a game that fights it. This page covers the major revenue models, in-app purchases and virtual economies, battle passes, the ethics of monetization design, and the platform/store rules you must build around.
 
-Monetization is the set of decisions about *how* a game converts player attention into revenue, and *who* pays *how much* for *what*. Unlike most engineering topics in game development, it is inseparable from design and economics: a healthy model produces revenue as a byproduct of players getting value, while an exploitative one extracts revenue by manufacturing frustration. The model you pick also dictates your cost structure — a one-time purchase must recoup all development and marketing cost from a finite launch window, while a live-service game amortizes ongoing operations against a recurring revenue stream and so must be staffed and funded very differently.
+Monetization is the set of decisions about *how* a game converts player attention into revenue, and *who* pays *how much* for *what*. Unlike most engineering topics, it is inseparable from design and economics: a healthy model produces revenue as a byproduct of players getting value, while an exploitative one extracts revenue by manufacturing frustration. The model also dictates your cost structure — a one-time purchase must recoup all development and marketing cost from a finite launch window, while a live-service game amortizes ongoing operations against a recurring revenue stream, and so must be staffed and funded very differently.
 
 ## Revenue Models
 
@@ -242,14 +237,12 @@ The store page is the top of your funnel, so it materially affects monetization 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The model is a design constraint</h4><p>Premium, F2P, subscription, and ads each dictate content cadence, cost structure, and how the first and five-hundredth hour feel. Pick the model that aligns with how players have fun.</p></div>
-  <div class="takeaway-card"><h4>F2P lives on LTV > CAC</h4><p>Free-to-play is viable only when a player's lifetime value exceeds the cost to acquire them — which makes retention the master metric, since a churned player can never spend.</p></div>
-  <div class="takeaway-card"><h4>Virtual economies are flow problems</h4><p>Balance sources against sinks. Too many sources causes inflation; too many sinks causes a grind wall. Dual currencies decouple play-pacing from pay-pacing.</p></div>
-  <div class="takeaway-card"><h4>Battle passes beat loot boxes</h4><p>Fixed, transparent price; rewards earned through play; a seasonal retention engine. They realign incentives away from gambling-like randomness — if tuned to a reasonable time budget.</p></div>
-  <div class="takeaway-card"><h4>Sell more game, not relief from pain</h4><p>Cosmetics and convenience align revenue with value; pay-to-win and manufactured-frustration dark patterns mortgage the game's future and increasingly break the law.</p></div>
-  <div class="takeaway-card"><h4>Model net, not gross</h4><p>A ~30% platform cut plus tax and processing fees reshape your unit economics. Track per-jurisdiction IAP, odds-disclosure, and subscription rules from day one.</p></div>
-</div>
+- **The model is a design constraint.** Premium, F2P, subscription, and ads each dictate content cadence, cost structure, and how the first and five-hundredth hour feel. Pick the model that aligns with how players have fun.
+- **F2P lives on LTV > CAC.** Free-to-play is viable only when a player's lifetime value exceeds the cost to acquire them — which makes retention the master metric, since a churned player can never spend.
+- **Virtual economies are flow problems.** Balance sources against sinks. Too many sources causes inflation; too many sinks causes a grind wall. Dual currencies decouple play-pacing from pay-pacing.
+- **Battle passes beat loot boxes.** Fixed, transparent price; rewards earned through play; a seasonal retention engine. They realign incentives away from gambling-like randomness — if tuned to a reasonable time budget.
+- **Sell more game, not relief from pain.** Cosmetics and convenience align revenue with value; pay-to-win and manufactured-frustration dark patterns mortgage the game's future and increasingly break the law.
+- **Model net, not gross.** A ~30% platform cut plus tax and processing fees reshape your unit economics. Track per-jurisdiction IAP, odds-disclosure, and subscription rules from day one.
 
 ## See Also
 - [Game Development](./) - The game dev hub: engines, core systems, and design principles

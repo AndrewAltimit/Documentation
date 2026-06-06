@@ -4,15 +4,9 @@ title: "AI: Reinforcement Learning"
 permalink: /docs/technology/ai/reinforcement-learning.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Reinforcement Learning
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Reinforcement Learning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Learning to act from reward — Markov decision processes, value and policy methods, deep RL, and the algorithms behind game-playing agents, robots, and RLHF.</p>
-</div>
 
 Supervised learning maps inputs to labels; reinforcement learning (RL) learns **behavior**. An *agent* interacts with an *environment*, observes states, takes actions, and receives scalar *rewards*. There is no labeled "correct action" — the only feedback is reward, which may be sparse, delayed, and noisy. The agent's job is to discover a policy that maximizes cumulative reward over time. This page builds the formalism (Markov decision processes), the classical solution methods (value and policy iteration), the model-free workhorses (Q-learning, policy gradients, actor-critic), the deep-learning era (DQN, A2C, PPO), and the applications that made RL famous, from Atari and Go to robotics and the reinforcement-learning-from-human-feedback (RLHF) pipeline that aligns modern language models.
 
@@ -326,26 +320,19 @@ The KL term is doing the same job as PPO's clip: bounding how far each update st
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **RL is optimization under interaction.** The agent learns a policy that maximizes discounted return $G_t = \sum_k \gamma^k r_{t+k+1}$ from reward alone, fighting delayed credit assignment and the exploration–exploitation trade-off.
 - **The Bellman equation is the engine.** Value and policy iteration solve it when the model is known; TD learning and Q-learning approximate it from sampled experience when it is not.
 - **Deep RL = function approximation + stabilizers.** DQN made neural Q-learning work with experience replay and a target network; policy-gradient and actor-critic methods (A2C, PPO) scale to continuous actions and stochastic policies.
 - **PPO is the modern default.** Its clipped surrogate keeps each update inside a trust region, making it robust enough to be the optimizer behind both game-playing agents and RLHF.
 - **From Atari to alignment.** The same principles drive AlphaZero's self-play, sim-to-real robotics, and the RLHF pipeline (SFT → reward model → PPO) that aligns today's large language models.
-</div>
 
 ---
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="architectures.html">Neural Network Architectures</a> — the CNNs and networks that DQN, actors, and critics are built from</li>
-    <li><a href="generative-models.html">Generative Models</a> — the autoregressive LLMs that RLHF aligns</li>
-    <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling, alignment, and AI safety</li>
-    <li><a href="./">AI &amp; Machine Learning</a> — the section hub and full reference index</li>
-    <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — formal foundations, including optimization theory</li>
-    <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a> — complete index of all AI resources</li>
-  </ul>
-</div>
+- [Neural Network Architectures](architectures.html) — the CNNs and networks that DQN, actors, and critics are built from
+- [Generative Models](generative-models.html) — the autoregressive LLMs that RLHF aligns
+- [Frontier Research & Ethics](frontier-and-ethics.html) — scaling, alignment, and AI safety
+- [AI & Machine Learning](./) — the section hub and full reference index
+- [AI Mathematics](../../advanced/ai-mathematics/) — formal foundations, including optimization theory
+- [AI Documentation Hub](../../artificial-intelligence/index.html) — complete index of all AI resources

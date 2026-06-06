@@ -8,10 +8,7 @@ toc: true
 toc_sticky: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Topology &amp; Geometry in Computation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Simplicial complexes, persistent homology, and the topological theory of distributed solvability and data analysis</p>
-</div>
+# Topology &amp; Geometry in Computation
 
 [Advanced Topics](./) &raquo; Topology &amp; Geometry in Computation
 
@@ -19,16 +16,12 @@ toc_sticky: true
 **Graduate-level research page.** This page develops the algebraic-topological machinery behind topological data analysis (TDA) and the topological theory of asynchronous distributed computing, for researchers in applied topology, theoretical computer science, and data science. **Prerequisites:** point-set topology, linear algebra over fields, basic abstract algebra (groups, rings, quotients), and — for the distributed-computing sections — the read–write shared-memory model treated in [Distributed Systems Theory](../distributed-systems-theory/). For a gentler, applied tour of data geometry instead, see the [AI/ML Documentation](../../ai-ml/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Topology is the mathematics of shape that survives continuous deformation — what stays the same when you stretch but do not tear. Two ideas turn this into a computational tool. First, the shape of a finite point cloud or a finite set of process states can be encoded as a <em>simplicial complex</em>, a combinatorial object a computer can store and manipulate. Second, the algebraic invariants of that complex — its <em>homology groups</em> — count connected components, loops, and voids in a way that is robust to noise and basis choice. This page builds that pipeline twice: once for <strong>topological data analysis</strong>, where persistent homology reads multiscale structure out of data, and once for <strong>distributed computing</strong>, where the same homological obstructions decide which coordination tasks are solvable at all.</p>
-</div>
+Topology is the mathematics of shape that survives continuous deformation — what stays the same when you stretch but do not tear. Two ideas turn this into a computational tool. First, the shape of a finite point cloud or a finite set of process states can be encoded as a *simplicial complex*, a combinatorial object a computer can store and manipulate. Second, the algebraic invariants of that complex — its *homology groups* — count connected components, loops, and voids in a way that is robust to noise and basis choice. This page builds that pipeline twice: once for **topological data analysis**, where persistent homology reads multiscale structure out of data, and once for **distributed computing**, where the same homological obstructions decide which coordination tasks are solvable at all.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-cubes"></i><h4>Shape becomes combinatorics</h4><p>A simplicial complex turns a continuous space into a finite list of simplices, so its topology can be computed with linear algebra over a field.</p></div>
-  <div class="insight-card"><i class="fas fa-circle-notch"></i><h4>Homology counts holes</h4><p>The Betti number b<sub>k</sub> = dim H<sub>k</sub> counts k-dimensional holes: b<sub>0</sub> components, b<sub>1</sub> loops, b<sub>2</sub> voids. It is a deformation invariant.</p></div>
-  <div class="insight-card"><i class="fas fa-wave-square"></i><h4>Persistence separates signal from noise</h4><p>Tracking homology across a filtration ranks features by how long they survive; long bars are real structure, short bars are noise — with a stability guarantee.</p></div>
-  <div class="insight-card"><i class="fas fa-network-wired"></i><h4>Topology decides solvability</h4><p>An asynchronous task is solvable iff a continuous-looking simplicial map exists between input and output complexes — connectivity obstructions are impossibility proofs.</p></div>
-</div>
+- **Shape becomes combinatorics.** A simplicial complex turns a continuous space into a finite list of simplices, so its topology can be computed with linear algebra over a field.
+- **Homology counts holes.** The Betti number bk = dim Hk counts k-dimensional holes: b0 components, b1 loops, b2 voids. It is a deformation invariant.
+- **Persistence separates signal from noise.** Tracking homology across a filtration ranks features by how long they survive; long bars are real structure, short bars are noise — with a stability guarantee.
+- **Topology decides solvability.** An asynchronous task is solvable iff a continuous-looking simplicial map exists between input and output complexes — connectivity obstructions are impossibility proofs.
 
 ### The Logical Spine
 
@@ -350,14 +343,12 @@ plot_diagrams(dgms, show=False)   # birth-death scatter (persistence diagram)
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Complexes make shape computable</h4><p>A simplicial complex stores a space as a finite list of simplices; Rips and Cech complexes turn point clouds into complexes parameterized by scale.</p></div>
-  <div class="takeaway-card"><h4>Homology is a quotient</h4><p>H<sub>k</sub> = ker &part;<sub>k</sub> / im &part;<sub>k+1</sub> counts k-dimensional holes via ranks of boundary matrices — pure linear algebra over a field.</p></div>
-  <div class="takeaway-card"><h4>Persistence ranks features</h4><p>The barcode of a filtration separates long-lived signal from short-lived noise, with a Lipschitz stability guarantee in bottleneck distance.</p></div>
-  <div class="takeaway-card"><h4>Solvability is topological</h4><p>The asynchronous computability theorem makes wait-free solvability equivalent to the existence of a simplicial map from a subdivided input complex.</p></div>
-  <div class="takeaway-card"><h4>Connectivity is the obstruction</h4><p>Subdivision preserves connectivity, so consensus (disconnected output) and k-set agreement (Sperner's lemma) are impossible — FLP recovered geometrically.</p></div>
-  <div class="takeaway-card"><h4>Functoriality unifies both halves</h4><p>The same "maps induce maps" principle drives persistence stability and distributed impossibility — one idea, two applications.</p></div>
-</div>
+- **Complexes make shape computable.** A simplicial complex stores a space as a finite list of simplices; Rips and Cech complexes turn point clouds into complexes parameterized by scale.
+- **Homology is a quotient.** Hk = ker &part;k / im &part;k+1 counts k-dimensional holes via ranks of boundary matrices — pure linear algebra over a field.
+- **Persistence ranks features.** The barcode of a filtration separates long-lived signal from short-lived noise, with a Lipschitz stability guarantee in bottleneck distance.
+- **Solvability is topological.** The asynchronous computability theorem makes wait-free solvability equivalent to the existence of a simplicial map from a subdivided input complex.
+- **Connectivity is the obstruction.** Subdivision preserves connectivity, so consensus (disconnected output) and k-set agreement (Sperner's lemma) are impossible — FLP recovered geometrically.
+- **Functoriality unifies both halves.** The same "maps induce maps" principle drives persistence stability and distributed impossibility — one idea, two applications.
 
 ## References and Further Reading
 

@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Client-Side Consistency &amp; Sync</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Offline-first sync, CRDTs and operational transforms, conflict resolution, and session guarantees from the client's point of view</p>
-</div>
-
 [Distributed Systems](./) &raquo; Client-Side Consistency &amp; Sync
 
-<div class="code-example" markdown="1">
 Most consistency theory is written from the *server's* perspective: how do replicas in a data center agree on a value? This page takes the opposite view. The client — a phone in a tunnel, a laptop on a plane, two cursors in the same document — is itself a replica that mutates state locally, drifts out of contact, and must later reconcile. We cover how to build software that stays usable while disconnected (offline-first), the data structures that merge divergent edits *without* a coordinator (CRDTs and operational transformation), the guarantees a single user can still rely on (session guarantees), and the protocols that move and reconcile the bytes (sync protocols).
-</div>
 
 ## The Client as a Replica
 
@@ -368,14 +361,12 @@ The throughline: make the local store authoritative for UX, choose a merge strat
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The client is a replica</h4><p>An offline-capable client mutates state, diverges, and must converge — it plays by replication rules, just without a coordinator on the write path.</p></div>
-  <div class="takeaway-card"><h4>Idempotency makes offline safe</h4><p>Clients must retry blindly, so every mutation needs a stable id and a server that dedupes. Without it, sync double-applies.</p></div>
-  <div class="takeaway-card"><h4>CRDTs converge by construction</h4><p>Semilattice merges (commutative, associative, idempotent) guarantee Strong Eventual Consistency with no central authority — at a metadata cost.</p></div>
-  <div class="takeaway-card"><h4>OT trades data simplicity for transform complexity</h4><p>It keeps plain strings but needs subtle transform functions and usually a server to order ops; CRDTs invert that bargain.</p></div>
-  <div class="takeaway-card"><h4>Session guarantees rescue UX</h4><p>Read-your-writes and monotonic reads make eventual consistency feel sane per user — cheaply, without global linearizability.</p></div>
-  <div class="takeaway-card"><h4>Sync the diff, not the dataset</h4><p>Cursors, delta-state CRDTs, and Merkle reconciliation keep re-sync proportional to what changed, not to how much you store.</p></div>
-</div>
+- **The client is a replica.** An offline-capable client mutates state, diverges, and must converge — it plays by replication rules, just without a coordinator on the write path.
+- **Idempotency makes offline safe.** Clients must retry blindly, so every mutation needs a stable id and a server that dedupes. Without it, sync double-applies.
+- **CRDTs converge by construction.** Semilattice merges (commutative, associative, idempotent) guarantee Strong Eventual Consistency with no central authority — at a metadata cost.
+- **OT trades data simplicity for transform complexity.** It keeps plain strings but needs subtle transform functions and usually a server to order ops; CRDTs invert that bargain.
+- **Session guarantees rescue UX.** Read-your-writes and monotonic reads make eventual consistency feel sane per user — cheaply, without global linearizability.
+- **Sync the diff, not the dataset.** Cursors, delta-state CRDTs, and Merkle reconciliation keep re-sync proportional to what changed, not to how much you store.
 
 ## See Also
 

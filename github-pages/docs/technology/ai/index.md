@@ -45,37 +45,12 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Creating Intelligent Systems — from the mathematics of learning to frontier research and ethics.</p>
 </div>
 
-<div class="intro-card">
-  <div class="beginner-notice">
-    <i class="fas fa-info-circle"></i>
-    <p><strong>New to AI?</strong> Start with the <a href="../ai-fundamentals-simple.html">simplified version</a> — no math required. Come back here when you're ready for the technical details.</p>
-  </div>
-
-  <p class="lead-text">Artificial Intelligence refers to the development of computer systems that can perform tasks typically requiring human intelligence, such as visual perception, speech recognition, decision-making, and natural language understanding.</p>
-
-  <div class="mathematical-foundations">
-    <h3>Why Mathematics Matters in AI</h3>
-    <p>While AI might seem like science fiction come to life, at its core it's powered by mathematics. Understanding the math isn't just academic—it helps us build better systems, diagnose problems, and push the boundaries of what's possible. We'll introduce mathematical concepts as we need them, always starting with practical motivation.</p>
-  </div>
-
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-brain"></i>
-      <h4>Machine Learning</h4>
-      <p>Systems that learn from data</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-network-wired"></i>
-      <h4>Deep Learning</h4>
-      <p>Neural networks with many layers</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-comments"></i>
-      <h4>NLP</h4>
-      <p>Understanding human language</p>
-    </div>
-  </div>
+<div class="beginner-notice">
+  <i class="fas fa-info-circle"></i>
+  <p><strong>New to AI?</strong> Start with the <a href="../ai-fundamentals-simple.html">simplified version</a> — no math required. Come back here when you're ready for the technical details.</p>
 </div>
+
+Artificial Intelligence refers to computer systems that perform tasks typically requiring human intelligence — visual perception, speech recognition, decision-making, and natural language understanding. Its sub-fields nest: **machine learning** (systems that learn from data), **deep learning** (neural networks with many layers), and **NLP** (understanding human language). At its core AI is powered by mathematics; understanding it isn't just academic — it helps you build better systems, diagnose problems, and push boundaries. This reference introduces mathematical concepts as they are needed, always starting from practical motivation.
 
 ## Three Ways to Read This Material
 
@@ -111,186 +86,33 @@ This reference is split into focused pages so you can go as deep as you need on 
 
 ## Explore the Reference
 
-### Foundations
-
-<div class="command-grid">
-  <a class="nav-card" href="ml-foundations.html">
-    <h3><i class="fas fa-square-root-alt"></i> Machine Learning Foundations</h3>
-    <p>Statistical learning theory, optimization, kernels and SVMs, Gaussian processes, and variational inference — the mathematics that makes learning work.</p>
-  </a>
-  <a class="nav-card" href="core-ml-algorithms.html">
-    <h3><i class="fas fa-table"></i> Core ML Algorithms</h3>
-    <p>The classical workhorses — regression, trees, boosting, SVMs, k-NN, and clustering — that still win most tabular problems.</p>
-  </a>
-</div>
-
-### Deep Learning
-
-<div class="command-grid">
-  <a class="nav-card" href="deep-learning-theory.html">
-    <h3><i class="fas fa-infinity"></i> Deep Learning Theory</h3>
-    <p>Why deep networks can fit anything, how gradients flow, and what makes them generalize despite being wildly overparameterized.</p>
-  </a>
-  <a class="nav-card" href="deep-learning-architectures.html">
-    <h3><i class="fas fa-layer-group"></i> Deep Learning Architectures</h3>
-    <p>From the multilayer perceptron to convolutions, recurrence, attention, Transformers, and the sequence models that followed.</p>
-  </a>
-  <a class="nav-card" href="architectures.html">
-    <h3><i class="fas fa-network-wired"></i> Neural Network Architectures</h3>
-    <p>A single-narrative overview tying the foundations to CNNs, RNNs/LSTMs, Transformers, and multimodal models.</p>
-  </a>
-</div>
-
-### Training & Objectives
-
-<div class="command-grid">
-  <a class="nav-card" href="loss-functions.html">
-    <h3><i class="fas fa-bullseye"></i> Loss Functions &amp; Objectives</h3>
-    <p>The objective is the model. Regression, classification, contrastive, ranking, and generative losses — and the why behind each.</p>
-  </a>
-  <a class="nav-card" href="fine-tuning.html">
-    <h3><i class="fas fa-sliders-h"></i> Fine-Tuning &amp; Transfer Learning</h3>
-    <p>Adapting pretrained models to new tasks — from full fine-tuning and LoRA to instruction tuning, RLHF, and DPO.</p>
-  </a>
-  <a class="nav-card" href="reinforcement-learning.html">
-    <h3><i class="fas fa-robot"></i> Reinforcement Learning</h3>
-    <p>Learning to act from reward — MDPs, value and policy methods, deep RL, and the algorithms behind game-playing agents, robots, and RLHF.</p>
-  </a>
-</div>
-
-### Generation & Frontier
-
-<div class="command-grid">
-  <a class="nav-card" href="generative-models.html">
-    <h3><i class="fas fa-random"></i> Generative Models</h3>
-    <p>Diffusion models, GANs, VAEs, and autoregressive/LLM generation — how machines create images, audio, and text.</p>
-  </a>
-  <a class="nav-card" href="frontier-and-ethics.html">
-    <h3><i class="fas fa-flask"></i> Frontier Research &amp; Ethics</h3>
-    <p>Scaling laws, mechanistic interpretability, emergent abilities, AI safety/alignment, ethics, and governance.</p>
-  </a>
-</div>
+| Page | Group | What it covers |
+|------|-------|----------------|
+| [Machine Learning Foundations](ml-foundations.html) | Foundations | Statistical learning theory, optimization, kernels and SVMs, Gaussian processes, and variational inference. |
+| [Core ML Algorithms](core-ml-algorithms.html) | Foundations | The classical workhorses — regression, trees, boosting, SVMs, k-NN, and clustering — that still win most tabular problems. |
+| [Deep Learning Theory](deep-learning-theory.html) | Deep Learning | Why deep networks can fit anything, how gradients flow, and what makes them generalize despite being overparameterized. |
+| [Deep Learning Architectures](deep-learning-architectures.html) | Deep Learning | From the MLP to convolutions, recurrence, attention, Transformers, and the sequence models that followed. |
+| [Neural Network Architectures](architectures.html) | Deep Learning | A single-narrative overview tying the foundations to CNNs, RNNs/LSTMs, Transformers, and multimodal models. |
+| [Loss Functions & Objectives](loss-functions.html) | Training | Regression, classification, contrastive, ranking, and generative losses — and the why behind each. |
+| [Fine-Tuning & Transfer Learning](fine-tuning.html) | Training | Adapting pretrained models — full fine-tuning, LoRA, instruction tuning, RLHF, and DPO. |
+| [Reinforcement Learning](reinforcement-learning.html) | Training | Learning to act from reward — MDPs, value and policy methods, deep RL, and the algorithms behind agents and RLHF. |
+| [Generative Models](generative-models.html) | Generation & Frontier | Diffusion models, GANs, VAEs, and autoregressive/LLM generation. |
+| [Frontier Research & Ethics](frontier-and-ethics.html) | Generation & Frontier | Scaling laws, mechanistic interpretability, emergent abilities, AI safety/alignment, ethics, and governance. |
 
 ---
 
 ## Types of AI
 
-<div class="ai-types-section">
-  <div class="ai-type-card narrow-ai">
-    <h3><i class="fas fa-bullseye"></i> Narrow AI</h3>
-    <p class="description">Also known as weak AI, refers to AI systems designed to perform specific tasks. These systems are focused on a single domain and can be highly effective at their designated tasks, often surpassing human performance. However, they lack the ability to generalize their knowledge and skills to other domains.</p>
+**Narrow AI** (weak AI) performs specific tasks within a single domain, often surpassing human performance there, but cannot generalize across domains. Nearly every deployed AI system today is narrow:
 
-    <div class="capability-meter">
-      <div class="meter-label">Capability Scope</div>
-      <div class="meter-bar">
-        <div class="meter-fill narrow" style="width: 30%;"></div>
-      </div>
-      <span class="meter-text">Specialized</span>
-    </div>
+- **IBM's Deep Blue** — chess computer that defeated world champion Garry Kasparov in 1997.
+- **Google's AlphaGo** — Go-playing AI that defeated world champion Lee Sedol in 2016.
+- **Amazon's Alexa** / **Apple's Siri** — voice-controlled virtual assistants.
+- **OpenAI's ChatGPT (GPT-4-class / o-series)** — language models with multimodal input and step-by-step reasoning.
+- **Claude 4 (Anthropic)** — Constitutional AI with strong safety alignment and coding ability.
+- **Google's Gemini** — multimodal model processing text, images, audio, and video natively.
 
-    <div class="examples-grid">
-      <h4>Examples of Narrow AI:</h4>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-chess"></i></div>
-        <div class="example-content">
-          <h5>IBM's Deep Blue</h5>
-          <p>Chess-playing computer that defeated world champion Garry Kasparov in 1997</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-circle"></i></div>
-        <div class="example-content">
-          <h5>Google's AlphaGo</h5>
-          <p>Go-playing AI that defeated world champion Lee Sedol in 2016</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-microphone"></i></div>
-        <div class="example-content">
-          <h5>Amazon's Alexa</h5>
-          <p>Voice-controlled virtual assistant for various tasks</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-mobile-alt"></i></div>
-        <div class="example-content">
-          <h5>Apple's Siri</h5>
-          <p>Voice assistant for Apple devices</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-comment-dots"></i></div>
-        <div class="example-content">
-          <h5>OpenAI's ChatGPT (GPT-4-class / o-series)</h5>
-          <p>Advanced language models with multimodal input and enhanced step-by-step reasoning</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-robot"></i></div>
-        <div class="example-content">
-          <h5>Claude 4 (Anthropic)</h5>
-          <p>Constitutional AI with strong safety alignment and coding capabilities</p>
-        </div>
-      </div>
-
-      <div class="example-item">
-        <div class="example-icon"><i class="fas fa-brain"></i></div>
-        <div class="example-content">
-          <h5>Google's Gemini</h5>
-          <p>Multimodal AI model processing text, images, audio, and video natively</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="ai-type-card general-ai">
-    <h3><i class="fas fa-globe"></i> General AI</h3>
-    <p class="description">Also known as strong AI or artificial general intelligence (AGI), refers to AI systems that possess the ability to perform any intellectual task that a human can do. These systems would have a broad understanding of the world and be capable of learning and adapting to new information and challenges.</p>
-
-    <div class="capability-meter">
-      <div class="meter-label">Capability Scope</div>
-      <div class="meter-bar">
-        <div class="meter-fill general" style="width: 100%;"></div>
-      </div>
-      <span class="meter-text">Human-level</span>
-    </div>
-
-    <div class="status-banner">
-      <i class="fas fa-flask"></i>
-      <span>Status: Not yet achieved - Active research area</span>
-    </div>
-
-    <div class="challenges-section">
-      <h4><i class="fas fa-exclamation-triangle"></i> Challenges in Developing General AI</h4>
-
-      <div class="challenge-cards">
-        <div class="challenge-card">
-          <div class="challenge-icon"><i class="fas fa-expand-arrows-alt"></i></div>
-          <h5>Scalability</h5>
-          <p>Building AI systems that can scale to handle vast amounts of knowledge and reasoning</p>
-        </div>
-
-        <div class="challenge-card">
-          <div class="challenge-icon"><i class="fas fa-exchange-alt"></i></div>
-          <h5>Transfer Learning</h5>
-          <p>Enabling AI systems to apply knowledge and skills learned in one domain to new, unfamiliar domains</p>
-        </div>
-
-        <div class="challenge-card">
-          <div class="challenge-icon"><i class="fas fa-lightbulb"></i></div>
-          <h5>Commonsense Reasoning</h5>
-          <p>Endowing AI systems with the ability to understand and reason about everyday situations</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+**General AI** (strong AI, or artificial general intelligence/AGI) would perform any intellectual task a human can, with broad world understanding and the ability to learn and adapt across challenges. **Status: not yet achieved — an active research area.** The central open challenges are *scalability* (handling vast knowledge and reasoning), *transfer learning* (applying knowledge from one domain to unfamiliar ones), and *commonsense reasoning* (understanding everyday situations).
 
 ## Machine Learning: Teaching Computers to Learn
 
@@ -426,43 +248,35 @@ Deep learning—machine learning with neural networks many layers deep—is wher
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Learning is optimization.** Training reduces to following the gradient downhill: $\theta_{t+1} = \theta_t - \eta\nabla_\theta\mathcal{L}$ — everything else is architecture and data.
 - **Depth builds abstraction.** Deep networks learn hierarchical features; the transformer's self-attention made long-range, parallel modeling practical and now dominates language and vision.
 - **Generative models reverse a known process.** Diffusion models learn to denoise via $\mathcal{L} = \mathbb{E}[\lVert\varepsilon - \varepsilon_\theta(\mathbf{x}_t,t)\rVert^2]$, turning random noise into structured images.
 - **Scale is predictable — to a point.** Loss follows power laws in parameters and data ($L = E + A/N^\alpha + B/D^\beta$), but data quality and compute-optimal allocation matter as much as raw size.
 - **Capability and responsibility scale together.** Fairness, interpretability, privacy, and safety are core engineering requirements, not optional add-ons.
-</div>
 
 ---
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Reference pages in this section</h4>
-  <ul>
-    <li><a href="ml-foundations.html">Machine Learning Foundations</a> — statistical learning theory, optimization, kernels, GPs</li>
-    <li><a href="core-ml-algorithms.html">Core ML Algorithms</a> — regression, trees, boosting, SVMs, clustering</li>
-    <li><a href="deep-learning-theory.html">Deep Learning Theory</a> — expressivity, gradient flow, generalization</li>
-    <li><a href="deep-learning-architectures.html">Deep Learning Architectures</a> — MLPs, CNNs, RNNs, Transformers</li>
-    <li><a href="architectures.html">Neural Network Architectures</a> — single-narrative architectures overview</li>
-    <li><a href="loss-functions.html">Loss Functions &amp; Objectives</a> — the objective that defines the model</li>
-    <li><a href="fine-tuning.html">Fine-Tuning &amp; Transfer Learning</a> — LoRA, instruction tuning, RLHF, DPO</li>
-    <li><a href="reinforcement-learning.html">Reinforcement Learning</a> — MDPs, value/policy methods, deep RL</li>
-    <li><a href="generative-models.html">Generative Models</a> — diffusion, GANs, VAEs, autoregressive</li>
-    <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling, interpretability, safety, governance</li>
-  </ul>
+Reference pages in this section:
 
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a> — complete index of all AI resources</li>
-    <li><a href="../ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
-    <li><a href="../ai-lecture-2023.html">AI Deep Dive</a> — transformers, LLM internals, and current research</li>
-    <li><a href="../../ai-ml/">AI/ML Documentation Hub</a> — practical generative AI guides</li>
-    <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
-    <li><a href="../quantumcomputing.html">Quantum Computing</a> — quantum machine learning</li>
-    <li><a href="../aws/">AWS</a> — cloud platforms for AI/ML workloads</li>
-  </ul>
-</div>
-</content>
-</invoke>
+- [Machine Learning Foundations](ml-foundations.html) — statistical learning theory, optimization, kernels, GPs
+- [Core ML Algorithms](core-ml-algorithms.html) — regression, trees, boosting, SVMs, clustering
+- [Deep Learning Theory](deep-learning-theory.html) — expressivity, gradient flow, generalization
+- [Deep Learning Architectures](deep-learning-architectures.html) — MLPs, CNNs, RNNs, Transformers
+- [Neural Network Architectures](architectures.html) — single-narrative architectures overview
+- [Loss Functions & Objectives](loss-functions.html) — the objective that defines the model
+- [Fine-Tuning & Transfer Learning](fine-tuning.html) — LoRA, instruction tuning, RLHF, DPO
+- [Reinforcement Learning](reinforcement-learning.html) — MDPs, value/policy methods, deep RL
+- [Generative Models](generative-models.html) — diffusion, GANs, VAEs, autoregressive
+- [Frontier Research & Ethics](frontier-and-ethics.html) — scaling, interpretability, safety, governance
+
+Related pages:
+
+- [AI Documentation Hub](../../artificial-intelligence/index.html) — complete index of all AI resources
+- [AI Fundamentals (Simplified)](../ai-fundamentals-simple.html) — the no-math starting point
+- [AI Deep Dive](../ai-lecture-2023.html) — transformers, LLM internals, and current research
+- [AI/ML Documentation Hub](../../ai-ml/) — practical generative AI guides
+- [AI Mathematics](../../advanced/ai-mathematics/) — theoretical foundations and proofs
+- [Quantum Computing](../quantumcomputing.html) — quantum machine learning
+- [AWS](../aws/) — cloud platforms for AI/ML workloads

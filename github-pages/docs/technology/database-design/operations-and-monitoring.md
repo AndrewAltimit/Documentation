@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Operations &amp; Monitoring</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Backups &amp; PITR, disaster recovery, VACUUM, pooling, observability, and incident response</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Operations & Monitoring
 
 ## Running a Database in Production
 
@@ -34,23 +31,11 @@ tooling is mature and open, but the *principles* — RPO/RTO, log shipping,
 saturation metrics, pool sizing — apply to MySQL, SQL Server, and the managed
 cloud equivalents alike.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Recoverability</h4>
-    <p>A backup you have never restored is a hypothesis, not a backup.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-broom"></i>
-    <h4>Maintenance</h4>
-    <p>MVCC produces garbage; autovacuum is what keeps tables from bloating.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-chart-line"></i>
-    <h4>Observability</h4>
-    <p>You cannot tune what you cannot see — instrument before you optimize.</p>
-  </div>
-</div>
+Three principles run through everything below:
+
+- **Recoverability** — a backup you have never restored is a hypothesis, not a backup.
+- **Maintenance** — MVCC produces garbage; autovacuum is what keeps tables from bloating.
+- **Observability** — you cannot tune what you cannot see, so instrument before you optimize.
 
 ## Backup and Restore
 
@@ -546,20 +531,14 @@ ORDER BY pg_total_relation_size(relid) DESC
 LIMIT 20;
 ```
 
-<div class="example-section">
-  <h4>Worked example: disk runway</h4>
-  <p>A 400 GB database is growing 12 GB/week. The data volume is 1 TB, and you do
-  not want to exceed 80% (820 GB) before adding capacity. Remaining runway:</p>
+**Worked example: disk runway.** A 400 GB database is growing 12 GB/week. The data volume is 1 TB, and you do not want to exceed 80% (820 GB) before adding capacity. Remaining runway:
 
-  $$
-  t_{\text{runway}} = \frac{820\,\text{GB} - 400\,\text{GB}}{12\,\text{GB/week}}
-  = 35\ \text{weeks}
-  $$
+$$
+t_{\text{runway}} = \frac{820\,\text{GB} - 400\,\text{GB}}{12\,\text{GB/week}}
+= 35\ \text{weeks}
+$$
 
-  <p>Roughly eight months of headroom — comfortable, but note that adding a WAL
-  archive, more indexes, or a busier write workload all steepen the slope, so
-  re-run the projection whenever the growth rate changes.</p>
-</div>
+Roughly eight months of headroom — comfortable, but note that adding a WAL archive, more indexes, or a busier write workload all steepen the slope, so re-run the projection whenever the growth rate changes.
 
 <div class="notice--info">
   <p>Plan for the resource that runs out <em>first</em>. A database can have ample
@@ -617,42 +596,17 @@ applies whether you are an SRE or the lone maintainer.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Test your restores</h4>
-    <p>An unrestored backup is a guess. Automate periodic test restores and a smoke check so you discover broken backups in a drill, not in a disaster.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>PITR gives you a time machine</h4>
-    <p>A base backup plus continuous WAL archiving lets you rewind to the instant before a bad change — your defense against human error, not just hardware failure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Keep autovacuum healthy</h4>
-    <p>MVCC generates dead tuples; tune <code>autovacuum_*_scale_factor</code> down on large hot tables, and never let xid age drift toward wraparound.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Pool connections, modestly</h4>
-    <p>PgBouncer in transaction mode multiplexes thousands of clients onto a small backend pool. Smaller pools often mean lower latency.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Instrument before you tune</h4>
-    <p>The <code>pg_stat_*</code> views and <code>pg_stat_statements</code> show where time goes. Optimize by total time, alert on saturation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Have a calm incident loop</h4>
-    <p>Stabilize, mitigate, diagnose, recover, learn. Slowing down to confirm reversibility prevents the second mistake that turns an incident into an outage.</p>
-  </div>
-</div>
+- **Test your restores.** An unrestored backup is a guess. Automate periodic test restores and a smoke check so you discover broken backups in a drill, not in a disaster.
+- **PITR gives you a time machine.** A base backup plus continuous WAL archiving lets you rewind to the instant before a bad change — your defense against human error, not just hardware failure.
+- **Keep autovacuum healthy.** MVCC generates dead tuples; tune `autovacuum_*_scale_factor` down on large hot tables, and never let xid age drift toward wraparound.
+- **Pool connections, modestly.** PgBouncer in transaction mode multiplexes thousands of clients onto a small backend pool. Smaller pools often mean lower latency.
+- **Instrument before you tune.** The `pg_stat_*` views and `pg_stat_statements` show where time goes. Optimize by total time, alert on saturation.
+- **Have a calm incident loop.** Stabilize, mitigate, diagnose, recover, learn. Slowing down to confirm reversibility prevents the second mistake that turns an incident into an outage.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the WAL, buffer pool, and checkpoints these operations rest on.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code>EXPLAIN</code> to fix the slow queries you surface here.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — why MVCC produces the dead tuples VACUUM reclaims.</li>
-    <li><a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — replication and failover at scale.</li>
-    <li><a href="./">Database Design hub</a> — the rest of the deep dive.</li>
-  </ul>
-</div>
+- [Storage Engines & Recovery](storage-internals.html) — the WAL, buffer pool, and checkpoints these operations rest on.
+- [Indexing & Query Execution](indexing-and-queries.html) — reading `EXPLAIN` to fix the slow queries you surface here.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — why MVCC produces the dead tuples VACUUM reclaims.
+- [Distributed Databases & NoSQL](distributed-and-nosql.html) — replication and failover at scale.
+- [Database Design hub](./) — the rest of the deep dive.

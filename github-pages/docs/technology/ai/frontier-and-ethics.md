@@ -4,15 +4,9 @@ title: "AI & ML: Frontier Research & Ethics"
 permalink: /docs/technology/ai/frontier-and-ethics.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Frontier Research & Ethics
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Frontier Research &amp; Ethics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Scaling laws, interpretability, emergent abilities — and the safety, ethics, and governance that must keep pace.</p>
-</div>
 
 <div class="notice--info">
   <p>This page focuses on the research frontier and the responsibility that comes with it. For a broader, curated index of AI alignment and safety resources across the site, see the <a href="../../artificial-intelligence/index.html">Artificial Intelligence hub</a> rather than duplicating that material here.</p>
@@ -383,4 +377,3 @@ AI doesn't exist in isolation—it's deeply interconnected with other cutting-ed
 - [AI Deep Dive (Lecture)](../ai-lecture-2023.html) — LLM internals and current research in depth
 - [Neural Network Architectures](architectures.html) — the models these scaling laws describe
 - [Generative Models](generative-models.html) — diffusion, GANs, VAEs, and LLM generation
-</content>

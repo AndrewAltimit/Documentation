@@ -9,34 +9,13 @@ toc_icon: "cog"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Optimization & Performance</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Fit larger models on smaller cards and make them run faster: quantization, VRAM-reduction tactics, inference speedups, and batching for diffusion models and LLMs.</p>
-</div>
-
 [AI/ML Documentation](./) &raquo; Optimization & Performance
 
-<div class="code-example" markdown="1">
 A consolidated reference for the two questions every practitioner eventually hits: *"How do I make this fit in my VRAM?"* and *"How do I make it run faster?"* — covering quantization, memory-reduction tactics, inference acceleration, and batching across both diffusion and LLM workloads.
-</div>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-compress-arrows-alt"></i>
-    <h4>Quantize First</h4>
-    <p>Lower-precision weights (bf16 → fp8 → 4-bit) are the single biggest lever for fitting big models on consumer GPUs, with minor quality cost.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-exchange-alt"></i>
-    <h4>Trade Time for Memory</h4>
-    <p>Attention slicing, tiling, and CPU offload all swap speed for VRAM headroom — the difference between OOM and a working pipeline.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bolt"></i>
-    <h4>Then Trade Memory for Time</h4>
-    <p>torch.compile, fused attention, distillation, and batching reclaim throughput once the model fits.</p>
-  </div>
-</div>
+- **Quantize First.** Lower-precision weights (bf16 → fp8 → 4-bit) are the single biggest lever for fitting big models on consumer GPUs, with minor quality cost.
+- **Trade Time for Memory.** Attention slicing, tiling, and CPU offload all swap speed for VRAM headroom — the difference between OOM and a working pipeline.
+- **Then Trade Memory for Time.** torch.compile, fused attention, distillation, and batching reclaim throughput once the model fits.
 
 ## The Two Bottlenecks
 
@@ -356,18 +335,13 @@ Every optimization moves along one of two axes — *cheaper memory* or *cheaper 
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Make it fit, then make it fast.** Memory-bound problems (OOM) come first because they make latency infinite; once the model fits, profile before optimizing for speed.
 - **Quantization is the biggest memory lever.** bf16 is the modern 16-bit default; fp8 halves again on Ada/Hopper; 4-bit (AWQ/GPTQ/GGUF `Q4_K_M`) is the LLM sweet spot, capturing most quality at a quarter of the size.
 - **Memory-efficient attention is a free lunch** — FlashAttention/SDPA cuts both VRAM and time with no quality change. Slicing, tiling, and CPU offload trade speed for further VRAM headroom.
 - **Inference speedups trade memory or a one-time cost for time:** `torch.compile` (20–50%), TensorRT (more, less flexible), and distillation (LCM/Turbo) that collapses 30+ diffusion steps to single digits.
 - **Batching maximizes throughput** — static batches for bulk diffusion, continuous batching + PagedAttention (vLLM/TGI) for multi-user LLM serving — the highest-leverage win for serving at volume.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Advanced Techniques](advanced-techniques.html) - Distillation, flow matching, and multi-stage workflows in depth
 - [LoRA Training](lora-training.html) - Gradient checkpointing, 8-bit optimizers, and QLoRA-style training
@@ -376,4 +350,3 @@ Every optimization moves along one of two axes — *cheaper memory* or *cheaper 
 - [ComfyUI Guide](comfyui-guide.html) - Applying offload and tiling in node workflows
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core diffusion concepts these optimizations target
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

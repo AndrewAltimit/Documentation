@@ -11,11 +11,6 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Cloud Networking</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">VPCs, subnets, load balancers, CDNs, and the shared-responsibility model that make networks rentable</p>
-</div>
-
 The cloud took the software-defined ideas behind SDN, NFV, and P4 and turned them into rentable primitives. Instead of racking switches, firewalls, and load balancers, you describe an entire network in an API call: address ranges, routing, internet access, and traffic distribution all become declarative resources. This page works through those primitives bottom-up — the **VPC** that isolates your network, the **subnets and route tables** that segment and steer it, the **load balancers** that spread traffic across servers, the **CDNs and anycast** that bring content close to users, the **NAT and egress** paths that control outbound traffic, the **service networking** layer that connects everything privately, and finally the **shared-responsibility model** that defines who secures what.
 
 ## Virtual Private Cloud (VPC)
@@ -397,44 +392,19 @@ For networking specifically, almost everything on this page — VPC design, subn
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>A VPC is your network in software</h4>
-    <p>An isolated CIDR with subnets, route tables, and gateways — provisioned by API. Address planning is the decision you cannot easily undo.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The route table defines public vs. private</h4>
-    <p>A subnet is public only because its default route points at an internet gateway; private subnets reach out via NAT and stay unreachable inbound.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>L4 is fast, L7 is smart</h4>
-    <p>Layer-4 balancers move connections protocol-agnostically; Layer-7 balancers route on URLs and headers, terminate TLS, and apply WAF rules.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>CDNs and anycast bring content close</h4>
-    <p>Edge caches plus one anycast address announced from many PoPs cut latency, spread load, and absorb DDoS — all via normal BGP routing.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>NAT controls egress</h4>
-    <p>Outbound-only access for private workloads, plus a natural point to filter and meter traffic leaving the cloud.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Shared responsibility is mostly yours</h4>
-    <p>The provider secures the fabric; you own security groups, subnet design, IAM, and data. Most cloud breaches are customer misconfigurations.</p>
-  </div>
-</div>
+- **A VPC is your network in software.** An isolated CIDR with subnets, route tables, and gateways — provisioned by API. Address planning is the decision you cannot easily undo.
+- **The route table defines public vs. private.** A subnet is public only because its default route points at an internet gateway; private subnets reach out via NAT and stay unreachable inbound.
+- **L4 is fast, L7 is smart.** Layer-4 balancers move connections protocol-agnostically; Layer-7 balancers route on URLs and headers, terminate TLS, and apply WAF rules.
+- **CDNs and anycast bring content close.** Edge caches plus one anycast address announced from many PoPs cut latency, spread load, and absorb DDoS — all via normal BGP routing.
+- **NAT controls egress.** Outbound-only access for private workloads, plus a natural point to filter and meter traffic leaving the cloud.
+- **Shared responsibility is mostly yours.** The provider secures the fabric; you own security groups, subnet design, IAM, and data. Most cloud breaches are customer misconfigurations.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="fundamentals.html">Layers &amp; Addressing</a> — CIDR subnetting that VPC and subnet planning depend on.</li>
-    <li><a href="routing.html">Routing &amp; Switching</a> — longest-prefix match, NAT, and the BGP behind anycast.</li>
-    <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — stateful inspection, firewalls, and the defenses cloud controls implement.</li>
-    <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — the SDN, NFV, and P4 foundations the cloud is built on.</li>
-    <li><a href="../aws/">AWS</a> — VPC, Direct Connect, ELB, and CloudFront in a real cloud.</li>
-    <li><a href="../kubernetes/">Kubernetes</a> — cluster networking, CNI, and service meshes.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — zero-trust and the network security side of shared responsibility.</li>
-  </ul>
-</div>
+- [Layers & Addressing](fundamentals.html) — CIDR subnetting that VPC and subnet planning depend on.
+- [Routing & Switching](routing.html) — longest-prefix match, NAT, and the BGP behind anycast.
+- [Performance, QoS & Security](performance-and-security.html) — stateful inspection, firewalls, and the defenses cloud controls implement.
+- [Modern & Future Networking](modern-architecture.html) — the SDN, NFV, and P4 foundations the cloud is built on.
+- [AWS](../aws/) — VPC, Direct Connect, ELB, and CloudFront in a real cloud.
+- [Kubernetes](../kubernetes/) — cluster networking, CNI, and service meshes.
+- [Cybersecurity](../cybersecurity/) — zero-trust and the network security side of shared responsibility.

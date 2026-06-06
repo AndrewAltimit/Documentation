@@ -7,23 +7,14 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced Testing Strategies</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Contracts, properties, fuzzing, mutation, load, chaos, and testing in production</p>
-</div>
-
 [Testing Hub](./) &raquo; Advanced Strategies
 
-<div class="code-example" markdown="1">
-Once a codebase has example-based unit and integration tests, the marginal bug gets harder to find: it lives in an input you never thought to write down, an interaction between two services that each pass their own tests, a tail latency that only appears at saturation, or a failure mode that never fires in CI. This page collects the techniques that attack those bugs directly — **contract testing** for service boundaries, **property-based testing** and **fuzzing** for the input space you can't enumerate, **mutation testing** to grade the tests themselves, **end-to-end** and **snapshot** testing for whole-system behavior, **load/performance testing** for behavior under stress, **chaos engineering** for unmodeled failure, and **testing in production** (canaries and feature flags) for the bugs that only reality contains.
-</div>
+Once a codebase has example-based unit and integration tests, the marginal bug gets harder to find: it lives in an input you never thought to write down, an interaction between two services that each pass their own tests, a tail latency that only appears at saturation, or a failure mode that never fires in CI. This page collects the techniques that attack those bugs directly — **contract testing** for service boundaries, **property-based testing** and **fuzzing** for the input space you can't enumerate, **mutation testing** to grade the tests themselves, **end-to-end** and **snapshot** testing for whole-system behavior, **load/performance testing** for behavior under stress, **chaos engineering** for unmodeled failure, and **testing in production** (canaries and feature flags) for the bugs that only reality contains. Four ideas recur:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-file-signature"></i><h4>Test the contract, not the wire</h4><p>Two services can each pass their own suites and still be incompatible. A shared, versioned contract turns "works on my machine" into a checkable invariant on both sides.</p></div>
-  <div class="insight-card"><i class="fas fa-dice"></i><h4>Assert a property, not an example</h4><p>Hand-written cases sample a tiny corner of the input space. Property-based testing and fuzzing let a generator search the corners you would never type — and shrink failures to a minimal repro.</p></div>
-  <div class="insight-card"><i class="fas fa-skull-crossbones"></i><h4>Grade your tests</h4><p>Coverage says a line ran, not that a bug there would be caught. Mutation testing injects faults and asks whether any test notices — the only direct measure of suite strength.</p></div>
-  <div class="insight-card"><i class="fas fa-tachometer-alt"></i><h4>Reality is the last test</h4><p>Load, chaos, canaries, and feature flags accept that some bugs only exist under real traffic and real failure — and make exposure to them controlled, observable, and reversible.</p></div>
-</div>
+- **Test the contract, not the wire.** Two services can each pass their own suites and still be incompatible; a shared, versioned contract turns "works on my machine" into a checkable invariant on both sides.
+- **Assert a property, not an example.** Hand-written cases sample a tiny corner of the input space; property-based testing and fuzzing search the corners you would never type — and shrink failures to a minimal repro.
+- **Grade your tests.** Coverage says a line ran, not that a bug there would be caught. Mutation testing injects faults and asks whether any test notices — the only direct measure of suite strength.
+- **Reality is the last test.** Load, chaos, canaries, and feature flags accept that some bugs only exist under real traffic and real failure — and make exposure to them controlled, observable, and reversible.
 
 ## Table of contents
 {: .no_toc .text-delta }

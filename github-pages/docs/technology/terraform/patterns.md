@@ -7,10 +7,7 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: Enterprise Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Real-world case studies and battle-tested patterns for scaling Terraform across teams and organizations.</p>
-</div>
+Battle-tested patterns for scaling Terraform across teams and organizations. This page opens with four real-world case studies, then covers performance at scale, multi-account organization, security scanning, and testing infrastructure code.
 
 ## Real-World Case Studies
 
@@ -431,24 +428,10 @@ func TestWebServerModule(t *testing.T) {
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Structure for Scale</h4>
-    <p>Separate state per environment and per blast-radius boundary so a change to one stack cannot accidentally affect another.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Compliance as Code</h4>
-    <p>Encode guardrails (encryption, tagging, allowed regions) as policy so violations are caught at plan time, not in an audit.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Test Before You Trust</h4>
-    <p>Validate and lint on every PR; reserve slow, costly integration tests for nightly or pre-release runs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Plan for Disaster Recovery</h4>
-    <p>Version-controlled config plus remote state lets you rebuild a region from scratch — practice it before you need it.</p>
-  </div>
-</div>
+- **Structure for scale.** Separate state per environment and per blast-radius boundary so a change to one stack cannot accidentally affect another.
+- **Compliance as code.** Encode guardrails (encryption, tagging, allowed regions) as policy so violations are caught at plan time, not in an audit.
+- **Test before you trust.** Validate and lint on every PR; reserve slow, costly integration tests for nightly or pre-release runs.
+- **Plan for disaster recovery.** Version-controlled config plus remote state lets you rebuild a region from scratch — practice it before you need it.
 
 ---
 

@@ -9,10 +9,7 @@ toc_label: "On This Page"
 toc_icon: "network-wired"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Networking & Content Delivery</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">VPC private networks, CloudFront CDN, API Gateway, and load balancing for secure, fast, and resilient cloud architectures.</p>
-</div>
+VPC private networks, CloudFront CDN, API Gateway, and load balancing are the building blocks of secure, fast, and resilient cloud architecture. This page covers each and how they fit together.
 
 ## Why Networking Matters
 
@@ -243,24 +240,10 @@ Cached responses return directly from the nearest edge location. Cache misses ro
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>VPC = Network Isolation</h4>
-    <p>Public subnets for internet-facing resources, private for app tiers, data subnets with no internet route for databases.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Multi-AZ by Default</h4>
-    <p>Spread subnets and NAT gateways across at least two AZs so a single data center failure does not take you offline.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>ALB for HTTP, NLB for Speed</h4>
-    <p>Use Application Load Balancers for path/host routing; reach for Network Load Balancers only when you need ultra-low latency or static IPs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>CloudFront Cuts Latency</h4>
-    <p>Serve static assets from edge locations and force origin access through Origin Access Control to keep S3 buckets private.</p>
-  </div>
-</div>
+- **VPC means network isolation.** Public subnets for internet-facing resources, private for app tiers, data subnets with no internet route for databases.
+- **Multi-AZ by default.** Spread subnets and NAT gateways across at least two AZs so a single data center failure does not take you offline.
+- **ALB for HTTP, NLB for speed.** Use Application Load Balancers for path/host routing; reach for Network Load Balancers only when you need ultra-low latency or static IPs.
+- **CloudFront cuts latency.** Serve static assets from edge locations and force origin access through Origin Access Control to keep S3 buckets private.
 
 ---
 

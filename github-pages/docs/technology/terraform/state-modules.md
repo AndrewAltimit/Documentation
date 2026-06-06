@@ -7,10 +7,7 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: State & Modules</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Learn how Terraform tracks infrastructure with state and how to create reusable modules for consistent deployments.</p>
-</div>
+State is how Terraform tracks what it has created; modules are how you package configuration for reuse. This page covers both — local vs. remote state, state operations, workspaces, outputs, and writing and consuming modules.
 
 ## Understanding Terraform State
 
@@ -428,24 +425,10 @@ Each module is a self-contained directory of `.tf` files with its own variables 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>State Is the Source of Truth</h4>
-    <p>Terraform compares your config against state to compute a minimal change set. Protect it like production data.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Remote State for Teams</h4>
-    <p>Store state in S3/GCS/Azure Blob with locking so collaborators never overwrite each other.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Modules = Reusable Patterns</h4>
-    <p>Package infrastructure into modules with clear inputs and outputs, then compose them per environment.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Manipulate State Safely</h4>
-    <p>Use <code>terraform state</code> subcommands and <code>import</code> rather than hand-editing the JSON file.</p>
-  </div>
-</div>
+- **State is the source of truth.** Terraform compares your config against state to compute a minimal change set. Protect it like production data.
+- **Remote state for teams.** Store state in S3/GCS/Azure Blob with locking so collaborators never overwrite each other.
+- **Modules are reusable patterns.** Package infrastructure into modules with clear inputs and outputs, then compose them per environment.
+- **Manipulate state safely.** Use `terraform state` subcommands and `import` rather than hand-editing the JSON file.
 
 ---
 

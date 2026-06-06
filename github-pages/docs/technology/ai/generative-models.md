@@ -4,15 +4,9 @@ title: "AI & ML: Generative Models"
 permalink: /docs/technology/ai/generative-models.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Generative Models
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Generative Models</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Diffusion models, GANs, VAEs, and autoregressive generation — how machines create images, audio, and text.</p>
-</div>
 
 Generative models learn the distribution of their training data so they can produce new, original samples from it. This page covers the dominant families—diffusion models, GANs, VAEs, and the autoregressive approach behind large language models—along with the mathematics that makes them work.
 
@@ -108,14 +102,11 @@ samples = ddpm.ddim_sample(shape=(16, 3, 256, 256), ddim_timesteps=50)
 
 ## Diffusion Models: Creating Art from Noise
 
-<div class="diffusion-section">
-  <div class="section-intro">
-    <p>Diffusion models are a class of generative AI models that have revolutionized image generation and are expanding into other domains. They work by gradually adding noise to data and then learning to reverse this process, enabling high-quality sample generation.</p>
-  </div>
+Diffusion models are a class of generative models that revolutionized image generation and are expanding into other domains. They work by gradually adding noise to data and then learning to reverse that process, enabling high-quality sample generation.
 
-  <h3><i class="fas fa-random"></i> How Diffusion Models Work</h3>
+### How Diffusion Models Work
 
-  <div class="diffusion-process">
+<div class="diffusion-process">
     <div class="process-visual">
       <svg viewBox="0 0 600 200">
         <!-- Forward process -->
@@ -168,34 +159,14 @@ samples = ddpm.ddim_sample(shape=(16, 3, 256, 256), ddim_timesteps=50)
         </defs>
       </svg>
     </div>
-
-    <div class="process-steps">
-      <div class="step-card forward">
-        <div class="step-number">1</div>
-        <h4>Forward Process</h4>
-        <p>Gradually adds Gaussian noise to data over many timesteps until it becomes pure noise</p>
-      </div>
-
-      <div class="step-card reverse">
-        <div class="step-number">2</div>
-        <h4>Reverse Process</h4>
-        <p>Learns to denoise the data step by step, recovering the original data distribution</p>
-      </div>
-
-      <div class="step-card training">
-        <div class="step-number">3</div>
-        <h4>Training</h4>
-        <p>The model learns to predict the noise added at each step</p>
-      </div>
-
-      <div class="step-card generation">
-        <div class="step-number">4</div>
-        <h4>Generation</h4>
-        <p>Starting from random noise, the model iteratively removes noise to generate new samples</p>
-      </div>
-    </div>
-  </div>
 </div>
+
+The process has four stages:
+
+1. **Forward process** — gradually adds Gaussian noise to data over many timesteps until it becomes pure noise.
+2. **Reverse process** — learns to denoise step by step, recovering the original data distribution.
+3. **Training** — the model learns to predict the noise added at each step.
+4. **Generation** — starting from random noise, the model iteratively removes noise to produce new samples.
 
 ### Making Diffusion Practical: Latent Diffusion
 
@@ -340,4 +311,3 @@ For how these models scale and what new abilities emerge with size, see [Frontie
 - [AI/ML Documentation Hub](../../ai-ml/) — practical generative-AI guides (ComfyUI, LoRA, ControlNet)
 - [Neural Network Architectures](architectures.html) — the transformers and autoencoders these models are built from
 - [Frontier Research & Ethics](frontier-and-ethics.html) — scaling laws and the frontier of generative AI
-</content>

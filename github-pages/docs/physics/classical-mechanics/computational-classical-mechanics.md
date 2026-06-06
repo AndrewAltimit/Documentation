@@ -7,14 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Computational Methods</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Symplectic and variational integrators, molecular dynamics, N-body methods, and the numerical analysis that keeps long simulations physical.</p>
-</div>
-
 [Classical Mechanics](./) &raquo; Computational Methods
+
+Symplectic and variational integrators, molecular dynamics, N-body methods, and the numerical analysis that keeps long simulations physical.
 
 ## Why Numerics Need the Physics
 

@@ -13,27 +13,11 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From Fundamentals to Advanced Research</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">This hub is the front door to every AI topic on the site. It connects four depths of theory &mdash; from a plain-English intro to graduate-level proofs &mdash; with the hands-on generative-AI guides. Pick the depth that fits, then branch into practice.</p>
+This hub is the front door to every AI topic on the site. It connects four depths of theory — from a plain-English intro to graduate-level proofs — with the hands-on generative-AI guides:
 
-  <div class="key-insights">
-    <div class="insight-card">
-      <i class="fas fa-layer-group"></i>
-      <h4>Four Depth Levels</h4>
-      <p>Simplified → Complete → Deep Dive → Mathematics. Climb only as far as you need.</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-tools"></i>
-      <h4>Theory Meets Practice</h4>
-      <p>Every concept links to a hands-on generative-AI guide you can run today.</p>
-    </div>
-    <div class="insight-card">
-      <i class="fas fa-rocket"></i>
-      <h4>Current Research</h4>
-      <p>Foundation models, multimodal systems, and alignment &mdash; the 2025&ndash;2026 frontier.</p>
-    </div>
-  </div>
-</div>
+- **Four depth levels.** Simplified → Complete → Deep Dive → Mathematics. Climb only as far as you need.
+- **Theory meets practice.** Every concept links to a hands-on generative-AI guide you can run today.
+- **Current research.** Foundation models, multimodal systems, and alignment — the 2025–2026 frontier.
 
 ## How These Pages Fit Together
 
@@ -241,33 +225,10 @@ Choose a path based on your goals:
 
 This documentation is continuously evolving. If you notice areas for improvement or have expertise to share, we welcome contributions through our [GitHub repository](https://github.com/AndrewAltimit/Documentation).
 
-## Next Steps
+## See Also
 
-<div class="navigation-cards">
-  <div class="nav-card">
-    <h3>Learn the Basics</h3>
-    <p>Start with simplified AI fundamentals</p>
-    <a href="../technology/ai-fundamentals-simple.html" class="btn btn-primary">Begin Learning</a>
-  </div>
-  
-  <div class="nav-card">
-    <h3>Build Something</h3>
-    <p>Try ComfyUI for hands-on experience</p>
-    <a href="../ai-ml/comfyui-guide.html" class="btn btn-primary">Start Building</a>
-  </div>
-  
-  <div class="nav-card">
-    <h3>Go Deeper</h3>
-    <p>Explore advanced AI mathematics</p>
-    <a href="../advanced/ai-mathematics/" class="btn btn-primary">Advanced Topics</a>
-  </div>
-</div>
-
-<div class="see-also-card" markdown="1">
-#### See Also
 - [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - No-math starting point
 - [AI Fundamentals - Complete](../technology/ai/) - Technical reference with equations
 - [AI Deep Dive](../technology/ai-lecture-2023.html) - Transformers, LLMs, and research
 - [AI/ML Documentation](../ai-ml/) - Hands-on generative AI guides
 - [Quantum Computing Hub](../quantum-computing/) - Where quantum meets machine learning
-</div>

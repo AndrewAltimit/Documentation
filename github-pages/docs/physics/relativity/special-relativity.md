@@ -4,37 +4,24 @@ title: "Relativity: Special Relativity"
 permalink: /docs/physics/relativity/special-relativity.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./)
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Special Relativity</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Space and Time Unite at High Speeds</p>
-</div>
-
 ## Special Relativity
 
-<div class="section-intro">
-  <p>Special relativity, published in 1905, deals with objects moving at constant velocities and introduces revolutionary concepts about space and time.</p>
-</div>
+Special relativity, published by Einstein in 1905, governs objects moving at constant velocity and forces a radical revision of space and time.
 
-<div class="principle-card">
-  <h4>The puzzle that forced the revolution</h4>
-  <p>By the late 1800s, Maxwell's equations predicted a definite speed of light, $c$. But a speed relative to <em>what</em>? Every other wave — sound, water ripples — travels relative to a medium, and adding velocities was obvious: throw a ball forward on a moving train and the ground sees it go faster. Yet the Michelson–Morley experiment found light <em>always</em> travels at $c$, no matter how fast you chase it. Einstein's leap was to take this literally: if everyone measures the same light speed, then the things we assumed were absolute — the rate clocks tick and the length of rulers — must instead bend. Space and time give way so that $c$ can stay fixed. Everything that follows (time dilation, length contraction, $E=mc^2$) is the logical price of that one stubborn fact.</p>
-</div>
+By the late 1800s, Maxwell's equations predicted a definite speed of light, $c$ — but a speed relative to *what*? Every other wave (sound, water ripples) travels relative to a medium, and velocities simply add: throw a ball forward on a moving train and the ground sees it go faster. Yet the Michelson–Morley experiment found light *always* travels at $c$, no matter how fast you chase it. Einstein took this literally: if everyone measures the same light speed, then the rate clocks tick and the length of rulers — assumed absolute — must instead bend so that $c$ stays fixed. Time dilation, length contraction, and $E=mc^2$ are all the logical price of that one stubborn fact.
+
+### Postulates of Special Relativity
+
+1. **Principle of relativity** — the laws of physics are the same in all inertial reference frames.
+2. **Constancy of light speed** — the speed of light in vacuum is the same for all observers, regardless of their motion.
 
 <div class="postulates-section">
-  <h3><i class="fas fa-gavel"></i> Postulates of Special Relativity</h3>
-  
   <div class="postulate-cards">
     <div class="postulate-card">
-      <div class="postulate-number">1</div>
-      <h4>Principle of Relativity</h4>
-      <p>The laws of physics are the same in all inertial reference frames</p>
       <div class="visual-demo">
         <svg viewBox="0 0 450 200" style="max-width: 500px; width: 100%;">
           <!-- Define arrow marker -->
@@ -73,9 +60,6 @@ hide_title: true
     </div>
     
     <div class="postulate-card">
-      <div class="postulate-number">2</div>
-      <h4>Constancy of Light Speed</h4>
-      <p>The speed of light in vacuum is the same for all observers, regardless of motion</p>
       <div class="visual-demo">
         <svg viewBox="0 0 480 220" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers -->
@@ -141,13 +125,11 @@ hide_title: true
 
 ### Relativity of Simultaneity
 
-<div class="section-intro">
-  <p>Before deriving the Lorentz transformation it pays to isolate the single idea that drives every other relativistic effect: <strong>two events that are simultaneous in one inertial frame are generally not simultaneous in another</strong>. Time dilation and length contraction are downstream consequences of this fact. The breakdown of absolute simultaneity is what allows the symmetry of relativity — each observer seeing the other's clocks run slow — to be free of contradiction.</p>
-</div>
+Before deriving the Lorentz transformation, isolate the single idea that drives every other relativistic effect: **two events simultaneous in one inertial frame are generally not simultaneous in another**. Time dilation and length contraction are downstream consequences. The breakdown of absolute simultaneity is what lets the symmetry of relativity — each observer seeing the other's clocks run slow — be free of contradiction.
+
+**The train-and-platform thought experiment.** A railway car of proper length moves right past a platform at speed $v$. A lamp sits at the car's exact *midpoint*. At the instant the lamp passes a platform observer (Alice), it flashes once, sending light toward the front and rear walls.
 
 <div class="principle-card">
-  <h4>The train-and-platform thought experiment</h4>
-  <p>A railway car of proper length moves to the right past a platform at speed $v$. A lamp sits at the exact <em>midpoint</em> of the car. At the instant the lamp passes a platform observer (call her Alice), it flashes once, sending light toward the front and rear walls of the car.</p>
   <p><strong>In the train's frame</strong> (observer Bob, riding at the midpoint): the front and rear walls are equidistant from the lamp and the car is at rest, so the two flashes travel equal distances at the same speed $c$. They strike the front and rear walls <em>simultaneously</em>. For Bob, "front hit" and "rear hit" are the same instant.</p>
   <p><strong>In the platform frame</strong> (Alice): light still travels at $c$ in <em>her</em> frame too (second postulate), but during the flight the rear wall rushes <em>toward</em> the emission point while the front wall flees <em>away</em> from it. The rearward light therefore meets its wall first; the forward light has to chase a receding target and arrives later. For Alice, the rear event happens <em>before</em> the front event — the very same pair of events is no longer simultaneous.</p>
   <div class="visual-demo">
@@ -484,30 +466,13 @@ Where β = v/c.
 
 ### Time Dilation
 
-<div class="time-dilation-section">
-  <div class="concept-header">
-    <i class="fas fa-clock"></i>
-    <h4>Moving clocks run slower relative to stationary observers</h4>
-  </div>
-  
-  <div class="equation-display">
-    <div class="equation-box highlighted" markdown="1">
+Moving clocks run slower relative to stationary observers:
+
 $$\Delta t = \gamma \Delta t_0$$
-</div>
-    <p>Where $\gamma = \frac{1}{\sqrt{1 - v^2/c^2}}$ is the Lorentz factor</p>
-  </div>
-  
-  <div class="variable-definitions">
-    <div class="var-item">
-      <span class="var-symbol">Δt₀</span>
-      <span class="var-desc">Proper time (time measured in the rest frame)</span>
-    </div>
-    <div class="var-item">
-      <span class="var-symbol">Δt</span>
-      <span class="var-desc">Dilated time (time measured in the moving frame)</span>
-    </div>
-  </div>
-  
+
+where $\gamma = 1/\sqrt{1 - v^2/c^2}$ is the Lorentz factor, $\Delta t_0$ is the proper time (in the rest frame), and $\Delta t$ is the dilated time (in the moving frame).
+
+<div class="time-dilation-section">
   <div class="interactive-demo">
     <h5>Time Dilation Calculator</h5>
     <div class="demo-controls">
@@ -519,20 +484,9 @@ $$\Delta t = \gamma \Delta t_0$$
       </div>
     </div>
   </div>
-  
-  <div class="real-world-example">
-    <i class="fas fa-satellite"></i>
-    <h5>GPS Example</h5>
-    <p>GPS satellites must account for <em>both</em> special- and general-relativistic effects, which act in opposite directions. Their orbital velocity (~14,000 km/h) causes the special-relativistic slowing of about <strong>−7 µs/day</strong>. But the satellites also sit higher in Earth's gravitational well, where clocks run faster — a general-relativistic gain of about <strong>+45 µs/day</strong>. The two do not cancel: the gravitational term dominates, so the <strong>net effect makes GPS clocks run fast by roughly +38 µs/day</strong>. Left uncorrected, this would introduce navigation errors of about 10 km per day.</p>
-    <div class="calculation-breakdown">
-      <p>v ≈ 3,900 m/s</p>
-      <p>γ - 1 ≈ 8.4 × 10⁻¹¹</p>
-      <p>Special-relativistic (velocity) effect: ~−7.2 μs/day</p>
-      <p>General-relativistic (gravitational) effect: ~+45.9 μs/day</p>
-      <p>Net effect: ~+38 μs/day (clocks run fast)</p>
-    </div>
-  </div>
 </div>
+
+**GPS example.** GPS satellites must account for *both* special- and general-relativistic effects, which act in opposite directions. Their orbital velocity (~14,000 km/h, $v \approx 3{,}900$ m/s, $\gamma - 1 \approx 8.4\times10^{-11}$) causes a special-relativistic slowing of about **−7 µs/day**. But the satellites also sit higher in Earth's gravitational well, where clocks run faster — a general-relativistic gain of about **+45 µs/day**. The gravitational term dominates, so the net effect makes GPS clocks run **fast by roughly +38 µs/day**. Left uncorrected, this would introduce navigation errors of about 10 km per day.
 
 <script>
   // Time dilation interactive
@@ -552,29 +506,13 @@ $$\Delta t = \gamma \Delta t_0$$
 
 ### Length Contraction
 
-<div class="length-contraction-section">
-  <div class="concept-header">
-    <i class="fas fa-compress-alt"></i>
-    <h4>Objects appear shorter in the direction of motion</h4>
-  </div>
-  
-  <div class="equation-display">
-    <div class="equation-box highlighted" markdown="1">
+Objects are shorter along the direction of motion:
+
 $$L = \frac{L_0}{\gamma}$$
-</div>
-  </div>
-  
-  <div class="variable-definitions">
-    <div class="var-item">
-      <span class="var-symbol">L₀</span>
-      <span class="var-desc">Proper length (length in the rest frame)</span>
-    </div>
-    <div class="var-item">
-      <span class="var-symbol">L</span>
-      <span class="var-desc">Contracted length (length in the moving frame)</span>
-    </div>
-  </div>
-  
+
+where $L_0$ is the proper length (in the rest frame) and $L$ is the contracted length (in the moving frame).
+
+<div class="length-contraction-section">
   <div class="visual-demonstration">
     <svg viewBox="0 0 520 280" style="max-width: 500px; width: 100%;">
       <!-- Title -->
@@ -653,10 +591,7 @@ This ensures that no velocity exceeds the speed of light.
   <p>The probe still travels below $c$. And if the ship instead fired a <em>light</em> beam ($w = c$), the formula returns exactly $c$ no matter the ship's speed — the second postulate, falling out of the algebra. Speeds combine so that $c$ is an unreachable ceiling, not a wall you can edge past by stacking velocities.</p>
 </div>
 
-<div class="tip-card">
-  <h4>What time dilation and length contraction actually mean</h4>
-  <p>These are not optical illusions or measurement errors — the effects are <em>real and symmetric</em>. Each observer genuinely sees the <strong>other's</strong> clock running slow and ruler shrunk. There is no contradiction because "now" itself is frame-dependent (the relativity of simultaneity): two observers don't agree on which distant events happen at the same time, so they slice spacetime differently. The single quantity everyone <em>does</em> agree on is the invariant interval $ds^2$ — distances and durations are just its shadows cast at different angles.</p>
-</div>
+**What these effects actually mean.** Time dilation and length contraction are not optical illusions or measurement errors — they are *real and symmetric*. Each observer genuinely sees the *other's* clock running slow and ruler shrunk, with no contradiction because "now" is frame-dependent (relativity of simultaneity): two observers disagree on which distant events are simultaneous, so they slice spacetime differently. The one quantity everyone agrees on is the invariant interval $ds^2$ — distances and durations are its shadows cast at different angles.
 
 ### Mass-Energy Equivalence
 
@@ -686,10 +621,7 @@ $$F = \frac{dp}{dt} = \frac{d(\gamma mv)}{dt}$$
 
 $$KE = (\gamma - 1)mc^2$$
 
-<div class="tip-card">
-  <h4>Reading the energy-momentum relation</h4>
-  <p>The relation $E^2 = (pc)^2 + (mc^2)^2$ is one of the most useful equations in all of physics, and it reads like a Pythagorean theorem for energy. Two limits make it intuitive. For a slow particle ($p \to 0$) it reduces to $E = mc^2$ plus, on Taylor-expanding, the Newtonian $\tfrac{1}{2}mv^2$ — classical kinetic energy is just the first correction to the rest energy. For a <em>massless</em> particle like the photon ($m = 0$) it collapses to $E = pc$, which is why light carries momentum despite having no mass. The rest mass $m$ is the invariant "length" of the energy-momentum four-vector: every observer disagrees on $E$ and $p$ separately, but all agree on $m$.</p>
-</div>
+**Reading the energy-momentum relation.** $E^2 = (pc)^2 + (mc^2)^2$ reads like a Pythagorean theorem for energy. For a slow particle ($p \to 0$) it reduces to $E = mc^2$ plus, on Taylor expansion, the Newtonian $\tfrac{1}{2}mv^2$ — classical kinetic energy is just the first correction to the rest energy. For a *massless* particle like the photon ($m = 0$) it collapses to $E = pc$, which is why light carries momentum despite having no mass. The rest mass $m$ is the invariant "length" of the energy-momentum four-vector: observers disagree on $E$ and $p$ separately but all agree on $m$.
 
 <div class="example-card">
   <h4>Worked Example: how much energy is locked in one gram?</h4>
@@ -718,34 +650,17 @@ $$u^\mu = \gamma(c, v_x, v_y, v_z)$$
 - Spacetime interval: $s^2 = -c^2t^2 + x^2 + y^2 + z^2$
 - Rest mass: $m^2c^2 = -p^\mu p_\mu / c^2$
 
-<div class="tip-card">
-  <h4>Tensor notation conventions</h4>
-  <ul>
-    <li><strong>Contravariant:</strong> Upper indices ($x^\mu$)</li>
-    <li><strong>Covariant:</strong> Lower indices ($x_\mu$)</li>
-    <li><strong>Einstein summation:</strong> Repeated indices are summed</li>
-  </ul>
-  <p>The fully developed tensor machinery — covariant derivatives, the Lorentz algebra, spinors — is collected in the <a href="advanced.html">Graduate Formalism &amp; Frontiers</a> page.</p>
-</div>
+**Tensor notation conventions.** Contravariant indices are written upper ($x^\mu$), covariant indices lower ($x_\mu$), and repeated indices are summed (Einstein summation). The full tensor machinery — covariant derivatives, the Lorentz algebra, spinors — is collected in the [Graduate Formalism & Frontiers](advanced.html) page.
 
 ---
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Up:</strong> <a href="./">Relativity</a> — overview and navigation hub.</li>
-    <li><strong>Next:</strong> <a href="general-relativity.html">General Relativity</a> — gravity as the curvature of spacetime.</li>
-  </ul>
-</div>
+**Up:** [Relativity](./) — overview and navigation hub. **Next:** [General Relativity](general-relativity.html) — gravity as the curvature of spacetime.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle and the Einstein field equations.</li>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — the Lorentz group, spinors, and the full tensor formalism.</li>
-    <li><a href="../classical-mechanics/">Classical Mechanics</a> — the low-speed limit special relativity reduces to.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — special relativity combined with quantum mechanics.</li>
-  </ul>
-</div>
+## See Also
+
+- [General Relativity](general-relativity.html) — the equivalence principle and the Einstein field equations.
+- [Graduate Formalism & Frontiers](advanced.html) — the Lorentz group, spinors, and the full tensor formalism.
+- [Classical Mechanics](../classical-mechanics/) — the low-speed limit special relativity reduces to.
+- [Quantum Field Theory](../quantum-field-theory.html) — special relativity combined with quantum mechanics.

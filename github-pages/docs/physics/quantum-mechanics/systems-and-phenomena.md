@@ -4,13 +4,9 @@ title: "Quantum Mechanics: Systems & Phenomena"
 permalink: /docs/physics/quantum-mechanics/systems-and-phenomena.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Systems &amp; Phenomena</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The canonical solvable systems and the distinctively quantum effects they reveal: confinement and energy levels, tunneling, entanglement, and superposition.</p>
-</div>
+## Systems & Phenomena
 
 [Quantum Mechanics](./) &raquo; Systems &amp; Phenomena
 
@@ -67,10 +63,7 @@ Where $a_0$ = Bohr radius = 0.529 Å = $5.29 \times 10^{-11}$ m.
 
 Note: this is properly normalized: $\iiint |\psi_{100}|^2\, r^2 \sin\theta\,dr\,d\theta\,d\phi = 1$.
 
-<div class="tip-card">
-  <h4>Why hydrogen is the keystone</h4>
-  <p>The hydrogen atom is the only atom solved exactly, and almost everything in chemistry borrows its vocabulary. Two features carry the physics. First, the energy depends <em>only</em> on $n$ (a special "accidental" degeneracy of the pure $1/r$ Coulomb potential), so the $2s$ and $2p$ states share an energy in this idealization — degeneracies that real atoms lift through electron–electron repulsion and relativistic corrections. Second, the levels converge to $E \to 0$ as $n \to \infty$: that ceiling is the <strong>ionization energy</strong> (13.6 eV from the ground state), the work needed to free the electron entirely. The transitions between these levels produce the Balmer and Lyman spectral lines that first revealed quantization, and the Bohr radius $a_0$ sets the natural size of the atom.</p>
-</div>
+**Why hydrogen is the keystone.** The hydrogen atom is the only atom solved exactly, and almost everything in chemistry borrows its vocabulary. Two features carry the physics. First, the energy depends *only* on $n$ (a special "accidental" degeneracy of the pure $1/r$ Coulomb potential), so the $2s$ and $2p$ states share an energy in this idealization — degeneracies that real atoms lift through electron–electron repulsion and relativistic corrections. Second, the levels converge to $E \to 0$ as $n \to \infty$: that ceiling is the **ionization energy** (13.6 eV from the ground state), the work needed to free the electron entirely. The transitions between these levels produce the Balmer and Lyman spectral lines that first revealed quantization, and the Bohr radius $a_0$ sets the natural size of the atom.
 
 ### Comparing the Three Canonical Systems
 
@@ -82,10 +75,7 @@ These three solvable systems anchor most of quantum mechanics. Notice how the *s
 | Harmonic oscillator | $\tfrac{1}{2}m\omega^2 x^2$ | $E_n = \hbar\omega\left(n+\tfrac{1}{2}\right)$ | Constant $\hbar\omega$ (evenly spaced) | Vibrations, phonons, quantum fields |
 | Hydrogen atom | $-\dfrac{e^2}{4\pi\varepsilon_0 r}$ | $E_n = -\dfrac{13.6\ \text{eV}}{n^2}$ | Shrinks like $1/n^2$ (converges) | Atomic spectra, chemistry |
 
-<div class="tip-card">
-  <h4>Why the patterns differ</h4>
-  <p>A steep, hard-walled box pushes higher states up rapidly, so levels spread apart. A spring-like (quadratic) well gives perfectly even rungs — the hallmark of the harmonic oscillator and the reason it underlies field quantization. The hydrogen atom's $-1/r$ attraction weakens with distance, so levels bunch up and converge to the ionization threshold ($E \to 0$) as $n \to \infty$.</p>
-</div>
+**Why the patterns differ.** A steep, hard-walled box pushes higher states up rapidly, so levels spread apart. A spring-like (quadratic) well gives perfectly even rungs — the hallmark of the harmonic oscillator and the reason it underlies field quantization. The hydrogen atom's $-1/r$ attraction weakens with distance, so levels bunch up and converge to the ionization threshold ($E \to 0$) as $n \to \infty$.
 
 ## Quantum Phenomena
 
@@ -102,10 +92,7 @@ Where $\kappa = \sqrt{2m(V_0-E)}/\hbar$ and $a$ is the barrier width.
 
 The physics lives in the exponential. A classical particle with energy $E < V_0$ simply bounces off the wall; quantum mechanically the wave function does not stop dead at the barrier but *decays* inside it as $e^{-\kappa x}$, and if the barrier is thin enough a small amplitude survives on the far side. The transmission probability therefore plummets exponentially with the barrier width $a$ and with $\kappa \propto \sqrt{V_0 - E}$ — the square root of how far the barrier height rises *above* the particle's energy. That is why tunneling is dramatic for electrons across an atomic-scale gap yet utterly negligible for a tennis ball against a wall.
 
-<div class="tip-card">
-  <h4>Tunneling in the real world</h4>
-  <p>This single exponential explains a remarkable range of phenomena. <strong>Alpha decay</strong>: an alpha particle escapes a heavy nucleus by tunneling through the Coulomb barrier, and the steep dependence on barrier height is why nuclear half-lives span from microseconds to billions of years. <strong>The scanning tunneling microscope</strong> measures the tunneling current between a sharp tip and a surface; because $T$ changes by a factor of ~10 for every 0.1 nm of gap, it resolves individual atoms. <strong>Fusion in the Sun</strong> proceeds only because protons tunnel through their mutual repulsion — without quantum tunneling, stars could not shine. And <strong>flash memory</strong> stores data by tunneling electrons onto an isolated gate.</p>
-</div>
+**Tunneling in the real world.** This single exponential explains a remarkable range of phenomena. **Alpha decay**: an alpha particle escapes a heavy nucleus by tunneling through the Coulomb barrier, and the steep dependence on barrier height is why nuclear half-lives span from microseconds to billions of years. **The scanning tunneling microscope** measures the tunneling current between a sharp tip and a surface; because $T$ changes by a factor of ~10 for every 0.1 nm of gap, it resolves individual atoms. **Fusion in the Sun** proceeds only because protons tunnel through their mutual repulsion — without quantum tunneling, stars could not shine. And **flash memory** stores data by tunneling electrons onto an isolated gate.
 
 ### Quantum Entanglement
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://cds.cern.ch/record/111654/files/vol1p195-200_001.pdf"> Paper: <b><i>On the Einstein Podolsky Rosen Paradox</i></b> - John Bell</a></p>

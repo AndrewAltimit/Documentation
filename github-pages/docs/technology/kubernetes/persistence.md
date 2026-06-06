@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Stateful Workloads &amp; Persistence</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Persistent storage, dynamic provisioning, StatefulSet ordering guarantees, backup and disaster recovery, and the real patterns behind databases, queues, and caches on Kubernetes.</p>
-</div>
-
 [Kubernetes](./) &raquo; Stateful Workloads & Persistence
 
-<div class="intro-card">
-  <p class="lead-text">Kubernetes was built for stateless cattle, but the most valuable systems we run — databases, message brokers, caches — are stateful pets that must survive pod rescheduling, keep a stable identity, and never lose a byte. This page is the deep dive on how Kubernetes makes that possible: the storage primitives (PV, PVC, StorageClass), the controller that gives pods identity (StatefulSet), the DNS that makes peers addressable (headless Services), and the operational disciplines (snapshots, backup, DR) that turn "it runs" into "it survives an outage."</p>
-</div>
+Kubernetes was built for stateless cattle, but the most valuable systems we run — databases, message brokers, caches — are stateful pets that must survive pod rescheduling, keep a stable identity, and never lose a byte. This page covers how Kubernetes makes that possible: the storage primitives (PV, PVC, StorageClass), the controller that gives pods identity (StatefulSet), the DNS that makes peers addressable (headless Services), and the operational disciplines (snapshots, backup, DR) that turn "it runs" into "it survives an outage."
 
 The [Workloads & Storage](workloads.html) page introduces these primitives at a glance. This page is the reference treatment: every guarantee, every failure mode, and three production-grade patterns you can lift into a real cluster.
 
@@ -398,24 +391,10 @@ The decision table:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Claims, Not Disks</h4>
-    <p>Pods reference PVCs; StorageClasses dynamically provision PVs. The indirection keeps manifests portable. Use <code>WaitForFirstConsumer</code> so zonal disks land where the Pod is scheduled.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>StatefulSets Give Identity</h4>
-    <p>Stable ordinal names, per-ordinal <code>volumeClaimTemplate</code> PVCs that follow the Pod, and ordered lifecycle. The PVCs outlive the StatefulSet on purpose.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Headless Services Address Peers</h4>
-    <p><code>clusterIP: None</code> plus a StatefulSet <code>serviceName</code> yields stable per-Pod DNS — the foundation of replication, leader election, and partition routing.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Back Up in Layers</h4>
-    <p>Snapshots for fast rollback, engine/logical dumps for consistency, off-site copies for regional DR. Drive the design from explicit RPO and RTO targets.</p>
-  </div>
-</div>
+- **Claims, not disks.** Pods reference PVCs; StorageClasses dynamically provision PVs. The indirection keeps manifests portable. Use `WaitForFirstConsumer` so zonal disks land where the Pod is scheduled.
+- **StatefulSets give identity.** Stable ordinal names, per-ordinal `volumeClaimTemplate` PVCs that follow the Pod, and an ordered lifecycle. The PVCs outlive the StatefulSet on purpose.
+- **Headless Services address peers.** `clusterIP: None` plus a StatefulSet `serviceName` yields stable per-Pod DNS — the foundation of replication, leader election, and partition routing.
+- **Back up in layers.** Snapshots for fast rollback, engine/logical dumps for consistency, off-site copies for regional DR. Drive the design from explicit RPO and RTO targets.
 
 ---
 

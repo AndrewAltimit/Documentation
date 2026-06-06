@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Privacy Engineering</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Building systems that protect people, not just data — by design, by default, and by law</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Privacy Engineering</p>
 
-<div class="intro-card">
-  <p class="lead-text">Security keeps attackers out; privacy controls what the organization itself does with the data it legitimately holds. Privacy engineering is the discipline of translating abstract legal principles — GDPR's "data protection by design and by default," the CCPA's consumer rights — into concrete architecture: schemas that collect less, pipelines that mask and tokenize, queries that add calibrated noise, and consent records that gate every downstream use. This page covers privacy-by-design, data minimization and retention, PII discovery and masking/tokenization, differential privacy in practice, consent management, and the operational reality of GDPR and CCPA/CPRA.</p>
-</div>
+# Privacy Engineering
+
+Security keeps attackers out; privacy controls what the organization itself does with the data it legitimately holds. Privacy engineering is the discipline of translating abstract legal principles — GDPR's "data protection by design and by default," the CCPA's consumer rights — into concrete architecture: schemas that collect less, pipelines that mask and tokenize, queries that add calibrated noise, and consent records that gate every downstream use. This page covers privacy-by-design, data minimization and retention, PII discovery and masking/tokenization, differential privacy in practice, consent management, and the operational reality of GDPR and CCPA/CPRA.
 
 > **Privacy ≠ security.** A perfectly encrypted, breach-free system can still violate privacy by collecting too much, keeping it too long, or using it for purposes the subject never agreed to. Privacy engineering targets *what you do with data*, not just *who can steal it*.
 

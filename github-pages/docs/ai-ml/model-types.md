@@ -8,19 +8,11 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Model Types Explained</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A practical guide to checkpoints, LoRAs, VAEs, ControlNet, and other AI image generation components - what each does and how they work together.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; Model Types Explained
 
-<div class="code-example" markdown="1">
 A practical guide to the building blocks of AI image generation: what each component does, when to use it, and how they work together.
-</div>
 
 ## Quick Reference: Model Types at a Glance
 
@@ -442,18 +434,13 @@ Understanding what each piece does helps you build workflows that produce exactl
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **The checkpoint is the foundation;** everything else (LoRA, VAE, ControlNet, IP-Adapter, embeddings) modifies or steers it without retraining.
 - **Match the family.** SD 1.5 LoRAs, SDXL LoRAs, and FLUX LoRAs are not interchangeable — compatibility is the most common source of broken results.
 - **Pick the right tool for the job:** LoRA for new styles/subjects, VAE for color, ControlNet for structure, IP-Adapter for style-from-image, embeddings for quality/concepts.
 - **Quantization saves VRAM.** fp16/fp8 versions cut memory with minimal quality loss; LCM/Turbo variants cut steps for speed.
 - **Start minimal** (one checkpoint) and add components only as a concrete need appears.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
@@ -462,4 +449,3 @@ Understanding what each piece does helps you build workflows that produce exactl
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
 - [Output Formats](output-formats.html) - Exporting and using generated content
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

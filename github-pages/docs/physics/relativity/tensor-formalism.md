@@ -4,26 +4,15 @@ title: "Relativity: Tensor Formalism & the Field Equations"
 permalink: /docs/physics/relativity/tensor-formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./) &raquo; Tensor Formalism &amp; the Field Equations
 
-<!-- Custom styles are now loaded via main.scss -->
+## Tensor Formalism & the Field Equations
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Tensor Formalism &amp; the Field Equations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From Manifolds and the Metric to Curvature and Einstein's Equations</p>
-</div>
+This page builds the mathematical machinery of general relativity from the ground up: tensors on a smooth manifold, the metric, the connection and its Christoffel symbols, the covariant derivative, geodesics, the Riemann and Ricci curvature tensors, and — as the destination — a careful derivation of the **Einstein field equations**, both by Einstein's original "find the right tensor" route and by varying the Einstein–Hilbert action. It assumes [Special Relativity](special-relativity.html) and [General Relativity](general-relativity.html) and is a self-contained reference for the differential geometry those pages use.
 
-<div class="section-intro">
-  <p>This page builds the mathematical machinery of general relativity from the ground up: tensors on a smooth manifold, the metric, the connection and its Christoffel symbols, the covariant derivative, geodesics, the Riemann and Ricci curvature tensors, and — as the destination — a careful derivation of the <strong>Einstein field equations</strong>, both by Einstein's original "find the right tensor" route and by varying the Einstein–Hilbert action. It assumes the conceptual material on <a href="special-relativity.html">Special Relativity</a> and <a href="general-relativity.html">General Relativity</a> and is intended as a self-contained reference for the differential geometry those pages use.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Conventions used below</h4>
-  <p>We work in <strong>geometric units</strong> with $G = c = 1$ unless a constant is shown explicitly. The metric signature is <strong>(−,+,+,+)</strong> ("mostly plus"). Greek indices $\mu,\nu,\dots$ run over the four spacetime coordinates $0,1,2,3$; Latin indices $i,j,\dots$ over the three spatial ones. The <strong>Einstein summation convention</strong> is in force: a repeated index, once up and once down, is summed. Round brackets on indices denote symmetrization, $A_{(\mu\nu)} = \tfrac{1}{2}(A_{\mu\nu}+A_{\nu\mu})$, square brackets antisymmetrization, $A_{[\mu\nu]} = \tfrac{1}{2}(A_{\mu\nu}-A_{\nu\mu})$.</p>
-</div>
+**Conventions.** We work in **geometric units** with $G = c = 1$ unless a constant is shown explicitly. The metric signature is **(−,+,+,+)** ("mostly plus"). Greek indices $\mu,\nu,\dots$ run over the four spacetime coordinates $0,1,2,3$; Latin indices $i,j,\dots$ over the three spatial ones. The **Einstein summation convention** is in force: a repeated index, once up and once down, is summed. Round brackets denote symmetrization, $A_{(\mu\nu)} = \tfrac{1}{2}(A_{\mu\nu}+A_{\nu\mu})$, square brackets antisymmetrization, $A_{[\mu\nu]} = \tfrac{1}{2}(A_{\mu\nu}-A_{\nu\mu})$.
 
 ## Why Tensors?
 
@@ -59,10 +48,7 @@ $$T'^{\mu_1\cdots\mu_k}{}_{\nu_1\cdots\nu_l} = \frac{\partial x'^{\mu_1}}{\parti
 
 This transformation rule is the definition of a tensor. Its payoff: if every term in an equation is a tensor of the same type, and the equation holds in one frame, the matched Jacobian factors guarantee it holds in every frame.
 
-<div class="tip-card">
-  <h4>Tensor as multilinear map</h4>
-  <p>Equivalently, a $(k,l)$ tensor is a multilinear machine that eats $k$ covectors and $l$ vectors and returns a number. The metric $g_{\mu\nu}$ is a $(0,2)$ tensor: feed it two vectors and it returns their inner product. This viewpoint makes "tensor" mean a single geometric object whose <em>components</em> are coordinate-dependent but whose <em>identity</em> is not.</p>
-</div>
+**Tensor as multilinear map.** Equivalently, a $(k,l)$ tensor is a multilinear machine that eats $k$ covectors and $l$ vectors and returns a number. The metric $g_{\mu\nu}$ is a $(0,2)$ tensor: feed it two vectors and it returns their inner product. This viewpoint makes "tensor" mean a single geometric object whose *components* are coordinate-dependent but whose *identity* is not.
 
 ## The Metric Tensor
 
@@ -90,14 +76,11 @@ $$V^\mu V_\mu = g_{\mu\nu} V^\mu V^\nu , \qquad U \cdot V = g_{\mu\nu} U^\mu V^\
 
 A vector is **timelike** if $V^\mu V_\mu < 0$, **spacelike** if $> 0$, and **null** if $= 0$ (in the mostly-plus convention).
 
-<div class="example-section">
-  <h4>Worked example: the metric on a 2-sphere</h4>
-  <p>The round sphere of radius $a$, with coordinates $(\theta,\phi)$, has line element $ds^2 = a^2\,d\theta^2 + a^2\sin^2\theta\,d\phi^2$, i.e.</p>
+**Worked example: the metric on a 2-sphere.** The round sphere of radius $a$, with coordinates $(\theta,\phi)$, has line element $ds^2 = a^2\,d\theta^2 + a^2\sin^2\theta\,d\phi^2$, i.e.
 
 $$g_{\mu\nu} = \begin{pmatrix} a^2 & 0 \\ 0 & a^2\sin^2\theta \end{pmatrix}, \qquad g^{\mu\nu} = \begin{pmatrix} a^{-2} & 0 \\ 0 & a^{-2}\sin^{-2}\theta \end{pmatrix}.$$
 
-  <p>This is the simplest curved space and a useful sandbox: every quantity below (Christoffel symbols, Riemann tensor, Ricci scalar) can be computed by hand for it, and the answer $R = 2/a^2$ confirms the sphere has constant positive curvature.</p>
-</div>
+This is the simplest curved space and a useful sandbox: every quantity below (Christoffel symbols, Riemann tensor, Ricci scalar) can be computed by hand, and the answer $R = 2/a^2$ confirms the sphere has constant positive curvature.
 
 ## The Connection and Covariant Derivative
 
@@ -134,14 +117,11 @@ $$\Gamma^\lambda_{\mu\nu} = \frac{1}{2} g^{\lambda\sigma}\bigl(\partial_\mu g_{\
 
 This is the workhorse formula of general relativity. Everything downstream — geodesics, curvature, the field equations — is built from these symbols and hence ultimately from the metric and its derivatives.
 
-<div class="example-section">
-  <h4>Worked example: Christoffel symbols of the 2-sphere</h4>
-  <p>Using the sphere metric above, the only non-zero metric derivative is $\partial_\theta g_{\phi\phi} = 2a^2\sin\theta\cos\theta$. Feeding it into the formula gives the three independent non-vanishing symbols</p>
+**Worked example: Christoffel symbols of the 2-sphere.** Using the sphere metric above, the only non-zero metric derivative is $\partial_\theta g_{\phi\phi} = 2a^2\sin\theta\cos\theta$. Feeding it into the formula gives the three independent non-vanishing symbols
 
 $$\Gamma^\theta_{\phi\phi} = -\sin\theta\cos\theta , \qquad \Gamma^\phi_{\theta\phi} = \Gamma^\phi_{\phi\theta} = \cot\theta .$$
 
-  <p>All others vanish. These encode the familiar fact that "straight" lines on a sphere are great circles, and they feed directly into the geodesic equation below.</p>
-</div>
+All others vanish. These encode the fact that "straight" lines on a sphere are great circles, and they feed directly into the geodesic equation below.
 
 ## Geodesics
 
@@ -280,10 +260,7 @@ $$R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R = 8\pi G\, T_{\mu\nu} .$$
 
 This derivation makes three things transparent that the requirement-driven route only asserts: the Einstein tensor appears *because* it is the metric-variation of the scalar curvature; the conservation law $\nabla^\mu T_{\mu\nu}=0$ follows from the diffeomorphism invariance of $S_m$ (a Noether identity); and the cosmological constant is simply a constant added to the Lagrangian, $\mathcal{L} \to \mathcal{L} - \Lambda/8\pi G$.
 
-<div class="tip-card">
-  <h4>Reading the equation both ways</h4>
-  <p>Wheeler's slogan splits cleanly along the two sides. The right-hand side, $T_{\mu\nu}$, is "matter tells spacetime how to curve" — energy and momentum source the geometry. The left-hand side feeds back through the Christoffel symbols into the geodesic equation, "spacetime tells matter how to move." The non-linearity — gravity gravitates, because curvature itself carries energy and re-sources the field — is what makes the equations hard and the physics rich: black holes, gravitational waves, and an expanding universe all live in that non-linearity.</p>
-</div>
+**Reading the equation both ways.** Wheeler's slogan splits cleanly along the two sides. The right-hand side, $T_{\mu\nu}$, is "matter tells spacetime how to curve" — energy and momentum source the geometry. The left-hand side feeds back through the Christoffel symbols into the geodesic equation, "spacetime tells matter how to move." The non-linearity — gravity gravitates, because curvature itself carries energy and re-sources the field — is what makes the equations hard and the physics rich: black holes, gravitational waves, and an expanding universe all live in that non-linearity.
 
 ## Putting It Together: the Schwarzschild Example
 
@@ -317,22 +294,16 @@ Each arrow is a construction we carried out: the metric defines distances, the m
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Within Relativity</h4>
-  <ul>
-    <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle, the field equations in context, and the Schwarzschild solution applied.</li>
-    <li><a href="special-relativity.html">Special Relativity</a> — Minkowski spacetime, four-vectors, and the flat-space limit this formalism reduces to.</li>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — exact solutions (Kerr, FLRW, de Sitter), the Weyl tensor, ADM formalism, black-hole thermodynamics, and quantum-gravity frontiers.</li>
-    <li><a href="./">Relativity Hub</a> — overview and navigation.</li>
-  </ul>
-</div>
+Within relativity:
 
-<div class="see-also-card">
-  <h4>Elsewhere in Physics</h4>
-  <ul>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — action principles, Noether's theorem, and the stress–energy tensor in the relativistic quantum setting.</li>
-    <li><a href="../string-theory/">String Theory</a> — a leading candidate for quantizing the field equations derived here.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — numerically solving the field equations for binary mergers and gravitational waves.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [General Relativity](general-relativity.html) — the equivalence principle, the field equations in context, and the Schwarzschild solution applied.
+- [Special Relativity](special-relativity.html) — Minkowski spacetime, four-vectors, and the flat-space limit this formalism reduces to.
+- [Graduate Formalism & Frontiers](advanced.html) — exact solutions (Kerr, FLRW, de Sitter), the Weyl tensor, ADM formalism, black-hole thermodynamics, and quantum-gravity frontiers.
+- [Relativity Hub](./) — overview and navigation.
+
+Elsewhere in physics:
+
+- [Quantum Field Theory](../quantum-field-theory.html) — action principles, Noether's theorem, and the stress–energy tensor in the relativistic quantum setting.
+- [String Theory](../string-theory/) — a leading candidate for quantizing the field equations derived here.
+- [Computational Physics](../computational-physics/) — numerically solving the field equations for binary mergers and gravitational waves.
+- [Physics Hub](../) — browse all physics topics.

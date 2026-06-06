@@ -13,27 +13,11 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive guide to AI image generation, custom model training, and automated creative workflows.</p>
 </div>
 
-<div class="code-example" markdown="1">
-Your guide to creating AI-generated images, training custom models, and building automated workflows. From your first generated image to training your own artistic styles and shipping them to production.
-</div>
+This section takes you from your first generated image to training your own artistic styles and shipping them to production. It is organized in three arcs:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>Learn the Foundations</h4>
-    <p>How diffusion turns noise into images, the model stack, and how to choose a base model for your task and hardware.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-tools"></i>
-    <h4>Master the Tools</h4>
-    <p>Build node workflows in ComfyUI, train your own LoRAs, edit existing images, and steer composition precisely with ControlNet.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-rocket"></i>
-    <h4>Ship to Production</h4>
-    <p>Optimize for your hardware, compress models, automate pipelines, and run reliable, observable services with MLOps.</p>
-  </div>
-</div>
+- **Foundations** — how diffusion turns noise into images, the model stack, and how to choose a base model for your task and hardware.
+- **Tools** — build node workflows in ComfyUI, train your own LoRAs, edit existing images, and steer composition precisely with ControlNet.
+- **Production** — optimize for your hardware, compress models, automate pipelines, and run reliable, observable services with MLOps.
 
 > **Suggested path:** start with the **Foundations**, pick up the **Tools** that match your goal, then move into **Production** workflows. Use the "Choose Your Path" table below to jump straight to your starting point.
 
@@ -154,79 +138,29 @@ Explore the full library, grouped by purpose:
 
 ### Understanding the Foundations
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-wave-square"></i> <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></h4>
-    <p>How diffusion models turn noise into images, and the parameters that control your results.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-cubes"></i> <a href="model-types.html">Model Types</a></h4>
-    <p>The building blocks — checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter — and how they fit together.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-balance-scale"></i> <a href="base-models-comparison.html">Base Models Comparison</a></h4>
-    <p>SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony — choosing the right foundation for your task and hardware.</p>
-  </div>
-</div>
+- **[Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html)** — how diffusion models turn noise into images, and the parameters that control your results.
+- **[Model Types](model-types.html)** — the building blocks (checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter) and how they fit together.
+- **[Base Models Comparison](base-models-comparison.html)** — SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony: choosing the right foundation for your task and hardware.
 
 ### Practical Tools
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-project-diagram"></i> <a href="comfyui-guide.html">ComfyUI Guide</a></h4>
-    <p>The node-based workflow builder for complex, automatable generation pipelines.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-graduation-cap"></i> <a href="lora-training.html">LoRA Training</a></h4>
-    <p>Train custom models for your own styles, characters, or concepts on consumer hardware.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-sliders-h"></i> <a href="controlnet.html">ControlNet</a></h4>
-    <p>Guide composition with poses, edges, depth maps, and segmentation for precise control.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-eraser"></i> <a href="inpainting-editing.html">Inpainting & Editing</a></h4>
-    <p>Mask, regenerate, extend, and blend regions to edit existing images instead of rerolling them.</p>
-  </div>
-</div>
+- **[ComfyUI Guide](comfyui-guide.html)** — the node-based workflow builder for complex, automatable generation pipelines.
+- **[LoRA Training](lora-training.html)** — train custom models for your own styles, characters, or concepts on consumer hardware.
+- **[ControlNet](controlnet.html)** — guide composition with poses, edges, depth maps, and segmentation for precise control.
+- **[Inpainting & Editing](inpainting-editing.html)** — mask, regenerate, extend, and blend regions to edit existing images instead of rerolling them.
 
 ### Going Further
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-file-export"></i> <a href="output-formats.html">Output Formats</a></h4>
-    <p>Diffusion across every medium — image, video, audio, and 3D — and how to export each.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-flask"></i> <a href="advanced-techniques.html">Advanced Techniques</a></h4>
-    <p>Latent interpolation, regional prompting, flow matching, distillation, and expert optimization.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-gamepad"></i> <a href="game-ai.html">Game AI Systems</a></h4>
-    <p>Pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.</p>
-  </div>
-</div>
+- **[Output Formats](output-formats.html)** — diffusion across every medium (image, video, audio, 3D) and how to export each.
+- **[Advanced Techniques](advanced-techniques.html)** — latent interpolation, regional prompting, flow matching, distillation, and expert optimization.
+- **[Game AI Systems](game-ai.html)** — pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.
 
 ### Optimization & Production
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4><i class="fas fa-cog"></i> <a href="optimization-guide.html">Optimization & Performance</a></h4>
-    <p>Quantization, VRAM-reduction tactics, inference speedups, and batching for diffusion models and LLMs.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-compress"></i> <a href="model-compression.html">Model Compression</a></h4>
-    <p>Pruning, distillation, quantization, low-rank factorization, and edge deployment — and the accuracy you trade.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-stream"></i> <a href="production-pipelines.html">Production Pipelines</a></h4>
-    <p>Headless generation at scale — batch jobs, parameter sweeps, the ComfyUI API, queues, and asset pipelines.</p>
-  </div>
-  <div class="feature-card">
-    <h4><i class="fas fa-robot"></i> <a href="mlops-production.html">MLOps & Production</a></h4>
-    <p>Reproducible training, experiment tracking, model registries, rollouts, and drift monitoring for reliable services.</p>
-  </div>
-</div>
+- **[Optimization & Performance](optimization-guide.html)** — quantization, VRAM-reduction tactics, inference speedups, and batching for diffusion models and LLMs.
+- **[Model Compression](model-compression.html)** — pruning, distillation, quantization, low-rank factorization, and edge deployment, with the accuracy you trade.
+- **[Production Pipelines](production-pipelines.html)** — headless generation at scale: batch jobs, parameter sweeps, the ComfyUI API, queues, and asset pipelines.
+- **[MLOps & Production](mlops-production.html)** — reproducible training, experiment tracking, model registries, rollouts, and drift monitoring for reliable services.
 
 ## Troubleshooting
 
@@ -283,8 +217,7 @@ When images do not match your expectations:
 - [Stable Diffusion Paper](https://arxiv.org/abs/2112.10752) - Original architecture
 - [Stable Diffusion 3 Paper](https://arxiv.org/abs/2403.03206) - Latest architecture advances
 
-<div class="see-also-card" markdown="1">
-#### Related Documentation
+## Related Documentation
 
 Broader AI and machine learning concepts beyond image generation:
 
@@ -292,8 +225,5 @@ Broader AI and machine learning concepts beyond image generation:
 - [AI Fundamentals - Complete](../technology/ai/) - Technical deep-dive into AI concepts
 - [AI Documentation Hub](../artificial-intelligence/) - All AI-related documentation
 - [Game AI Systems](game-ai.html) - Real-time AI for NPCs and interactive behaviors
-</div>
 
-<div class="code-example bg-yellow-000" markdown="1">
-**Hardware Note**: This documentation assumes NVIDIA GPU access. AMD and Apple Silicon support is improving but may require additional configuration and have limited feature availability.
-</div>
+> **Hardware Note:** This documentation assumes NVIDIA GPU access. AMD and Apple Silicon support is improving but may require additional configuration and have limited feature availability.

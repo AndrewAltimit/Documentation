@@ -4,32 +4,21 @@ title: "Relativity: General Relativity"
 permalink: /docs/physics/relativity/general-relativity.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./)
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">General Relativity</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Gravity as the Curvature of Spacetime</p>
-</div>
-
 ## General Relativity
 
-<div class="section-intro gr-intro">
-  <p>General relativity, published in 1915, extends special relativity to include gravity and accelerated reference frames. It describes gravity not as a force, but as the curvature of spacetime caused by mass and energy.</p>
-</div>
+General relativity, published in 1915, extends special relativity to include gravity and accelerated frames. It describes gravity not as a force but as the curvature of spacetime caused by mass and energy. Three principles underlie it:
+
+- **Equivalence principle** — the effects of gravity are locally indistinguishable from acceleration.
+- **General covariance** — the laws of physics take the same form in all coordinate systems.
+- **Spacetime curvature** — matter and energy curve spacetime, and that curvature guides motion.
 
 <div class="core-principles">
-  <h3><i class="fas fa-star"></i> Core Principles</h3>
-  
   <div class="principle-cards">
     <div class="principle-card equivalence">
-      <div class="principle-icon"><i class="fas fa-equals"></i></div>
-      <h4>Equivalence Principle</h4>
-      <p>The effects of gravity are locally indistinguishable from acceleration</p>
       <div class="principle-visual">
         <svg viewBox="0 0 420 240" style="max-width: 500px; width: 100%;">
           <!-- Define arrow markers -->
@@ -107,16 +96,7 @@ hide_title: true
       </div>
     </div>
     
-    <div class="principle-card covariance">
-      <div class="principle-icon"><i class="fas fa-sync-alt"></i></div>
-      <h4>General Covariance</h4>
-      <p>The laws of physics take the same form in all coordinate systems</p>
-    </div>
-    
     <div class="principle-card curvature">
-      <div class="principle-icon"><i class="fas fa-globe"></i></div>
-      <h4>Spacetime Curvature</h4>
-      <p>Matter and energy curve spacetime, and this curvature guides motion</p>
       <div class="principle-visual">
         <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
           <!-- Title -->
@@ -181,69 +161,18 @@ hide_title: true
 
 ### Einstein Field Equations
 
-<div class="einstein-equations-section">
-  <div class="equation-header">
-    <i class="fas fa-equals"></i>
-    <h4>The fundamental equation of general relativity</h4>
-  </div>
-  
-  <div class="main-equation">
-    <div class="equation-box einstein" markdown="1">
+The fundamental equation of general relativity equates spacetime geometry (left) to matter-energy content (right):
+
 $$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}$$
-</div>
-  </div>
-  
-  <div class="equation-components">
-    <div class="component-grid">
-      <div class="component">
-        <div class="symbol">$R_{\mu\nu}$</div>
-        <div class="name">Ricci curvature tensor</div>
-        <div class="description">Describes spacetime curvature</div>
-      </div>
-      <div class="component">
-        <div class="symbol">$g_{\mu\nu}$</div>
-        <div class="name">Metric tensor</div>
-        <div class="description">Describes spacetime geometry</div>
-      </div>
-      <div class="component">
-        <div class="symbol">$R$</div>
-        <div class="name">Scalar curvature</div>
-        <div class="description">Trace of Ricci tensor</div>
-      </div>
-      <div class="component">
-        <div class="symbol">$\Lambda$</div>
-        <div class="name">Cosmological constant</div>
-        <div class="description">Dark energy term</div>
-      </div>
-      <div class="component">
-        <div class="symbol">$G$</div>
-        <div class="name">Gravitational constant</div>
-        <div class="description">$6.674 \times 10^{-11} \text{ m}^3\text{kg}^{-1}\text{s}^{-2}$</div>
-      </div>
-      <div class="component">
-        <div class="symbol">$T_{\mu\nu}$</div>
-        <div class="name">Stress-energy tensor</div>
-        <div class="description">Matter and energy content</div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="equation-interpretation">
-    <div class="interpretation-visual">
-      <div class="side geometry">
-        <h5>Geometry</h5>
-        <p>Curvature of spacetime</p>
-        <i class="fas fa-globe fa-3x"></i>
-      </div>
-      <div class="equals">=</div>
-      <div class="side matter">
-        <h5>Matter/Energy</h5>
-        <p>Content of spacetime</p>
-        <i class="fas fa-atom fa-3x"></i>
-      </div>
-    </div>
-  </div>
-</div>
+
+| Symbol | Name | Role |
+|--------|------|------|
+| $R_{\mu\nu}$ | Ricci curvature tensor | Spacetime curvature |
+| $g_{\mu\nu}$ | Metric tensor | Spacetime geometry |
+| $R$ | Scalar curvature | Trace of the Ricci tensor |
+| $\Lambda$ | Cosmological constant | Dark-energy term |
+| $G$ | Gravitational constant | $6.674 \times 10^{-11}\ \text{m}^3\text{kg}^{-1}\text{s}^{-2}$ |
+| $T_{\mu\nu}$ | Stress-energy tensor | Matter and energy content |
 
 #### Derivation from Action Principle
 The Einstein-Hilbert action:
@@ -283,9 +212,7 @@ $$\nabla_\mu G^{\mu\nu} = 0$$
 
 Where G^μν = R^μν - ½g^μν R is the Einstein tensor.
 
-<div class="tip-card">
-  <p>The full differential-geometry development of these tensors — the covariant derivative, metric compatibility, the Weyl tensor, and the Bianchi identities in detail — is collected in <a href="advanced.html">Graduate Formalism &amp; Frontiers</a>.</p>
-</div>
+The full differential-geometry development of these tensors — the covariant derivative, metric compatibility, the Weyl tensor, and the Bianchi identities in detail — is collected in [Graduate Formalism & Frontiers](advanced.html).
 
 ### The Metric Tensor
 
@@ -310,10 +237,7 @@ The event horizon of a black hole:
 
 $$r_s = \frac{2GM}{c^2}$$
 
-<div class="tip-card">
-  <h4>Reading the Schwarzschild metric</h4>
-  <p>Every term in that intimidating line element has a physical job. The factor $(1 - 2GM/rc^2)$ multiplying $dt^2$ is the <strong>gravitational time dilation</strong>: clocks deep in the well tick slower, and at $r = r_s$ it hits zero — time appears to freeze at the horizon as seen from far away. The same factor <em>inverted</em> in front of $dr^2$ stretches radial distances near the mass. Far from the mass ($r \gg r_s$) both factors approach 1 and the metric smoothly becomes flat Minkowski spacetime, recovering special relativity. For the Sun, $r_s \approx 3$ km; for Earth, about 9 mm — which is why we never notice these effects unless mass is crushed into a tiny volume.</p>
-</div>
+**Reading the Schwarzschild metric.** Every term has a physical job. The factor $(1 - 2GM/rc^2)$ multiplying $dt^2$ is the gravitational time dilation: clocks deep in the well tick slower, and at $r = r_s$ it hits zero — time appears to freeze at the horizon as seen from far away. The same factor *inverted* in front of $dr^2$ stretches radial distances near the mass. Far from the mass ($r \gg r_s$) both factors approach 1 and the metric becomes flat Minkowski spacetime, recovering special relativity. For the Sun, $r_s \approx 3$ km; for Earth, about 9 mm — which is why we never notice these effects unless mass is crushed into a tiny volume.
 
 ### Gravitational Time Dilation
 
@@ -339,10 +263,7 @@ Where Γ^μ_αβ are the Christoffel symbols describing the connection:
 
 $$\Gamma^\mu_{\alpha\beta} = \frac{1}{2}g^{\mu\nu}\left(\frac{\partial g_{\nu\alpha}}{\partial x^\beta} + \frac{\partial g_{\nu\beta}}{\partial x^\alpha} - \frac{\partial g_{\alpha\beta}}{\partial x^\nu}\right)$$
 
-<div class="tip-card">
-  <h4>The whole theory in one sentence</h4>
-  <p>John Wheeler distilled general relativity to its core: <em>"Spacetime tells matter how to move; matter tells spacetime how to curve."</em> The first half is the geodesic equation — free objects follow the straightest available paths through curved spacetime, which we perceive as gravity. The second half is the Einstein field equation — the stress-energy tensor $T_{\mu\nu}$ on the right sources the curvature on the left. Gravity is not a force pulling objects off straight lines; it is the geometry that <em>defines</em> what "straight" means. An orbiting planet and a tossed apple are both simply coasting, force-free, through a spacetime bent by mass.</p>
-</div>
+**The whole theory in one sentence.** John Wheeler distilled general relativity to its core: *"Spacetime tells matter how to move; matter tells spacetime how to curve."* The first half is the geodesic equation — free objects follow the straightest available paths through curved spacetime, which we perceive as gravity. The second half is the Einstein field equation — the stress-energy tensor $T_{\mu\nu}$ on the right sources the curvature on the left. Gravity is not a force pulling objects off straight lines; it is the geometry that *defines* what "straight" means. An orbiting planet and a tossed apple are both coasting, force-free, through spacetime bent by mass.
 
 ## Predictions and Confirmations
 
@@ -404,16 +325,11 @@ Time travel could allow changing the past. Resolution: Various theoretical solut
 
 ### Common Misconceptions
 
-<div class="principle-card">
-  <h4>Pitfalls to avoid</h4>
-  <ul>
-    <li><strong>"Nothing can move faster than light."</strong> More precisely: no <em>information, energy, or massive object</em> can. Pure geometry can — the gap between two separating galaxies grows faster than $c$ in expanding spacetime, and a laser spot swept across the Moon can outrun light, because neither carries a signal.</li>
-    <li><strong>"Mass increases with speed."</strong> An older convention; modern usage keeps the <em>rest mass</em> $m$ invariant and puts the speed dependence in momentum $p = \gamma m v$ and energy $E = \gamma m c^2$. Saying mass grows is a needless source of confusion.</li>
-    <li><strong>"The twin paradox is a real paradox."</strong> It isn't. The situation is not symmetric: only the traveling twin changes frames (accelerates to turn around), so only the traveling twin ages less. The asymmetry resolves it cleanly.</li>
-    <li><strong>"Time dilation means the moving clock is broken."</strong> No clock malfunctions. Identical, perfect clocks simply measure different elapsed proper times along different worldlines through spacetime — like two roads of different length between the same cities.</li>
-    <li><strong>"$E=mc^2$ only applies to nuclear bombs."</strong> It applies to everything. A charged battery, a compressed spring, and a hot cup of coffee all weigh fractionally more than their de-energized counterparts; the effect is just immeasurably tiny outside nuclear and particle processes.</li>
-  </ul>
-</div>
+- **"Nothing can move faster than light."** More precisely: no *information, energy, or massive object* can. Pure geometry can — the gap between two separating galaxies grows faster than $c$ in expanding spacetime, and a laser spot swept across the Moon can outrun light, because neither carries a signal.
+- **"Mass increases with speed."** An older convention; modern usage keeps the *rest mass* $m$ invariant and puts the speed dependence in momentum $p = \gamma m v$ and energy $E = \gamma m c^2$.
+- **"The twin paradox is a real paradox."** It isn't. Only the traveling twin changes frames (accelerates to turn around), so only the traveling twin ages less.
+- **"Time dilation means the moving clock is broken."** No clock malfunctions. Identical, perfect clocks measure different elapsed proper times along different worldlines — like two roads of different length between the same cities.
+- **"$E=mc^2$ only applies to nuclear bombs."** It applies to everything. A charged battery, a compressed spring, and a hot cup of coffee all weigh fractionally more than their de-energized counterparts; the effect is just immeasurably tiny outside nuclear and particle processes.
 
 ## Experimental Tests
 
@@ -437,28 +353,17 @@ Time travel could allow changing the past. Resolution: Various theoretical solut
 4. **Information Paradox:** Black hole information loss problem
 5. **Cosmological Constant Problem:** Huge discrepancy with quantum predictions
 
-<div class="tip-card">
-  <p>These open questions are pursued in detail — black-hole thermodynamics, the information paradox, gravitational waves, and quantum-gravity programs — in <a href="advanced.html">Graduate Formalism &amp; Frontiers</a>.</p>
-</div>
+These open questions are pursued in detail — black-hole thermodynamics, the information paradox, gravitational waves, and quantum-gravity programs — in [Graduate Formalism & Frontiers](advanced.html).
 
 ---
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="special-relativity.html">Special Relativity</a> — the postulates, Lorentz transformations, and $E=mc^2$.</li>
-    <li><strong>Next:</strong> <a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — tensor calculus, exact solutions, and quantum gravity.</li>
-  </ul>
-</div>
+**Previous:** [Special Relativity](special-relativity.html) — the postulates, Lorentz transformations, and $E=mc^2$. **Next:** [Graduate Formalism & Frontiers](advanced.html) — tensor calculus, exact solutions, and quantum gravity.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — the Riemann tensor, Kerr/FLRW solutions, and black-hole thermodynamics.</li>
-    <li><a href="../string-theory/">String Theory</a> — a leading candidate for quantum gravity.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — numerical relativity and gravitational-wave simulations.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+## See Also
+
+- [Graduate Formalism & Frontiers](advanced.html) — the Riemann tensor, Kerr/FLRW solutions, and black-hole thermodynamics.
+- [String Theory](../string-theory/) — a leading candidate for quantum gravity.
+- [Computational Physics](../computational-physics/) — numerical relativity and gravitational-wave simulations.
+- [Physics Hub](../) — browse all physics topics.

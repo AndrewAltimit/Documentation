@@ -4,21 +4,15 @@ title: "Classical Mechanics: Newtonian Mechanics & Conservation Laws"
 permalink: /docs/physics/classical-mechanics/newtonian.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
-
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Newtonian Mechanics &amp; Conservation Laws</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Newton's three laws, kinematics and dynamics, work and energy, conservation laws, rotational motion, gravitation and central forces, and a first look at oscillations.</p>
-</div>
 
 [Classical Mechanics](./) &raquo; Newtonian Mechanics &amp; Conservation Laws
 
+Newton's three laws, kinematics and dynamics, work and energy, conservation laws, rotational motion, gravitation and central forces, and a first look at oscillations.
+
 ## The Foundation: Newton's Revolution
 
-Before Newton, motion was a mystery. Objects moved, but why? Newton's genius was recognizing that motion follows precise mathematical laws. This section builds the force-based picture from the ground up, in the order it is most naturally learned: first the three laws that define force and inertia, then the kinematics and dynamics they govern, then the conservation laws that act as shortcuts, then the extension from point particles to spinning bodies, and finally gravitation and the central-force problem that crowned Newton's program — with a closing glimpse of oscillations.
+Newton's insight was that motion follows precise mathematical laws. This section builds the force-based picture in the order it is most naturally learned: the three laws that define force and inertia, the kinematics and dynamics they govern, the conservation laws that act as shortcuts, the extension from point particles to spinning bodies, and finally gravitation and the central-force problem that crowned Newton's program — with a closing glimpse of oscillations.
 
 ## Newton's Laws of Motion
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.gutenberg.org/files/33229/33229-pdf.pdf"> Paper: <b><i>Philosophiæ Naturalis Principia Mathematica</i></b> - Isaac Newton</a></p>
@@ -59,20 +53,13 @@ The third law is exactly what makes the *total* momentum of an isolated system c
 
 ### Why Newton's Laws Matter
 
-These three simple laws explain an incredible range of phenomena:
-- Why you lurch forward when a car brakes suddenly (First Law)
-- How rockets work in the vacuum of space (Third Law)
-- Why heavier objects don't fall faster (Second Law with gravity)
-
-But as powerful as Newton's laws are, they have a limitation: you need to know all the forces. What if the forces are complicated? What if you don't care about forces at all, just motion? That question motivates the energy methods and conservation laws below, and ultimately the analytical [Lagrangian and Hamiltonian](lagrangian-hamiltonian.html) reformulations.
+These three laws explain a wide range of phenomena: why you lurch forward when a car brakes (First Law), how rockets work in vacuum (Third Law), and why heavier objects don't fall faster (Second Law with gravity). Their limitation is that you must know all the forces. When forces are complicated, or when you care only about motion, the energy methods and conservation laws below — and ultimately the analytical [Lagrangian and Hamiltonian](lagrangian-hamiltonian.html) reformulations — become more powerful.
 
 ## Kinematics: Describing Motion
 
 ### From Observation to Mathematics
 
-Now that we have defined force through Newton's laws, let's look at motion itself. How do we describe where things are and how fast they're moving? This is kinematics — the language of motion.
-
-Kinematics describes motion without asking "why?" — that's dynamics. It's like studying the choreography of a dance without worrying about the muscles involved.
+Kinematics describes *where* things are and *how fast* they move, without asking *why* (that is dynamics). It is the language of motion: position, velocity, and acceleration.
 
 ### One-Dimensional Motion
 
@@ -116,7 +103,7 @@ $$H = \frac{v_0^2 \sin^2\theta}{2g}$$
 
 ### Connecting Force to Motion
 
-While kinematics describes motion, dynamics explains it. This is where Newton's second law ($F = ma$) becomes our primary tool. But as we'll see, thinking in terms of energy often provides a more elegant approach — and leads directly to the conservation laws of the next section.
+Dynamics explains motion, with Newton's second law ($F = ma$) as the primary tool. Often, though, thinking in terms of energy is more elegant — and it leads directly to the conservation laws of the next section.
 
 ### Work and Energy
 
@@ -144,9 +131,7 @@ A force is **conservative** if the work it does is independent of the path — e
 ## Conservation Laws: Nature's Hidden Symmetries
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_04.html"> Lecture: <b><i>Conservation of Energy - Feynman Lectures</i></b></a></p>
 
-Here's where physics gets elegant. Instead of tracking forces at every instant, we can use conservation laws — quantities that remain constant throughout motion. It's like having a bank account that never changes its total balance, even as money moves between checking and savings.
-
-These conservation laws aren't arbitrary; they reflect deep symmetries in nature:
+Rather than tracking forces at every instant, conservation laws give quantities that stay constant throughout the motion — a powerful shortcut. These laws are not arbitrary; each reflects a deep symmetry of nature:
 
 <details>
 <summary><b>Click to expand: Interactive Conservation Laws Demonstration</b></summary>
@@ -216,9 +201,7 @@ But even conservation laws have limitations when dealing with constraints and co
 
 ### Why Rotation Matters
 
-So far, we've treated objects as point particles. But real objects have size and shape. They can spin, roll, and tumble. This adds richness to mechanics — and complexity.
-
-The beautiful discovery: rotational motion follows the same patterns as linear motion, just with different quantities:
+Real objects have size and shape: they spin, roll, and tumble. The key discovery is that rotational motion follows the same patterns as linear motion, with each linear quantity having a rotational analog:
 
 <details>
 <summary><b>Mermaid Diagram: Linear vs Rotational Motion Analogy</b></summary>

@@ -6,19 +6,11 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Inpainting &amp; Image Editing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Edit existing images with diffusion — mask, regenerate, extend, and blend regions instead of rerolling the whole frame.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; Inpainting &amp; Image Editing
 
-<div class="code-example" markdown="1">
 Generation makes a picture from nothing; editing changes a picture you already have. Inpainting, outpainting, and img2img all share one mechanism — re-noise part of an existing image and let the model re-denoise it under a new prompt — and most editing skill is learning *how much* to re-noise *where*.
-</div>
 
 ## Why Editing Is Different From Generation
 
@@ -26,23 +18,9 @@ A text-to-image run starts from pure noise and has no commitment to any pixel. E
 
 Every technique on this page is a variation on the same idea: convert the image to latents, add a controlled amount of noise, and denoise back down under guidance. The knobs that matter are **where** you allow change (the mask) and **how much** change you allow (denoise strength). Get those two right and the rest is workflow.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-paint-brush"></i>
-    <h4>The Mask Picks Where</h4>
-    <p>A mask marks the region to regenerate. Soft, feathered edges blend; hard edges leave visible seams.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sliders-h"></i>
-    <h4>Denoise Picks How Much</h4>
-    <p>Denoise strength sets how far from the original the result can drift — low for subtle fixes, high for full replacement.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-object-group"></i>
-    <h4>Blend, Don't Paste</h4>
-    <p>Feathering, latent compositing, and differential diffusion hide the seam so edits look native, not stitched.</p>
-  </div>
-</div>
+- **The Mask Picks Where.** A mask marks the region to regenerate. Soft, feathered edges blend; hard edges leave visible seams.
+- **Denoise Picks How Much.** Denoise strength sets how far from the original the result can drift — low for subtle fixes, high for full replacement.
+- **Blend, Don't Paste.** Feathering, latent compositing, and differential diffusion hide the seam so edits look native, not stitched.
 
 ## The Editing Family at a Glance
 
@@ -186,15 +164,13 @@ This is why a face fixed with "only masked" looks dramatically sharper than one 
 
 The **masked-content** mode is subtle but important: starting from `original` biases toward the existing pixels (good for repairs), while `latent noise` / `fill` discards them (good when you want something genuinely different and the old object keeps ghosting through).
 
-<div class="tip-card" markdown="1">
-**Common inpainting pitfalls**
+**Common inpainting pitfalls:**
 
 - **The old object ghosts back.** Denoise too low, or masked-content set to `original`. Raise denoise toward 0.85 and switch to `latent noise`/`fill`.
 - **Visible seam around the edit.** Mask not feathered. Add mask blur (8-16 px).
 - **New content ignores the scene.** Mask padding too small — the model can't see enough surrounding context. Increase padding or inpaint `whole picture`.
 - **Blurry, low-detail fill in a small region.** Inpainting full-image at the region's tiny native size. Switch to `only masked` / crop-and-stitch.
 - **Incoherent large fills.** Using a base checkpoint for a big edit. Switch to a dedicated inpainting model or ControlNet Inpaint.
-</div>
 
 ## Outpainting
 
@@ -397,19 +373,14 @@ Each step maps to a section above: mask prep, denoise choice, inpainting, Contro
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Editing is re-noising.** img2img, inpainting, and outpainting all add controlled noise to an existing image and re-denoise it — the skill is choosing *where* (mask) and *how much* (denoise strength).
 - **Denoise strength is the master dial.** It sets a ceiling on drift, $\mathbf{z}_{\text{start}} = \mathbf{z}_0 + \sigma(d)\,\boldsymbol{\epsilon}$ — low for repairs and polish, high for replacements and sketch-to-image.
 - **Feather masks and inpaint small regions at full resolution.** Soft mask edges blend the seam; "only masked" / crop-and-stitch gives a small region the model's full detail budget.
 - **Differential diffusion replaces the binary mask with a continuous strength map**, $\sigma_{\text{start}}(x,y) = s(x,y)\,\sigma_{\max}$, for feathered, seamless gradient edits.
 - **Blend, then re-diffuse the seam.** Latent compositing and a low-denoise harmonizing pass make pasted or inpainted content look photographed together, not stitched.
 - **Pair with ControlNet to fix structure while you edit content** — Depth/Canny/Pose hold geometry while the prompt and denoise change the look.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The diffusion process editing builds on
 - [ControlNet](controlnet.html) - Constrain structure while you edit content
@@ -418,4 +389,3 @@ Each step maps to a section above: mask prep, denoise choice, inpainting, Contro
 - [Base Models Comparison](base-models-comparison.html) - Inpainting and Fill model support across SD 1.5, SDXL, FLUX
 - [Output Formats](output-formats.html) - Exporting and using edited results
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

@@ -9,12 +9,7 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Architecture Patterns &amp; Case Studies</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Six reference architectures from a static site to a multi-region global app, plus case studies showing how companies combine AWS services at scale.</p>
-</div>
-
-Individual services are building blocks; the value comes from how you assemble them. This page presents six architecture patterns that progress from beginner to expert, then a set of case studies that show those patterns combined to solve real problems.
+Individual services are building blocks; the value comes from how you assemble them. This page presents six reference architectures that progress from a static site to a multi-region global app, then a set of case studies showing how companies combine those patterns at scale to solve real problems.
 
 ---
 
@@ -599,20 +594,9 @@ These case studies demonstrate that successful AWS architectures share common pa
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Start Simple, Evolve Deliberately</h4>
-    <p>Begin with the simplest pattern that meets the need and add complexity only when a real constraint demands it. Every case study above grew this way.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Architect for Failure</h4>
-    <p>Spread across Availability Zones, decouple components with queues, and assume any single resource can disappear. Resilient designs degrade gracefully rather than fall over.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Scale Horizontally</h4>
-    <p>Vertical scaling hits a ceiling fast. Distribute load, embrace eventual consistency, and cache aggressively — the patterns that let these systems reach planetary scale.</p>
-  </div>
-</div>
+- **Start simple, evolve deliberately.** Begin with the simplest pattern that meets the need and add complexity only when a real constraint demands it. Every case study above grew this way.
+- **Architect for failure.** Spread across Availability Zones, decouple components with queues, and assume any single resource can disappear. Resilient designs degrade gracefully rather than fall over.
+- **Scale horizontally.** Vertical scaling hits a ceiling fast. Distribute load, embrace eventual consistency, and cache aggressively — the patterns that let these systems reach planetary scale.
 
 ---
 

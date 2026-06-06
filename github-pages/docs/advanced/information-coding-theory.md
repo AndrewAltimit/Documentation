@@ -8,10 +8,7 @@ toc: true
 toc_sticky: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Information &amp; Coding Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Entropy, channel capacity, the noisy-channel theorem, and the codes that approach its limits</p>
-</div>
+# Information &amp; Coding Theory
 
 [Advanced Topics](./) &raquo; Information &amp; Coding Theory
 
@@ -19,16 +16,12 @@ toc_sticky: true
 **Graduate-level research page.** This is a rigorous, theorem-oriented treatment of Shannon's information theory and the coding theory that operationalizes it, aimed at researchers in communications, computer science, and statistics. **Prerequisites:** probability theory, linear algebra over finite fields, and basic real analysis. For an accessible introduction to compression and reliable transmission, see the [Networking](../../technology/networking/) section.
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">In 1948 Claude Shannon asked two questions that look unrelated and answered them with the same currency — the <em>bit</em>. How far can a source be compressed without losing information? And how fast can information be pushed through a noisy channel while keeping the error probability arbitrarily small? The astonishing answer is that both limits are sharp, both are computed from the same logarithmic quantity, and — crucially — <strong>the two problems separate</strong>: you can compress optimally first and protect against noise second, losing nothing by treating them independently.</p>
-</div>
+In 1948 Claude Shannon asked two questions that look unrelated and answered them with the same currency — the *bit*. How far can a source be compressed without losing information? And how fast can information be pushed through a noisy channel while keeping the error probability arbitrarily small? The astonishing answer is that both limits are sharp, both are computed from the same logarithmic quantity, and — crucially — **the two problems separate**: you can compress optimally first and protect against noise second, losing nothing by treating them independently.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-weight-hanging"></i><h4>Entropy is the only sensible measure</h4><p>Demanding continuity, monotonicity, and a grouping (chain) rule forces the measure of uncertainty to be Shannon entropy up to the choice of logarithm base.</p></div>
-  <div class="insight-card"><i class="fas fa-compress"></i><h4>Compression has a floor</h4><p>No uniquely decodable code beats the source entropy on average; Huffman and arithmetic coding get within one bit and one symbol of it respectively.</p></div>
-  <div class="insight-card"><i class="fas fa-signal"></i><h4>Capacity is a phase transition</h4><p>Below capacity, error probability can be driven to zero; above it, error is bounded away from zero. There is no graceful middle ground in the asymptotic limit.</p></div>
-  <div class="insight-card"><i class="fas fa-shield-halved"></i><h4>Random codes are optimal</h4><p>Shannon proved capacity is achievable by averaging over random codebooks — but the constructive race to build explicit, efficiently decodable capacity-achieving codes took another fifty years (LDPC, turbo, polar).</p></div>
-</div>
+- **Entropy is the only sensible measure.** Demanding continuity, monotonicity, and a grouping (chain) rule forces the measure of uncertainty to be Shannon entropy up to the choice of logarithm base.
+- **Compression has a floor.** No uniquely decodable code beats the source entropy on average; Huffman and arithmetic coding get within one bit and one symbol of it respectively.
+- **Capacity is a phase transition.** Below capacity, error probability can be driven to zero; above it, error is bounded away from zero. There is no graceful middle ground in the asymptotic limit.
+- **Random codes are optimal.** Shannon proved capacity is achievable by averaging over random codebooks — but the constructive race to build explicit, efficiently decodable capacity-achieving codes took another fifty years (LDPC, turbo, polar).
 
 ### The Logical Spine
 
@@ -374,14 +367,12 @@ These measures are developed in full — together with stabilizer error correcti
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Entropy is the unique measure</h4><p>Continuity plus a grouping axiom forces Shannon's $-\sum p\log p$; it is both the compression floor and the building block of every other measure.</p></div>
-  <div class="takeaway-card"><h4>Mutual information is shared bits</h4><p>$I(X;Y)$ quantifies how much $Y$ reveals about $X$, obeys the data-processing inequality, and defines channel capacity as $\max_{p(x)} I(X;Y)$.</p></div>
-  <div class="takeaway-card"><h4>Capacity is a sharp threshold</h4><p>Below $C$, error $\to 0$; above $C$, error is bounded away from zero — proved by typicality (achievability) and Fano's inequality (converse).</p></div>
-  <div class="takeaway-card"><h4>Compression reaches the entropy</h4><p>Huffman is optimal among prefix codes; arithmetic coding drives per-symbol redundancy to $O(1/n)$ for any source.</p></div>
-  <div class="takeaway-card"><h4>Structured codes approach the limit</h4><p>Hamming and Reed–Solomon give exact algebraic guarantees; LDPC, turbo, and polar codes approach or achieve capacity with efficient decoders.</p></div>
-  <div class="takeaway-card"><h4>Lossy has its own limit</h4><p>The rate–distortion function $R(D)$ is the sharp rate for tolerated distortion $D$, the dual of channel coding and the basis of every lossy codec.</p></div>
-</div>
+- **Entropy is the unique measure.** Continuity plus a grouping axiom forces Shannon's $-\sum p\log p$; it is both the compression floor and the building block of every other measure.
+- **Mutual information is shared bits.** $I(X;Y)$ quantifies how much $Y$ reveals about $X$, obeys the data-processing inequality, and defines channel capacity as $\max_{p(x)} I(X;Y)$.
+- **Capacity is a sharp threshold.** Below $C$, error $\to 0$; above $C$, error is bounded away from zero — proved by typicality (achievability) and Fano's inequality (converse).
+- **Compression reaches the entropy.** Huffman is optimal among prefix codes; arithmetic coding drives per-symbol redundancy to $O(1/n)$ for any source.
+- **Structured codes approach the limit.** Hamming and Reed–Solomon give exact algebraic guarantees; LDPC, turbo, and polar codes approach or achieve capacity with efficient decoders.
+- **Lossy has its own limit.** The rate–distortion function $R(D)$ is the sharp rate for tolerated distortion $D$, the dual of channel coding and the basis of every lossy codec.
 
 ## See Also
 

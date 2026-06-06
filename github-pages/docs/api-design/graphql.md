@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">GraphQL</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A typed query language for APIs: clients ask for exactly the data they need against a single strongly-typed schema, and the server resolves it field by field.</p>
-</div>
-
 [API Design](./) &raquo; GraphQL
 
-<div class="intro-card">
-  <p class="lead-text">GraphQL inverts the REST contract. Instead of the server defining a fixed set of resources at fixed URLs, the server publishes a single strongly-typed <em>schema</em> describing every type and field it can return, and the client sends a query selecting exactly the fields it wants from a single endpoint. This eliminates over-fetching and under-fetching, collapses many round trips into one, and makes the API self-documenting and introspectable. The cost is that the server must implement a <em>resolver</em> for every field, defend against the N+1 query explosion that field-by-field resolution invites, and give up the free HTTP-layer caching that REST gets from URLs and verbs. This page covers the type system and schema definition language, the three operation types (queries, mutations, subscriptions), how resolvers execute, the N+1 problem and the DataLoader pattern that solves it, schema federation across teams, cursor/Relay pagination, caching and persisted queries, and the honest tradeoffs against REST.</p>
-</div>
+GraphQL inverts the REST contract. Instead of the server defining a fixed set of resources at fixed URLs, the server publishes a single strongly-typed *schema* describing every type and field it can return, and the client sends a query selecting exactly the fields it wants from a single endpoint. This eliminates over-fetching and under-fetching, collapses many round trips into one, and makes the API self-documenting and introspectable. The cost: the server must implement a *resolver* for every field, defend against the N+1 query explosion that field-by-field resolution invites, and give up the free HTTP-layer caching that REST gets from URLs and verbs. The four ideas that recur throughout:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>One endpoint, one graph</h4>
-    <p>The schema is a typed graph of your domain; clients traverse it in a single request and get back exactly the shape they asked for.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-sitemap"></i>
-    <h4>Every field has a resolver</h4>
-    <p>The server walks the query tree, calling a resolver per field. This is what makes GraphQL flexible — and what makes N+1 the central performance hazard.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Batch, don't loop</h4>
-    <p>DataLoader coalesces a tree's worth of per-row lookups into one batched query per tick, turning O(N) round trips into O(1).</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-balance-scale"></i>
-    <h4>You trade HTTP caching for flexibility</h4>
-    <p>POST-to-one-URL kills CDN/proxy caching for free; you pay it back with normalized client caches and persisted queries.</p>
-  </div>
-</div>
+- **One endpoint, one graph.** The schema is a typed graph of your domain; clients traverse it in a single request and get back exactly the shape they asked for.
+- **Every field has a resolver.** The server walks the query tree, calling a resolver per field — the source of GraphQL's flexibility and of the N+1 performance hazard.
+- **Batch, don't loop.** DataLoader coalesces a tree's worth of per-row lookups into one batched query per tick, turning O(N) round trips into O(1).
+- **You trade HTTP caching for flexibility.** POST-to-one-URL kills free CDN/proxy caching; you pay it back with normalized client caches and persisted queries.
+
+This page covers the type system and schema definition language, the three operation types, resolver execution, the N+1 problem and DataLoader, schema federation, cursor/Relay pagination, caching and persisted queries, and the honest tradeoffs against REST.
 
 ## Table of contents
 {: .no_toc .text-delta }

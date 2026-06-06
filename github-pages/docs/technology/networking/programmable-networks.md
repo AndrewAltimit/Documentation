@@ -4,17 +4,11 @@ title: "Networking: Programmable Networks (SDN/NFV/P4)"
 permalink: /docs/technology/networking/programmable-networks.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Networking](./) &raquo; Programmable Networks
 
 <!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Programmable Networks</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">SDN, NFV, P4, MPLS, and segment routing — turning fixed silicon into software you can change</p>
-</div>
 
 For decades a network device bundled three things in one box: the **data plane** that forwards packets, the **control plane** that decides where they go, and fixed silicon that dictated which protocols it understood. The defining trend of modern networking is pulling those apart and turning each into software you can program. This page traces that shift — separating the control and data planes with SDN, replacing hardware appliances with software in NFV, defining packet processing itself with P4, and the label- and segment-based forwarding fabrics (MPLS, SR, SRv6) that carry this traffic at scale — and closes with the IPv6 transition that underpins much of it.
 

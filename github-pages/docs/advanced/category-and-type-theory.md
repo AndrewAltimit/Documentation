@@ -6,10 +6,7 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Category Theory &amp; Type Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Categories, functors, and monads; the Curry-Howard correspondence, dependent types, constructive logic, and proof assistants</p>
-</div>
+# Category Theory &amp; Type Theory
 
 [Advanced Topics](./) &raquo; Category Theory &amp; Type Theory
 
@@ -17,16 +14,12 @@ hide_title: true
 **Graduate-level research page.** This is a rigorous treatment of category theory, type theory, and their unification through the Curry-Howard-Lambek correspondence, aimed at theoretical computer scientists, logicians, and mathematicians. **Prerequisites:** abstract algebra (groups, rings), set theory, first-order logic, and familiarity with a typed functional language (Haskell, OCaml, or Agda) is helpful. For an applied, code-first view of functional abstractions instead, see the [AI/ML Documentation](../../ai-ml/) and [Mathematical Reference](../../reference/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Category theory is often called "the mathematics of mathematics" — it studies structures not by their internal elements but by the <em>arrows</em> (structure-preserving maps) between them. Type theory, born from the same logical roots, studies how to build programs and proofs that cannot go wrong. The deep surprise, captured by the <strong>Curry-Howard-Lambek correspondence</strong>, is that these are three views of one object: <strong>propositions are types are objects, proofs are programs are morphisms, and a cartesian closed category, a typed lambda calculus, and an intuitionistic logic are the same thing in different clothing.</strong></p>
-</div>
+Category theory is often called "the mathematics of mathematics" — it studies structures not by their internal elements but by the *arrows* (structure-preserving maps) between them. Type theory, born from the same logical roots, studies how to build programs and proofs that cannot go wrong. The deep surprise, captured by the **Curry-Howard-Lambek correspondence**, is that these are three views of one object: **propositions are types are objects, proofs are programs are morphisms, and a cartesian closed category, a typed lambda calculus, and an intuitionistic logic are the same thing in different clothing.**
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>Arrows over elements</h4><p>A category forgets what objects "are" and keeps only how they map to each other. Universal properties then characterize constructions uniquely up to isomorphism.</p></div>
-  <div class="insight-card"><i class="fas fa-equals"></i><h4>Proofs are programs</h4><p>Curry-Howard makes "A implies B" the same data as a function from A to B. Type-checking a program is checking a proof.</p></div>
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Monads structure effects</h4><p>A monad is a monoid in the category of endofunctors — and the disciplined way pure functional languages sequence side effects.</p></div>
-  <div class="insight-card"><i class="fas fa-check-double"></i><h4>Machine-checked truth</h4><p>Dependent type theory lets a computer verify a proof to the last detail, underpinning Coq, Lean, and Agda.</p></div>
-</div>
+- **Arrows over elements.** A category forgets what objects "are" and keeps only how they map to each other. Universal properties then characterize constructions uniquely up to isomorphism.
+- **Proofs are programs.** Curry-Howard makes "A implies B" the same data as a function from A to B. Type-checking a program is checking a proof.
+- **Monads structure effects.** A monad is a monoid in the category of endofunctors — and the disciplined way pure functional languages sequence side effects.
+- **Machine-checked truth.** Dependent type theory lets a computer verify a proof to the last detail, underpinning Coq, Lean, and Agda.
 
 ### The Logical Spine
 
@@ -433,14 +426,12 @@ A proof can be written directly as a term (the Curry-Howard program) or built in
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Arrows, not elements</h4><p>Categories describe structure through morphisms and universal properties, characterizing constructions uniquely up to isomorphism.</p></div>
-  <div class="takeaway-card"><h4>Functors and Yoneda</h4><p>Functors compare categories, natural transformations compare functors, and Yoneda shows an object is determined by its arrows.</p></div>
-  <div class="takeaway-card"><h4>Adjunctions are everywhere</h4><p>Free constructions, currying, and the meaning of connectives are all adjunctions $F \dashv G$.</p></div>
-  <div class="takeaway-card"><h4>Monads tame effects</h4><p>A monad is a monoid in endofunctors and the disciplined way pure languages sequence state, failure, and I/O.</p></div>
-  <div class="takeaway-card"><h4>Proofs are programs</h4><p>Curry-Howard-Lambek identifies intuitionistic logic, typed lambda calculus, and cartesian closed categories.</p></div>
-  <div class="takeaway-card"><h4>Dependent types verify math</h4><p>Pi/Sigma types express full constructive mathematics, which proof assistants like Coq, Lean, and Agda check mechanically.</p></div>
-</div>
+- **Arrows, not elements.** Categories describe structure through morphisms and universal properties, characterizing constructions uniquely up to isomorphism.
+- **Functors and Yoneda.** Functors compare categories, natural transformations compare functors, and Yoneda shows an object is determined by its arrows.
+- **Adjunctions are everywhere.** Free constructions, currying, and the meaning of connectives are all adjunctions $F \dashv G$.
+- **Monads tame effects.** A monad is a monoid in endofunctors and the disciplined way pure languages sequence state, failure, and I/O.
+- **Proofs are programs.** Curry-Howard-Lambek identifies intuitionistic logic, typed lambda calculus, and cartesian closed categories.
+- **Dependent types verify math.** Pi/Sigma types express full constructive mathematics, which proof assistants like Coq, Lean, and Agda check mechanically.
 
 ## See Also
 

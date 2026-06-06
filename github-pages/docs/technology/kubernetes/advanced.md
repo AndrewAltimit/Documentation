@@ -7,10 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Advanced Topics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Deep dives into CRDs, Operators, Service Mesh, GitOps, and production-grade deployment patterns for enterprise Kubernetes.</p>
-</div>
+[Kubernetes](./) &raquo; Advanced Topics
+
+Deep dives into CRDs, Operators, service mesh, GitOps, multi-tenancy, advanced scheduling, and production-grade patterns for enterprise Kubernetes.
 
 ## Advanced Topics: Taking Kubernetes to Production
 
@@ -640,24 +639,10 @@ Choose Kubernetes when you need:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Extend, Don't Fork</h4>
-    <p>CRDs and Operators let you teach Kubernetes about your own resource types, so custom and built-in objects are managed the same declarative way.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Service Mesh for Cross-Cutting Concerns</h4>
-    <p>mTLS, traffic shifting, and observability belong in the mesh (Istio, Linkerd) — not in every application's code.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>GitOps Is the Source of Truth</h4>
-    <p>Declare desired state in Git; let Argo CD or Flux reconcile the cluster. Rollbacks become a <code>git revert</code>.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Match the Tool to the Need</h4>
-    <p>Kubernetes earns its complexity for multi-cloud, large-scale, or intricate architectures. For simpler workloads, ECS, Nomad, or Cloud Run may serve better.</p>
-  </div>
-</div>
+- **Extend, don't fork.** CRDs and Operators teach Kubernetes about your own resource types, so custom and built-in objects are managed the same declarative way.
+- **Service mesh for cross-cutting concerns.** mTLS, traffic shifting, and observability belong in the mesh (Istio, Linkerd) — not in every application's code.
+- **GitOps is the source of truth.** Declare desired state in Git; let Argo CD or Flux reconcile the cluster, and rollbacks become a `git revert`.
+- **Match the tool to the need.** Kubernetes earns its complexity for multi-cloud, large-scale, or intricate architectures. For simpler workloads, ECS, Nomad, or Cloud Run may serve better.
 
 The Kubernetes ecosystem evolves rapidly — serverless (Knative, KEDA), edge (K3s, KubeEdge), WebAssembly, and eBPF-based observability are all maturing fast. The durable principles remain: start simple, automate aggressively, observe everything, treat security as a requirement, and practice disaster recovery before you need it.
 

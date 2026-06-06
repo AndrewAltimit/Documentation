@@ -7,24 +7,13 @@ toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
 section: technology
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Branching Strategies</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Git Flow, GitHub Flow, and team workflow patterns</p>
-</div>
 
 [Technology](./) &raquo; Git Branching Strategies
 
-<div class="intro-card">
-  <p class="lead-text">A branching strategy answers a deceptively simple question: where does work-in-progress live before it ships, and how does it get to production safely? Pick the wrong one and you get merge hell, "it works on my branch" surprises, and release-day panic; pick well and integration becomes routine. This guide compares the four widely adopted approaches, shows each as a commit graph, and gives you a decision matrix for choosing one.</p>
-</div>
+A branching strategy answers a deceptively simple question: where does work-in-progress live before it ships, and how does it get to production safely? Pick the wrong one and you get merge hell, "it works on my branch" surprises, and release-day panic; pick well and integration becomes routine. This guide compares the four widely adopted approaches, shows each as a commit graph, and gives you a decision matrix for choosing one.
 
-<div class="tip-card">
-  <h4>Where this fits among the Git pages</h4>
-  <p>This page is about <strong>team workflow</strong> — how a group structures branches and releases. For the <em>mechanics</em> of branching commands, see the <a href="git-reference.html">Git Command Reference</a>; for a first walkthrough, the <a href="git-crash-course.html">Git Crash Course</a>; for how branches work internally, <a href="git/">Git Version Control</a>. For feature flags, branch protection, release branching, and other production patterns, see <a href="advanced-branching-techniques.html">Advanced Branching Techniques</a>.</p>
-</div>
+This page is about **team workflow** — how a group structures branches and releases. For the *mechanics* of branching commands, see the [Git Command Reference](git-reference.html); for a first walkthrough, the [Git Crash Course](git-crash-course.html); for how branches work internally, [Git Version Control](git/). For feature flags, branch protection, release branching, and other production patterns, see [Advanced Branching Techniques](advanced-branching-techniques.html).
 
 ### At a glance
 
@@ -59,10 +48,7 @@ Before working through the four workflows, here is the decision you are actually
 4. **Regulatory requirements**: Some industries need strict, auditable version control and supported back-versions — a strong argument for Git Flow.
 5. **Customer expectations**: Enterprise software with installable, versioned releases differs sharply from a consumer web app that deploys many times a day.
 
-<div class="tip-card">
-  <h4>The short version</h4>
-  <p>Default to <strong>GitHub Flow</strong> — one always-deployable <code>main</code> and short-lived feature branches covers most teams. Add <strong>environment branches (GitLab Flow)</strong> when you need explicit staging/prod gates, reach for <strong>Git Flow</strong> only when you genuinely ship discrete versioned releases, and adopt <strong>trunk-based</strong> when you have the CI and discipline to integrate many times a day.</p>
-</div>
+**The short version:** Default to **GitHub Flow** — one always-deployable `main` and short-lived feature branches covers most teams. Add **environment branches (GitLab Flow)** when you need explicit staging/prod gates, reach for **Git Flow** only when you genuinely ship discrete versioned releases, and adopt **trunk-based** when you have the CI and discipline to integrate many times a day.
 
 ## GitHub Flow
 
@@ -264,10 +250,7 @@ gitGraph
     merge task/c
 ```
 
-<div class="tip-card">
-  <h4>Why it works</h4>
-  <p>The single biggest source of merge pain is <em>divergence over time</em>. By keeping branches short-lived and merging into one trunk continuously, you keep every developer working against nearly the same code — so conflicts are small and frequent rather than large and rare. It is the default model at Google, Meta, and most high-velocity CI teams.</p>
-</div>
+**Why it works:** the single biggest source of merge pain is *divergence over time*. By keeping branches short-lived and merging into one trunk continuously, you keep every developer working against nearly the same code — so conflicts are small and frequent rather than large and rare. It is the default model at Google, Meta, and most high-velocity CI teams.
 
 ### The Workflow
 
@@ -278,22 +261,12 @@ gitGraph
 5. **Review** — open a pull request; let CI run the test suite automatically.
 6. **Merge and delete** — once green and approved, merge into `main` and delete the branch the same day.
 
-<div class="pros-cons-grid">
-  <div class="pros-section">
-    <h4>What it buys you</h4>
-    <div class="pro-item">Tiny, low-risk merges — conflicts stay small</div>
-    <div class="pro-item">A continuously releasable mainline</div>
-    <div class="pro-item">Fast feedback; less code drift and technical debt</div>
-    <div class="pro-item">A simple model with no long-lived branches to track</div>
-  </div>
-  <div class="cons-section">
-    <h4>What it demands</h4>
-    <div class="con-item">A strong, fast automated test suite — the trunk must stay green</div>
-    <div class="con-item">Discipline: commit often, branches measured in hours</div>
-    <div class="con-item">Feature flags to hide work-in-progress behind a switch</div>
-    <div class="con-item">Good communication so parallel work does not collide</div>
-  </div>
-</div>
+| What it buys you | What it demands |
+|------------------|-----------------|
+| Tiny, low-risk merges — conflicts stay small | A strong, fast automated test suite — the trunk must stay green |
+| A continuously releasable mainline | Discipline: commit often, branches measured in hours |
+| Fast feedback; less code drift and technical debt | Feature flags to hide work-in-progress behind a switch |
+| A simple model with no long-lived branches to track | Good communication so parallel work does not collide |
 
 <div class="notice--warning">
   <p><strong>The failure mode is the long-lived branch.</strong> The moment a branch lives for weeks, you forfeit every benefit above and re-create merge hell. If a feature is too big to land in a day, hide the unfinished parts behind a <a href="advanced-branching-techniques.html#feature-flags-with-branching">feature flag</a> and keep merging the pieces.</p>
@@ -345,16 +318,11 @@ Each force-push clobbered the other person's work. The fix is twofold: prefer `g
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="advanced-branching-techniques.html">Advanced Branching Techniques</a> — feature flags, branch protection, release branching, semantic versioning, and automation</li>
-    <li><a href="git-crash-course.html">Git Crash Course</a> — branching basics if you are new to Git</li>
-    <li><a href="git/">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
-    <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch operations</li>
-    <li><a href="ci-cd/">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
-  </ul>
-</div>
+- [Advanced Branching Techniques](advanced-branching-techniques.html) — feature flags, branch protection, release branching, semantic versioning, and automation
+- [Git Crash Course](git-crash-course.html) — branching basics if you are new to Git
+- [Git Version Control](git/) — internals, architecture, and distributed VCS fundamentals
+- [Git Command Reference](git-reference.html) — command syntax for branch operations
+- [CI/CD](ci-cd/) — wiring branching strategies into continuous integration pipelines
 
 ## References
 

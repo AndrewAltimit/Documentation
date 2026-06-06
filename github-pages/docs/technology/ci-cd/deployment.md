@@ -4,17 +4,11 @@ title: "CI/CD: Deployment Strategies"
 permalink: /docs/technology/ci-cd/deployment.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [CI/CD](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Deployment Strategies</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Blue-green, canary, rolling, and feature-flag deployments — releasing changes without taking the system down.</p>
-</div>
-
-Each strategy below trades speed for safety in a different way. Pair any of them with automated rollback so a bad release is always reversible.
+Blue-green, canary, rolling, and feature-flag deployments release changes without taking the system down. Each strategy below trades speed for safety in a different way. Pair any of them with automated rollback so a bad release is always reversible.
 
 ## 1. Blue-Green Deployment
 
@@ -132,11 +126,8 @@ feature-flag-deploy:
   <a href="security-and-operations.html">Security, GitOps & Operations ➡</a>
 </nav>
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="platforms-and-pipelines.html">Platforms & Pipeline Design</a> — the blue-green pipeline pattern</li>
-    <li><a href="security-and-operations.html">Security, GitOps & Operations</a> — monitoring rollouts and GitOps</li>
-    <li><a href="../kubernetes/">Kubernetes</a> — the orchestration behind these rollout patterns</li>
-  </ul>
-</div>
+## See Also
+
+- [Platforms & Pipeline Design](platforms-and-pipelines.html) — the blue-green pipeline pattern
+- [Security, GitOps & Operations](security-and-operations.html) — monitoring rollouts and GitOps
+- [Kubernetes](../kubernetes/) — the orchestration behind these rollout patterns

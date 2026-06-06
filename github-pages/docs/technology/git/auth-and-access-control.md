@@ -4,24 +4,15 @@ title: "Git: Authentication & Access Control"
 permalink: /docs/technology/git/auth-and-access-control.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Git Internals](./) ›
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Authentication &amp; Access Control</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How Git proves who you are, who can write, and that a commit is genuinely yours — keys, tokens, signing, SSO, and leak defense</p>
-</div>
 
 Git itself stores no credentials and enforces no permissions: it is a content-addressable store that any clone can read or rewrite. **Authentication** (proving *who is connecting*) and **access control** (deciding *what they may do*) live in the **transport layer** and the **hosting platform** — SSH, HTTPS, the credential helper, and the server-side policy of GitHub/GitLab/Bitbucket/Gitea. A separate, independent layer — **commit and tag signing** — proves *who authored a change* and that it has not been altered, regardless of how it was transported.
 
 This page covers all four: how you authenticate to a remote (SSH keys, deploy keys, personal-access tokens, credential helpers), how you cryptographically vouch for your own commits (GPG and SSH signing), how organizations centralize identity (SAML/OAuth SSO), and how to revoke, audit, and contain credentials when they leak.
 
-<div class="tip-card">
-  <h4>Two orthogonal questions</h4>
-  <p><strong>Transport auth</strong> answers <em>"may this connection fetch or push?"</em> and is checked by the server at clone/fetch/push time. <strong>Signing</strong> answers <em>"who really wrote this commit?"</em> and is verified by anyone, any time, long after the push. A pushed commit can be authentic-by-transport but unsigned, or signed but pushed by a leaked token. You generally want both.</p>
-</div>
+**Two orthogonal questions:** *transport auth* answers "may this connection fetch or push?" and is checked by the server at clone/fetch/push time. *Signing* answers "who really wrote this commit?" and is verified by anyone, any time, long after the push. A pushed commit can be authentic-by-transport but unsigned, or signed but pushed by a leaked token. You generally want both.
 
 ## The Transport Landscape
 
@@ -193,10 +184,7 @@ git config --global credential.https://github.com.helper manager
 
 The helper protocol is simple text on stdin/stdout (`protocol`, `host`, `username`, `password` key/value lines terminated by a blank line). Git calls `get` before a request and `store`/`erase` after, so any program implementing those three verbs can broker credentials — including ones that fetch a fresh short-lived token on demand. **Git Credential Manager** can run a full OAuth device-code flow, so you authenticate in a browser and GCM transparently caches and refreshes the OAuth token; you never handle a long-lived PAT at all, which is the most secure HTTPS option for interactive use.
 
-<div class="tip-card">
-  <h4>SSH or HTTPS — which to choose?</h4>
-  <p><strong>SSH</strong> shines for interactive developer use (key + agent + passphrase, nothing to paste) and for fixed automation hosts (deploy keys). <strong>HTTPS</strong> is friendlier behind restrictive corporate proxies/firewalls (port 443) and pairs naturally with OAuth/SSO and short-lived App tokens in CI. Both are secure when configured per this page; pick per environment, and you can even mix them per host via <code>~/.ssh/config</code> and per-host credential helpers.</p>
-</div>
+**SSH or HTTPS — which to choose?** SSH shines for interactive developer use (key + agent + passphrase, nothing to paste) and for fixed automation hosts (deploy keys). HTTPS is friendlier behind restrictive corporate proxies/firewalls (port 443) and pairs naturally with OAuth/SSO and short-lived App tokens in CI. Both are secure when configured per this page; pick per environment, and you can even mix them per host via `~/.ssh/config` and per-host credential helpers.
 
 ## Commit and Tag Signing
 
@@ -251,10 +239,7 @@ git config --global gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
 
 Hosts let you register the same SSH public key as a **signing key** (distinct from an authentication key, even if the bytes match).
 
-<div class="tip-card">
-  <h4>Separate auth keys from signing keys</h4>
-  <p>An authentication key is exercised against many servers and may be forwarded by the agent; a signing key vouches for your identity in perpetuity. Keep them <strong>distinct</strong> so that compromise or rotation of one does not force the other, and so a forwarded auth key cannot be coaxed into signing. Hardware-backed keys (<code>-sk</code> / smartcard) are ideal for signing.</p>
-</div>
+**Separate auth keys from signing keys:** an authentication key is exercised against many servers and may be forwarded by the agent; a signing key vouches for your identity in perpetuity. Keep them **distinct** so that compromise or rotation of one does not force the other, and so a forwarded auth key cannot be coaxed into signing. Hardware-backed keys (`-sk` / smartcard) are ideal for signing.
 
 ### Verifying Signatures
 
@@ -416,39 +401,16 @@ git push --force-with-lease --tags
 3. **Coordinate the rewrite.** History rewriting changes commit hashes; every collaborator must re-clone or hard-reset, and any fork/PR may still retain the old objects. On a public host, cached views and forks may keep copies — which is exactly why step 1 (revocation) is non-negotiable.
 4. **Audit usage.** Check host and cloud audit logs for any use of the leaked credential during the exposure window.
 
-<div class="tip-card">
-  <h4>Why revoke before you scrub</h4>
-  <p>History rewriting is slow, disruptive, and never perfectly complete (forks, mirrors, caches, backups, the attacker's local copy). Revocation is instant and total. Always invalidate the credential first; treat the history purge as cleanup, not as the fix.</p>
-</div>
+**Why revoke before you scrub:** history rewriting is slow, disruptive, and never perfectly complete (forks, mirrors, caches, backups, the attacker's local copy). Revocation is instant and total. Always invalidate the credential first; treat the history purge as cleanup, not as the fix.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Auth lives in the transport</h4>
-    <p>Git stores no credentials. SSH keys, tokens, and the credential helper authenticate the connection; the host enforces permissions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Signing is independent of transport</h4>
-    <p>GPG/SSH signing proves authorship and integrity of a commit, verifiable by anyone long after the push — separate from who pushed it.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Least privilege, narrowest scope</h4>
-    <p>Deploy keys per repo, fine-grained expiring tokens per consumer, OAuth scopes minimized — shrink the blast radius of every credential.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Prefer short-lived credentials</h4>
-    <p>App installation tokens and OAuth flows beat long-lived PATs; expiry makes rotation automatic and limits exposure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>SSO gates the credential too</h4>
-    <p>Under SAML SSO, a valid key or token must still be explicitly authorized for the org before Git operations succeed.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Revoke first, scrub second</h4>
-    <p>A leaked secret is compromised on push. Rotate/revoke it immediately; rewriting history is cleanup, not the fix.</p>
-  </div>
-</div>
+- **Auth lives in the transport** — Git stores no credentials. SSH keys, tokens, and the credential helper authenticate the connection; the host enforces permissions.
+- **Signing is independent of transport** — GPG/SSH signing proves authorship and integrity of a commit, verifiable by anyone long after the push, separate from who pushed it.
+- **Least privilege, narrowest scope** — deploy keys per repo, fine-grained expiring tokens per consumer, OAuth scopes minimized; shrink the blast radius of every credential.
+- **Prefer short-lived credentials** — App installation tokens and OAuth flows beat long-lived PATs; expiry makes rotation automatic and limits exposure.
+- **SSO gates the credential too** — under SAML SSO, a valid key or token must still be explicitly authorized for the org before Git operations succeed.
+- **Revoke first, scrub second** — a leaked secret is compromised on push. Rotate/revoke it immediately; rewriting history is cleanup, not the fix.
 
 ## See Also
 

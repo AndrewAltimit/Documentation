@@ -4,17 +4,13 @@ title: "Condensed Matter: Experimental Techniques"
 permalink: /docs/physics/condensed-matter/experimental-techniques.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Condensed Matter Physics](./) &raquo; Experimental Techniques
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Experimental Techniques</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How we actually see band structure, order, and excitations in real materials</p>
-</div>
+## Experimental Techniques
 
 ## Why probes, and what they each "see"
 
@@ -465,12 +461,7 @@ is what turns a measurement into an understanding.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — the Green's-function and self-energy machinery these probes measure.</li>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — the phases these techniques were built to characterize.</li>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and magnetism.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — linear response and correlation functions in field-theoretic language.</li>
-  </ul>
-</div>
+- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — the Green's-function and self-energy machinery these probes measure.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — the phases these techniques were built to characterize.
+- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and magnetism.
+- [Quantum Field Theory](../quantum-field-theory.html) — linear response and correlation functions in field-theoretic language.

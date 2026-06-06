@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Indexing &amp; Query Execution</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Index types, query planning, and the optimizer, memory, and lock internals</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Indexing & Query Execution
 
 ## Indexing: Making Queries Lightning Fast
 
@@ -125,10 +122,7 @@ add no ordering cost.
 CREATE INDEX idx_active_users ON users(email) WHERE active = true;
 ```
 
-<div class="tip-card">
-  <h4>Dialect note: defining indexes</h4>
-  <p>The examples above use PostgreSQL's standalone <code>CREATE INDEX</code> form. MySQL additionally allows an inline <code>INDEX idx_name (cols)</code> clause inside <code>CREATE TABLE</code>; that inline syntax is MySQL-only and is invalid in PostgreSQL, where you always issue a separate <code>CREATE INDEX</code> statement.</p>
-</div>
+> **Dialect note: defining indexes.** The examples above use PostgreSQL's standalone `CREATE INDEX` form. MySQL additionally allows an inline `INDEX idx_name (cols)` clause inside `CREATE TABLE`; that inline syntax is MySQL-only and is invalid in PostgreSQL, where you always issue a separate `CREATE INDEX` statement.
 
 ## When Indexes Hurt
 
@@ -184,13 +178,7 @@ planner will (correctly) ignore your index.
 *few* indexes (or BRIN) so writes stay cheap; add read indexes only on the columns
 you actually query.
 
-<div class="tip-card">
-  <h4>Rule of thumb</h4>
-  <p>Index based on read patterns, but don't index everything. Start from the
-  predicates and join keys in your hottest queries, confirm with <code>EXPLAIN</code>
-  that each index is actually used, and drop indexes that never appear in a plan —
-  they cost you on every write for no read benefit.</p>
-</div>
+> **Rule of thumb.** Index based on read patterns, but don't index everything. Start from the predicates and join keys in your hottest queries, confirm with `EXPLAIN` that each index is actually used, and drop indexes that never appear in a plan — they cost you on every write for no read benefit.
 
 **AI-Assisted Index Recommendations**:
 Modern databases now use machine learning to suggest indexes:
@@ -368,16 +356,7 @@ The takeaway from this one plan: two concrete actions — add `customers(country
 kill the 82k-row filter, and raise `work_mem` to keep the sort in memory — both of
 which you could *only* have known by reading the annotated output, not the SQL.
 
-<div class="tip-card">
-  <h4>Output formats and engine differences</h4>
-  <p>Add <code>(FORMAT JSON)</code> for machine-readable output you can diff in CI, or
-  <code>(VERBOSE)</code> to see output column lists. MySQL's <code>EXPLAIN ANALYZE</code>
-  reports the same idea in a different shape — <code>actual time=first..last</code>
-  and <code>loops=N</code> per node — while SQL Server exposes the live plan through
-  <code>SET STATISTICS PROFILE ON</code> or the graphical "Include Actual Execution
-  Plan". The vocabulary differs; the reading discipline (estimate vs actual, watch
-  the loops, find the spill) is identical.</p>
-</div>
+> **Output formats and engine differences.** Add `(FORMAT JSON)` for machine-readable output you can diff in CI, or `(VERBOSE)` to see output column lists. MySQL's `EXPLAIN ANALYZE` reports the same idea in a different shape — `actual time=first..last` and `loops=N` per node — while SQL Server exposes the live plan through `SET STATISTICS PROFILE ON` or the graphical "Include Actual Execution Plan". The vocabulary differs; the reading discipline (estimate vs actual, watch the loops, find the spill) is identical.
 
 ### The Magic of Relational Algebra
 
@@ -688,12 +667,7 @@ class DeadlockDetector:
 
 ## Next Steps
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="modeling.html">Data Modeling &amp; Normalization</a></li>
-    <li><strong>Next:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — how locks and MVCC keep concurrent queries correct.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="storage-internals.html">Storage Engines &amp; Recovery</a> for the pages and buffer pool the optimizer reads from.</li>
-  </ul>
-</div>
+- **Previous:** [Data Modeling & Normalization](modeling.html)
+- **Next:** [Transactions & Concurrency](transactions-and-concurrency.html) — how locks and MVCC keep concurrent queries correct.
+- **Up:** [Database Design hub](./)
+- See also: [Storage Engines & Recovery](storage-internals.html) for the pages and buffer pool the optimizer reads from.

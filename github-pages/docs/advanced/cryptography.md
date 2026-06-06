@@ -6,10 +6,7 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Cryptography: Foundations &amp; Post-Quantum</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Provable security, hardness assumptions, the random-oracle model, zero-knowledge proofs, and the post-quantum transition</p>
-</div>
+# Cryptography: Foundations &amp; Post-Quantum
 
 [Advanced Topics](../) &raquo; Cryptography: Foundations &amp; Post-Quantum
 
@@ -17,16 +14,12 @@ hide_title: true
 **Graduate-level research page.** This is a rigorous, definition-and-reduction-oriented treatment of modern cryptography aimed at theoretical computer scientists, security researchers, and mathematicians. **Prerequisites:** probability theory, computational complexity (P/NP, polynomial-time reductions), number theory, and basic linear algebra over finite fields and lattices. For an applied, hands-on introduction to TLS, hashing, and key management instead, see [Applied Cryptography](../../technology/cybersecurity/cryptography.html) and the [Cybersecurity Hub](../../technology/cybersecurity/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Cryptography earns its trust not from secrecy of design but from <em>proofs</em>. Modern provable security follows one template: assume a single, well-studied computational problem is hard, then show by an explicit <strong>reduction</strong> that any efficient adversary who breaks your scheme could be reorganized into an efficient algorithm that solves that hard problem. The security of nearly everything you use online ultimately rests on a small handful of such assumptions — and the looming arrival of quantum computers threatens exactly two of them (factoring and discrete log), which is why the field is now migrating to lattice-, code-, hash-, and isogeny-based replacements.</p>
-</div>
+Cryptography earns its trust not from secrecy of design but from *proofs*. Modern provable security follows one template: assume a single, well-studied computational problem is hard, then show by an explicit **reduction** that any efficient adversary who breaks your scheme could be reorganized into an efficient algorithm that solves that hard problem. The security of nearly everything you use online ultimately rests on a small handful of such assumptions — and the looming arrival of quantum computers threatens exactly two of them (factoring and discrete log), which is why the field is now migrating to lattice-, code-, hash-, and isogeny-based replacements.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-exchange-alt"></i><h4>Security is a reduction</h4><p>"Scheme S is secure" means: break S efficiently and you have efficiently solved problem P. The contrapositive — P is hard, so S is secure — is the entire game.</p></div>
-  <div class="insight-card"><i class="fas fa-dice"></i><h4>Hardness is an assumption</h4><p>We cannot prove factoring or LWE are hard (that would settle P vs NP-style questions). We assume it, having failed to break it for decades, and build on top.</p></div>
-  <div class="insight-card"><i class="fas fa-mask"></i><h4>Knowledge can be proven without revealing it</h4><p>Zero-knowledge proofs let a prover convince a verifier that a statement is true while leaking nothing beyond its truth.</p></div>
-  <div class="insight-card"><i class="fas fa-atom"></i><h4>Quantum breaks two pillars</h4><p>Shor's algorithm demolishes factoring and discrete log in polynomial time. Lattices, codes, hashes, and isogenies are the candidate replacements NIST is standardizing.</p></div>
-</div>
+- **Security is a reduction.** "Scheme S is secure" means: break S efficiently and you have efficiently solved problem P. The contrapositive — P is hard, so S is secure — is the entire game.
+- **Hardness is an assumption.** We cannot prove factoring or LWE are hard (that would settle P vs NP-style questions). We assume it, having failed to break it for decades, and build on top.
+- **Knowledge can be proven without revealing it.** Zero-knowledge proofs let a prover convince a verifier that a statement is true while leaking nothing beyond its truth.
+- **Quantum breaks two pillars.** Shor's algorithm demolishes factoring and discrete log in polynomial time. Lattices, codes, hashes, and isogenies are the candidate replacements NIST is standardizing.
 
 ### The Logical Spine
 
@@ -409,15 +402,13 @@ Isogeny cryptography uses walks in the graph of **supersingular elliptic curves*
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Security = reduction</h4><p>A proof of security is an efficient transformation turning any scheme-breaker into a solver for an assumed-hard problem. No reduction, no guarantee.</p></div>
-  <div class="takeaway-card"><h4>OWFs are minimal</h4><p>One-way functions are equivalent to PRGs, PRFs, MACs, commitments, and hash-based signatures — the whole symmetric world rests on them.</p></div>
-  <div class="takeaway-card"><h4>Public key needs structure</h4><p>Factoring, discrete log, and LWE provide trapdoors and homomorphisms that generic OWFs cannot.</p></div>
-  <div class="takeaway-card"><h4>Semantic security forces randomness</h4><p>IND-CPA is equivalent to leaking nothing beyond message length; deterministic encryption can never achieve it.</p></div>
-  <div class="takeaway-card"><h4>The ROM is a heuristic</h4><p>Programmable random oracles enable efficient proofs but are provably not realizable by any concrete hash.</p></div>
-  <div class="takeaway-card"><h4>ZK = simulatability</h4><p>If a transcript can be forged without the witness, it leaked nothing. Every NP statement has a ZK proof assuming OWFs.</p></div>
-  <div class="takeaway-card"><h4>Quantum breaks two pillars</h4><p>Shor kills factoring and discrete log; lattices, codes, hashes, and isogenies are the diversified post-quantum replacements.</p></div>
-</div>
+- **Security = reduction.** A proof of security is an efficient transformation turning any scheme-breaker into a solver for an assumed-hard problem. No reduction, no guarantee.
+- **OWFs are minimal.** One-way functions are equivalent to PRGs, PRFs, MACs, commitments, and hash-based signatures — the whole symmetric world rests on them.
+- **Public key needs structure.** Factoring, discrete log, and LWE provide trapdoors and homomorphisms that generic OWFs cannot.
+- **Semantic security forces randomness.** IND-CPA is equivalent to leaking nothing beyond message length; deterministic encryption can never achieve it.
+- **The ROM is a heuristic.** Programmable random oracles enable efficient proofs but are provably not realizable by any concrete hash.
+- **ZK = simulatability.** If a transcript can be forged without the witness, it leaked nothing. Every NP statement has a ZK proof assuming OWFs.
+- **Quantum breaks two pillars.** Shor kills factoring and discrete log; lattices, codes, hashes, and isogenies are the diversified post-quantum replacements.
 
 ## References
 

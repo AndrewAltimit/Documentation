@@ -4,22 +4,15 @@ title: "Condensed Matter: Lattice Dynamics & Phonons"
 permalink: /docs/physics/condensed-matter/lattice-dynamics.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Condensed Matter Physics](./) &raquo; Lattice Dynamics &amp; Phonons
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Lattice Dynamics &amp; Phonons</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How a crystal vibrates — and why those vibrations behave like particles</p>
-</div>
+## Lattice Dynamics & Phonons
 
-<div class="principle-card">
-  <h4>The big idea: vibrations are particles</h4>
-  <p>A crystal is not a rigid scaffold of frozen atoms. At any nonzero temperature the ions are perpetually in motion, oscillating about their equilibrium positions. Because the lattice is periodic, those oscillations organize themselves into collective <strong>normal modes</strong> — travelling waves of displacement, each labelled by a wavevector $\mathbf{k}$ and a polarization. Quantizing a normal mode turns it into a harmonic oscillator whose energy comes in discrete quanta $\hbar\omega_{\mathbf{k}}$. These quanta are <strong>phonons</strong>: emergent particles that carry the crystal's heat, scatter its electrons, and — by gluing electrons into Cooper pairs — make conventional superconductivity possible. The phonon is the cleanest example of a quasiparticle on this site: a genuinely collective excitation of $10^{23}$ atoms that you can nonetheless count, scatter, and assign a momentum, just like a free particle.</p>
-</div>
+**The big idea: vibrations are particles.** A crystal is not a rigid scaffold of frozen atoms. At any nonzero temperature the ions are perpetually in motion, oscillating about their equilibrium positions. Because the lattice is periodic, those oscillations organize themselves into collective **normal modes** — travelling waves of displacement, each labelled by a wavevector $\mathbf{k}$ and a polarization. Quantizing a normal mode turns it into a harmonic oscillator whose energy comes in discrete quanta $\hbar\omega_{\mathbf{k}}$. These quanta are **phonons**: emergent particles that carry the crystal's heat, scatter its electrons, and — by gluing electrons into Cooper pairs — make conventional superconductivity possible. The phonon is the cleanest example of a quasiparticle on this site: a genuinely collective excitation of $10^{23}$ atoms that you can nonetheless count, scatter, and assign a momentum, just like a free particle.
 
 This page builds the theory of lattice vibrations from the ground up: from the geometry of the lattice, through the harmonic approximation and its normal modes, to the phonon dispersion relations that determine a solid's thermal properties, and finally to the electron–phonon coupling that underlies conventional superconductivity. It assumes the crystallography recap on the [hub page](./) (Bravais lattices, reciprocal space, Brillouin zones) and expands it where lattice dynamics needs more.
 
@@ -42,10 +35,7 @@ The **first Brillouin zone (BZ)** is the Wigner–Seitz cell of the reciprocal l
 - **Wavevectors live in the BZ.** A wave $e^{i\mathbf{k}\cdot\mathbf{R}}$ sampled only at lattice points is unchanged by $\mathbf{k} \to \mathbf{k} + \mathbf{G}$, because $e^{i\mathbf{G}\cdot\mathbf{R}} = 1$. So $\mathbf{k}$ and $\mathbf{k}+\mathbf{G}$ describe the *same* physical mode, and we may restrict $\mathbf{k}$ to one BZ. There is no such thing as a lattice vibration with a wavelength shorter than twice the lattice spacing.
 - **Mode counting.** For a crystal of $N$ primitive cells under periodic (Born–von Kármán) boundary conditions, the allowed $\mathbf{k}$ form a uniform mesh of exactly $N$ points filling the BZ. This finite count is what makes thermodynamic sums tractable.
 
-<div class="insight-card">
-  <h4>Crystal momentum is conserved only modulo G</h4>
-  <p>Because the lattice breaks continuous translational symmetry down to discrete translations, momentum is not strictly conserved in a crystal — only <em>crystal momentum</em> $\hbar\mathbf{k}$, and only up to a reciprocal lattice vector $\hbar\mathbf{G}$. A scattering process that transfers $\mathbf{G}$ to the lattice as a whole is called an <strong>Umklapp</strong> ("flip-over") process, and it is precisely these Umklapp events — not ordinary momentum-conserving collisions — that give a perfect insulating crystal a finite thermal resistance.</p>
-</div>
+**Crystal momentum is conserved only modulo G.** Because the lattice breaks continuous translational symmetry down to discrete translations, momentum is not strictly conserved in a crystal — only *crystal momentum* $\hbar\mathbf{k}$, and only up to a reciprocal lattice vector $\hbar\mathbf{G}$. A scattering process that transfers $\mathbf{G}$ to the lattice as a whole is called an **Umklapp** ("flip-over") process, and it is precisely these Umklapp events — not ordinary momentum-conserving collisions — that give a perfect insulating crystal a finite thermal resistance.
 
 ## The Harmonic Crystal
 
@@ -67,10 +57,7 @@ $$\sum_{\mathbf{R}'s'}\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}') = 0,$$
 
 which we will see guarantees the existence of gapless acoustic phonons. Point-group symmetry further relates different $\Phi$ components, drastically reducing the number of independent constants.
 
-<div class="insight-card">
-  <h4>Why "harmonic" is a good first approximation — and where it fails</h4>
-  <p>Near a potential minimum every smooth potential looks parabolic, so the harmonic model is exact in the limit of small amplitude. It captures the existence of well-defined, infinitely long-lived normal modes and gives the correct low-temperature heat capacity. What it <em>cannot</em> capture are effects that require phonons to interact: thermal expansion, finite phonon lifetimes, and the temperature dependence of the thermal conductivity all come from the cubic and higher (<strong>anharmonic</strong>) terms we dropped. A purely harmonic crystal would have infinite thermal conductivity and would never expand on heating.</p>
-</div>
+**Why "harmonic" is a good first approximation — and where it fails.** Near a potential minimum every smooth potential looks parabolic, so the harmonic model is exact in the limit of small amplitude. It captures the existence of well-defined, infinitely long-lived normal modes and gives the correct low-temperature heat capacity. What it *cannot* capture are effects that require phonons to interact: thermal expansion, finite phonon lifetimes, and the temperature dependence of the thermal conductivity all come from the cubic and higher (**anharmonic**) terms we dropped. A purely harmonic crystal would have infinite thermal conductivity and would never expand on heating.
 
 ## Normal Modes and Phonon Dispersion
 
@@ -104,10 +91,7 @@ This single curve is the whole dispersion. Note its features, which generalize t
 - **Zone-boundary flattening:** at $k = \pi/a$ the group velocity $d\omega/dk$ vanishes — the wave is a standing wave (neighbouring atoms exactly out of phase) and carries no energy. This is a van Hove singularity in the density of states.
 - **Periodicity:** $\omega(k)$ is periodic in $k \to k + 2\pi/a$, confirming that only the first BZ $(-\pi/a, \pi/a]$ contains distinct modes.
 
-<div class="insight-card">
-  <h4>From classical wave to quantum phonon</h4>
-  <p>Each normal mode $(\mathbf{k},j)$ is an independent harmonic oscillator of frequency $\omega_j(\mathbf{k})$. Quantizing it gives energy levels $E_{n} = \hbar\omega_j(\mathbf{k})\,(n + \tfrac{1}{2})$. We reinterpret the integer $n$ as the <strong>number of phonons</strong> in that mode: adding a quantum of energy $\hbar\omega_j(\mathbf{k})$ means creating one phonon of crystal momentum $\hbar\mathbf{k}$. Phonons are <strong>bosons</strong> — a mode can hold any number — so their thermal population follows the Bose–Einstein distribution $\bar{n}_j(\mathbf{k}) = \big[e^{\hbar\omega_j(\mathbf{k})/k_BT} - 1\big]^{-1}$, the fact that powers all the thermodynamics below.</p>
-</div>
+**From classical wave to quantum phonon.** Each normal mode $(\mathbf{k},j)$ is an independent harmonic oscillator of frequency $\omega_j(\mathbf{k})$. Quantizing it gives energy levels $E_{n} = \hbar\omega_j(\mathbf{k})\,(n + \tfrac{1}{2})$. We reinterpret the integer $n$ as the **number of phonons** in that mode: adding a quantum of energy $\hbar\omega_j(\mathbf{k})$ means creating one phonon of crystal momentum $\hbar\mathbf{k}$. Phonons are **bosons** — a mode can hold any number — so their thermal population follows the Bose–Einstein distribution $\bar{n}_j(\mathbf{k}) = \big[e^{\hbar\omega_j(\mathbf{k})/k_BT} - 1\big]^{-1}$, the fact that powers all the thermodynamics below.
 
 ## Acoustic vs. Optical Branches
 
@@ -195,10 +179,7 @@ $$C_V = \frac{12\pi^4}{5}Nk_B\left(\frac{T}{\theta_D}\right)^3.$$
 
 - **High temperature ($T \gg \theta_D$):** every mode is classically excited and $C_V \to 3Nk_B$, recovering Dulong–Petit.
 
-<div class="insight-card">
-  <h4>Debye for acoustics, Einstein for optics — use both</h4>
-  <p>Neither model is "right"; each idealizes one part of the spectrum. The acoustic branches, being gapless, dominate the low-temperature heat capacity and are well described by Debye's linear dispersion. The optical branches, being high-frequency and flat, are well described by one or more Einstein terms and contribute mainly above their characteristic temperature. A practical fit to a real solid's $C_V(T)$ often superposes a Debye term for the acoustic modes with one Einstein term per optical branch.</p>
-</div>
+**Debye for acoustics, Einstein for optics — use both.** Neither model is "right"; each idealizes one part of the spectrum. The acoustic branches, being gapless, dominate the low-temperature heat capacity and are well described by Debye's linear dispersion. The optical branches, being high-frequency and flat, are well described by one or more Einstein terms and contribute mainly above their characteristic temperature. A practical fit to a real solid's $C_V(T)$ often superposes a Debye term for the acoustic modes with one Einstein term per optical branch.
 
 ## Phonon Density of States
 
@@ -231,10 +212,7 @@ $$C_V = \int_0^\infty d\omega\, g(\omega)\,k_B\left(\frac{\hbar\omega}{k_BT}\rig
 
 The bracketed factor is the heat capacity of a single oscillator: it equals $k_B$ when $k_BT \gg \hbar\omega$ (classically excited) and is exponentially small when $k_BT \ll \hbar\omega$ (frozen out). So at temperature $T$ only modes with $\hbar\omega \lesssim k_BT$ contribute — raising $T$ progressively "switches on" higher-frequency modes until, above $\theta_D$, all $3N$ are active and $C_V$ saturates at Dulong–Petit. The Debye and Einstein formulas above are just this master integral evaluated with their respective model DOS.
 
-<div class="insight-card">
-  <h4>What heat capacity measures</h4>
-  <p>The temperature dependence of $C_V$ is a thermometer for the phonon spectrum. The low-$T$ exponent (here $T^3$) reveals the dimensionality and dispersion of the gapless modes; the value of $\theta_D$ extracted from a fit measures the stiffness of the lattice ($\theta_D \propto v_s \propto \sqrt{C/M}$); and any deviation from a single Debye curve flags optical branches or, in a metal, the electronic $\gamma T$ term. Heat capacity was historically the first quantitative evidence that lattice vibrations are quantized.</p>
-</div>
+**What heat capacity measures.** The temperature dependence of $C_V$ is a thermometer for the phonon spectrum. The low-$T$ exponent (here $T^3$) reveals the dimensionality and dispersion of the gapless modes; the value of $\theta_D$ extracted from a fit measures the stiffness of the lattice ($\theta_D \propto v_s \propto \sqrt{C/M}$); and any deviation from a single Debye curve flags optical branches or, in a metal, the electronic $\gamma T$ term. Heat capacity was historically the first quantitative evidence that lattice vibrations are quantized.
 
 ## Electron–Phonon Coupling
 
@@ -262,51 +240,23 @@ where $N(E_F)$ is the electronic DOS at the Fermi level and $V$ measures the (ph
 - **Isotope effect.** Since $\omega_D \propto M^{-1/2}$, the prefactor predicts $T_c \propto M^{-1/2}$ — heavier isotopes superconduct at lower temperature. Measuring $T_c$ across isotopes of mercury and tin confirmed that *phonons* are the glue, a decisive clue that led to BCS theory.
 - **Coupling-strength control.** $T_c$ rises with both $N(E_F)$ and the coupling $\lambda \sim N(E_F)\,|g|^2/\omega$. The search for high $T_c$ in phonon-mediated superconductors is largely a search for materials with strong, high-frequency phonons — culminating in the hydrogen-rich hydrides (e.g. $\mathrm{H_3S}$, $\mathrm{LaH_{10}}$) where light hydrogen atoms give enormous $\omega_D$ and near-room-temperature $T_c$ under pressure.
 
-<div class="insight-card">
-  <h4>Phonons: heat carriers and superconducting glue, all at once</h4>
-  <p>The same vibrations that carry a crystal's heat and scatter its electrons (creating resistance) can, at low temperature, mediate the attraction that <em>eliminates</em> resistance entirely. There is no contradiction: above $T_c$ phonons relax electron momentum and cause resistivity; below $T_c$ the retarded phonon-mediated attraction binds electrons into a coherent condensate that flows without dissipation. Phonons are simultaneously the villain of normal-state transport and the hero of conventional superconductivity.</p>
-</div>
+**Phonons: heat carriers and superconducting glue, all at once.** The same vibrations that carry a crystal's heat and scatter its electrons (creating resistance) can, at low temperature, mediate the attraction that *eliminates* resistance entirely. There is no contradiction: above $T_c$ phonons relax electron momentum and cause resistivity; below $T_c$ the retarded phonon-mediated attraction binds electrons into a coherent condensate that flows without dissipation. Phonons are simultaneously the villain of normal-state transport and the hero of conventional superconductivity.
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Vibrations are quantized</h4>
-    <p>A crystal's normal modes, quantized, become phonons — bosonic quasiparticles with crystal momentum $\hbar\mathbf{k}$ and energy $\hbar\omega_j(\mathbf{k})$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The dynamical matrix gives the dispersion</h4>
-    <p>Diagonalizing the $3p\times 3p$ dynamical matrix at each $\mathbf{k}$ yields the $3p$ phonon branches of the spectrum.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Acoustic vs. optical</h4>
-    <p>Three gapless acoustic branches (sound) plus $3p-3$ finite-frequency optical branches (atoms beating within a cell).</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Heat capacity probes the spectrum</h4>
-    <p>The Debye $T^3$ law at low $T$ and Dulong–Petit at high $T$ both follow from counting thermally excited phonon modes.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Electrons feel the lattice</h4>
-    <p>Electron–phonon coupling sets the temperature-dependent resistivity of metals and enables indirect optical transitions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Phonons glue Cooper pairs</h4>
-    <p>The retarded, phonon-mediated attraction binds electrons into Cooper pairs — the microscopic origin of BCS superconductivity.</p>
-  </div>
-</div>
+- **Vibrations are quantized.** A crystal's normal modes, quantized, become phonons — bosonic quasiparticles with crystal momentum $\hbar\mathbf{k}$ and energy $\hbar\omega_j(\mathbf{k})$.
+- **The dynamical matrix gives the dispersion.** Diagonalizing the $3p\times 3p$ dynamical matrix at each $\mathbf{k}$ yields the $3p$ phonon branches of the spectrum.
+- **Acoustic vs. optical.** Three gapless acoustic branches (sound) plus $3p-3$ finite-frequency optical branches (atoms beating within a cell).
+- **Heat capacity probes the spectrum.** The Debye $T^3$ law at low $T$ and Dulong–Petit at high $T$ both follow from counting thermally excited phonon modes.
+- **Electrons feel the lattice.** Electron–phonon coupling sets the temperature-dependent resistivity of metals and enables indirect optical transitions.
+- **Phonons glue Cooper pairs.** The retarded, phonon-mediated attraction binds electrons into Cooper pairs — the microscopic origin of BCS superconductivity.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, reciprocal space, band theory, and magnetism.</li>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — how Cooper pairs and BCS theory build the superconducting state.</li>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green's functions, and the inelastic-scattering probes that map phonon dispersions.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — Bose–Einstein statistics and the thermodynamics behind phonon heat capacity.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the harmonic oscillator whose quanta are phonons.</li>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — heat capacity, thermal expansion, and the macroscopic thermal behaviour of solids.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Condensed Matter Physics (Hub)](./) — crystal structure, reciprocal space, band theory, and magnetism.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — how Cooper pairs and BCS theory build the superconducting state.
+- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — second quantization, Green's functions, and the inelastic-scattering probes that map phonon dispersions.
+- [Statistical Mechanics](../statistical-mechanics/) — Bose–Einstein statistics and the thermodynamics behind phonon heat capacity.
+- [Quantum Mechanics](../quantum-mechanics/) — the harmonic oscillator whose quanta are phonons.
+- [Thermodynamics](../thermodynamics.html) — heat capacity, thermal expansion, and the macroscopic thermal behaviour of solids.
+- [Physics Hub](../) — browse all physics topics.

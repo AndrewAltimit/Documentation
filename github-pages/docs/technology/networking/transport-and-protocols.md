@@ -11,11 +11,6 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Transport &amp; Application Protocols</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">TCP congestion control, the TCP-vs-UDP choice, and the protocols of the everyday internet</p>
-</div>
-
 The internet layer gets a packet to the right host; the transport layer decides which application receives it and whether delivery is reliable. This page goes deep on TCP congestion control — the mechanism that keeps the internet from collapsing — then weighs TCP against UDP, and finishes with the application protocols you use every day: HTTP, DNS, DHCP, and SSH.
 
 ## Deep Dive: How TCP Controls the Internet's Speed
@@ -347,19 +342,10 @@ ssh -i ~/.ssh/id_rsa user@server
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="fundamentals.html">Layers &amp; Addressing</a> — the stack the transport layer sits on.</li>
-    <li><strong>Next:</strong> <a href="routing.html">Routing &amp; Switching</a> — how packets find a path between networks.</li>
-  </ul>
-</div>
+**Previous:** [Layers & Addressing](fundamentals.html) — the stack the transport layer sits on. &nbsp;**Next:** [Routing & Switching](routing.html) — how packets find a path between networks.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="fundamentals.html">Layers &amp; Addressing</a> — where the transport layer fits in the OSI/TCP-IP stack.</li>
-    <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the queueing theory behind congestion control.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — TLS, certificates, and securing application protocols.</li>
-  </ul>
-</div>
+### See Also
+
+- [Layers & Addressing](fundamentals.html) — where the transport layer fits in the OSI/TCP-IP stack.
+- [Performance, QoS & Security](performance-and-security.html) — the queueing theory behind congestion control.
+- [Cybersecurity](../cybersecurity/) — TLS, certificates, and securing application protocols.

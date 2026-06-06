@@ -4,24 +4,13 @@ title: "Git: Conflict Resolution & Recovery"
 permalink: /docs/technology/git/conflict-and-recovery.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Git Internals](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Conflict Resolution &amp; Recovery</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Resolving merge and rebase conflicts, undoing rewritten history, and recovering lost commits, branches, and corrupted repositories</p>
-</div>
+Git almost never loses work — but it is easy to *misplace* it. A conflicted rebase, a force-push over a colleague's commits, a `git reset --hard` on the wrong branch, or a deleted branch can all leave a repository that *looks* broken. The good news: as long as the objects still live in the object store, the reflog and `fsck` can almost always get them back. This page is the recovery playbook: how to resolve conflicts methodically, how to undo history rewrites safely, and how to dig commits out of the object database when every visible reference to them is gone.
 
-<div class="intro-card">
-  <p class="lead-text">Git almost never loses work — but it is easy to <em>misplace</em> it. A conflicted rebase, a force-push over a colleague's commits, a <code>git reset --hard</code> on the wrong branch, or a deleted branch can all leave a repository that <em>looks</em> broken. The good news: as long as the objects still live in the object store, the reflog and <code>fsck</code> can almost always get them back. This page is the recovery playbook: how to resolve conflicts methodically, how to undo history rewrites safely, and how to dig commits out of the object database when every visible reference to them is gone.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Prerequisites</h4>
-  <p>This page assumes familiarity with the <a href="object-model.html">object model</a> (commits, refs, the <code>HEAD</code> pointer) and the <a href="algorithms-and-operations.html">three-way merge and rebase algorithms</a>. If a term like "merge base", "dangling object", or "reflog" is unfamiliar, read those pages first.</p>
-</div>
+This page assumes familiarity with the [object model](object-model.html) (commits, refs, the `HEAD` pointer) and the [three-way merge and rebase algorithms](algorithms-and-operations.html). If a term like "merge base", "dangling object", or "reflog" is unfamiliar, read those pages first.
 
 ## The Mental Model: Why Almost Nothing Is Ever Lost
 
@@ -108,10 +97,7 @@ git commit                             # or: git merge --continue
 git merge --abort
 ```
 
-<div class="warning-card">
-  <h4>"ours" and "theirs" flip during rebase</h4>
-  <p>During a <em>merge</em>, <code>--ours</code> is your current branch. During a <em>rebase</em>, the meaning inverts: <code>--ours</code> refers to the branch you are rebasing <em>onto</em> (the new base), and <code>--theirs</code> is the commit being replayed. This trips up nearly everyone — when in doubt, inspect with <code>git diff</code> and resolve by content rather than by side.</p>
-</div>
+> **"ours" and "theirs" flip during rebase.** During a *merge*, `--ours` is your current branch. During a *rebase*, the meaning inverts: `--ours` refers to the branch you are rebasing *onto* (the new base), and `--theirs` is the commit being replayed. This trips up nearly everyone — when in doubt, inspect with `git diff` and resolve by content rather than by side.
 
 ### Tools That Reduce Conflict Toil
 
@@ -148,14 +134,11 @@ git rebase --abort              # bail out; restore the original branch tip
 
 At each pause, Git has applied commits up to the current one onto the new base, leaving `HEAD` detached on the partial result. `--continue` commits your staged resolution as the replayed version of the current commit, then resumes cherry-picking the remaining todo entries. `--abort` reads `ORIG_HEAD` (saved at the start) and resets the branch back to exactly where it began — the cleanest escape hatch when a rebase has gone wrong.
 
-<div class="tip-card">
-  <h4>Make conflict-heavy rebases survivable</h4>
-  <ul>
-    <li><strong>Enable <code>rerere</code></strong> so a conflict resolved on attempt one is replayed automatically on later attempts.</li>
-    <li><strong>Rebase in smaller hops.</strong> Rebasing onto an intermediate commit, then onto the final base, can turn one giant conflict into two small ones.</li>
-    <li><strong>Know the abort.</strong> <code>git rebase --abort</code> is always safe; it never loses your original commits because they are still referenced by <code>ORIG_HEAD</code> and the reflog.</li>
-  </ul>
-</div>
+**Make conflict-heavy rebases survivable:**
+
+- **Enable `rerere`** so a conflict resolved on attempt one is replayed automatically on later attempts.
+- **Rebase in smaller hops.** Rebasing onto an intermediate commit, then onto the final base, can turn one giant conflict into two small ones.
+- **Know the abort.** `git rebase --abort` is always safe; it never loses your original commits because they are still referenced by `ORIG_HEAD` and the reflog.
 
 ## Undoing a Pushed Rebase (or Force-Push)
 
@@ -199,10 +182,7 @@ git push origin rescue           # publish the rescued commits
 git reflog refs/heads/feature
 ```
 
-<div class="warning-card">
-  <h4>Always prefer <code>--force-with-lease</code> over <code>--force</code></h4>
-  <p><code>git push --force</code> overwrites the remote branch unconditionally, silently discarding any commits pushed since your last fetch. <code>git push --force-with-lease</code> refuses the push if the remote tip is not what you last saw — turning a silent data-loss bug into a safe, explicit rejection. Make it the default for any force-push.</p>
-</div>
+> **Always prefer `--force-with-lease` over `--force`.** `git push --force` overwrites the remote branch unconditionally, silently discarding any commits pushed since your last fetch. `git push --force-with-lease` refuses the push if the remote tip is not what you last saw — turning a silent data-loss bug into a safe, explicit rejection. Make it the default for any force-push.
 
 ## Interactive Rebase &amp; Squashing
 
@@ -293,10 +273,7 @@ git cherry-pick --abort          # restore the pre-cherry-pick state
 
 The resolution mechanics are identical to a merge: the index carries stages 1/2/3, `--ours` is your current branch, `--theirs` is the commit being picked. For a *range* of commits, Git pauses on each conflicting commit, and `--continue`/`--skip` advance through the sequence just like a rebase.
 
-<div class="tip-card">
-  <h4>Cherry-pick vs. rebase</h4>
-  <p>A cherry-pick is a single commit's worth of the same replay machinery a rebase uses for the whole branch. If you find yourself cherry-picking a long contiguous run of commits, an interactive rebase (or <code>git rebase --onto</code>) is usually the better tool — it tracks the original branch point and the reflog for you.</p>
-</div>
+**Cherry-pick vs. rebase:** a cherry-pick is a single commit's worth of the same replay machinery a rebase uses for the whole branch. If you find yourself cherry-picking a long contiguous run of commits, an interactive rebase (or `git rebase --onto`) is usually the better tool — it tracks the original branch point and the reflog for you.
 
 ## Reflog: Recovering Lost Commits
 
@@ -336,10 +313,7 @@ git cherry-pick 1a2b3c4
 
 The reflog uses `ref@{n}` and time-based syntax: `HEAD@{2}` is two moves ago; `main@{yesterday}` and `HEAD@{2.days.ago}` resolve a ref to where it pointed at that time — useful for "the repo was fine this morning" recovery.
 
-<div class="warning-card">
-  <h4>The reflog is local and expirable</h4>
-  <p>Reflogs live in <code>.git/logs/</code> and are <strong>never pushed or fetched</strong> — a fresh clone has an empty reflog. Entries also expire (90 days for reachable, 30 days for unreachable, by default) and <code>git gc</code> can prune the objects afterward. For long-term safety, move recovered commits onto a real branch promptly.</p>
-</div>
+> **The reflog is local and expirable.** Reflogs live in `.git/logs/` and are **never pushed or fetched** — a fresh clone has an empty reflog. Entries also expire (90 days for reachable, 30 days for unreachable, by default) and `git gc` can prune the objects afterward. For long-term safety, move recovered commits onto a real branch promptly.
 
 ## fsck: Finding Commits the Reflog Forgot
 
@@ -373,10 +347,7 @@ git branch recovered <dangling-sha>     # or: git merge / git cherry-pick it
 
 `--lost-found` materializes every dangling object under `.git/lost-found/` (`commit/` and `other/`), which is handy when you need to `grep` through recovered file contents to find the one you want.
 
-<div class="tip-card">
-  <h4>Recovering a dropped stash</h4>
-  <p>A stash is a commit (a merge of your index and working tree). <code>git stash drop</code> only removes the <code>refs/stash</code> entry, leaving the commit dangling. Recover it with <code>git fsck --no-reflogs</code>, find the dangling commit whose message starts with <code>WIP on</code>, and run <code>git stash apply &lt;sha&gt;</code> or <code>git cherry-pick -m1 &lt;sha&gt;</code>.</p>
-</div>
+**Recovering a dropped stash:** a stash is a commit (a merge of your index and working tree). `git stash drop` only removes the `refs/stash` entry, leaving the commit dangling. Recover it with `git fsck --no-reflogs`, find the dangling commit whose message starts with `WIP on`, and run `git stash apply <sha>` or `git cherry-pick -m1 <sha>`.
 
 ## Recovering a Deleted Branch
 
@@ -450,10 +421,7 @@ cd repo-fresh
 git apply /tmp/uncommitted.patch
 ```
 
-<div class="warning-card">
-  <h4>Object-store corruption can be permanent</h4>
-  <p>The reflog and <code>fsck</code> recover commits that <em>still exist</em> as intact objects. If the underlying object files themselves are corrupted and no other copy (remote, clone, backup) holds them, that content is genuinely gone. This is the strongest argument for the distributed model: <strong>every clone is a full backup</strong>. Keep at least one healthy remote, and consider periodic <code>git bundle create backup.bundle --all</code> snapshots for repositories without one.</p>
-</div>
+> **Object-store corruption can be permanent.** The reflog and `fsck` recover commits that *still exist* as intact objects. If the underlying object files themselves are corrupted and no other copy (remote, clone, backup) holds them, that content is genuinely gone. This is the strongest argument for the distributed model: **every clone is a full backup**. Keep at least one healthy remote, and consider periodic `git bundle create backup.bundle --all` snapshots for repositories without one.
 
 ## Preventing the Next Disaster
 

@@ -8,43 +8,21 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">SDXL Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A deep dive into Stable Diffusion XL: its dual text encoders, size/crop conditioning, the base+refiner pipeline, and the fine-tune ecosystem built on top of it.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; SDXL Guide
 
-<div class="code-example" markdown="1">
 Everything you need to work effectively with SDXL: how the architecture differs from SD 1.5, why it conditions on resolution and crop, when the refiner helps, what resolutions to use, and which fine-tunes (Pony, Illustrious, NoobAI) extend it.
-</div>
 
 ## Why SDXL Is the Default All-Rounder
 
 SDXL (Stable Diffusion XL, released July 2023) was the first open Stable Diffusion model to combine native megapixel output, strong composition, and a broad, mature add-on ecosystem in one package. Years later it remains the **safest all-around choice**: it runs on consumer 8 GB cards, produces photorealistic and stylized work equally well, and sits at the center of the deepest collection of LoRAs, ControlNets, and fine-tunes outside the SD 1.5 legacy world.
 
-If you are deciding *which* base model to use at all, start with the [Base Models Comparison](base-models-comparison.html). This guide assumes you have already chosen SDXL (or one of its fine-tunes) and want to understand and exploit it fully.
+If you are deciding *which* base model to use at all, start with the [Base Models Comparison](base-models-comparison.html). This guide assumes you have already chosen SDXL (or one of its fine-tunes) and want to understand and exploit it fully. Three structural changes define it:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-language"></i>
-    <h4>Two Text Encoders</h4>
-    <p>CLIP ViT-L and OpenCLIP ViT-bigG read the prompt together, improving prompt comprehension and composition over SD 1.5's single encoder.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-expand"></i>
-    <h4>Conditioned on Size & Crop</h4>
-    <p>SDXL is told the target resolution and crop offset, which reduces the zoom/crop artifacts that plagued earlier models.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Optional Refiner</h4>
-    <p>A second model can finish the last ~20% of denoising for extra micro-detail — though modern fine-tunes often look excellent base-only.</p>
-  </div>
-</div>
+- **Two text encoders.** CLIP ViT-L and OpenCLIP ViT-bigG read the prompt together, improving prompt comprehension and composition over SD 1.5's single encoder.
+- **Conditioned on size and crop.** SDXL is told the target resolution and crop offset, which reduces the zoom/crop artifacts that plagued earlier models.
+- **Optional refiner.** A second model can finish the last ~20% of denoising for extra micro-detail — though modern fine-tunes often look excellent base-only.
 
 ## Architecture Overview
 
@@ -163,14 +141,6 @@ SDXL was trained with **multi-aspect bucketing**: instead of forcing everything 
 - **Go bigger with upscaling, not bigger latents.** For 2K/4K output, generate at native resolution then use a [high-resolution upscale pass](advanced-techniques.html) (img2img at low denoise, or a tiled/ControlNet upscaler) rather than asking SDXL for a huge canvas in one shot.
 
 ## Strengths and Weaknesses
-
-### What Makes SDXL Different
-
-- **Dual text encoders.** Two CLIP models read the prompt together, improving composition and prompt comprehension over the single encoder in SD 1.5/2.x.
-- **Optional two-stage pipeline.** A base model handles the bulk of denoising and an optional **refiner** finishes the last ~20% to sharpen detail. In practice many users skip the refiner — modern fine-tunes look excellent base-only.
-- **Conditioning augmentation.** The model is told the target resolution and crop, which reduces the cropping/zoom artifacts common in earlier models.
-
-### Strengths and Weaknesses
 
 | Strengths | Weaknesses |
 |-----------|------------|
@@ -307,19 +277,14 @@ If you want extra micro-detail and have the VRAM, add the refiner: stop the base
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **SDXL is the safe default** — native 1024px output, strong composition, and the deepest mature ecosystem of LoRAs, ControlNets, and fine-tunes.
 - **Two text encoders** (CLIP ViT-L + OpenCLIP bigG) make SDXL reward natural-language prompts and care less about SD 1.5 quality-spam tags.
 - **Size/crop conditioning** is why SDXL frames subjects better than SD 1.5 — keep the crop at `(0, 0)` for centered compositions.
 - **Stay near ~1 megapixel** using native aspect buckets and multiples of 64; upscale for bigger output rather than asking for a giant latent.
 - **The refiner is optional** — most modern fine-tunes look excellent base-only; reach for it only for maximum micro-detail.
 - **Add-ons must be SDXL-specific** — SD 1.5 LoRAs and ControlNets do not load on SDXL, but they are shared across SDXL fine-tunes (Pony, Illustrious, NoobAI).
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Base Models Comparison](base-models-comparison.html) - How SDXL stacks up against SD 1.5, SD3, FLUX, and Pony
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The diffusion process SDXL is built on
@@ -329,4 +294,3 @@ If you want extra micro-detail and have the VRAM, add the refiner: stop the base
 - [ControlNet](controlnet.html) - Precise control over SDXL generation
 - [Advanced Techniques](advanced-techniques.html) - High-resolution upscaling and beyond
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

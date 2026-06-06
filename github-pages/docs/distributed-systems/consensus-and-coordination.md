@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Consensus &amp; Coordination</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How unreliable nodes agree on a single truth: CAP, FLP, consistency models, Paxos, Raft, BFT, and quorums</p>
-</div>
-
 [Distributed Systems Hub](./) &raquo; Consensus &amp; Coordination
 
-<div class="code-example" markdown="1">
 Consensus is the beating heart of every replicated database, lock service, and orchestrator. This page builds from the limits that make agreement *hard* (CAP, PACELC, FLP), through the consistency guarantees a system can offer, into the algorithms that actually deliver them (Paxos, Raft, PBFT), and the quorum arithmetic that ties them together. For the formal proofs behind the impossibility results, see [Distributed Systems Theory](../advanced/distributed-systems-theory/).
-</div>
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -390,14 +383,12 @@ The decision cascade in one sentence: if nodes can lie, you need **BFT**; otherw
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Safety over liveness</h4><p>FLP forbids an algorithm that is safe, live, and fully asynchronous. Every real protocol keeps safety absolute and makes liveness conditional on timeouts or randomness.</p></div>
-  <div class="takeaway-card"><h4>Characterize with PACELC, not just CAP</h4><p>CAP describes the rare partition; the "else latency-vs-consistency" half is the tradeoff you pay on every request.</p></div>
-  <div class="takeaway-card"><h4>Quorum overlap is the whole trick</h4><p>W + R &gt; N and W &gt; N/2 guarantee any two quorums share a node — the counting argument under Paxos, Raft, and Dynamo alike.</p></div>
-  <div class="takeaway-card"><h4>Raft = understandable Multi-Paxos</h4><p>Same guarantees, decomposed into leader election, log replication, and safety. It backs etcd, Consul, CockroachDB, and more.</p></div>
-  <div class="takeaway-card"><h4>Pick the weakest consistency you can</h4><p>Linearizable costs the most coordination; causal is the strongest you get while staying available; eventual + session guarantees often suffice.</p></div>
-  <div class="takeaway-card"><h4>Pay for BFT only when nodes can lie</h4><p>N ≥ 3f+1 and O(N²) messaging are worth it for blockchains and adversarial settings — not for a trusted datacenter.</p></div>
-</div>
+- **Safety over liveness.** FLP forbids an algorithm that is safe, live, and fully asynchronous. Every real protocol keeps safety absolute and makes liveness conditional on timeouts or randomness.
+- **Characterize with PACELC, not just CAP.** CAP describes the rare partition; the "else latency-vs-consistency" half is the tradeoff you pay on every request.
+- **Quorum overlap is the whole trick.** W + R > N and W > N/2 guarantee any two quorums share a node — the counting argument under Paxos, Raft, and Dynamo alike.
+- **Raft is understandable Multi-Paxos.** Same guarantees, decomposed into leader election, log replication, and safety. It backs etcd, Consul, CockroachDB, and more.
+- **Pick the weakest consistency you can.** Linearizable costs the most coordination; causal is the strongest you get while staying available; eventual + session guarantees often suffice.
+- **Pay for BFT only when nodes can lie.** N >= 3f+1 and O(N^2) messaging are worth it for blockchains and adversarial settings — not for a trusted datacenter.
 
 ## See Also
 

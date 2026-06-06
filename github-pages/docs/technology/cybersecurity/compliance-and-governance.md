@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Compliance &amp; Governance</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Turning security from a project into a program — frameworks, risk, people, and metrics</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Compliance &amp; Governance</p>
 
-<div class="intro-card">
-  <p class="lead-text">Technology controls are necessary but not sufficient. A durable security posture needs governance: legal obligations that give security teeth (GDPR, PCI DSS), attestation frameworks that prove diligence to customers (SOC 2, ISO 27001), a repeatable way to identify and prioritize risk, a culture that treats people as a defense rather than a liability, and metrics that show whether any of it is working. This page covers how to build security as an ongoing program rather than a one-time fix.</p>
-</div>
+# Compliance & Governance
+
+Technology controls are necessary but not sufficient. A durable security posture needs governance: legal obligations that give security teeth (GDPR, PCI DSS), attestation frameworks that prove diligence to customers (SOC 2, ISO 27001), a repeatable way to identify and prioritize risk, a culture that treats people as a defense rather than a liability, and metrics that show whether any of it is working. This page covers how to build security as an ongoing program rather than a one-time fix.
 
 ## Compliance: Security With Legal Teeth
 

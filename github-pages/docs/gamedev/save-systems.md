@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Save Systems & Persistence</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Serializing game state durably and safely — formats, save-game architecture, versioned migration, autosave and checkpoints, cloud sync, and atomic writes that survive a crash mid-save.</p>
-</div>
+# Save Systems & Persistence
 
 [Game Development](./) &raquo; Save Systems & Persistence
 
-<div class="hub-intro">
-  <p class="lead">A save system is the boundary between the in-memory world your game simulates and the durable bytes a player will reload weeks later — possibly after they have patched the game, switched devices, or pulled the power cord the instant you were halfway through writing the file. Getting it right is less about "writing some JSON" and more about treating the save file as a small database with a schema, a migration path, a corruption-recovery story, and a transactional write protocol. This page covers serialization format choices, the architecture that separates persistent state from runtime state, versioning and migration of old saves, autosave and checkpoint strategies, cloud-save synchronization and conflict resolution, and the atomic-write and anti-corruption techniques that keep a save from being destroyed by an ill-timed crash.</p>
-</div>
+A save system is the boundary between the in-memory world your game simulates and the durable bytes a player will reload weeks later — possibly after they have patched the game, switched devices, or pulled the power cord the instant you were halfway through writing the file. Getting it right is less about "writing some JSON" and more about treating the save file as a small database with a schema, a migration path, a corruption-recovery story, and a transactional write protocol. This page covers serialization formats, the architecture that separates persistent from runtime state, versioning and migration of old saves, autosave and checkpoints, cloud-save synchronization and conflict resolution, and the atomic-write techniques that keep a save from being destroyed by an ill-timed crash. Four principles run throughout:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-database"></i>
-    <h4>A save file is a tiny database</h4>
-    <p>It has a schema, needs migrations when that schema changes, and must survive concurrent or interrupted writes. Treat it with the same discipline.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-code-branch"></i>
-    <h4>Version from day one</h4>
-    <p>Every save must carry a version number. Without it, the first content patch that adds a field can brick every existing save in the wild.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Never write in place</h4>
-    <p>Write to a temp file, fsync, then atomically rename over the real save. A crash then leaves either the old file or the new one — never a half-written one.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-cloud"></i>
-    <h4>Cloud saves are a sync problem</h4>
-    <p>Two devices, last-writer-wins, and offline play create conflicts. You need timestamps, generation counters, and a conflict-resolution policy.</p>
-  </div>
-</div>
+- **A save file is a tiny database.** It has a schema, needs migrations when that schema changes, and must survive concurrent or interrupted writes. Treat it with the same discipline.
+- **Version from day one.** Every save must carry a version number. Without it, the first content patch that adds a field can brick every existing save in the wild.
+- **Never write in place.** Write to a temp file, fsync, then atomically rename over the real save. A crash then leaves either the old file or the new one — never a half-written one.
+- **Cloud saves are a sync problem.** Two devices, last-writer-wins, and offline play create conflicts. You need timestamps, generation counters, and a conflict-resolution policy.
 
 ## What Goes in a Save
 
@@ -418,14 +395,12 @@ On the next launch, the load path runs in reverse: read header, verify magic and
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Classify your state</h4><p>Persist the authoritative facts, recompute derived data on load, discard transient state. Serializing the whole scene graph is the original sin.</p></div>
-  <div class="takeaway-card"><h4>Separate save model from runtime model</h4><p>Capture into plain data objects, restore from them. Serialize references as stable IDs and relink in a two-pass load. Never serialize pointers or engine handles.</p></div>
-  <div class="takeaway-card"><h4>Version and migrate, additively</h4><p>Every save carries a version. Write migrations once, chain them v→v+1, and never reuse field IDs. This is a launch-day requirement, not polish.</p></div>
-  <div class="takeaway-card"><h4>Autosave off the hot path</h4><p>Capture an immutable snapshot on the game thread, encode and write on a worker. Rotate slots so one bad write never loses everything.</p></div>
-  <div class="takeaway-card"><h4>Cloud saves need conflict resolution</h4><p>Generation counters plus optimistic concurrency catch stale writes; prompt the player on true conflicts and keep sync advisory so offline play still works.</p></div>
-  <div class="takeaway-card"><h4>Write atomically, verify on load</h4><p>Temp-file, fsync, rename — a crash leaves old or new, never partial. A checksum plus a .bak backup turns corruption into recoverable degradation.</p></div>
-</div>
+- **Classify your state.** Persist the authoritative facts, recompute derived data on load, discard transient state. Serializing the whole scene graph is the original sin.
+- **Separate save model from runtime model.** Capture into plain data objects, restore from them. Serialize references as stable IDs and relink in a two-pass load. Never serialize pointers or engine handles.
+- **Version and migrate, additively.** Every save carries a version. Write migrations once, chain them v→v+1, and never reuse field IDs. This is a launch-day requirement, not polish.
+- **Autosave off the hot path.** Capture an immutable snapshot on the game thread, encode and write on a worker. Rotate slots so one bad write never loses everything.
+- **Cloud saves need conflict resolution.** Generation counters plus optimistic concurrency catch stale writes; prompt the player on true conflicts and keep sync advisory so offline play still works.
+- **Write atomically, verify on load.** Temp-file, fsync, rename — a crash leaves old or new, never partial. A checksum plus a .bak backup turns corruption into recoverable degradation.
 
 ## See Also
 

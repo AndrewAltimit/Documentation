@@ -8,43 +8,21 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Stable Diffusion 3 Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">SD3 and the MMDiT architecture: how triple text encoding, rectified-flow training, and legible text rendering set this family apart - plus settings and licensing.</p>
-</div>
 
 [AI/ML Documentation](./) &raquo; Stable Diffusion 3 Guide
 
-<div class="code-example" markdown="1">
 A focused guide to Stable Diffusion 3 (and SD3.5): the Multimodal Diffusion Transformer backbone, rectified-flow / flow-matching training, why it renders text and follows prompts better than SDXL, and the licensing you need to understand before deploying it.
-</div>
 
 ## Overview
 
 SD3 marks the Stable Diffusion lineage's shift from the U-Net to a **Multimodal Diffusion Transformer (MM-DiT)** trained with **rectified flow** - the same family of ideas behind FLUX, but with different design choices and lower resource demands. It is the bridge between the mature U-Net ecosystem (SD 1.5, SDXL, Pony) and the newer transformer flow-matching models, and it was the first model in the family to bring credible in-image text rendering and strong prompt adherence to consumer hardware.
 
-If you have read [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html), the short version is this: SD3 keeps the latent-diffusion idea (work in a compressed VAE latent, not pixels) but replaces *both* the denoising network (U-Net → transformer) *and* the training objective (noise prediction → velocity / rectified flow).
+If you have read [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html), the short version is this: SD3 keeps the latent-diffusion idea (work in a compressed VAE latent, not pixels) but replaces *both* the denoising network (U-Net → transformer) *and* the training objective (noise prediction → velocity / rectified flow). Three changes define the family:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Transformer, Not U-Net</h4>
-    <p>MM-DiT processes image and text tokens jointly with shared attention, replacing the convolutional U-Net and its cross-attention.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-route"></i>
-    <h4>Rectified Flow</h4>
-    <p>Trained to follow a near-straight path from noise to data, so fewer steps and a lower CFG produce coherent images.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-font"></i>
-    <h4>Text You Can Read</h4>
-    <p>A large T5 encoder alongside two CLIP encoders lets SD3 render legible words and follow long natural-language prompts.</p>
-  </div>
-</div>
+- **Transformer, not U-Net.** MM-DiT processes image and text tokens jointly with shared attention, replacing the convolutional U-Net and its cross-attention.
+- **Rectified flow.** Trained to follow a near-straight path from noise to data, so fewer steps and a lower CFG produce coherent images.
+- **Text you can read.** A large T5 encoder alongside two CLIP encoders lets SD3 render legible words and follow long natural-language prompts.
 
 ## Technical Specifications
 
@@ -258,18 +236,13 @@ For the full cross-family treatment - including SD 1.5, SD 2.x, Pony, and FLUX v
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **SD3 swaps the whole denoiser:** convolutional U-Net → Multimodal Diffusion Transformer (MM-DiT) with joint image+text attention.
 - **It is trained with rectified flow,** learning a velocity field along near-straight noise→data paths - hence ~28 steps, a low CFG (~5), and the SD3-specific `shift` knob.
 - **Triple text encoding (2× CLIP + T5)** is what unlocks legible in-image text and strong prompt adherence; T5 is the special ingredient and prompting is natural-language.
 - **Prefer SD3.5** over the original SD3 Medium - it fixed launch-day anatomy and licensing complaints.
 - **Mind the license:** SD3 uses Stability's gated community/enterprise terms, not the permissive SD 1.5/SDXL licenses. Verify the current Hugging Face terms before any commercial use.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Base Models Comparison](base-models-comparison.html) - SD3 in context with SD 1.5, SDXL, Pony, and FLUX
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Latent diffusion, the forward/reverse process, and flow matching
@@ -279,4 +252,3 @@ For the full cross-family treatment - including SD 1.5, SD 2.x, Pony, and FLUX v
 - [ControlNet](controlnet.html) - Precise control over generation
 - [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

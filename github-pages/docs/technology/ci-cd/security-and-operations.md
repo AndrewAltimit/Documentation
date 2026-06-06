@@ -9,10 +9,7 @@ hide_title: true
 
 [CI/CD](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Security, GitOps & Operations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Securing pipelines, GitOps and Infrastructure as Code, observability, and the advanced topics that keep delivery reliable at scale.</p>
-</div>
+Securing pipelines, GitOps and Infrastructure as Code, observability, and the advanced topics that keep delivery reliable at scale.
 
 ## Security in CI/CD
 
@@ -786,13 +783,10 @@ Adopting CI/CD is incremental work: start simple, measure everything, and refine
   <a href="./">CI/CD Hub ➡</a>
 </nav>
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="platforms-and-pipelines.html">Platforms & Pipeline Design</a> — choosing a platform and structuring pipelines</li>
-    <li><a href="deployment.html">Deployment Strategies</a> — blue-green, canary, and rolling rollouts</li>
-    <li><a href="../terraform/">Terraform</a> — infrastructure as code for the IaC pipelines above</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — securing the pipeline and its secrets</li>
-    <li><a href="../docker/registry.html">Docker Registry &amp; Distribution</a> — image signing, SBOMs, and provenance at the registry level</li>
-  </ul>
-</div>
+## See Also
+
+- [Platforms & Pipeline Design](platforms-and-pipelines.html) — choosing a platform and structuring pipelines
+- [Deployment Strategies](deployment.html) — blue-green, canary, and rolling rollouts
+- [Terraform](../terraform/) — infrastructure as code for the IaC pipelines above
+- [Cybersecurity](../cybersecurity/) — securing the pipeline and its secrets
+- [Docker Registry & Distribution](../docker/registry.html) — image signing, SBOMs, and provenance at the registry level

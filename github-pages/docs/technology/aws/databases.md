@@ -9,10 +9,7 @@ toc_label: "On This Page"
 toc_icon: "database"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Database Services</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">RDS, Aurora, DynamoDB, and ElastiCache managed database solutions for relational, NoSQL, and caching workloads.</p>
-</div>
+AWS offers RDS, Aurora, DynamoDB, ElastiCache, and several specialized engines covering relational, NoSQL, caching, time-series, and graph workloads. This page covers how to choose between them and how to use each well.
 
 ## Why Managed Databases Matter
 
@@ -222,24 +219,10 @@ aws dynamodb query --table-name MyTable \
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Match Model to Access Pattern</h4>
-    <p>Relational (RDS/Aurora) for complex queries and transactions; DynamoDB for massive scale with known key-based access.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Aurora Scales, RDS Starts Cheap</h4>
-    <p>Use RDS for dev/test and small workloads; move to Aurora when you need 3-5x throughput and storage that auto-grows.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Design DynamoDB Queries First</h4>
-    <p>Unlike SQL, you model the table around access patterns. Composite keys and single-table design enable efficient queries.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Cache to Cut Load</h4>
-    <p>An ElastiCache (Redis) layer can absorb 90% of read traffic and drop response times to sub-millisecond.</p>
-  </div>
-</div>
+- **Match the model to the access pattern.** Use relational (RDS/Aurora) for complex queries and transactions; DynamoDB for massive scale with known key-based access.
+- **Aurora scales, RDS starts cheap.** Use RDS for dev/test and small workloads; move to Aurora when you need 3-5x throughput and storage that auto-grows.
+- **Design DynamoDB queries first.** Unlike SQL, you model the table around access patterns — composite keys and single-table design enable efficient queries.
+- **Cache to cut load.** An ElastiCache (Redis) layer can absorb 90% of read traffic and drop response times to sub-millisecond.
 
 ---
 

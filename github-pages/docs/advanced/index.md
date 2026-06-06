@@ -12,11 +12,7 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Rigorous mathematical treatments and cutting-edge research in theoretical computer science, quantum computing, and AI foundations</p>
 </div>
 
-Welcome to the research-oriented section of our documentation. This area contains rigorous mathematical treatments, formal proofs, and cutting-edge research topics spanning theoretical computer science, quantum computing, and mathematical foundations of AI — alongside one deeply *applied* engineering track on operating large-scale codebases.
-
-<div class="hub-intro">
-  <p class="lead">These resources are designed for researchers, PhD students, and professionals working on theoretical foundations. Whether you're conducting original research, implementing state-of-the-art algorithms, or writing academic work, you'll find rigorous mathematical treatments and complete derivations.</p>
-</div>
+Welcome to the research-oriented section of our documentation. This area contains rigorous mathematical treatments, formal proofs, and cutting-edge research topics spanning theoretical computer science, quantum computing, and mathematical foundations of AI — alongside one deeply *applied* engineering track on operating large-scale codebases. The pages are written for researchers, PhD students, and practitioners working on theoretical foundations: expect complete derivations rather than intuition-first overviews.
 
 <div class="notice--warning" markdown="1">
 #### Prerequisites Warning

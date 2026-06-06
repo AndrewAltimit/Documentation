@@ -7,125 +7,77 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Fundamentals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the core concepts of containerization including images, containers, networking, and the Docker architecture.</p>
-</div>
+[Docker](./) &raquo; Fundamentals
+
+The core concepts of containerization: images, containers, networking, and the Docker architecture.
 
 ## Why Docker? The Problems It Solves
 
-Consider the following scenario: You have built an application that works perfectly on your machine. You hand it to a colleague, and it fails immediately. The culprit? Different Python versions, missing libraries, or conflicting configurations. Docker eliminates this entire class of problems.
+An application that works perfectly on your machine often fails the moment a colleague runs it — a different Python version, a missing library, a conflicting config. Docker eliminates this entire class of problems. The recurring pain points it addresses:
 
-<div class="problems-section">
-  <h3><i class="fas fa-exclamation-triangle"></i> Common Development Challenges</h3>
-  
-  <div class="problem-grid">
-    <div class="problem-item">
-      <i class="fas fa-puzzle-piece"></i>
-      <h4>Dependency Hell</h4>
-      <p>Different projects require different versions of libraries, languages, and tools, leading to conflicts and complex virtual environment management.</p>
-    </div>
-    
-    <div class="problem-item">
-      <i class="fas fa-exchange-alt"></i>
-      <h4>Environment Parity</h4>
-      <p>Code that works perfectly on a developer's laptop fails in production due to OS differences, missing dependencies, or configuration mismatches.</p>
-    </div>
-    
-    <div class="problem-item">
-      <i class="fas fa-clock"></i>
-      <h4>Onboarding Time</h4>
-      <p>New team members spend days setting up development environments, installing tools, and troubleshooting configuration issues.</p>
-    </div>
-    
-    <div class="problem-item">
-      <i class="fas fa-server"></i>
-      <h4>Resource Efficiency</h4>
-      <p>Traditional VMs consume significant resources, limiting the number of applications that can run on a single server.</p>
-    </div>
-  </div>
-  
-  <h3><i class="fas fa-check-circle"></i> How Docker Solves These Problems</h3>
-  
-  <div class="solution-grid">
-    <div class="solution-item">
-      <i class="fas fa-cube"></i>
-      <h4>Isolated Environments</h4>
-      <p>Each container has its own filesystem, network, and process space, eliminating conflicts between applications.</p>
-    </div>
-    
-    <div class="solution-item">
-      <i class="fas fa-copy"></i>
-      <h4>Reproducible Builds</h4>
-      <p>Dockerfiles define exact steps to build an environment, ensuring consistency across all stages of development.</p>
-    </div>
-    
-    <div class="solution-item">
-      <i class="fas fa-play-circle"></i>
-      <h4>Instant Setup</h4>
-      <p>New developers can start with a simple `docker run` command, eliminating complex installation procedures.</p>
-    </div>
-    
-    <div class="solution-item">
-      <i class="fas fa-layer-group"></i>
-      <h4>Efficient Layering</h4>
-      <p>Docker's layer system shares common components between containers, dramatically reducing disk usage and memory overhead.</p>
-    </div>
-  </div>
-</div>
+- **Dependency hell** — different projects need different versions of libraries, languages, and tools, forcing complex virtual-environment juggling.
+- **Environment parity** — code that runs on a laptop fails in production over OS differences, missing dependencies, or config mismatches.
+- **Onboarding time** — new contributors lose days installing tools and troubleshooting their environment.
+- **Resource efficiency** — traditional VMs consume enough resources to limit how many applications fit on one server.
+
+Docker answers each: **isolated environments** (each container has its own filesystem, network, and process space), **reproducible builds** (a Dockerfile defines the exact build steps), **instant setup** (a new developer runs one `docker run`), and **efficient layering** (shared read-only layers cut disk and memory overhead).
 
 ## Essential Docker Commands
 
 Before running any Docker commands, it helps to understand the mental model: Docker images are like recipes (blueprints), while containers are the actual dishes you create from those recipes. You can make many containers from the same image, and each one runs independently.
 
-<div class="commands-section">
-  <h3><i class="fas fa-terminal"></i> Core Operations</h3>
+### Core Operations
 
-  <p class="intro-text">The following examples demonstrate the core concepts. Start with simple commands and build up to more complex workflows.</p>
-  
-  <div class="command-examples">
-    <div class="example-section">
-      <h4>Running Containers</h4>
-      <p><strong>When to use:</strong> Start here when learning Docker or when you need to quickly test something in a clean environment.</p>
-      <pre><code class="language-bash"># Run an interactive Ubuntu container
+These examples build from a throwaway container up to a multi-service stack.
+
+**Running containers** — start here when learning Docker or testing something in a clean environment:
+
+```bash
+# Run an interactive Ubuntu container
 docker run -it ubuntu:22.04 bash
 
 # You are now inside a minimal Linux system
-cat /etc/os-release && exit</code></pre>
-      <p class="explanation">The <code>-it</code> flags create an interactive terminal session. When you type <code>exit</code>, the container stops.</p>
-    </div>
-    
-    <div class="example-section">
-      <h4>Web Server Deployment</h4>
-      <p><strong>When to use:</strong> When you need to run a service in the background, such as a web server, database, or API.</p>
-      <pre><code class="language-bash"># Run Nginx web server in the background
+cat /etc/os-release && exit
+```
+
+The `-it` flags create an interactive terminal session; typing `exit` stops the container.
+
+**Web server deployment** — run a service in the background (web server, database, API):
+
+```bash
+# Run Nginx web server in the background
 docker run -d -p 8080:80 --name my-web nginx
 
 # Visit http://localhost:8080, then clean up
-docker stop my-web && docker rm my-web</code></pre>
-      <p class="explanation">The <code>-d</code> flag runs the container in the background. The <code>-p 8080:80</code> maps your machine's port 8080 to the container's port 80.</p>
-    </div>
-    
-    <div class="example-section">
-      <h4>Building Custom Images</h4>
-      <p><strong>When to use:</strong> When you need to package your own application with its specific dependencies and configuration.</p>
-      <pre><code class="language-dockerfile"># Dockerfile - save this file, then build with: docker build -t my-app .
+docker stop my-web && docker rm my-web
+```
+
+The `-d` flag runs the container in the background; `-p 8080:80` maps host port 8080 to the container's port 80.
+
+**Building custom images** — package your own application with its dependencies:
+
+```dockerfile
+# Dockerfile - save this file, then build with: docker build -t my-app .
 FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD ["python", "app.py"]</code></pre>
-      <pre><code class="language-bash"># Build and run your custom image
+CMD ["python", "app.py"]
+```
+
+```bash
+# Build and run your custom image
 docker build -t my-app .
-docker run -d -p 5000:5000 my-app</code></pre>
-      <p class="explanation">A Dockerfile defines your environment step by step. Docker caches each step, so rebuilds are fast when only your code changes.</p>
-    </div>
-    
-    <div class="example-section">
-      <h4>Using Docker Compose</h4>
-      <p><strong>When to use:</strong> When your application needs multiple services (web server + database, for example) that work together.</p>
-      <pre><code class="language-yaml"># compose.yaml
+docker run -d -p 5000:5000 my-app
+```
+
+A Dockerfile defines your environment step by step. Docker caches each step, so rebuilds are fast when only your code changes.
+
+**Using Docker Compose** — when your application needs multiple services (web server + database) working together:
+
+```yaml
+# compose.yaml
 services:
   web:
     build: .
@@ -134,27 +86,20 @@ services:
     depends_on:
       - redis
   redis:
-    image: redis:alpine</code></pre>
-      <pre><code class="language-bash"># Start all services with one command
+    image: redis:alpine
+```
+
+```bash
+# Start all services with one command
 docker compose up -d
 
 # Stop everything
-docker compose down</code></pre>
-      <p class="explanation">Compose automatically creates a network where services can find each other by name. Your web service can connect to <code>redis</code> without knowing its IP address.</p>
-    </div>
-  </div>
-  
-  <div class="command-summary">
-    <h3><i class="fas fa-lightbulb"></i> Key Takeaways</h3>
-    <ul>
-      <li><strong>Images</strong> are blueprints; <strong>containers</strong> are running instances</li>
-      <li><strong>Dockerfiles</strong> define how to build images reproducibly</li>
-      <li><strong>Port mapping</strong> connects container services to your host</li>
-      <li><strong>Docker Compose</strong> manages multi-container applications</li>
-      <li><strong>Volumes</strong> persist data beyond container lifecycle</li>
-    </ul>
-  </div>
-</div>
+docker compose down
+```
+
+Compose creates a network where services find each other by name — your web service connects to `redis` without knowing its IP.
+
+The essentials to carry forward: **images** are blueprints and **containers** are running instances; **Dockerfiles** build images reproducibly; **port mapping** connects container services to the host; **Compose** manages multi-container apps; and **volumes** persist data beyond a container's lifecycle.
 
 ## Understanding Container Technology
 
@@ -172,11 +117,9 @@ Consider the following when choosing between containers and VMs:
 | Security isolation | Process-level sufficient | Need hardware-level isolation |
 | Legacy applications | May need refactoring | Run as-is |
 
-<div class="comparison-section">
-  <p class="section-intro">Containers are lightweight, resource-efficient, and portable, making them suitable for modern, scalable applications. Virtual machines provide strong isolation, full OS support, and hardware emulation but can be resource-intensive and slower to start up.</p>
-  
-  <div class="architecture-comparison">
-    <div class="architecture-diagram">
+Containers are lightweight, resource-efficient, and portable, suited to modern scalable applications; virtual machines provide strong isolation, full OS support, and hardware emulation at the cost of higher resource use and slower startup. The two architectures side by side:
+
+<div class="architecture-diagram">
       <svg viewBox="0 0 600 350">
         <!-- Container Architecture -->
         <g id="container-arch">
@@ -244,151 +187,14 @@ Consider the following when choosing between containers and VMs:
           <text x="217" y="137" text-anchor="middle" font-size="8" fill="white">Guest OS</text>
         </g>
       </svg>
-    </div>
-  </div>
 </div>
 
-<div class="pros-cons-comparison">
-  <div class="container-pros-cons">
-    <h3><i class="fas fa-box"></i> Container Pros/Cons</h3>
-    
-    <div class="pros-cons-grid">
-      <div class="pros-section">
-        <h4><i class="fas fa-check-circle"></i> Pros</h4>
-        <div class="pro-item">
-          <i class="fas fa-feather-alt"></i>
-          <div>
-            <strong>Lightweight</strong>
-            <p>Share the host OS kernel, minimal overhead</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-rocket"></i>
-          <div>
-            <strong>Fast startup</strong>
-            <p>Start in seconds for rapid deployment</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-chart-line"></i>
-          <div>
-            <strong>Resource efficiency</strong>
-            <p>Higher density on single host</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-ship"></i>
-          <div>
-            <strong>Portability</strong>
-            <p>Consistent deployment across environments</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-shield-alt"></i>
-          <div>
-            <strong>Process Isolation</strong>
-            <p>Applications run without interference</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="cons-section">
-        <h4><i class="fas fa-times-circle"></i> Cons</h4>
-        <div class="con-item">
-          <i class="fas fa-link"></i>
-          <div>
-            <strong>Kernel dependency</strong>
-            <p>Limited cross-platform compatibility</p>
-          </div>
-        </div>
-        <div class="con-item">
-          <i class="fas fa-lock-open"></i>
-          <div>
-            <strong>Security boundaries</strong>
-            <p>Weaker isolation than VMs</p>
-          </div>
-        </div>
-        <div class="con-item">
-          <i class="fas fa-ban"></i>
-          <div>
-            <strong>Limited applications</strong>
-            <p>Not suitable for kernel modifications</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+Containers and VMs make opposite trade-offs:
 
-  <div class="vm-pros-cons">
-    <h3><i class="fas fa-desktop"></i> Virtual Machine Pros/Cons</h3>
-    
-    <div class="pros-cons-grid">
-      <div class="pros-section">
-        <h4><i class="fas fa-check-circle"></i> Pros</h4>
-        <div class="pro-item">
-          <i class="fas fa-lock"></i>
-          <div>
-            <strong>Strong isolation</strong>
-            <p>Complete OS separation for security</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-layer-group"></i>
-          <div>
-            <strong>Full OS support</strong>
-            <p>Run any OS version or distribution</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-microchip"></i>
-          <div>
-            <strong>Hardware emulation</strong>
-            <p>Support legacy and platform-specific apps</p>
-          </div>
-        </div>
-        <div class="pro-item">
-          <i class="fas fa-history"></i>
-          <div>
-            <strong>Mature ecosystem</strong>
-            <p>Extensive tooling and management</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="cons-section">
-        <h4><i class="fas fa-times-circle"></i> Cons</h4>
-        <div class="con-item">
-          <i class="fas fa-weight-hanging"></i>
-          <div>
-            <strong>Resource-intensive</strong>
-            <p>Full OS stack overhead</p>
-          </div>
-        </div>
-        <div class="con-item">
-          <i class="fas fa-hourglass-half"></i>
-          <div>
-            <strong>Slow startup</strong>
-            <p>Minutes to boot and initialize</p>
-          </div>
-        </div>
-        <div class="con-item">
-          <i class="fas fa-database"></i>
-          <div>
-            <strong>Storage overhead</strong>
-            <p>Duplicated OS and libraries</p>
-          </div>
-        </div>
-        <div class="con-item">
-          <i class="fas fa-random"></i>
-          <div>
-            <strong>Deployment complexity</strong>
-            <p>Manual dependency management</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+| | Containers | Virtual machines |
+|---|------------|------------------|
+| **Strengths** | Lightweight (share the host kernel), start in seconds, high density on one host, portable across environments, process-level isolation | Strong OS-level isolation, run any OS/distribution, hardware emulation for legacy/platform-specific apps, mature tooling |
+| **Weaknesses** | Tied to the host kernel (limited cross-platform), weaker isolation than VMs, unsuitable for kernel modifications | Resource-intensive (full OS per VM), minutes to boot, duplicated OS/library storage, heavier dependency management |
 
 ### What Containers Guarantee
 
@@ -569,24 +375,10 @@ flowchart LR
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Images vs Containers</h4>
-    <p>An image is an immutable, layered blueprint; a container is a running instance with a thin writable layer on top.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Containers Share the Kernel</h4>
-    <p>Unlike VMs, containers share the host kernel — giving them sub-second startup times and minimal overhead, at the cost of weaker isolation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Layers Drive Caching</h4>
-    <p>Each Dockerfile instruction is a cached layer. Order from least- to most-frequently-changing to speed up rebuilds.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Custom Networks for DNS</h4>
-    <p>User-defined bridge networks give containers automatic name resolution; the default bridge does not.</p>
-  </div>
-</div>
+- **Images vs containers.** An image is an immutable, layered blueprint; a container is a running instance with a thin writable layer on top.
+- **Containers share the kernel.** Unlike VMs, containers share the host kernel — sub-second startup and minimal overhead, at the cost of weaker isolation.
+- **Layers drive caching.** Each Dockerfile instruction is a cached layer. Order from least- to most-frequently-changing to speed up rebuilds.
+- **Custom networks for DNS.** User-defined bridge networks give containers automatic name resolution; the default bridge does not.
 
 ---
 

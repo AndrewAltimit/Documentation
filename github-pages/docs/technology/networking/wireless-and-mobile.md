@@ -4,17 +4,11 @@ title: "Networking: Wireless & Mobile"
 permalink: /docs/technology/networking/wireless-and-mobile.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Networking](./) &raquo; Wireless &amp; Mobile
 
 <!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Wireless &amp; Mobile</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Wi-Fi, cellular evolution, the 5G core, spectrum, and keeping devices connected on the move</p>
-</div>
 
 Most internet traffic now begins or ends on a wireless link. A radio channel is fundamentally different from a copper or fiber link: it is shared, half-duplex by nature, lossy, and its capacity rises and falls with distance, interference, and the number of devices competing for airtime. This page covers the two dominant wireless access technologies — **Wi-Fi (IEEE 802.11)** for local-area access and **cellular (4G LTE and 5G)** for wide-area mobility — plus the physics of spectrum and modulation they share, the security that protects them, and the mobility management that lets a connection survive as you walk, drive, or roam between networks.
 
@@ -347,44 +341,19 @@ The two cellular options matter for 5G's **mMTC** pillar: **NB-IoT** (narrowband
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The medium is shared</h4>
-    <p>All wireless boils down to multiple access — contention (Wi-Fi's CSMA/CA), scheduling (OFDMA), or spatial separation (MIMO/beamforming).</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Shannon governs everything</h4>
-    <p>Capacity grows linearly with bandwidth and only logarithmically with SNR — which is why 5G chases wide spectrum and dense cells.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>WPA3 fixes WPA2's offline cracking</h4>
-    <p>SAE turns the key exchange into a live, zero-knowledge negotiation with forward secrecy, and PMF blocks deauth attacks.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>4G went all-IP; 5G went cloud-native</h4>
-    <p>LTE made voice and data both packets; the 5G core is microservices (SBA) with control/user-plane separation enabling edge UPFs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>One network, many slices</h4>
-    <p>Network slicing serves eMBB, URLLC, and mMTC on the same physical 5G infrastructure with independent, isolated SLAs.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mobility is find + handover</h4>
-    <p>Tracking areas and paging locate idle devices cheaply; fast handover transfers active sessions between cells without a drop.</p>
-  </div>
-</div>
+- **The medium is shared.** All wireless boils down to multiple access — contention (Wi-Fi's CSMA/CA), scheduling (OFDMA), or spatial separation (MIMO/beamforming).
+- **Shannon governs everything.** Capacity grows linearly with bandwidth and only logarithmically with SNR — which is why 5G chases wide spectrum and dense cells.
+- **WPA3 fixes WPA2's offline cracking.** SAE turns the key exchange into a live, zero-knowledge negotiation with forward secrecy, and PMF blocks deauth attacks.
+- **4G went all-IP; 5G went cloud-native.** LTE made voice and data both packets; the 5G core is microservices (SBA) with control/user-plane separation enabling edge UPFs.
+- **One network, many slices.** Network slicing serves eMBB, URLLC, and mMTC on the same physical 5G infrastructure with independent, isolated SLAs.
+- **Mobility is find plus handover.** Tracking areas and paging locate idle devices cheaply; fast handover transfers active sessions between cells without a drop.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="./">Networking</a> — overview and navigation hub.</li>
-    <li><a href="fundamentals.html">Layers &amp; Addressing</a> — the stack that wireless replaces at Layers 1–2.</li>
-    <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — what runs unchanged on top of any radio link.</li>
-    <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — SDN/NFV behind slicing, edge computing, and 6G/terahertz research.</li>
-    <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — QoS, VPNs, and the security context for WPA.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — threat models and zero-trust beyond the Wi-Fi handshake.</li>
-    <li><a href="../aws/">AWS</a> — cloud networking and the data-center side of edge.</li>
-  </ul>
-</div>
+- [Networking](./) — overview and navigation hub.
+- [Layers & Addressing](fundamentals.html) — the stack that wireless replaces at Layers 1-2.
+- [Transport & Application Protocols](transport-and-protocols.html) — what runs unchanged on top of any radio link.
+- [Modern & Future Networking](modern-architecture.html) — SDN/NFV behind slicing, edge computing, and 6G/terahertz research.
+- [Performance, QoS & Security](performance-and-security.html) — QoS, VPNs, and the security context for WPA.
+- [Cybersecurity](../cybersecurity/) — threat models and zero-trust beyond the Wi-Fi handshake.
+- [AWS](../aws/) — cloud networking and the data-center side of edge.

@@ -4,15 +4,9 @@ title: "AI: Loss Functions & Objectives"
 permalink: /docs/technology/ai/loss-functions.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [AI & Machine Learning](./) › Loss Functions & Objectives
-
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Loss Functions &amp; Objectives</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The objective is the model. Regression, classification, contrastive, ranking, and generative losses — and the why behind each.</p>
-</div>
 
 Training a neural network is optimization, and a loss function is the thing being optimized. It is the single most consequential design choice after the architecture: it defines what "good" means, shapes the gradients that flow during backpropagation, and silently encodes assumptions about the noise, the label distribution, and the geometry of the problem. The same network trained under mean-squared error versus cross-entropy behaves completely differently. This page surveys the major families of loss functions — regression, classification, metric/contrastive, ranking, and self-supervised/generative objectives — with the probabilistic reasoning that motivates each one.
 
@@ -276,25 +270,18 @@ def info_nce(query, keys, temperature=0.07):
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **The loss is a noise model.** MSE assumes Gaussian errors and estimates the mean; MAE assumes Laplace errors and estimates the median. Choosing a loss is choosing what you believe about your data.
 - **Cross-entropy wins for classification** because softmax + cross-entropy gives the clean, non-saturating gradient $\hat{p} - y$, keeping learning fast exactly where the model is wrong.
 - **You optimize a surrogate, not the metric.** 0–1 error, NDCG, and IoU have no usable gradient, so you minimize a smooth proxy (cross-entropy, pairwise logistic, Dice) that correlates with the metric you actually care about.
 - **Metric and ranking losses act on relationships,** not absolute predictions — triplet and InfoNCE pull positives together and push negatives apart; ranking losses depend only on score *differences*.
 - **Generative objectives reverse or bound a likelihood.** VAEs maximize the ELBO, GANs minimize a divergence via a learned discriminator, and diffusion models reduce to a stable noise-prediction MSE — the objective, not just the architecture, defines each family.
-</div>
 
 ---
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="architectures.html">Neural Network Architectures</a> — the optimization and learning theory these losses plug into</li>
-    <li><a href="generative-models.html">Generative Models</a> — the architectures behind the ELBO, GAN, and diffusion objectives</li>
-    <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — how loss (training loss) scales with model and data size</li>
-    <li><a href="../ai-lecture-2023.html">AI Deep Dive (Lecture)</a> — transformers and LLM training in depth</li>
-    <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — formal treatment of maximum likelihood, KL divergence, and variational bounds</li>
-  </ul>
-</div>
+- [Neural Network Architectures](architectures.html) — the optimization and learning theory these losses plug into
+- [Generative Models](generative-models.html) — the architectures behind the ELBO, GAN, and diffusion objectives
+- [Frontier Research & Ethics](frontier-and-ethics.html) — how loss (training loss) scales with model and data size
+- [AI Deep Dive (Lecture)](../ai-lecture-2023.html) — transformers and LLM training in depth
+- [AI Mathematics](../../advanced/ai-mathematics/) — formal treatment of maximum likelihood, KL divergence, and variational bounds

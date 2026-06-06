@@ -6,10 +6,7 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed Systems Theory</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Fundamental impossibility results, consensus algorithms, and formal verification for distributed computing</p>
-</div>
+# Distributed Systems Theory
 
 [Advanced Topics](./) &raquo; Distributed Systems Theory
 
@@ -17,16 +14,12 @@ hide_title: true
 **Graduate-level research page.** This page develops the formal theory — impossibility proofs, consensus correctness, and verification — for distributed systems researchers and formal-methods practitioners. **Prerequisites:** formal methods, temporal logic, graph theory, probability theory, and complexity theory. The message- and round-complexity bounds throughout draw on [Computational Complexity Theory](../complexity-theory/); for practical patterns and working code instead, see the [Distributed Systems Hub](../../distributed-systems/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Distributed systems theory is, at its core, the study of what is <em>impossible</em> and how to get arbitrarily close to it anyway. A single computer has a global clock, shared memory, and fail-stop behavior; the moment you split computation across machines connected by an unreliable network, every one of those guarantees evaporates. This page develops the formal machinery — impossibility results, consensus protocols, consistency models, and verification techniques — that explains why distributed coordination is hard and what design space remains.</p>
-</div>
+Distributed systems theory is, at its core, the study of what is *impossible* and how to get arbitrarily close to it anyway. A single computer has a global clock, shared memory, and fail-stop behavior; the moment you split computation across machines connected by an unreliable network, every one of those guarantees evaporates. This page develops the formal machinery — impossibility results, consensus protocols, consistency models, and verification techniques — that explains why distributed coordination is hard and what design space remains.
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-ban"></i><h4>Impossibility shapes design</h4><p>FLP and CAP do not say "give up" — they tell you exactly which guarantee you must relax (synchrony, determinism, or availability) to make progress.</p></div>
-  <div class="insight-card"><i class="fas fa-clock"></i><h4>No global time</h4><p>Without a shared clock, "order" is defined by causality (happens-before), captured by logical and vector clocks rather than wall-clock timestamps.</p></div>
-  <div class="insight-card"><i class="fas fa-users"></i><h4>Agreement needs a quorum</h4><p>Crash-fault consensus needs a majority (n &ge; 2f+1); Byzantine consensus needs a supermajority (n &ge; 3f+1). The bound is not tunable — it is provable.</p></div>
-  <div class="insight-card"><i class="fas fa-shield-alt"></i><h4>Safety vs liveness</h4><p>Protocols are designed so that nothing bad ever happens (safety) even when progress (liveness) must wait for the network to behave.</p></div>
-</div>
+- **Impossibility shapes design.** FLP and CAP do not say "give up" — they tell you exactly which guarantee you must relax (synchrony, determinism, or availability) to make progress.
+- **No global time.** Without a shared clock, "order" is defined by causality (happens-before), captured by logical and vector clocks rather than wall-clock timestamps.
+- **Agreement needs a quorum.** Crash-fault consensus needs a majority (n &ge; 2f+1); Byzantine consensus needs a supermajority (n &ge; 3f+1). The bound is not tunable — it is provable.
+- **Safety vs liveness.** Protocols are designed so that nothing bad ever happens (safety) even when progress (liveness) must wait for the network to behave.
 
 ### How to Read This Page
 
@@ -534,14 +527,12 @@ This is why "wait for $z$ confirmations" is the standard defense — each extra 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>FLP bounds determinism</h4><p>Deterministic async consensus is impossible with even one crash. Real systems add partial synchrony, randomization, or failure detectors to escape it.</p></div>
-  <div class="takeaway-card"><h4>CAP forces a choice</h4><p>Partitions are inevitable, so every system is effectively CP or AP. The interesting design work is choosing <em>which</em> consistency to relax.</p></div>
-  <div class="takeaway-card"><h4>Quorums must overlap</h4><p>Paxos and Raft are safe because any two majorities share a node, so a chosen value survives leader changes. Byzantine settings need n &ge; 3f+1.</p></div>
-  <div class="takeaway-card"><h4>Consistency is a spectrum</h4><p>From linearizability down to eventual consistency, each model trades coordination cost for stronger guarantees. Pick the weakest one your application tolerates.</p></div>
-  <div class="takeaway-card"><h4>Causality replaces clocks</h4><p>Logical and vector clocks order events by happens-before, the only ordering meaningful without a global clock.</p></div>
-  <div class="takeaway-card"><h4>Verify, don't assume</h4><p>TLA+ and model checking exhaustively explore interleavings, catching the rare race conditions that ad-hoc testing misses.</p></div>
-</div>
+- **FLP bounds determinism.** Deterministic async consensus is impossible with even one crash. Real systems add partial synchrony, randomization, or failure detectors to escape it.
+- **CAP forces a choice.** Partitions are inevitable, so every system is effectively CP or AP. The interesting design work is choosing *which* consistency to relax.
+- **Quorums must overlap.** Paxos and Raft are safe because any two majorities share a node, so a chosen value survives leader changes. Byzantine settings need n &ge; 3f+1.
+- **Consistency is a spectrum.** From linearizability down to eventual consistency, each model trades coordination cost for stronger guarantees. Pick the weakest one your application tolerates.
+- **Causality replaces clocks.** Logical and vector clocks order events by happens-before, the only ordering meaningful without a global clock.
+- **Verify, don't assume.** TLA+ and model checking exhaustively explore interleavings, catching the rare race conditions that ad-hoc testing misses.
 
 ## See Also
 

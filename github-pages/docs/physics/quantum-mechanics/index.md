@@ -6,81 +6,21 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Mechanics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem;">
+  <h1 style="color: white; margin: 0; font-size: 2rem;">Quantum Mechanics</h1>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Quantum mechanics is the operating system of the microscopic world. It replaces the definite trajectories of classical physics with <em>amplitudes</em> — complex numbers whose squared magnitudes give probabilities — and in doing so explains the stability of atoms, the colors of light, the periodic table, and the transistor in the device you are reading this on. These pages build from the core formalism (states, operators, the Schrödinger equation) through worked examples to the modern research frontier.</p>
-</div>
+Quantum mechanics is the operating system of the microscopic world. It replaces the definite trajectories of classical physics with *amplitudes* — complex numbers whose squared magnitudes give probabilities — and in doing so explains the stability of atoms, the colors of light, the periodic table, and the transistor in the device you are reading this on. These pages build from the core formalism (states, operators, the Schrödinger equation) through worked examples to the modern research frontier.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>The state is a wave function</h4>
-    <p>A system is a vector $\lvert\psi\rangle$; $\lvert\psi\rvert^2$ gives probabilities, and amplitudes can interfere.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-ruler-combined"></i>
-    <h4>Observables are operators</h4>
-    <p>Measurable quantities are Hermitian operators; their eigenvalues are the only possible outcomes.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-random"></i>
-    <h4>Measurement is special</h4>
-    <p>Smooth, deterministic evolution is interrupted by abrupt, probabilistic collapse — the measurement problem.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-link"></i>
-    <h4>Entanglement is real</h4>
-    <p>Composite systems share correlations with no classical counterpart — the engine of quantum information.</p>
-  </div>
-</div>
+- **The state is a wave function.** A system is a vector $\lvert\psi\rangle$; $\lvert\psi\rvert^2$ gives probabilities, and amplitudes can interfere.
+- **Observables are operators.** Measurable quantities are Hermitian operators; their eigenvalues are the only possible outcomes.
+- **Measurement is special.** Smooth, deterministic evolution is interrupted by abrupt, probabilistic collapse — the measurement problem.
+- **Entanglement is real.** Composite systems share correlations with no classical counterpart — the engine of quantum information.
 
 ## Explore Quantum Mechanics
 
-<div class="command-grid">
-  <a class="nav-card" href="formalism.html">
-    <h3>States, Operators &amp; Dynamics</h3>
-    <p>The Schrödinger equation, Dirac notation and observables, measurement and decoherence, angular momentum, time evolution, and perturbation theory.</p>
-  </a>
-  <a class="nav-card" href="systems-and-phenomena.html">
-    <h3>Systems &amp; Phenomena</h3>
-    <p>The particle in a box, harmonic oscillator, and hydrogen atom, plus tunneling, entanglement, superposition, and the defining experiments.</p>
-  </a>
-  <a class="nav-card" href="computing-and-advanced.html">
-    <h3>Computing, Information &amp; Advanced Formalism</h3>
-    <p>The overview hub for quantum information and the graduate machinery — qubits, density matrices, path integrals, many-body theory, and research frontiers.</p>
-  </a>
-  <a class="nav-card" href="bell-inequalities-and-tests.html">
-    <h3>Bell's Theorem &amp; Experimental Tests</h3>
-    <p>EPR, the CHSH inequality and Tsirelson's bound, the loophole-free experiments, and what they prove about the structure of reality.</p>
-  </a>
-</div>
-
-### Deep-Dive Pages
-
-The computing-and-advanced sub-hub expands into focused reference pages:
-
-<div class="command-grid">
-  <a class="nav-card" href="qm-computing.html">
-    <h3>Quantum Computing</h3>
-    <p>Qubits and the Bloch sphere, unitary gates, entanglement as a resource, the physics behind Shor, Grover, and VQE, and error correction.</p>
-  </a>
-  <a class="nav-card" href="qm-advanced-formalism.html">
-    <h3>Advanced Formalism</h3>
-    <p>Rigged Hilbert spaces, density matrices and mixed states, the path integral, coherent and squeezed states, and open quantum systems.</p>
-  </a>
-  <a class="nav-card" href="qm-computational-methods.html">
-    <h3>Computational Methods</h3>
-    <p>Exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, and time-propagation methods — with working code.</p>
-  </a>
-  <a class="nav-card" href="qm-research-frontiers.html">
-    <h3>Research Frontiers</h3>
-    <p>Many-body theory, geometric phases, topological matter, measurement-induced phenomena, and the open questions driving current research.</p>
-  </a>
-</div>
+The four core pages plus four deep-dive references are listed with full descriptions in the [What These Pages Cover](#what-these-pages-cover) table below.
 
 ## What These Pages Cover
 
@@ -146,10 +86,7 @@ Beneath the wave functions and operators, the entire theory rests on a short lis
 | 4 | Dynamics | Between measurements the state evolves by the Schrödinger equation, $i\hbar\,\partial_t\lvert\psi\rangle = \hat{H}\lvert\psi\rangle$ | Time evolution |
 | 5 | Composite systems | The state space of a combined system is the tensor product of the parts | Entanglement, many-body QM |
 
-<div class="tip-card">
-  <h4>The two kinds of change</h4>
-  <p>Notice that postulates 4 and 3 describe two utterly different ways a quantum state can change. Schrödinger evolution (postulate 4) is smooth, deterministic, and reversible — given $\lvert\psi(0)\rangle$ the future is fixed. Measurement (postulate 3) is abrupt, probabilistic, and irreversible — the state jumps to an eigenstate and information about the others is lost. Reconciling these two — when and why one becomes the other — is the <em>measurement problem</em>, and decoherence is the modern bridge between them. Hold this tension in mind; it is the conceptual heart of quantum mechanics.</p>
-</div>
+**The two kinds of change.** Notice that postulates 4 and 3 describe two utterly different ways a quantum state can change. Schrödinger evolution (postulate 4) is smooth, deterministic, and reversible — given $\lvert\psi(0)\rangle$ the future is fixed. Measurement (postulate 3) is abrupt, probabilistic, and irreversible — the state jumps to an eigenstate and information about the others is lost. Reconciling these two — when and why one becomes the other — is the *measurement problem*, and decoherence is the modern bridge between them. Hold this tension in mind; it is the conceptual heart of quantum mechanics.
 
 ### Wave-Particle Duality
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/de_broglie_thesis.pdf"> Paper: <b><i>On the Theory of Quanta</i></b> - Louis de Broglie</a></p>
@@ -221,43 +158,18 @@ These are the bookkeeping traps that produce wrong numbers even when the concept
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The state is a wave function</h4>
-    <p>All knowable information lives in $\psi$; $|\psi|^2$ gives the probability density of measurement outcomes.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Observables are operators</h4>
-    <p>Measurable quantities correspond to Hermitian operators; their eigenvalues are the possible results.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Uncertainty is fundamental</h4>
-    <p>$\Delta x\,\Delta p \geq \hbar/2$ is not a measurement limitation but a property of conjugate observables.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Evolution is unitary, measurement is not</h4>
-    <p>The Schrödinger equation evolves states deterministically; measurement projects them probabilistically.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Entanglement has no classical analog</h4>
-    <p>Correlations between subsystems can exceed anything classical, powering quantum computing and teleportation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Classical physics is the $\hbar \to 0$ limit</h4>
-    <p>Decoherence and the correspondence principle recover familiar classical behavior at macroscopic scales.</p>
-  </div>
-</div>
+- **The state is a wave function.** All knowable information lives in $\psi$; $|\psi|^2$ gives the probability density of measurement outcomes.
+- **Observables are operators.** Measurable quantities correspond to Hermitian operators; their eigenvalues are the possible results.
+- **Uncertainty is fundamental.** $\Delta x\,\Delta p \geq \hbar/2$ is not a measurement limitation but a property of conjugate observables.
+- **Evolution is unitary, measurement is not.** The Schrödinger equation evolves states deterministically; measurement projects them probabilistically.
+- **Entanglement has no classical analog.** Correlations between subsystems can exceed anything classical, powering quantum computing and teleportation.
+- **Classical physics is the $\hbar \to 0$ limit.** Decoherence and the correspondence principle recover familiar classical behavior at macroscopic scales.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="../classical-mechanics/">Classical Mechanics</a> — the classical limit recovered as $\hbar \to 0$.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — quantum mechanics made relativistic, with particles as field excitations.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — quantum statistics (Bose–Einstein, Fermi–Dirac) and many-body systems.</li>
-    <li><a href="../condensed-matter/">Condensed Matter Physics</a> — quantum mechanics applied to solids and emergent phases.</li>
-    <li><a href="../../quantum-computing/">Quantum Computing</a> — superposition and entanglement as a computational resource.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Classical Mechanics](../classical-mechanics/) — the classical limit recovered as $\hbar \to 0$.
+- [Quantum Field Theory](../quantum-field-theory.html) — quantum mechanics made relativistic, with particles as field excitations.
+- [Statistical Mechanics](../statistical-mechanics/) — quantum statistics (Bose–Einstein, Fermi–Dirac) and many-body systems.
+- [Condensed Matter Physics](../condensed-matter/) — quantum mechanics applied to solids and emergent phases.
+- [Quantum Computing](../../quantum-computing/) — superposition and entanglement as a computational resource.
+- [Physics Hub](../) — browse all physics topics.

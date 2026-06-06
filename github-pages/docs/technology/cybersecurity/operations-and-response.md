@@ -7,35 +7,21 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Foundations, Operations &amp; Research</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Proving systems safe, running them day to day, and where the field is heading</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Foundations, Operations &amp; Research</p>
 
-<div class="intro-card">
-  <p class="lead-text">Security has a rigorous side and a practical side. This page covers the <strong>formal foundations</strong> — how cryptographers prove a scheme is secure and how those proofs compose into larger systems — and the <strong>research frontiers</strong> reshaping both attack and defense, from secure multi-party computation and differential privacy to the quantum threat and AI on both sides of the fight. It also serves as the <strong>hub</strong> for the operational disciplines that grew out of this material: incident response, security operations, and compliance and governance now each have their own dedicated page, linked below.</p>
-</div>
+# Foundations, Operations & Research
+
+Security has a rigorous side and a practical side. This page covers the **formal foundations** — how cryptographers prove a scheme is secure and how those proofs compose into larger systems — and the **research frontiers** reshaping both attack and defense, from secure multi-party computation and differential privacy to the quantum threat and AI on both sides of the fight. It also serves as the **hub** for the operational disciplines that grew out of this material: incident response, security operations, and compliance and governance now each have their own dedicated page, linked below.
 
 ## The Operations Disciplines
 
 The day-to-day practice of running security used to live on this page. It has been split into three focused guides, each covering one discipline end to end. Start here when you need the practical playbooks.
 
-<div class="command-grid">
-  <a class="nav-card" href="incident-response.html">
-    <h3>Incident Response &amp; Forensics</h3>
-    <p>The IR lifecycle (NIST SP 800-61 / SANS PICERL), the first critical minutes after detection, digital forensics, chain of custody, blameless post-mortems, and MTTD/MTTR metrics.</p>
-  </a>
-  <a class="nav-card" href="security-operations.html">
-    <h3>Security Operations</h3>
-    <p>Building and running a SOC: SIEM log pipelines, detection engineering with MITRE ATT&amp;CK, continuous monitoring, threat hunting, and offensive validation via pentests and red/blue/purple teaming.</p>
-  </a>
-  <a class="nav-card" href="compliance-and-governance.html">
-    <h3>Compliance &amp; Governance</h3>
-    <p>Turning security into a program: GDPR and PCI DSS, SOC 2 and ISO 27001 attestation, risk assessment, the human firewall, and the KPIs and maturity models that prove it works.</p>
-  </a>
-</div>
+| Guide | What it covers |
+|-------|----------------|
+| [Incident Response & Forensics](incident-response.html) | The IR lifecycle (NIST SP 800-61 / SANS PICERL), the first critical minutes after detection, digital forensics, chain of custody, blameless post-mortems, and MTTD/MTTR metrics |
+| [Security Operations](security-operations.html) | Building and running a SOC: SIEM log pipelines, detection engineering with MITRE ATT&CK, continuous monitoring, threat hunting, and offensive validation via pentests and red/blue/purple teaming |
+| [Compliance & Governance](compliance-and-governance.html) | Turning security into a program: GDPR and PCI DSS, SOC 2 and ISO 27001 attestation, risk assessment, the human firewall, and the KPIs and maturity models that prove it works |
 
 ## Formal Security: Proving Systems Safe
 
@@ -286,5 +272,3 @@ The defensive trajectory bends toward **Zero Trust** — assuming compromise and
 - [Cryptography](cryptography.html) — post-quantum migration and the math behind formal proofs
 - [Attacks & Network Defense](attacks-and-defense.html) — adversarial ML, Zero Trust, and the attacks these defenses answer
 - [Web, Cloud & Container Security](application-and-cloud-security.html) — securing the systems you operate
-</content>
-</invoke>

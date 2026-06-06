@@ -7,17 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Quantum Computing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The quantum-mechanical foundations of computation: qubits and the Bloch sphere, unitary gates, entanglement as a resource, and the physics behind Shor, Grover, and VQE — plus decoherence and the error correction that fights it.</p>
-</div>
+## Quantum Computing
 
 [Quantum Mechanics](./) &raquo; Quantum Computing
 
-<div class="tip-card">
-  <h4>Scope: the physics, not the engineering</h4>
-  <p>This page treats quantum computing as applied quantum mechanics — what a qubit <em>is</em> as a two-level system, why entanglement is the resource that makes algorithms super-classical, and how decoherence sets the rules. The hardware stacks, software frameworks, and computer-science side of algorithms live in the <a href="../../quantum-computing/">Quantum Computing</a> technology hub. Everything below follows directly from the five postulates assembled on the <a href="./">Quantum Mechanics Hub</a>.</p>
-</div>
+**Scope: the physics, not the engineering.** This page treats quantum computing as applied quantum mechanics — what a qubit *is* as a two-level system, why entanglement is the resource that makes algorithms super-classical, and how decoherence sets the rules. The hardware stacks, software frameworks, and computer-science side of algorithms live in the [Quantum Computing](../../quantum-computing/) technology hub. Everything below follows directly from the five postulates assembled on the [Quantum Mechanics Hub](./).
 
 ## Classical vs. Quantum Information
 
@@ -87,10 +81,7 @@ and the density operator is $\hat\rho = \tfrac12(\mathbb{1} + \mathbf{r}\cdot\bo
 
 This geometric picture is invaluable: every single-qubit gate is a **rotation** of the Bloch sphere, and decoherence shrinks the Bloch vector toward the center.
 
-<div class="info-card">
-  <h4>Why "half-angle"?</h4>
-  <p>The factor of θ/2 reflects the two-to-one (spin-1/2) relationship between the Bloch sphere SO(3) and the state space SU(2): rotating a spin-1/2 by 2π returns it to <em>minus</em> itself. Antipodal points on the Bloch sphere (e.g. |0⟩ and |1⟩) are <em>orthogonal</em> states, not opposite ones — the sphere is a projective picture, not the raw Hilbert space.</p>
-</div>
+**Why "half-angle"?** The factor of θ/2 reflects the two-to-one (spin-1/2) relationship between the Bloch sphere SO(3) and the state space SU(2): rotating a spin-1/2 by 2π returns it to *minus* itself. Antipodal points on the Bloch sphere (e.g. |0⟩ and |1⟩) are *orthogonal* states, not opposite ones — the sphere is a projective picture, not the raw Hilbert space.
 
 ## Quantum Gates
 
@@ -137,10 +128,7 @@ $$
 
 acting on the ordered basis $\{|00\rangle, |01\rangle, |10\rangle, |11\rangle\}$.
 
-<div class="info-card">
-  <h4>Universality</h4>
-  <p>Any unitary on n qubits can be approximated to arbitrary accuracy by a finite set of gates. A standard <strong>universal set</strong> is {H, T, CNOT}. The single-qubit rotations supply the continuum of the Bloch sphere (the Solovay–Kitaev theorem guarantees efficient approximation), while CNOT supplies entanglement. This is the quantum analog of NAND being universal for classical logic.</p>
-</div>
+**Universality.** Any unitary on n qubits can be approximated to arbitrary accuracy by a finite set of gates. A standard **universal set** is {H, T, CNOT}. The single-qubit rotations supply the continuum of the Bloch sphere (the Solovay–Kitaev theorem guarantees efficient approximation), while CNOT supplies entanglement. This is the quantum analog of NAND being universal for classical logic.
 
 ## Entanglement as a Resource
 
@@ -167,10 +155,7 @@ $$
 
 the maximally mixed state. A subsystem of a pure entangled state is itself mixed — the information lives in the **correlations**, not in either qubit alone. The **von Neumann entropy** $S(\hat\rho_A) = -\text{Tr}(\hat\rho_A\ln\hat\rho_A)$ quantifies this; it is $0$ for product states and maximal ($\ln 2$ per qubit) for Bell states.
 
-<div class="tip-card">
-  <h4>Entanglement does not transmit information</h4>
-  <p>Measuring one half of a Bell pair instantly fixes the correlated outcome for the other — but the marginal statistics on each side are unchanged until the two parties compare results over a classical channel. The <strong>no-communication theorem</strong> forbids signaling. Entanglement is a resource for <em>correlation</em> and <em>computation</em>, not for faster-than-light messaging.</p>
-</div>
+**Entanglement does not transmit information.** Measuring one half of a Bell pair instantly fixes the correlated outcome for the other — but the marginal statistics on each side are unchanged until the two parties compare results over a classical channel. The **no-communication theorem** forbids signaling. Entanglement is a resource for *correlation* and *computation*, not for faster-than-light messaging.
 
 ### Where the speedup comes from
 
@@ -276,10 +261,7 @@ The simplest illustration is the three-qubit bit-flip code, $|0\rangle_L = |000\
 
 **Surface codes** are the leading approach: a logical qubit is stored in a 2D lattice of physical qubits, with stabilizers being local plaquette and vertex parity checks. They tolerate a relatively high error threshold (~1%) and need only nearest-neighbor coupling, matching superconducting hardware. The cost is overhead — on the order of $10^3$ physical qubits per logical qubit at useful distances.
 
-<div class="info-card">
-  <h4>The threshold theorem</h4>
-  <p>If the physical error rate per gate is below a code-dependent <strong>threshold</strong> p<sub>th</sub> (≈ 1% for surface codes), then arbitrarily long, arbitrarily accurate computation is possible — the logical error rate falls exponentially as the code distance grows. This is the theoretical guarantee that fault-tolerant quantum computing is possible <em>in principle</em>; the engineering challenge is staying below threshold while scaling to millions of physical qubits.</p>
-</div>
+**The threshold theorem.** If the physical error rate per gate is below a code-dependent **threshold** p<sub>th</sub> (≈ 1% for surface codes), then arbitrarily long, arbitrarily accurate computation is possible — the logical error rate falls exponentially as the code distance grows. This is the theoretical guarantee that fault-tolerant quantum computing is possible *in principle*; the engineering challenge is staying below threshold while scaling to millions of physical qubits.
 
 ## NISQ, Supremacy, and Advantage
 

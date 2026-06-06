@@ -9,12 +9,7 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #ff9900 0%, #ffb84d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">AWS Infrastructure as Code</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">CloudFormation, the AWS CDK, and Terraform — turn console clicks into reviewable, repeatable, version-controlled infrastructure.</p>
-</div>
-
-The biggest shift in cloud operations is treating infrastructure like software. Instead of clicking through the console, you declare what you want in code, review it like any other change, and deploy it repeatably. This page covers CloudFormation (AWS's native templating engine) and the broader Infrastructure as Code practice, including a full AWS CDK microservices stack.
+The biggest shift in cloud operations is treating infrastructure like software. Instead of clicking through the console, you declare what you want in code, review it like any other change, and deploy it repeatably. This page covers CloudFormation (AWS's native templating engine), how to choose among CloudFormation, Terraform, and the CDK, and a full AWS CDK microservices stack.
 
 ---
 
@@ -95,38 +90,24 @@ aws cloudformation create-stack \
 
 ## Infrastructure as Code: Never Click Again
 
-The biggest shift in cloud operations? Treating infrastructure like software. Instead of clicking through the AWS console, you define infrastructure in code. This enables version control, peer review, and automated deployments.
-
 ### Why Infrastructure as Code Changes Everything
 
-**The Old Way**:
-- Click through AWS console to create resources
-- Document steps in a wiki (that nobody updates)
-- Hope you can recreate it in another region
-- Fear making changes that might break production
+Defining infrastructure in code rather than console clicks unlocks version control, peer review, and automated deployment:
 
-**The IaC Way**:
-- Define infrastructure in configuration files
-- Version control shows exactly what changed and when
-- Deploy identical environments with one command
-- Test changes in staging before production
+| | Console clicks | Infrastructure as Code |
+|---|---|---|
+| **Source of truth** | A wiki nobody updates | Configuration files in version control |
+| **Reproducibility** | Hope you can recreate it elsewhere | Deploy identical environments with one command |
+| **Change safety** | Fear of breaking production | Diff, review, and test in staging first |
+| **History** | None | Version control shows exactly what changed and when |
 
 ### Choosing Your IaC Tool
 
-#### CloudFormation (AWS Native)
-- **Pros**: Deep AWS integration, no extra tools needed
-- **Cons**: Verbose syntax, AWS-only
-- **Best for**: Teams fully committed to AWS
-
-#### Terraform (Multi-Cloud)
-- **Pros**: Works across cloud providers, huge community
-- **Cons**: Requires learning HCL syntax
-- **Best for**: Multi-cloud strategies or teams wanting flexibility
-
-#### AWS CDK (Developer-Friendly)
-- **Pros**: Use familiar programming languages (Python, TypeScript)
-- **Cons**: Newer tool, smaller community
-- **Best for**: Development teams wanting to use existing skills
+| Tool | Pros | Cons | Best for |
+|------|------|------|----------|
+| **CloudFormation** (AWS native) | Deep AWS integration, no extra tools | Verbose syntax, AWS-only | Teams fully committed to AWS |
+| **Terraform** (multi-cloud) | Works across providers, huge community | Must learn HCL | Multi-cloud or teams wanting flexibility |
+| **AWS CDK** (developer-friendly) | Define infra in Python/TypeScript with loops and abstractions | Newer, smaller community | Dev teams reusing existing language skills |
 
 ### Real-World IaC Evolution
 
@@ -455,20 +436,9 @@ class MicroservicesStack(cdk.Stack):
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Codify Everything</h4>
-    <p>CloudFormation, CDK, or Terraform turn clicks into reviewable, repeatable code. Manual console changes drift and cannot be reproduced.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Pick the Tool That Fits the Team</h4>
-    <p>CloudFormation for AWS-native simplicity, Terraform for multi-cloud, CDK to define infrastructure in a real programming language with loops and abstractions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Review Infrastructure Like Code</h4>
-    <p>Send every change through pull requests and test in staging. The payoff is a disaster-recovery story measured in minutes, not days.</p>
-  </div>
-</div>
+- **Codify everything.** CloudFormation, CDK, or Terraform turn clicks into reviewable, repeatable code. Manual console changes drift and cannot be reproduced.
+- **Pick the tool that fits the team.** CloudFormation for AWS-native simplicity, Terraform for multi-cloud, CDK to define infrastructure in a real programming language with loops and abstractions.
+- **Review infrastructure like code.** Send every change through pull requests and test in staging. The payoff is a disaster-recovery story measured in minutes, not days.
 
 ---
 

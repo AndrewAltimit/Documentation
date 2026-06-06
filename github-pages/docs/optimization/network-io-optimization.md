@@ -7,21 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Network &amp; I/O Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Tame latency and bandwidth, pick the right protocol, and move bytes efficiently between the network, the kernel, and the disk.</p>
-</div>
+# Network & I/O Optimization
 
 [Performance Optimization](./) &raquo; Network &amp; I/O Optimization
 
-Most "slow" systems are not slow because the CPU cannot keep up — they are slow because they spend their time *waiting*: for a packet to cross the network, for a disk head to seek, for the kernel to copy a buffer, or for a connection to be established. This page is about the optimization discipline for that waiting. It covers the two physical constraints you can never repeal (latency and bandwidth), the protocol choices that determine how efficiently you use them, and the software techniques — batching, pipelining, compression, connection pooling, and zero-copy — that shrink the gap between theoretical throughput and what your application actually achieves.
+Most "slow" systems are not slow because the CPU cannot keep up — they are slow because they spend their time *waiting*: for a packet to cross the network, for a disk head to seek, for the kernel to copy a buffer, or for a connection to be established. This page is the optimization discipline for that waiting. It covers the two physical constraints you can never repeal (latency and bandwidth), the protocol choices that determine how efficiently you use them, and the software techniques — batching, pipelining, compression, connection pooling, and zero-copy — that shrink the gap between theoretical throughput and what your application actually achieves. Four governing ideas:
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-stopwatch"></i><h4>Latency is a floor you cannot cross</h4><p>Bandwidth can be bought; round-trip latency is bounded by the speed of light. Design to amortize round trips, not to "make the network faster."</p></div>
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Batch and pipeline before you tune</h4><p>One request of 1000 items beats 1000 requests of one item by orders of magnitude. Coalescing work hides latency for free.</p></div>
-  <div class="insight-card"><i class="fas fa-copy"></i><h4>Every copy is wasted bandwidth</h4><p>A naive read-then-send touches data four times across two address spaces. Zero-copy paths (`sendfile`, `splice`, `io_uring`) eliminate most of it.</p></div>
-  <div class="insight-card"><i class="fas fa-hdd"></i><h4>Disk is just another network</h4><p>Seeks are round trips; the page cache is your connection pool. The same latency-vs-bandwidth reasoning applies to storage.</p></div>
-</div>
+- **Latency is a floor you cannot cross.** Bandwidth can be bought; round-trip latency is bounded by the speed of light. Design to amortize round trips, not to "make the network faster."
+- **Batch and pipeline before you tune.** One request of 1000 items beats 1000 requests of one item by orders of magnitude. Coalescing work hides latency for free.
+- **Every copy is wasted bandwidth.** A naive read-then-send touches data four times across two address spaces. Zero-copy paths (`sendfile`, `splice`, `io_uring`) eliminate most of it.
+- **Disk is just another network.** Seeks are round trips; the page cache is your connection pool. The same latency-vs-bandwidth reasoning applies to storage.
 
 ## Latency vs Bandwidth: The Two Fundamental Limits
 

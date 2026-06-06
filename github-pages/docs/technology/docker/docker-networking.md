@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Networking</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master Docker's network drivers, DNS-based service discovery, port publishing, and multi-host networking — and lock the whole thing down.</p>
-</div>
-
 [Docker](./) &raquo; Networking
+
+Docker's network drivers, DNS-based service discovery, port publishing, and multi-host networking — and how to lock the whole thing down.
 
 ## Why Container Networking Matters
 
@@ -20,49 +17,7 @@ Networking determines how containers communicate with each other, with the host,
 
 Docker builds its networking on top of standard Linux primitives — network namespaces, virtual Ethernet (veth) pairs, Linux bridges, iptables, and an embedded DNS server. Each container normally gets its own network namespace, which gives it a private view of network interfaces, routing tables, and firewall rules. The driver you choose decides how that namespace is wired to the outside world.
 
-<div class="networking-section">
-  <h3><i class="fas fa-network-wired"></i> Docker Network Architecture</h3>
-
-  <p class="network-intro">Docker provides several network drivers for different scenarios. The default (bridge) works for most cases, but understanding the alternatives helps you make better architectural decisions.</p>
-
-  <div class="network-drivers">
-    <h4>Network Driver Overview</h4>
-
-    <div class="driver-grid">
-      <div class="driver-card">
-        <h5><i class="fas fa-bridge"></i> Bridge (default)</h5>
-        <p>Default network for standalone containers. Provides network isolation and automatic DNS resolution between containers.</p>
-        <code>docker network create --driver bridge my-bridge</code>
-      </div>
-
-      <div class="driver-card">
-        <h5><i class="fas fa-server"></i> Host</h5>
-        <p>Removes network isolation between container and host. Container uses host's network directly.</p>
-        <code>docker run --network host nginx</code>
-      </div>
-
-      <div class="driver-card">
-        <h5><i class="fas fa-layer-group"></i> Overlay</h5>
-        <p>Creates distributed networks among multiple Docker hosts. Used in Swarm mode for multi-host communication.</p>
-        <code>docker network create --driver overlay --attachable my-overlay</code>
-      </div>
-
-      <div class="driver-card">
-        <h5><i class="fas fa-ethernet"></i> Macvlan</h5>
-        <p>Assigns MAC address to containers, making them appear as physical devices on the network.</p>
-        <code>docker network create -d macvlan --subnet=192.168.1.0/24 my-macvlan</code>
-      </div>
-
-      <div class="driver-card">
-        <h5><i class="fas fa-ban"></i> None</h5>
-        <p>Disables all networking for the container. Used for maximum isolation.</p>
-        <code>docker run --network none alpine</code>
-      </div>
-    </div>
-  </div>
-</div>
-
-Use this table to choose a driver quickly:
+Docker provides several network drivers; the default (bridge) suits most cases, but knowing the alternatives improves your architectural decisions. Use this table to choose a driver quickly:
 
 | Driver | Isolation | Cross-host | Performance | Typical use |
 |--------|-----------|-----------|-------------|-------------|
@@ -79,27 +34,32 @@ The bridge driver is the workhorse of single-host Docker. When the daemon starts
 
 <p><strong>Key concept:</strong> Always create custom bridge networks for your applications. Unlike the default bridge, custom (user-defined) networks provide automatic DNS resolution between containers, better isolation, and the ability to attach/detach containers on the fly.</p>
 
-<div class="bridge-networking">
-  <h4>Creating Custom Networks</h4>
-  <pre><code class="language-bash"># Create a network and run containers on it
+Create a custom network and containers find each other by name:
+
+```bash
+# Create a network and run containers on it
 docker network create my-app-network
 docker run -d --name web --network my-app-network nginx
 docker run -d --name db --network my-app-network postgres
 
 # Containers can find each other by name
-docker exec web ping db  # Works!</code></pre>
+docker exec web ping db  # Works!
+```
 
-  <h4>Network Isolation Pattern</h4>
-  <pre><code class="language-bash"># Isolate frontend from database
+A common isolation pattern spans two networks so the web tier cannot reach the database directly:
+
+```bash
+# Isolate frontend from database
 docker network create frontend
 docker network create backend
 docker run -d --name webapp --network frontend nginx
 docker run -d --name api --network backend my-api
 
 # Connect API to both networks (acts as bridge)
-docker network connect frontend api</code></pre>
-  <p class="explanation">The webapp can reach the api, but not the database directly. The api can reach both. This is a common security pattern.</p>
-</div>
+docker network connect frontend api
+```
+
+The webapp can reach the api, but not the database directly; the api can reach both.
 
 ### Default bridge vs. user-defined bridge
 
@@ -268,13 +228,13 @@ A single bridge cannot span machines. To let containers on **different Docker ho
 
 <p><strong>When to use:</strong> Docker Swarm deployments where services need to communicate across multiple hosts.</p>
 
-<div class="overlay-networking">
-  <pre><code class="language-bash"># Create encrypted overlay network
+```bash
+# Create encrypted overlay network
 docker network create --driver overlay --opt encrypted my-overlay
 
 # Services on this network can find each other across hosts
-docker service create --name api --network my-overlay my-api</code></pre>
-</div>
+docker service create --name api --network my-overlay my-api
+```
 
 ### How overlay works
 
@@ -330,14 +290,14 @@ Sometimes a container must look like a real machine on the physical LAN — a le
 
 <p><strong>When to use:</strong> When containers need to appear as physical devices on your network (legacy system integration, specific IP requirements).</p>
 
-<div class="macvlan-networking">
-  <pre><code class="language-bash"># Container gets a real IP on your network
+```bash
+# Container gets a real IP on your network
 docker network create -d macvlan \
   --subnet=192.168.1.0/24 --gateway=192.168.1.1 \
   -o parent=eth0 my-macvlan
 
-docker run -d --network my-macvlan --ip 192.168.1.100 nginx</code></pre>
-</div>
+docker run -d --network my-macvlan --ip 192.168.1.100 nginx
+```
 
 ### Caveats and the ipvlan alternative
 
@@ -362,17 +322,12 @@ docker network create -d ipvlan \
 
 Containers are only as safe as the networks you put them on. Apply the same defense-in-depth thinking here as anywhere else.
 
-<div class="security-checklist">
-  <h4>Network Security Checklist</h4>
-  <ul>
-    <li>Use custom bridge networks, not the default — containers on the default bridge can all reach each other</li>
-    <li>Encrypt overlay network traffic with <code>--opt encrypted</code></li>
-    <li>Implement network segmentation: separate frontend, backend, and database tiers</li>
-    <li>Use TLS for container-to-container communication carrying sensitive data</li>
-    <li>Restrict which containers can talk to each other; never publish a port wider than needed</li>
-    <li>Bind published ports to <code>127.0.0.1</code> unless the service truly must be reachable on the LAN</li>
-  </ul>
-</div>
+- Use custom bridge networks, not the default — containers on the default bridge can all reach each other
+- Encrypt overlay network traffic with `--opt encrypted`
+- Implement network segmentation: separate frontend, backend, and database tiers
+- Use TLS for container-to-container communication carrying sensitive data
+- Restrict which containers can talk to each other; never publish a port wider than needed
+- Bind published ports to `127.0.0.1` unless the service truly must be reachable on the LAN
 
 ### Internal networks
 
@@ -405,15 +360,13 @@ Remember a subtle gotcha: by publishing a port, Docker inserts DNAT rules that *
 
 ### Encryption and orchestration patterns
 
-<div class="network-patterns">
-  <p>For complex deployments, consider these patterns:</p>
-  <ul>
-    <li><strong>Service mesh</strong>: Use a proxy (Envoy, Traefik) to handle routing, load balancing, mutual TLS, and observability</li>
-    <li><strong>Network segmentation</strong>: Create separate networks for frontend, backend, and database tiers</li>
-    <li><strong>Firewall rules</strong>: Use the iptables DOCKER-USER chain to restrict container traffic</li>
-  </ul>
-  <p>These patterns are typically managed through orchestration tools like Kubernetes or Docker Swarm rather than manual configuration.</p>
-</div>
+For complex deployments, three patterns recur:
+
+- **Service mesh** — use a proxy (Envoy, Traefik) to handle routing, load balancing, mutual TLS, and observability.
+- **Network segmentation** — separate networks for frontend, backend, and database tiers.
+- **Firewall rules** — use the iptables `DOCKER-USER` chain to restrict container traffic.
+
+These are typically managed through orchestration tools like Kubernetes or Docker Swarm rather than by hand.
 
 ## Compose Networking
 
@@ -445,31 +398,37 @@ Here `api` resolves `db` by name over the `backend` network, `web` resolves `api
 
 When connectivity breaks, work from the inside out: confirm the container has an interface and an address, then DNS, then reachability, then the published-port path.
 
-<div class="debug-techniques">
-  <h4>Connectivity Issues</h4>
-  <pre><code class="language-bash"># Use netshoot — a debug container with every network tool preinstalled,
-# sharing the target container's network namespace
+**Connectivity issues** — `netshoot` is a debug container with every network tool preinstalled:
+
+```bash
+# Share the target container's network namespace
 docker run --rm --network container:my-app nicolaka/netshoot
 
 # Inside: test DNS and connectivity
 nslookup service-name
-curl -v http://service-name:port</code></pre>
+curl -v http://service-name:port
+```
 
-  <h4>What network is the container on?</h4>
-  <pre><code class="language-bash"># See every network and which containers are attached
+**What network is the container on?**
+
+```bash
+# See every network and which containers are attached
 docker network ls
 docker network inspect app-net
 
 # See the networks a single container joined
-docker inspect --format '{% raw %}{{json .NetworkSettings.Networks}}{% endraw %}' my-app</code></pre>
+docker inspect --format '{% raw %}{{json .NetworkSettings.Networks}}{% endraw %}' my-app
+```
 
-  <h4>Is the port actually published?</h4>
-  <pre><code class="language-bash"># Show host:container port mappings for a container
+**Is the port actually published?**
+
+```bash
+# Show host:container port mappings for a container
 docker port my-app
 
 # Confirm the host is listening
-ss -tlnp | grep 8080</code></pre>
-</div>
+ss -tlnp | grep 8080
+```
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -481,24 +440,10 @@ ss -tlnp | grep 8080</code></pre>
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Custom Networks by Default</h4>
-    <p>Always create user-defined bridge networks — they provide automatic DNS resolution between containers, which the default bridge does not, plus stronger isolation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>DNS Is Built In</h4>
-    <p>Containers on the same user-defined network resolve each other by name via the embedded server at 127.0.0.11. Use network aliases for stable, load-balanced names.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Publish Narrowly</h4>
-    <p>Only publish ports that must be reachable from outside Docker, and bind them to 127.0.0.1 unless the LAN truly needs them. Inter-container traffic needs no <code>-p</code>.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Overlay for Multiple Hosts</h4>
-    <p>Use encrypted overlay networks in Swarm to span hosts over VXLAN, and open ports 2377, 7946, and 4789 on the underlay firewall.</p>
-  </div>
-</div>
+- **Custom networks by default.** User-defined bridge networks provide automatic DNS resolution between containers (the default bridge does not) plus stronger isolation.
+- **DNS is built in.** Containers on the same user-defined network resolve each other by name via the embedded server at 127.0.0.11. Use network aliases for stable, load-balanced names.
+- **Publish narrowly.** Only publish ports that must be reachable from outside Docker, and bind them to 127.0.0.1 unless the LAN truly needs them. Inter-container traffic needs no `-p`.
+- **Overlay for multiple hosts.** Use encrypted overlay networks in Swarm to span hosts over VXLAN, and open ports 2377, 7946, and 4789 on the underlay firewall.
 
 ---
 

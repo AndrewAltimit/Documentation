@@ -7,36 +7,17 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Procedural Content Generation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Algorithms that generate worlds, levels, and assets from a seed — noise, fractals, automata, and constraint solving.</p>
-</div>
+# Procedural Content Generation
 
 [Game Development](./) &raquo; Procedural Content Generation
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Procedural Content Generation (PCG) is the algorithmic creation of game content — terrain, dungeons, textures, vegetation, items, and even quests — rather than authoring it by hand. PCG trades authored control for variety, replayability, and scale: a few kilobytes of code and a seed can expand into a planet's worth of terrain. The craft of PCG is choosing algorithms whose <em>statistical</em> output is controllable enough to be fun while remaining unpredictable enough to be interesting.</p>
-</div>
+Procedural Content Generation (PCG) is the algorithmic creation of game content — terrain, dungeons, textures, vegetation, items, even quests — rather than authoring it by hand. PCG trades authored control for variety, replayability, and scale: a few kilobytes of code and a seed can expand into a planet's worth of terrain. The craft is choosing algorithms whose *statistical* output is controllable enough to be fun while remaining unpredictable enough to be interesting.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-wave-square"></i>
-    <h4>Noise &amp; Fractals</h4>
-    <p>Coherent noise (Perlin, Simplex, value) and fractal summation are the raw material for natural-looking terrain and textures.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-th"></i>
-    <h4>Generative Systems</h4>
-    <p>Cellular automata, L-systems, and wave-function collapse turn local rules into coherent global structure.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-dice"></i>
-    <h4>Determinism</h4>
-    <p>Seeded PRNGs make generation reproducible — the same seed always yields the same world.</p>
-  </div>
-</div>
+**Read this page as a pipeline.** Most generators are a base signal (noise) shaped by *rules* (automata, grammars, constraints), then *interpreted* into playable space, all driven by a *seed* that makes the whole chain reproducible:
 
-> **Read this page as a pipeline.** Most generators are a base signal (noise) shaped by *rules* (automata, grammars, constraints), then *interpreted* into playable space, all driven by a *seed* that makes the whole chain reproducible.
+- **Noise & fractals.** Coherent noise (Perlin, Simplex, value) and fractal summation are the raw material for natural-looking terrain and textures.
+- **Generative systems.** Cellular automata, L-systems, and wave-function collapse turn local rules into coherent global structure.
+- **Determinism.** Seeded PRNGs make generation reproducible — the same seed always yields the same world.
 
 ## Why Generate Content?
 
@@ -490,17 +471,12 @@ In production, PCG is rarely fully autonomous. Designers expose **knobs** — de
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Seed everything.** A PRNG seeded from a world seed plus hashed coordinates gives order-independent, reproducible, position-addressable worlds — the basis of infinite open worlds and sharable seed codes.
 - **Noise is the raw material.** Value noise is cheapest; Perlin adds gradient quality; Simplex/OpenSimplex scale to higher dimensions without axis bias. Stack octaves with fBm (lacunarity + gain) to get multi-scale terrain.
 - **Local rules, global structure.** Cellular automata grow organic caves, L-systems grow branching plants, and Wave Function Collapse solves local adjacency constraints into coherent tile maps.
 - **Playability is a separate problem.** Dungeons need connectivity (MST + loops, BSP) and pacing (mission grammars). Always post-process for reachability — pretty is not the same as solvable.
 - **PCG is control over randomness,** not the absence of it: constraints, weighting, grammars, set-piece injection, and generate-and-test steer a random process toward content that is both varied and fun.
-</div>
 
----
-
-<div class="see-also-card" markdown="1">
 ## See Also
 
 - [Game Development](./) - Engines, core systems, and design principles
@@ -508,4 +484,3 @@ In production, PCG is rarely fully autonomous. Designers expose **knobs** — de
 - [3D Graphics &amp; Rendering](../graphics/3d-rendering.html) - Rendering the meshes and textures PCG produces
 - [Performance Optimization](../optimization/) - Keeping generation within frame and memory budgets
 - [Unreal Engine](../technology/unreal.html) - PCG framework, World Partition, and procedural tooling
-</div>

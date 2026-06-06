@@ -7,10 +7,7 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #5c4ee5 0%, #844fba 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Terraform: Advanced Topics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Deep dive into troubleshooting, debugging, and the future of Infrastructure as Code.</p>
-</div>
+This page covers troubleshooting and debugging Terraform — the mistakes everyone makes and how to recover from them — followed by notable recent releases and where Infrastructure as Code is heading.
 
 ## Common Pitfalls and Troubleshooting
 
@@ -347,51 +344,7 @@ Machine learning is beginning to transform infrastructure management:
 - **Anomaly Detection**: Automated identification of configuration drift
 - **Configuration Generation**: AI assists in writing Terraform code
 
-### Research Frontiers
-
-#### Practical AI Applications Today
-
-While quantum computing remains theoretical, AI is already improving infrastructure management:
-
-```python
-class NeuralInfrastructureOptimizer:
-    """
-    Use deep learning to optimize infrastructure configurations
-    """
-    
-    def __init__(self):
-        self.model = self.build_model()
-        self.reinforcement_learner = self.build_rl_agent()
-    
-    def build_model(self):
-        """
-        Neural network for predicting optimal configurations
-        """
-        return tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(None,)),  # Variable length configs
-            tf.keras.layers.LSTM(128, return_sequences=True),
-            tf.keras.layers.Attention(),
-            tf.keras.layers.Dense(64, activation='relu'),
-            tf.keras.layers.Dense(32, activation='relu'),
-            tf.keras.layers.Dense(1, activation='sigmoid')  # Cost prediction
-        ])
-    
-    def optimize_infrastructure(self, requirements, constraints):
-        """
-        Generate optimal Terraform configuration using AI
-        """
-        # Use reinforcement learning to explore configuration space
-        state = self.encode_requirements(requirements)
-        
-        for step in range(self.max_steps):
-            action = self.reinforcement_learner.act(state)
-            next_state, reward, done = self.apply_action(action)
-            
-            if done:
-                return self.decode_configuration(next_state)
-            
-            state = next_state
-```
+In practice this shows up as vendor tooling rather than bespoke models: HashiCorp and cloud providers now ship assistants that draft module code, flag drift, and recommend right-sizing from observed usage.
 
 ## Terraform: Notable Releases and Features
 
@@ -517,36 +470,16 @@ module "cost_anomaly_detection" {
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Theory Underpins Practice</h4>
-    <p>Terraform rests on graph theory (dependency resolution), type theory (configuration safety), and distributed-systems principles (state management). Knowing this makes hard bugs tractable.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The Dependency Graph Drives Everything</h4>
-    <p>Plan, apply, and parallelism all derive from the resource graph. Understanding it explains why ordering, <code>depends_on</code>, and targeted applies behave as they do.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Scale Through Composition</h4>
-    <p>Well-designed module interfaces, sensible state segmentation, and policy-as-code keep large estates maintainable rather than monolithic.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The Ecosystem Is Shifting</h4>
-    <p>OpenTofu, Crossplane, Pulumi, and AI-assisted authoring are reshaping IaC. The declarative, graph-based model remains the constant.</p>
-  </div>
-</div>
+- **Theory underpins practice.** Terraform rests on graph theory (dependency resolution), type theory (configuration safety), and distributed-systems principles (state management). Knowing this makes hard bugs tractable.
+- **The dependency graph drives everything.** Plan, apply, and parallelism all derive from the resource graph. Understanding it explains why ordering, `depends_on`, and targeted applies behave as they do.
+- **Scale through composition.** Well-designed module interfaces, sensible state segmentation, and policy-as-code keep large estates maintainable rather than monolithic.
+- **The ecosystem is shifting.** OpenTofu, Crossplane, Pulumi, and AI-assisted authoring are reshaping IaC. The declarative, graph-based model remains the constant.
 
 ## References and Further Reading
 
-### Academic Papers
-- "Formal Verification of Infrastructure as Code" - ACM SIGPLAN 2021
-- "Category Theory for Infrastructure Composition" - ICFP 2020
-- "Distributed Consensus in Infrastructure Management" - OSDI 2019
-
 ### Books
-- "Infrastructure as Code: Dynamic Systems for the Cloud Age" - Kief Morris
-- "Terraform: Up & Running" - Yevgeniy Brikman
-- "The Tao of Microservices" - Richard Rodger
+- "Infrastructure as Code: Dynamic Systems for the Cloud Age" — Kief Morris
+- "Terraform: Up & Running" — Yevgeniy Brikman
 
 ### Research Projects
 - **CNCF Crossplane**: Kubernetes-based Infrastructure as Code

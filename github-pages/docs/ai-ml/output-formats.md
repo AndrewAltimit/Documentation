@@ -8,17 +8,9 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Diffusion Model Outputs</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master the complete spectrum of diffusion outputs across text, images, audio, video, and 3D for professional multi-modal workflows.</p>
-</div>
-
-<div class="code-example" markdown="1">
 The same denoising principle behind Stable Diffusion now generates images, audio, video, 3D, and even text. This guide covers the output formats each modality produces, how to choose the right export for your destination, and the workflows that connect them.
-</div>
 
 ## Who This Is For and What It Covers
 
@@ -377,22 +369,17 @@ The durable strategy is **format-agnostic pipelines**: keep a high-quality maste
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **One principle, every medium.** Noise → conditioned denoising → latent → decoder applies across image, audio, video, and 3D (and experimentally, text) — only the conditioning and decoder change.
 - **The decoder is the final quality gate.** Match it to the modality (image VAE, audio vocoder, mesh extractor) and pick the right export format for your destination.
 - **Temporal/structural coherence is the hard part** for video and 3D — frame interpolation, motion modules, and consistency techniques exist to address it.
 - **Preserve metadata.** Recording seeds, prompts, and parameters makes outputs reproducible and workflows debuggable.
 - **Cross-modal pipelines compound value:** text → image, image → video, audio + video — the shared latent paradigm makes these combinations natural.
-</div>
 
 ---
 
 *Continue your diffusion journey with [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) for deep model understanding, or explore [Advanced Techniques](advanced-techniques.html) for cutting-edge diffusion methods.*
 
----
-
-<div class="see-also-card" markdown="1">
-#### See Also
+## See Also
 
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The denoising principle shared by every modality
 - [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
@@ -401,4 +388,3 @@ The durable strategy is **format-agnostic pipelines**: keep a high-quality maste
 - [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
 - [ControlNet](controlnet.html) - Precise control over generation
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
-</div>

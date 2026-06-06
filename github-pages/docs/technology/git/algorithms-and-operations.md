@@ -4,15 +4,9 @@ title: "Git Internals: Algorithms & Advanced Operations"
 permalink: /docs/technology/git/algorithms-and-operations.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Git Internals](./) ›
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Algorithms &amp; Advanced Operations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The three-way merge, merge strategies, rebase and bisect, and the day-to-day operations built on them — with guidance on when to reach for each</p>
-</div>
 
 This page covers the *algorithms* at the heart of Git's history manipulation and the operations layered on top of them. For everyday command syntax see the [Git Command Reference](../git-reference.html); for higher-level workflow models see [Branching Strategies](../branching.html); and for resolving conflicts and recovering lost work see [Conflicts &amp; Recovery](conflict-and-recovery.html).
 
@@ -188,10 +182,7 @@ Because each pick is a new commit with a new hash, cherry-picking the *same* cha
 
 The state-machine view of Git workflows — GitFlow, GitHub Flow, GitLab Flow, and trunk-based/monorepo patterns, with their branch structures and promotion rules — is documented in depth on its own page.
 
-<div class="tip-card">
-  <h4>Workflows live on the Branching page</h4>
-  <p>See <a href="../branching.html">Branching Strategies</a> for GitFlow, GitHub Flow, GitLab Flow, and trunk-based development, including when to choose each and how they map branches to environments.</p>
-</div>
+See [Branching Strategies](../branching.html) for GitFlow, GitHub Flow, GitLab Flow, and trunk-based development, including when to choose each and how they map branches to environments.
 
 ## Practical Operations
 
@@ -318,15 +309,4 @@ exit 0
 - [Branching Strategies](../branching.html) — GitFlow, GitHub Flow, GitLab Flow, and trunk-based development.
 - [Git Command Reference](../git-reference.html) — full syntax for merge, rebase, stash, reset, and the rest.
 
----
-
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="protocols-and-performance.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">← Protocols, Packs &amp; Performance</h4>
-    <p style="margin: 0;">The wire protocol, pack/index formats, and performance tuning.</p>
-  </a>
-  <a class="nav-card" href="conflict-and-recovery.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Conflicts &amp; Recovery →</h4>
-    <p style="margin: 0;">Resolving conflicts and rescuing lost work with reflog and fsck.</p>
-  </a>
-</div>
+**Previous:** [← Protocols, Packs & Performance](protocols-and-performance.html). **Next:** [Conflicts & Recovery →](conflict-and-recovery.html) — resolving conflicts and rescuing lost work with reflog and fsck.

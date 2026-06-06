@@ -7,10 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Workloads & Storage</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Configure persistent storage, manage application resources, implement security best practices, and monitor your Kubernetes workloads.</p>
-</div>
+[Kubernetes](./) &raquo; Workloads & Storage
+
+Configure persistent storage, manage application resources, apply security best practices, and monitor your Kubernetes workloads. This page is the at-a-glance treatment; [Stateful Workloads & Persistence](persistence.html) is the storage deep dive and [Health & Resource Management](fundamentals-resources.html) covers probes and autoscaling in detail.
 
 ## Storage: Persistent Data in an Ephemeral World
 
@@ -390,24 +389,10 @@ spec:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Decouple Storage from Pods</h4>
-    <p>A PVC requests storage; a StorageClass provisions it; the data outlives the pod. Use <code>volumeClaimTemplates</code> in StatefulSets for per-replica disks.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Always Set Limits</h4>
-    <p>Requests drive scheduling; limits cap usage. Set memory limits to avoid hard-to-debug OOM kills, and right-size from real <code>kubectl top</code> data.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Least-Privilege RBAC</h4>
-    <p>Give each app a dedicated ServiceAccount with the narrowest Role, run as non-root, and apply the Restricted Pod Security Standard where you can.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Probes Reflect Real Health</h4>
-    <p>Readiness gates traffic; liveness restarts. Keep liveness timeouts generous and use startup probes for slow-booting apps.</p>
-  </div>
-</div>
+- **Decouple storage from pods.** A PVC requests storage; a StorageClass provisions it; the data outlives the pod. Use `volumeClaimTemplates` in StatefulSets for per-replica disks.
+- **Always set limits.** Requests drive scheduling; limits cap usage. Set memory limits to avoid hard-to-debug OOM kills, and right-size from real `kubectl top` data.
+- **Least-privilege RBAC.** Give each app a dedicated ServiceAccount with the narrowest Role, run as non-root, and apply the Restricted Pod Security Standard where you can.
+- **Probes reflect real health.** Readiness gates traffic; liveness restarts. Keep liveness timeouts generous and use startup probes for slow-booting apps.
 
 ---
 

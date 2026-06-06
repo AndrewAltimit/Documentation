@@ -7,10 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Dockerfiles & CI/CD</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build optimized container images and integrate Docker into your continuous integration and deployment pipelines.</p>
-</div>
+[Docker](./) &raquo; Dockerfiles & CI/CD
+
+Build optimized container images and integrate Docker into continuous integration and deployment pipelines.
 
 ## Writing Dockerfiles
 
@@ -362,24 +361,10 @@ build:
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Order for Cache Hits</h4>
-    <p>Place rarely-changing instructions (dependency installs) above frequently-changing ones (source copies) to keep rebuilds fast.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Multi-Stage = Small Images</h4>
-    <p>Build in a heavy stage, copy only artifacts into a minimal runtime stage. Final images shrink from gigabytes to megabytes.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>CMD vs ENTRYPOINT</h4>
-    <p>Use ENTRYPOINT for the fixed executable, CMD for overridable default arguments.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Scan and Pin in CI</h4>
-    <p>Scan images for vulnerabilities, tag with the commit SHA, and avoid <code>latest</code> in production pipelines.</p>
-  </div>
-</div>
+- **Order for cache hits.** Place rarely-changing instructions (dependency installs) above frequently-changing ones (source copies) to keep rebuilds fast.
+- **Multi-stage = small images.** Build in a heavy stage, copy only artifacts into a minimal runtime stage; final images shrink from gigabytes to megabytes.
+- **CMD vs ENTRYPOINT.** Use ENTRYPOINT for the fixed executable, CMD for overridable default arguments.
+- **Scan and pin in CI.** Scan images for vulnerabilities, tag with the commit SHA, and avoid `latest` in production pipelines.
 
 ---
 

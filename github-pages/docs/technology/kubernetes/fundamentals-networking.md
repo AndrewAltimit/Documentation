@@ -7,14 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Networking & Configuration</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Connect, expose, secure, and configure your workloads: Services and kube-proxy, Ingress, NetworkPolicies, ConfigMaps and Secrets, and RBAC.</p>
-</div>
-
 [Kubernetes Fundamentals](./) &raquo; Networking & Configuration
 
-Once you can [deploy Pods and Deployments](fundamentals.html), the next questions are practical: How do clients find your pods when their IPs keep changing? How does HTTP traffic from the internet reach the right service? How do you stop every pod from talking to every other pod? And how do you inject configuration and credentials without baking them into images? This page covers the networking and configuration layer that turns a pile of pods into a functioning, secured application.
+Connect, expose, secure, and configure your workloads: Services and kube-proxy, Ingress, NetworkPolicies, ConfigMaps and Secrets, and RBAC. Once you can [deploy Pods and Deployments](fundamentals.html), the next questions are practical: How do clients find your pods when their IPs keep changing? How does HTTP traffic from the internet reach the right service? How do you stop every pod from talking to every other pod? And how do you inject configuration and credentials without baking them into images? This page covers the networking and configuration layer that turns a pile of pods into a functioning, secured application.
 
 ## Networking: Connecting Your Applications
 
@@ -547,32 +542,12 @@ kubectl auth can-i delete deployments \
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Services Decouple from Pod IPs</h4>
-    <p>A Service's stable ClusterIP and DNS name front a label-selected set of pods. Clients reference the name; the endpoint list updates as pods come and go.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>kube-proxy Programs the Kernel</h4>
-    <p>kube-proxy is not in the data path — it writes iptables/IPVS/nftables rules so the kernel rewrites ClusterIP traffic to a real pod with near-zero overhead.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Ingress Needs a Controller</h4>
-    <p>The Ingress object is just rules; a running Ingress Controller turns them into real HTTP routing, fanning one external IP out to many Services.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>NetworkPolicies Are Allow-Only</h4>
-    <p>They require a policy-aware CNI, flip selected pods to default-deny, and grant only explicit flows — remember to allow DNS.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Secrets Need RBAC, Not Faith</h4>
-    <p>base64 is not encryption. Restrict Secrets with RBAC, encrypt etcd at rest, and keep them out of plaintext Git.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Least-Privilege RBAC</h4>
-    <p>Give each app a dedicated ServiceAccount and the narrowest namespaced Role; verify with <code>kubectl auth can-i</code>.</p>
-  </div>
-</div>
+- **Services decouple from pod IPs.** A stable ClusterIP and DNS name front a label-selected set of pods; the endpoint list updates as pods come and go, and clients reference the name.
+- **kube-proxy programs the kernel** rather than sitting in the data path — it writes iptables/IPVS/nftables rules so the kernel rewrites ClusterIP traffic to a real pod with near-zero overhead.
+- **Ingress needs a controller.** The Ingress object is just rules; a running controller turns them into real HTTP routing, fanning one external IP out to many Services.
+- **NetworkPolicies are allow-only.** They require a policy-aware CNI, flip selected pods to default-deny, and grant only explicit flows — remember to allow DNS.
+- **Secrets need RBAC, not faith.** base64 is not encryption; restrict Secrets with RBAC, encrypt etcd at rest, and keep them out of plaintext Git.
+- **Least-privilege RBAC.** Give each app a dedicated ServiceAccount and the narrowest namespaced Role; verify with `kubectl auth can-i`.
 
 ---
 

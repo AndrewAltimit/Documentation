@@ -6,25 +6,18 @@ parent: "Advanced Topics"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Advanced AI Mathematics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Statistical learning theory, optimization landscapes, and rigorous mathematical foundations for machine learning</p>
-</div>
+# Advanced AI Mathematics
 
 <div class="advanced-note" markdown="1">
 **Graduate-level research page.** This is a rigorous, proof-oriented treatment intended for ML researchers, theoretical computer scientists, and mathematicians. **Prerequisites:** measure theory, functional analysis, and probability theory. For an intuitive, code-first introduction instead, start with [AI Fundamentals — Complete](../../technology/ai/) or the [Artificial Intelligence Hub](../../artificial-intelligence/).
 </div>
 
-<div class="intro-card" markdown="1">
-<p class="lead-text">Machine learning works in practice — but <em>why</em>? This page develops the mathematics that explains when learning from finite data generalizes to unseen examples, why gradient-based optimization of wildly non-convex networks succeeds, and what fundamental limits constrain any learning algorithm. The throughline is a single question: <strong>given finitely many samples, when can we trust a model on data it has never seen?</strong></p>
-</div>
+Machine learning works in practice — but *why*? This page develops the mathematics that explains when learning from finite data generalizes to unseen examples, why gradient-based optimization of wildly non-convex networks succeeds, and what fundamental limits constrain any learning algorithm. The throughline is a single question: **given finitely many samples, when can we trust a model on data it has never seen?**
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-ruler-combined"></i><h4>Capacity controls generalization</h4><p>A hypothesis class generalizes iff its complexity (VC dimension, Rademacher complexity) is finite — the central message of statistical learning theory.</p></div>
-  <div class="insight-card"><i class="fas fa-arrow-trend-down"></i><h4>Optimization is geometry</h4><p>SGD does not need convexity to work: over-parameterization reshapes the loss landscape so that gradient flow reaches global minima.</p></div>
-  <div class="insight-card"><i class="fas fa-compress-arrows-alt"></i><h4>Compression = learning</h4><p>Information-theoretic views (MDL, the information bottleneck, PAC-Bayes) recast generalization as keeping only the bits about the input that predict the label.</p></div>
-  <div class="insight-card"><i class="fas fa-infinity"></i><h4>Infinite width is tractable</h4><p>As networks widen, training dynamics linearize (the Neural Tangent Kernel), turning deep learning into kernel regression we can analyze.</p></div>
-</div>
+- **Capacity controls generalization.** A hypothesis class generalizes iff its complexity (VC dimension, Rademacher complexity) is finite — the central message of statistical learning theory.
+- **Optimization is geometry.** SGD does not need convexity to work: over-parameterization reshapes the loss landscape so that gradient flow reaches global minima.
+- **Compression = learning.** Information-theoretic views (MDL, the information bottleneck, PAC-Bayes) recast generalization as keeping only the bits about the input that predict the label.
+- **Infinite width is tractable.** As networks widen, training dynamics linearize (the Neural Tangent Kernel), turning deep learning into kernel regression we can analyze.
 
 ### The Logical Spine
 
@@ -355,14 +348,12 @@ where $x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon$
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Finite capacity ⇒ learnable</h4><p>The Fundamental Theorem ties PAC-learnability to finite VC dimension, with sample complexity scaling as $1/\epsilon^2$.</p></div>
-  <div class="takeaway-card"><h4>Generalization gap is bounded</h4><p>Rademacher and PAC-Bayes bounds control how far test error can exceed training error, in terms of complexity and confidence.</p></div>
-  <div class="takeaway-card"><h4>Over-parameterization helps</h4><p>Wide networks enter the NTK regime where training linearizes and gradient descent reaches global minima — and exhibits implicit bias toward simple solutions.</p></div>
-  <div class="takeaway-card"><h4>Modern phenomena need new theory</h4><p>Double descent and grokking violate the classical bias–variance picture and remain active research frontiers.</p></div>
-  <div class="takeaway-card"><h4>Kernels unify the picture</h4><p>RKHS theory and the representer theorem connect kernel methods, SVMs, and the infinite-width limit of neural networks.</p></div>
-  <div class="takeaway-card"><h4>Information bounds learning</h4><p>MDL, the information bottleneck, and PAC-Bayes recast generalization as compression — keeping only predictive bits.</p></div>
-</div>
+- **Finite capacity ⇒ learnable.** The Fundamental Theorem ties PAC-learnability to finite VC dimension, with sample complexity scaling as $1/\epsilon^2$.
+- **Generalization gap is bounded.** Rademacher and PAC-Bayes bounds control how far test error can exceed training error, in terms of complexity and confidence.
+- **Over-parameterization helps.** Wide networks enter the NTK regime where training linearizes and gradient descent reaches global minima — and exhibits implicit bias toward simple solutions.
+- **Modern phenomena need new theory.** Double descent and grokking violate the classical bias–variance picture and remain active research frontiers.
+- **Kernels unify the picture.** RKHS theory and the representer theorem connect kernel methods, SVMs, and the infinite-width limit of neural networks.
+- **Information bounds learning.** MDL, the information bottleneck, and PAC-Bayes recast generalization as compression — keeping only predictive bits.
 
 ## See Also
 

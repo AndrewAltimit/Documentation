@@ -11,10 +11,7 @@ hide_title: true
 
 <!-- Custom styles are now loaded via main.scss -->
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Disorder &amp; Localization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How randomness turns a metal into an insulator</p>
-</div>
+## Disorder & Localization
 
 ## Why Disorder Changes Everything
 
@@ -270,13 +267,8 @@ The field remains unsettled. The existence and stability of a true MBL *phase* i
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and the Bloch states that disorder localizes.</li>
-    <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — quantum Hall plateaus rely on disorder-localized states between extended edge channels.</li>
-    <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — Green's functions, ARPES/transport probes, and the many-body-localization frontier.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic (nonlinear sigma model) treatments of the localization classes.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — exact diagonalization and transfer-matrix methods used to map localization transitions.</li>
-  </ul>
-</div>
+- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and the Bloch states that disorder localizes.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — quantum Hall plateaus rely on disorder-localized states between extended edge channels.
+- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — Green's functions, ARPES/transport probes, and the many-body-localization frontier.
+- [Quantum Field Theory](../quantum-field-theory.html) — field-theoretic (nonlinear sigma model) treatments of the localization classes.
+- [Computational Physics](../computational-physics/) — exact diagonalization and transfer-matrix methods used to map localization transitions.

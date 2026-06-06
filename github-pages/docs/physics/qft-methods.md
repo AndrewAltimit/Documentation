@@ -4,42 +4,18 @@ title: "QFT: Path Integrals & Methods"
 permalink: /docs/physics/qft-methods.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Path Integrals &amp; Methods</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The calculational engine of quantum field theory: Feynman's sum over histories, generating functionals, perturbation theory, the diagrammatic expansion, and effective field theory as a working tool.</p>
-</div>
+## Path Integrals & Methods
 
 [Quantum Field Theory](quantum-field-theory.html) &raquo; Path Integrals &amp; Methods
 
-<div class="intro-card">
-  <p class="lead-text">Knowing what a quantum field <em>is</em> tells you almost nothing about how to <em>compute</em> with one. This page is the workshop: the path integral that packages all of QFT into a single weighted sum over field configurations, the generating functionals that turn that sum into a machine for spitting out correlation functions, the perturbative expansion of that machine into Feynman diagrams, and the effective-field-theory mindset that lets you calculate without knowing the full theory. These are the tools that produce the numbers — the electron <em>g</em>−2 to twelve digits, cross sections at the LHC, the running of the strong coupling.</p>
-</div>
+Knowing what a quantum field *is* tells you almost nothing about how to *compute* with one. This page is the workshop: the path integral that packages all of QFT into a single weighted sum over field configurations, the generating functionals that turn that sum into a machine for spitting out correlation functions, the perturbative expansion of that machine into Feynman diagrams, and the effective-field-theory mindset that lets you calculate without knowing the full theory. These are the tools that produce the numbers — the electron *g*−2 to twelve digits, cross sections at the LHC, the running of the strong coupling.
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-infinity"></i>
-    <h4>Sum over histories</h4>
-    <p>Every field configuration contributes an amplitude $e^{iS/\hbar}$; the classical path is just where the phase is stationary.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Diagrams are the expansion</h4>
-    <p>Each Feynman diagram is one term in a power series in the coupling — propagators for lines, factors for vertices.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-cogs"></i>
-    <h4>One functional, all correlators</h4>
-    <p>Differentiate the generating functional $Z[J]$ and every Green's function falls out automatically.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>Calculate at the right scale</h4>
-    <p>Effective field theory lets you ignore physics you cannot reach and organize the rest by powers of energy.</p>
-  </div>
-</div>
+- **Sum over histories.** Every field configuration contributes an amplitude $e^{iS/\hbar}$; the classical path is just where the phase is stationary.
+- **Diagrams are the expansion.** Each Feynman diagram is one term in a power series in the coupling — propagators for lines, factors for vertices.
+- **One functional, all correlators.** Differentiate the generating functional $Z[J]$ and every Green's function falls out automatically.
+- **Calculate at the right scale.** Effective field theory lets you ignore physics you cannot reach and organize the rest by powers of energy.
 
 ### What You'll Find on This Page
 
@@ -348,43 +324,18 @@ The classic example is Fermi's four-fermion theory of beta decay: long before th
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The path integral is the master tool</h4>
-    <p>Summing $e^{iS/\hbar}$ over all field configurations reproduces all of QFT and connects directly to statistical mechanics after Wick rotation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Generating functionals automate correlators</h4>
-    <p>$Z[J]$ gives all Green's functions, $W[J]$ the connected ones, and the effective action $\Gamma[\phi_c]$ the 1PI vertices and the quantum vacuum.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Diagrams are the perturbation series</h4>
-    <p>Wick's theorem turns the expansion into propagator products; each Feynman diagram is one term, with rules for lines, vertices, and loops.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Amplitudes become observables</h4>
-    <p>Squaring $\mathcal{M}$, averaging over spins, and inserting phase space yields cross sections and decay rates an experiment can test.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Functional identities are exact</h4>
-    <p>Schwinger–Dyson and Ward–Takahashi relations hold to all orders, protecting gauge invariance and constraining every calculation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>EFT lets you calculate at the right scale</h4>
-    <p>Integrate out heavy physics, organize by powers of $E/\Lambda$, and compute predictively without knowing the complete theory.</p>
-  </div>
-</div>
+- **The path integral is the master tool.** Summing $e^{iS/\hbar}$ over all field configurations reproduces all of QFT and connects directly to statistical mechanics after Wick rotation.
+- **Generating functionals automate correlators.** $Z[J]$ gives all Green's functions, $W[J]$ the connected ones, and the effective action $\Gamma[\phi_c]$ the 1PI vertices and the quantum vacuum.
+- **Diagrams are the perturbation series.** Wick's theorem turns the expansion into propagator products; each Feynman diagram is one term, with rules for lines, vertices, and loops.
+- **Amplitudes become observables.** Squaring $\mathcal{M}$, averaging over spins, and inserting phase space yields cross sections and decay rates an experiment can test.
+- **Functional identities are exact.** Schwinger–Dyson and Ward–Takahashi relations hold to all orders, protecting gauge invariance and constraining every calculation.
+- **EFT lets you calculate at the right scale.** Integrate out heavy physics, organize by powers of $E/\Lambda$, and compute predictively without knowing the complete theory.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — fields, gauge symmetry, the Standard Model, and renormalization.</li>
-    <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation the path integral generalizes.</li>
-    <li><a href="statistical-mechanics/">Statistical Mechanics</a> — the Euclidean path integral is a statistical partition function.</li>
-    <li><a href="relativity/">Relativity</a> — special relativity makes the action Lorentz-invariant.</li>
-    <li><a href="string-theory/">String Theory</a> — worldsheet path integrals extend these methods to extended objects.</li>
-    <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [Quantum Field Theory](quantum-field-theory.html) — fields, gauge symmetry, the Standard Model, and renormalization.
+- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation the path integral generalizes.
+- [Statistical Mechanics](statistical-mechanics/) — the Euclidean path integral is a statistical partition function.
+- [Relativity](relativity/) — special relativity makes the action Lorentz-invariant.
+- [String Theory](string-theory/) — worldsheet path integrals extend these methods to extended objects.
+- [Physics Hub](index.html) — browse all physics topics.

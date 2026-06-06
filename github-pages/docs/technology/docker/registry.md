@@ -7,11 +7,6 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Registries &amp; Supply-Chain Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Distribute images through registries, pin them by digest, and prove what you ship with signing, SBOMs, scanning, and provenance.</p>
-</div>
-
 [Docker](./) &raquo; Registries &amp; Supply-Chain Security
 
 A registry is where images live between `docker build` and `docker run`. Everything downstream — what runs in production, what a vulnerability scanner reports, what an auditor trusts — depends on the integrity of that distribution step. This page covers how registries store and address images, how tags differ from immutable digests, and the modern supply-chain controls (signing, SBOMs, scanning, and provenance) that let you prove an image is the one you built from source you control.
@@ -25,12 +20,9 @@ A registry is an HTTP service that implements the [OCI Distribution Specificatio
 
 A **tag** is just a mutable human-friendly name (a pointer) stored in the registry that resolves to a manifest digest. A **multi-arch image** uses a *manifest list* (also called an image index): one top-level manifest whose entries are per-platform manifests (`linux/amd64`, `linux/arm64`, …). The client picks the entry matching its platform.
 
-<div class="docker-section">
-  <div class="docker-intro">
-    <p>Pushing and pulling both reduce to "exchange blobs and manifests by digest." Because every object is named by the hash of its content, the registry can deduplicate shared layers across images and the client can verify integrity end-to-end.</p>
+Pushing and pulling both reduce to "exchange blobs and manifests by digest." Because every object is named by the hash of its content, the registry can deduplicate shared layers across images and the client can verify integrity end-to-end.
 
-    <div class="docker-workflow">
-      <h3><i class="fas fa-sitemap"></i> Registry Object Model</h3>
+<div class="docker-workflow">
       <svg viewBox="0 0 700 260" class="workflow-diagram">
         <!-- Tag -->
         <rect x="30" y="20" width="150" height="50" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2" />
@@ -73,8 +65,6 @@ A **tag** is just a mutable human-friendly name (a pointer) stored in the regist
         <path d="M 400 65 L 468 100" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
         <path d="M 400 145 L 468 140" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
       </svg>
-    </div>
-  </div>
 </div>
 
 The digest you see in `docker images --digests` or `docker buildx imagetools inspect` is the SHA-256 of the manifest bytes. That single hash transitively pins the config and every layer, because the manifest references them by their own digests. This is the property that makes digests trustworthy: change anything inside the image and the top-level digest changes.
@@ -100,60 +90,14 @@ When both a tag and a digest are present, the digest wins — the tag is informa
 
 Most teams use one of a few registries. They all speak the OCI distribution protocol, so `docker`, `buildx`, `crane`, and `cosign` work against any of them; they differ in hosting model, authentication, and integration.
 
-<div class="storage-section">
-  <h3><i class="fas fa-warehouse"></i> Registry Options</h3>
-
-  <div class="storage-comparison">
-    <table class="storage-table">
-      <thead>
-        <tr>
-          <th>Registry</th>
-          <th>Hosting</th>
-          <th>Auth Model</th>
-          <th>Best For</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Docker Hub</strong></td>
-          <td>SaaS (Docker, Inc.)</td>
-          <td>Docker ID / PAT</td>
-          <td>Public images, official base images, getting started</td>
-        </tr>
-        <tr>
-          <td><strong>GitHub Container Registry (GHCR)</strong></td>
-          <td>SaaS (GitHub)</td>
-          <td>GitHub token / PAT</td>
-          <td>Repos already on GitHub; tight Actions integration</td>
-        </tr>
-        <tr>
-          <td><strong>Amazon ECR</strong></td>
-          <td>SaaS (AWS)</td>
-          <td>IAM (short-lived tokens)</td>
-          <td>Workloads on ECS/EKS; IAM-native access control</td>
-        </tr>
-        <tr>
-          <td><strong>Google Artifact Registry (GAR/GCR)</strong></td>
-          <td>SaaS (Google Cloud)</td>
-          <td>IAM / service accounts</td>
-          <td>GKE and Cloud Run deployments</td>
-        </tr>
-        <tr>
-          <td><strong>Harbor</strong></td>
-          <td>Self-hosted (CNCF)</td>
-          <td>Local / OIDC / LDAP</td>
-          <td>On-prem, air-gapped, policy-driven enterprises</td>
-        </tr>
-        <tr>
-          <td><strong>Azure Container Registry (ACR)</strong></td>
-          <td>SaaS (Azure)</td>
-          <td>Entra ID / tokens</td>
-          <td>AKS and Azure-native pipelines</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+| Registry | Hosting | Auth model | Best for |
+|----------|---------|------------|----------|
+| **Docker Hub** | SaaS (Docker, Inc.) | Docker ID / PAT | Public images, official base images, getting started |
+| **GitHub Container Registry (GHCR)** | SaaS (GitHub) | GitHub token / PAT | Repos already on GitHub; tight Actions integration |
+| **Amazon ECR** | SaaS (AWS) | IAM (short-lived tokens) | Workloads on ECS/EKS; IAM-native access control |
+| **Google Artifact Registry (GAR/GCR)** | SaaS (Google Cloud) | IAM / service accounts | GKE and Cloud Run deployments |
+| **Harbor** | Self-hosted (CNCF) | Local / OIDC / LDAP | On-prem, air-gapped, policy-driven enterprises |
+| **Azure Container Registry (ACR)** | SaaS (Azure) | Entra ID / tokens | AKS and Azure-native pipelines |
 
 ### Authenticating and Pushing
 
@@ -182,32 +126,12 @@ docker push us-docker.pkg.dev/my-project/my-repo/myapp:1.4.2
 
 ECR tokens expire after 12 hours, which is why CI authenticates on every run rather than storing a static password. GHCR inside GitHub Actions can authenticate with the automatically provisioned `GITHUB_TOKEN`, scoped to the repository — no long-lived secret required.
 
-<div class="security-section">
-  <div class="security-principles">
-    <div class="principle-grid">
-      <div class="principle-card">
-        <i class="fas fa-server"></i>
-        <h5>Self-Host vs SaaS</h5>
-        <p>Harbor gives you on-prem control, replication, and air-gap support; managed registries remove the ops burden.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-id-badge"></i>
-        <h5>Identity-Native Auth</h5>
-        <p>Cloud registries fold into IAM, so access follows your existing roles instead of separate registry credentials.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-copy"></i>
-        <h5>Replication &amp; Caching</h5>
-        <p>Harbor and pull-through caches mirror upstream images to cut egress and survive upstream outages.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-trash-alt"></i>
-        <h5>Retention &amp; GC</h5>
-        <p>Tag retention rules plus garbage collection reclaim space from untagged, content-addressed blobs.</p>
-      </div>
-    </div>
-  </div>
-</div>
+A few axes distinguish them:
+
+- **Self-host vs SaaS** — Harbor gives you on-prem control, replication, and air-gap support; managed registries remove the ops burden.
+- **Identity-native auth** — cloud registries fold into IAM, so access follows your existing roles instead of separate registry credentials.
+- **Replication and caching** — Harbor and pull-through caches mirror upstream images to cut egress and survive upstream outages.
+- **Retention and GC** — tag retention rules plus garbage collection reclaim space from untagged, content-addressed blobs.
 
 ### Harbor: a Self-Hosted Registry
 
@@ -333,37 +257,13 @@ notation sign $REGISTRY/myapp@sha256:9f86d08...
 notation verify $REGISTRY/myapp@sha256:9f86d08...   # uses configured trust policy
 ```
 
-<div class="security-section">
-  <h3><i class="fas fa-shield-alt"></i> Choosing a Signer</h3>
+### Choosing a Signer
 
-  <div class="storage-comparison">
-    <table class="storage-table">
-      <thead>
-        <tr><th>Tool</th><th>Trust root</th><th>Signature storage</th><th>Pick it when</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>cosign</strong></td>
-          <td>Keys or keyless (Fulcio + OIDC)</td>
-          <td>OCI artifact</td>
-          <td>You want keyless CI signing and the broadest ecosystem</td>
-        </tr>
-        <tr>
-          <td><strong>Notation</strong></td>
-          <td>x.509 / your own CA</td>
-          <td>OCI artifact</td>
-          <td>You already run PKI and want CA-rooted trust policies</td>
-        </tr>
-        <tr>
-          <td><strong>Docker Content Trust</strong></td>
-          <td>TUF / Notary v1</td>
-          <td>Separate Notary server</td>
-          <td>Maintaining existing DCT setups only; avoid for new work</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+| Tool | Trust root | Signature storage | Pick it when |
+|------|-----------|-------------------|--------------|
+| **cosign** | Keys or keyless (Fulcio + OIDC) | OCI artifact | You want keyless CI signing and the broadest ecosystem |
+| **Notation** | x.509 / your own CA | OCI artifact | You already run PKI and want CA-rooted trust policies |
+| **Docker Content Trust** | TUF / Notary v1 | Separate Notary server | Maintaining existing DCT setups only; avoid for new work |
 
 ## Software Bill of Materials (SBOM)
 
@@ -534,24 +434,10 @@ The result is an unbroken chain: a digest no one can alter, a signature only you
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Deploy by Digest</h4>
-    <p>Tags are mutable pointers; the <code>sha256:</code> digest immutably pins the config and every layer. Resolve tags to digests once and deploy the digest.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Enforce Immutability Server-Side</h4>
-    <p>Set ECR/GAR repos or Harbor projects to reject tag overwrites, and never deploy <code>latest</code> — convention alone is not enough.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Sign with cosign</h4>
-    <p>Keyless cosign signing binds a workflow identity to an image digest with no long-lived keys to leak. Verify identity <em>and</em> issuer.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>SBOM + Scan + Provenance</h4>
-    <p>Generate an SBOM (Syft/BuildKit), gate on fixable High/Critical CVEs (Trivy/Grype), and attach SLSA provenance so you can prove what shipped and how.</p>
-  </div>
-</div>
+- **Deploy by digest.** Tags are mutable pointers; the `sha256:` digest immutably pins the config and every layer. Resolve tags to digests once and deploy the digest.
+- **Enforce immutability server-side.** Set ECR/GAR repos or Harbor projects to reject tag overwrites, and never deploy `latest` — convention alone is not enough.
+- **Sign with cosign.** Keyless cosign signing binds a workflow identity to an image digest with no long-lived keys to leak. Verify identity *and* issuer.
+- **SBOM + scan + provenance.** Generate an SBOM (Syft/BuildKit), gate on fixable High/Critical CVEs (Trivy/Grype), and attach SLSA provenance so you can prove what shipped and how.
 
 ---
 

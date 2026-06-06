@@ -5,49 +5,18 @@ permalink: /docs/technology/git-crash-course.html
 section: technology
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Crash Course</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">From zero to your first pull request — the fastest on-ramp to version control</p>
-</div>
+This is the **learning path** for people new to Git. It follows a single story — create a repo, make commits, branch, push, and open a pull request — in the order you actually do them, with just enough explanation to keep moving. The four Git pages fit together as:
 
-<div class="intro-card">
-  <p class="lead-text">This is the <strong>learning path</strong> for people new to Git. It follows a single story — create a repo, make commits, branch, push, and open a pull request — in the order you actually do them, with just enough explanation to keep moving. When you want depth, syntax, or strategy, follow the cross-links to the companion pages.</p>
-</div>
-
-<div class="tip-card">
-  <h4>How the four Git pages fit together</h4>
-  <ul>
-    <li><strong>This page (Crash Course)</strong> — a guided first walkthrough; read it top to bottom.</li>
-    <li><a href="git/">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
-    <li><a href="git-reference.html">Git Command Reference</a> — the alphabetical lookup cheat sheet for every command.</li>
-    <li><a href="branching.html">Branching Strategies</a> — team workflows: Git Flow, GitHub Flow, trunk-based.</li>
-  </ul>
-</div>
+- **This page (Crash Course)** — a guided first walkthrough; read it top to bottom.
+- [Git Version Control](git/) — how Git works under the hood (objects, the DAG, internals).
+- [Git Command Reference](git-reference.html) — the alphabetical lookup cheat sheet for every command.
+- [Branching Strategies](branching.html) — team workflows: Git Flow, GitHub Flow, trunk-based.
 
 ## Why version control?
 
-Before Git, people emailed `report_final_v2_REALLY_final.docx` around. Version control replaces that chaos with a single source of truth that remembers **every** change, **who** made it, and **why** — and lets many people work in parallel without overwriting each other.
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-history"></i>
-    <h4>Full History</h4>
-    <p>Every saved version is recoverable forever</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-users"></i>
-    <h4>Collaboration</h4>
-    <p>Many people edit the same project safely</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-flask"></i>
-    <h4>Safe Experiments</h4>
-    <p>Try ideas in a branch; throw it away if it fails</p>
-  </div>
-</div>
+Before Git, people emailed `report_final_v2_REALLY_final.docx` around. Version control replaces that chaos with a single source of truth that remembers **every** change, **who** made it, and **why** — and lets many people work in parallel without overwriting each other. The payoff is threefold: a **full history** where every saved version is recoverable forever, **collaboration** where many people edit the same project safely, and **safe experiments** you can try in a branch and throw away if they fail.
 
 ## The mental model: three areas
 
@@ -116,10 +85,7 @@ git add .              # stage everything that changed
 git commit -m "Add login form validation"
 ```
 
-<div class="tip-card">
-  <h4>What makes a good commit?</h4>
-  <p>One logical change per commit, with a message written in the imperative mood ("Add", "Fix", "Remove" — not "Added"/"Fixing"). Keep the first line under ~50 characters. Future-you reading <code>git log</code> will thank present-you.</p>
-</div>
+**What makes a good commit?** One logical change per commit, with a message written in the imperative mood ("Add", "Fix", "Remove" — not "Added"/"Fixing"). Keep the first line under ~50 characters. Future-you reading `git log` will thank present-you.
 
 Inspect your history any time:
 
@@ -203,55 +169,32 @@ See [Branching Strategies](branching.html) for how teams structure this at scale
 
 ## The 12 commands that cover 90% of daily work
 
-<div class="command-grid">
-  <div class="command-card"><code>git status</code><p>What changed, what's staged</p></div>
-  <div class="command-card"><code>git add &lt;file&gt;</code><p>Stage changes</p></div>
-  <div class="command-card"><code>git commit -m "msg"</code><p>Save a snapshot</p></div>
-  <div class="command-card"><code>git log --oneline</code><p>View history</p></div>
-  <div class="command-card"><code>git diff</code><p>See unstaged changes</p></div>
-  <div class="command-card"><code>git switch -c &lt;br&gt;</code><p>New branch</p></div>
-  <div class="command-card"><code>git switch &lt;br&gt;</code><p>Change branch</p></div>
-  <div class="command-card"><code>git merge &lt;br&gt;</code><p>Combine branches</p></div>
-  <div class="command-card"><code>git pull</code><p>Get remote changes</p></div>
-  <div class="command-card"><code>git push</code><p>Send your commits</p></div>
-  <div class="command-card"><code>git stash</code><p>Shelve work temporarily</p></div>
-  <div class="command-card"><code>git restore &lt;file&gt;</code><p>Discard local edits</p></div>
-</div>
+| Command | What it does |
+|---------|-------------|
+| `git status` | What changed, what's staged |
+| `git add <file>` | Stage changes |
+| `git commit -m "msg"` | Save a snapshot |
+| `git log --oneline` | View history |
+| `git diff` | See unstaged changes |
+| `git switch -c <br>` | New branch |
+| `git switch <br>` | Change branch |
+| `git merge <br>` | Combine branches |
+| `git pull` | Get remote changes |
+| `git push` | Send your commits |
+| `git stash` | Shelve work temporarily |
+| `git restore <file>` | Discard local edits |
 
 ## "Oh no" — fixing common mistakes
 
 Everyone breaks something early on. These get you out of the most common holes safely.
 
-<div class="challenge-cards">
-  <div class="challenge-card">
-    <h4>I committed too early / wrong message</h4>
-    <pre><code>git commit --amend -m "Better message"</code></pre>
-    <p>Rewrites the last commit. Don't amend commits you have already pushed and shared.</p>
-  </div>
-  <div class="challenge-card">
-    <h4>I want to undo the last commit but keep the code</h4>
-    <pre><code>git reset --soft HEAD~1</code></pre>
-    <p>Removes the commit, leaves the changes staged so you can recommit.</p>
-  </div>
-  <div class="challenge-card">
-    <h4>I need to drop everything since the last commit</h4>
-    <pre><code>git restore .</code></pre>
-    <p>Discards uncommitted edits. This is destructive — make sure you mean it.</p>
-  </div>
-  <div class="challenge-card">
-    <h4>I'm mid-task and need to switch branches</h4>
-    <pre><code>git stash
-git switch other-branch
-# later:
-git stash pop</code></pre>
-    <p>Shelves your work-in-progress and brings it back later.</p>
-  </div>
-  <div class="challenge-card">
-    <h4>I think I lost a commit</h4>
-    <pre><code>git reflog</code></pre>
-    <p>Shows where HEAD has been; almost nothing is ever truly gone. Check out the hash to recover it.</p>
-  </div>
-</div>
+| Situation | Fix | Notes |
+|-----------|-----|-------|
+| Committed too early / wrong message | `git commit --amend -m "Better message"` | Rewrites the last commit. Don't amend commits you've already pushed and shared. |
+| Undo last commit but keep the code | `git reset --soft HEAD~1` | Removes the commit, leaves the changes staged so you can recommit. |
+| Drop everything since the last commit | `git restore .` | Discards uncommitted edits — destructive, make sure you mean it. |
+| Mid-task, need to switch branches | `git stash` → `git switch other` → `git stash pop` | Shelves your work-in-progress and brings it back later. |
+| Think I lost a commit | `git reflog` | Shows where HEAD has been; almost nothing is truly gone. Check out the hash to recover it. |
 
 ## Handling merge conflicts (the calm version)
 
@@ -283,42 +226,17 @@ If it goes sideways, `git merge --abort` returns you to safety.
 
 ## Where to go next
 
-<div class="command-grid">
-  <div class="step-card">
-    <h4>Understand the machinery</h4>
-    <p>Read <a href="git/">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</p>
-  </div>
-  <div class="step-card">
-    <h4>Look up a command</h4>
-    <p>Keep <a href="git-reference.html">Git Command Reference</a> open as your cheat sheet for rebase, cherry-pick, bisect, and more.</p>
-  </div>
-  <div class="step-card">
-    <h4>Work on a team</h4>
-    <p>Pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd/">CI/CD</a>.</p>
-  </div>
-</div>
+- **Understand the machinery** — read [Git Version Control](git/) for the object model, the commit DAG, and how SHA hashing guarantees integrity.
+- **Look up a command** — keep [Git Command Reference](git-reference.html) open as your cheat sheet for rebase, cherry-pick, bisect, and more.
+- **Work on a team** — pick a workflow in [Branching Strategies](branching.html) and wire it into [CI/CD](ci-cd/).
 
 ## Key Takeaways
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>Three areas:</strong> working directory → staging (<code>add</code>) → repository (<code>commit</code>) → remote (<code>push</code>).</li>
-    <li><strong>The core loop is edit → <code>add</code> → <code>commit</code>,</strong> repeated endlessly with clear messages.</li>
-    <li><strong>Branch for every change</strong> so <code>main</code> stays stable; merge via pull requests.</li>
-    <li><strong>Almost nothing is unrecoverable</strong> — <code>git reflog</code> and <code>git reset</code> are your safety net.</li>
-    <li><strong>A dozen commands</strong> cover the vast majority of daily work; learn the rest as you need them.</li>
-  </ul>
-</div>
-
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="git/">Git Version Control</a> — architecture and internals deep dive</li>
-    <li><a href="git-reference.html">Git Command Reference</a> — complete command cheat sheet</li>
-    <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, trunk-based development</li>
-    <li><a href="ci-cd/">CI/CD</a> — automate testing and deployment from your commits</li>
-  </ul>
-</div>
+- **Three areas:** working directory → staging (`add`) → repository (`commit`) → remote (`push`).
+- **The core loop is edit → `add` → `commit`,** repeated endlessly with clear messages.
+- **Branch for every change** so `main` stays stable; merge via pull requests.
+- **Almost nothing is unrecoverable** — `git reflog` and `git reset` are your safety net.
+- **A dozen commands** cover the vast majority of daily work; learn the rest as you need them.
 
 ## References
 

@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Incident Response &amp; Forensics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">What to do when prevention fails — detect, contain, eradicate, recover, and learn</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Incident Response &amp; Forensics</p>
 
-<div class="intro-card">
-  <p class="lead-text">No matter how good your defenses are, some attacks will succeed. Incident response (IR) is the discipline of detecting, containing, and recovering from those breaches in a structured, repeatable way — and digital forensics is the practice of reconstructing what happened without destroying the evidence. This page walks the full IR lifecycle, the first critical minutes after detection, the fundamentals of forensic evidence handling and chain of custody, and the metrics and post-incident reviews that turn every breach into a permanent improvement.</p>
-</div>
+# Incident Response & Forensics
+
+No matter how good your defenses are, some attacks will succeed. Incident response (IR) is the discipline of detecting, containing, and recovering from those breaches in a structured, repeatable way — and digital forensics is the practice of reconstructing what happened without destroying the evidence. This page walks the full IR lifecycle, the first critical minutes after detection, the fundamentals of forensic evidence handling and chain of custody, and the metrics and post-incident reviews that turn every breach into a permanent improvement.
 
 ## The Incident Response Lifecycle
 

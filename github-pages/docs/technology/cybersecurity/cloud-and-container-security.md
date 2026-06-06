@@ -7,16 +7,11 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Cloud &amp; Container Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Identity, posture, and runtime defense for the infrastructure your application runs on</p>
-</div>
-
 <p class="breadcrumb"><a href="./">Cybersecurity</a> › Cloud &amp; Container Security</p>
 
-<div class="intro-card">
-  <p class="lead-text">The cloud revolutionized how we build and deploy applications, but it moved the most common breach vector from the network perimeter to identity and configuration. This page covers the shared-responsibility model, cloud IAM and least privilege, cloud security posture management (CSPM), container image hardening, container and Kubernetes runtime security (Falco, AppArmor, SELinux, seccomp), and admission-control policy engines (OPA, Kyverno).</p>
-</div>
+# Cloud & Container Security
+
+The cloud revolutionized how we build and deploy applications, but it moved the most common breach vector from the network perimeter to identity and configuration. This page covers the shared-responsibility model, cloud IAM and least privilege, cloud security posture management (CSPM), container image hardening, container and Kubernetes runtime security (Falco, AppArmor, SELinux, seccomp), and admission-control policy engines (OPA, Kyverno).
 
 ## Cloud Security: New Challenges, New Solutions
 

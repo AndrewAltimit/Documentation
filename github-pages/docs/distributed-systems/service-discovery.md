@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Service Discovery &amp; Configuration</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How services find each other, stay healthy, and absorb configuration changes without a redeploy</p>
-</div>
-
 [Distributed Systems](./) &raquo; Service Discovery &amp; Configuration
+
+How services find each other, stay healthy, and absorb configuration changes without a redeploy.
 
 ## Why Service Discovery Exists
 

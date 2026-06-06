@@ -6,117 +6,30 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Database Design</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Relational modeling, indexing, and distributed database architecture</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Database Design</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.75rem; opacity: 0.9;">Relational modeling, indexing, and distributed database architecture</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Every application needs to store data. Whether you're building a social network, an e-commerce platform, or an analytics system, you'll face the same fundamental questions: how should data be organized, how can many users access it at once, and what happens when the system crashes? This is the <strong>deep-dive companion</strong> — it works through relational modeling, normalization, indexing internals, query execution, transactions, and distributed/NoSQL architecture.</p>
-</div>
+Every application needs to store data, and they all face the same questions: how should data be organized, how can many users access it at once, and what happens when the system crashes? This is the **deep-dive companion** to the crash course — relational modeling and normalization, indexing internals, query execution, transactions, storage engines, and distributed/NoSQL architecture.
 
-<div class="tip-card">
-  <h4>New to databases? Start with the crash course</h4>
-  <p>If you just need tables, SQL basics, and enough to be productive, read the <a href="../database-crash-course.html">Database Crash Course</a> first, then come back here for the theory and scaling concerns.</p>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-table"></i>
-    <h4>Modeling</h4>
-    <p>Schemas, relationships, and normalization that keep data consistent</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bolt"></i>
-    <h4>Performance</h4>
-    <p>Indexes, query planning, and execution that make reads fast</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-network-wired"></i>
-    <h4>Scale</h4>
-    <p>Replication, sharding, transactions, and the NoSQL trade-offs</p>
-  </div>
-</div>
-
-## Quick Start
-
-New to databases? The fastest on-ramp — tables, SQL, relationships, indexes, and transactions in five minutes — lives in the [Database Crash Course](../database-crash-course.html). Come back here for the theory, internals, and scaling concerns.
+> **New to databases?** If you just need tables, SQL basics, and enough to be productive, read the [Database Crash Course](../database-crash-course.html) first — tables, SQL, relationships, indexes, and transactions in five minutes — then come back here for the theory, internals, and scaling concerns.
 
 ## Explore Database Design
 
-### Modeling
-
-<div class="command-grid">
-  <a href="modeling.html" class="nav-card">
-    <h4><i class="fas fa-table"></i> Data Modeling &amp; Normalization</h4>
-    <p>From files to the relational model, ACID, normalization (1NF–3NF), modeling relationships, star/snowflake/EAV patterns, and design anti-patterns.</p>
-  </a>
-</div>
-
-### Querying
-
-<div class="command-grid">
-  <a href="indexing-and-queries.html" class="nav-card">
-    <h4><i class="fas fa-bolt"></i> Indexing &amp; Query Execution</h4>
-    <p>Index types and strategies, how the planner parses, optimizes, and executes queries, plus optimizer, memory, and lock internals.</p>
-  </a>
-</div>
-
-### Transactions
-
-<div class="command-grid">
-  <a href="transactions-and-concurrency.html" class="nav-card">
-    <h4><i class="fas fa-code-branch"></i> Transactions &amp; Concurrency</h4>
-    <p>The concurrency problem, locking vs MVCC, serializability, isolation levels, practical locking patterns, and database security.</p>
-  </a>
-</div>
-
-### Storage
-
-<div class="command-grid">
-  <a href="storage-internals.html" class="nav-card">
-    <h4><i class="fas fa-hdd"></i> Storage Engines &amp; Recovery</h4>
-    <p>Pages, the buffer pool, B+ trees and LSM trees, write-ahead logging, backup and recovery, troubleshooting, and performance tuning.</p>
-  </a>
-</div>
-
-### Distributed &amp; NoSQL
-
-<div class="command-grid">
-  <a href="distributed-and-nosql.html" class="nav-card">
-    <h4><i class="fas fa-network-wired"></i> Distributed Databases &amp; NoSQL</h4>
-    <p>The hub: CAP theorem, consensus overview, NoSQL landscape, the future of databases, case studies, and a selection guide.</p>
-  </a>
-  <a href="replication-and-consensus.html" class="nav-card">
-    <h4><i class="fas fa-clone"></i> Replication &amp; Consensus</h4>
-    <p>Replication topologies, streaming &amp; logical replication, Raft/Paxos, read replicas, failover, and quorums.</p>
-  </a>
-  <a href="distributed-transactions.html" class="nav-card">
-    <h4><i class="fas fa-project-diagram"></i> Distributed Transactions</h4>
-    <p>2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics.</p>
-  </a>
-  <a href="nosql-data-models.html" class="nav-card">
-    <h4><i class="fas fa-cubes"></i> NoSQL Data Models</h4>
-    <p>Document, key-value, wide-column, graph, and time-series stores — and how to model for each.</p>
-  </a>
-</div>
-
-### Operations
-
-<div class="command-grid">
-  <a href="operations-and-monitoring.html" class="nav-card">
-    <h4><i class="fas fa-heartbeat"></i> Operations &amp; Monitoring</h4>
-    <p>Backups &amp; PITR, disaster recovery, VACUUM, connection pooling, observability, and incident response.</p>
-  </a>
-  <a href="orm-patterns.html" class="nav-card">
-    <h4><i class="fas fa-exchange-alt"></i> ORMs &amp; Data-Access Patterns</h4>
-    <p>Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL.</p>
-  </a>
-  <a href="schema-evolution-and-migrations.html" class="nav-card">
-    <h4><i class="fas fa-stream"></i> Schema Evolution &amp; Migrations</h4>
-    <p>Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks.</p>
-  </a>
-</div>
+| Area | Guide | What it covers |
+|------|-------|----------------|
+| **Modeling** | [Data Modeling & Normalization](modeling.html) | From files to the relational model, ACID, normalization (1NF–3NF), modeling relationships, star/snowflake/EAV patterns, and design anti-patterns |
+| **Querying** | [Indexing & Query Execution](indexing-and-queries.html) | Index types and strategies, how the planner parses, optimizes, and executes queries, plus optimizer, memory, and lock internals |
+| **Transactions** | [Transactions & Concurrency](transactions-and-concurrency.html) | The concurrency problem, locking vs MVCC, serializability, isolation levels, practical locking patterns, and database security |
+| **Storage** | [Storage Engines & Recovery](storage-internals.html) | Pages, the buffer pool, B+ trees and LSM trees, write-ahead logging, backup and recovery, troubleshooting, and performance tuning |
+| **Distributed** | [Distributed Databases & NoSQL](distributed-and-nosql.html) | Sub-hub: CAP theorem, consensus overview, NoSQL landscape, the future of databases, case studies, and a selection guide |
+| **Distributed** | [Replication & Consensus](replication-and-consensus.html) | Replication topologies, streaming & logical replication, Raft/Paxos, read replicas, failover, and quorums |
+| **Distributed** | [Distributed Transactions](distributed-transactions.html) | 2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics |
+| **Distributed** | [NoSQL Data Models](nosql-data-models.html) | Document, key-value, wide-column, graph, and time-series stores — and how to model for each |
+| **Operations** | [Operations & Monitoring](operations-and-monitoring.html) | Backups & PITR, disaster recovery, VACUUM, connection pooling, observability, and incident response |
+| **Operations** | [ORMs & Data-Access Patterns](orm-patterns.html) | Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL |
+| **Operations** | [Schema Evolution & Migrations](schema-evolution-and-migrations.html) | Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks |
 
 ## Why Databases Matter
 
@@ -140,32 +53,12 @@ Databases solve these problems through carefully designed systems that have evol
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Model for integrity first</h4>
-    <p>Normalization removes redundant data so updates can't leave the database in a contradictory state; denormalize deliberately, for performance.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Indexes trade writes for reads</h4>
-    <p>A B+ tree index turns a full-table scan into a logarithmic lookup, but every index adds cost to inserts, updates, and storage.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>ACID guarantees reliability</h4>
-    <p>Atomicity, consistency, isolation, and durability let many users hit the same data concurrently without corruption or lost work.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The query planner is your ally</h4>
-    <p>SQL is declarative — you describe the result and the optimizer chooses the access path. Read `EXPLAIN` output to understand and tune it.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Scaling forces trade-offs</h4>
-    <p>Replication and sharding add capacity but invoke the CAP theorem: under a partition you choose between consistency and availability.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Pick the model to fit the access pattern</h4>
-    <p>Relational, document, key-value, graph, and vector stores each optimize different queries. Choose by how the data is read, not by hype.</p>
-  </div>
-</div>
+- **Model for integrity first.** Normalization removes redundant data so updates can't leave the database in a contradictory state; denormalize deliberately, for performance.
+- **Indexes trade writes for reads.** A B+ tree index turns a full-table scan into a logarithmic lookup, but every index adds cost to inserts, updates, and storage.
+- **ACID guarantees reliability.** Atomicity, consistency, isolation, and durability let many users hit the same data concurrently without corruption or lost work.
+- **The query planner is your ally.** SQL is declarative — you describe the result and the optimizer chooses the access path. Read `EXPLAIN` output to understand and tune it.
+- **Scaling forces trade-offs.** Replication and sharding add capacity but invoke the CAP theorem: under a partition you choose between consistency and availability.
+- **Pick the model to fit the access pattern.** Relational, document, key-value, graph, and vector stores each optimize different queries. Choose by how the data is read, not by hype.
 
 ## Glossary of Database Terms
 
@@ -237,13 +130,8 @@ Databases solve these problems through carefully designed systems that have evol
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="../database-crash-course.html">Database Crash Course</a> — the fast on-ramp to tables and SQL</li>
-    <li><a href="../aws/">AWS</a> — managed database services and DynamoDB internals</li>
-    <li><a href="../docker/">Docker</a> — containerizing databases for local development</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — database security and encryption</li>
-    <li><a href="../networking/">Networking</a> — protocols behind distributed databases</li>
-  </ul>
-</div>
+- [Database Crash Course](../database-crash-course.html) — the fast on-ramp to tables and SQL
+- [AWS](../aws/) — managed database services and DynamoDB internals
+- [Docker](../docker/) — containerizing databases for local development
+- [Cybersecurity](../cybersecurity/) — database security and encryption
+- [Networking](../networking/) — protocols behind distributed databases

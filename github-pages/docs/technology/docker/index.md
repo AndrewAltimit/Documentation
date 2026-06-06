@@ -6,25 +6,16 @@ toc: false
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Containers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build, Ship, and Run Anywhere</p>
+<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Containers</h1>
+  <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Build, ship, and run anywhere</p>
 </div>
 
-<div class="intro-card">
-  <p class="lead-text">Docker revolutionizes application deployment by solving the "it works on my machine" problem. Containers package applications with all their dependencies into lightweight, portable units that run identically across development, testing, and production environments.</p>
-</div>
+Docker solves the "it works on my machine" problem by packaging applications with all their dependencies into lightweight, portable units that run identically across development, testing, and production.
 
 ## Why Learn Docker?
 
-Before diving into containers, consider what problems they solve:
-
-- **Environment consistency**: Your application behaves the same way on every machine, from your laptop to production servers
-- **Simplified onboarding**: New team members can start contributing within minutes instead of spending days configuring their environment
-- **Efficient resource usage**: Run more applications on the same hardware compared to traditional virtual machines
-- **Streamlined deployments**: Package once, deploy anywhere with confidence
-
-Whether you are a developer tired of debugging environment-specific issues or an operations engineer looking to standardize deployments, Docker provides the foundation for modern application delivery.
+Containers buy four things: **environment consistency** (the same behavior on a laptop and in production), **fast onboarding** (a new contributor runs one `docker run` instead of spending days configuring tools), **efficient resource use** (higher density than virtual machines), and **simple deployments** (package once, deploy anywhere). They are the foundation of modern application delivery for developers and operations engineers alike.
 
 ---
 
@@ -73,22 +64,7 @@ Work through the guides in order, or jump to the one matching your task.
 
 ## Key Capabilities
 
-Understanding what makes containers different helps you appreciate when to use them.
-
-<div class="key-insights">
-  <div class="insight-card">
-    <h4>Lightweight</h4>
-    <p>Share host OS kernel</p>
-  </div>
-  <div class="insight-card">
-    <h4>Fast Startup</h4>
-    <p>Seconds vs minutes</p>
-  </div>
-  <div class="insight-card">
-    <h4>Portable</h4>
-    <p>Run anywhere consistently</p>
-  </div>
-</div>
+Containers are lightweight (they share the host kernel), start in seconds rather than minutes, and run consistently anywhere. The contrast with virtual machines makes the trade-offs concrete:
 
 | Capability | Containers | Virtual Machines |
 |------------|------------|------------------|

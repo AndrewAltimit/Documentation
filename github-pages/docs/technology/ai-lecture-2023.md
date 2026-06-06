@@ -6,48 +6,17 @@ toc: true
 toc_sticky: true
 toc_label: "On This Page"
 toc_icon: "cog"
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Artificial Intelligence Deep Dive</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Advanced transformers, LLMs, and cutting-edge AI research</p>
-</div>
+**Unraveling the AI revolution: the rise of advanced language models.** This is the *deep dive* — a research-level tour of neural network foundations, the transformer architecture, the major LLM families (BERT, GPT, Llama, and friends), real-world usage, and the security and ethics that come with them. It assumes you are comfortable with the basics; if not, start with the gentler pages below. It spans three themes: **architectures** (from neural-network foundations to self-attention transformers), **LLM families** (BERT, GPT, Llama, and the techniques that distinguish them), and **security & ethics** (prompt attacks, bias, privacy, and responsible deployment).
 
-<!-- Custom styles are now loaded via main.scss -->
+*Note: this is a dated current-state reference, last reviewed June 2026. The architectural foundations (neural networks, transformers, attention) are stable; the model names, capabilities, and product details below are timestamped so you can see how current each claim is and when it was last verified.*
 
-<div class="intro-card">
-  <p class="lead-text"><strong>Unraveling the AI revolution: the rise of advanced language models.</strong> This is the <em>deep dive</em> — a research-level tour of neural network foundations, the transformer architecture, the major LLM families (BERT, GPT, Llama, and friends), real-world usage, and the security and ethics that come with them. It assumes you are comfortable with the basics; if not, start with the gentler pages below.</p>
+The three AI pages, in recommended reading order:
 
-  <p class="lead-text"><em>Note: this is a dated current-state reference, last reviewed June 2026. The architectural foundations (neural networks, transformers, attention) are stable; the model names, capabilities, and product details below are timestamped so you can see how current each claim is and when it was last verified.</em></p>
-</div>
-
-<div class="tip-card">
-  <h4>The three AI pages, in recommended reading order</h4>
-  <ul>
-    <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — plain-English, no-math intuition. Start here.</li>
-    <li><a href="ai/">Artificial Intelligence (Complete)</a> — the technical overview with the core mathematics.</li>
-    <li><strong>This page (Deep Dive)</strong> — transformers, LLM internals, and current research.</li>
-  </ul>
-</div>
-
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-network-wired"></i>
-    <h4>Architectures</h4>
-    <p>From neural network foundations to self-attention transformers</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-robot"></i>
-    <h4>LLM Families</h4>
-    <p>BERT, GPT, Llama, and the techniques that distinguish them</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-balance-scale"></i>
-    <h4>Security &amp; Ethics</h4>
-    <p>Prompt attacks, bias, privacy, and responsible deployment</p>
-  </div>
-</div>
+- [AI Fundamentals (Simplified)](ai-fundamentals-simple.html) — plain-English, no-math intuition. Start here.
+- [Artificial Intelligence (Complete)](ai/) — the technical overview with the core mathematics.
+- **This page (Deep Dive)** — transformers, LLM internals, and current research.
 
 ## How to read this page
 
@@ -104,28 +73,12 @@ next tokens, a model learns rich representations from raw text without human lab
 
 Before transformers dominated, several specialized architectures defined the field. Each is still relevant for specific data shapes:
 
-<div class="architecture-cards">
-  <div class="arch-card cnn">
-    <h4><i class="fas fa-image"></i> CNN — Convolutional</h4>
-    <p>Slides learnable filters across grid-like data to detect local patterns (edges → shapes → objects). Translation-invariant and parameter-efficient.</p>
-    <p><strong>Best for:</strong> images, video, spatial data. <strong>Examples:</strong> ResNet, EfficientNet.</p>
-  </div>
-  <div class="arch-card rnn">
-    <h4><i class="fas fa-stream"></i> RNN — Recurrent</h4>
-    <p>Processes sequences one step at a time, carrying a hidden state forward. Struggles with long-range dependencies (vanishing gradients).</p>
-    <p><strong>Best for:</strong> short sequences, time series. <strong>Largely superseded by transformers.</strong></p>
-  </div>
-  <div class="arch-card lstm">
-    <h4><i class="fas fa-memory"></i> LSTM / GRU</h4>
-    <p>Gated recurrent cells that learn what to remember and forget, mitigating the vanishing-gradient problem of plain RNNs.</p>
-    <p><strong>Best for:</strong> longer sequences where transformers are too costly.</p>
-  </div>
-  <div class="arch-card transformer">
-    <h4><i class="fas fa-network-wired"></i> Transformer</h4>
-    <p>Replaces recurrence with self-attention, processing all positions in parallel and modeling arbitrary long-range relationships.</p>
-    <p><strong>Best for:</strong> language, vision, audio — the modern default. <strong>Examples:</strong> GPT, BERT, ViT.</p>
-  </div>
-</div>
+| Architecture | How it works | Best for |
+|--------------|--------------|----------|
+| **CNN — Convolutional** | Slides learnable filters across grid-like data to detect local patterns (edges → shapes → objects); translation-invariant and parameter-efficient. | Images, video, spatial data (ResNet, EfficientNet) |
+| **RNN — Recurrent** | Processes sequences one step at a time, carrying a hidden state forward; struggles with long-range dependencies (vanishing gradients). | Short sequences, time series — largely superseded by transformers |
+| **LSTM / GRU** | Gated recurrent cells that learn what to remember and forget, mitigating the vanishing-gradient problem of plain RNNs. | Longer sequences where transformers are too costly |
+| **Transformer** | Replaces recurrence with self-attention, processing all positions in parallel and modeling arbitrary long-range relationships. | Language, vision, audio — the modern default (GPT, BERT, ViT) |
 
 ## Transformers
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="http://jalammar.github.io/illustrated-transformer/"> Article: <b><i>The Illustrated Transformer</i></b></a></p>
@@ -548,24 +501,17 @@ Finally, it's important for us to advocate for the responsible development and i
 
 ## Key Takeaways
 
-<div class="takeaway-card" markdown="1">
 - **Transformers replaced recurrence with attention.** Self-attention — $\text{softmax}(QK^\top/\sqrt{d_k})V$ — lets every token directly attend to every other, modeling long-range dependencies in parallel.
 - **Architecture follows the data.** CNNs for grids/images, RNN/LSTM for short sequences, transformers as the modern default for language, vision, and audio.
 - **Scale + self-supervision = foundation models.** Predicting masked or next tokens on huge corpora yields general-purpose representations (BERT, GPT) that fine-tune to many tasks.
 - **The frontier is multimodal, long-context, agentic.** Models now span text/image/audio, handle 100K–1M tokens, and use tools autonomously.
 - **Capability raises the stakes on safety.** Bias, misinformation, prompt injection, and accountability are engineering concerns, not afterthoughts.
-</div>
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a> — the no-math starting point</li>
-    <li><a href="ai/">Artificial Intelligence (Complete)</a> — the technical overview with core mathematics</li>
-    <li><a href="../advanced/ai-mathematics/">AI Mathematics</a> — theoretical foundations and proofs</li>
-    <li><a href="../ai-ml/">AI/ML Documentation Hub</a> — generative AI guides and workflows</li>
-    <li><a href="../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — image generation with diffusion models</li>
-    <li><a href="../artificial-intelligence/">AI Documentation Hub</a> — navigate all AI resources</li>
-  </ul>
-</div>
+- [AI Fundamentals (Simplified)](ai-fundamentals-simple.html) — the no-math starting point
+- [Artificial Intelligence (Complete)](ai/) — the technical overview with core mathematics
+- [AI Mathematics](../advanced/ai-mathematics/) — theoretical foundations and proofs
+- [AI/ML Documentation Hub](../ai-ml/) — generative AI guides and workflows
+- [Stable Diffusion Fundamentals](../ai-ml/stable-diffusion-fundamentals.html) — image generation with diffusion models
+- [AI Documentation Hub](../artificial-intelligence/) — navigate all AI resources

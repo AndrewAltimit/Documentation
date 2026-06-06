@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Storage Engines &amp; Recovery</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Pages, buffer pool, B+/LSM trees, write-ahead logging, backups, and tuning</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Storage Engines & Recovery
 
 ## How Databases Store Your Data
 
@@ -509,12 +506,7 @@ CREATE INDEX idx_customer_stats_value ON customer_stats(lifetime_value);
 
 ## Next Steps
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a></li>
-    <li><strong>Next:</strong> <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — scaling storage beyond a single machine.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> for how the planner reads these pages.</li>
-  </ul>
-</div>
+- **Previous:** [Transactions & Concurrency](transactions-and-concurrency.html)
+- **Next:** [Distributed Databases & NoSQL](distributed-and-nosql.html) — scaling storage beyond a single machine.
+- **Up:** [Database Design hub](./)
+- See also: [Indexing & Query Execution](indexing-and-queries.html) for how the planner reads these pages.

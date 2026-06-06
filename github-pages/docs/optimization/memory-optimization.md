@@ -7,39 +7,18 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Memory Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Profile allocations, pool and arena-allocate to avoid the heap, fight fragmentation, stream assets within a budget, and lay out data so the cache works for you.</p>
-</div>
+# Memory Optimization
 
 [Performance Optimization](./) &raquo; Memory Optimization
 
-<div class="intro-card">
-  <p class="lead-text">On modern hardware, memory — not raw compute — is the dominant cost. A single L1-cache hit costs ~4 cycles; a miss to main memory costs ~200. That two-orders-of-magnitude cliff means how you <em>arrange</em> and <em>allocate</em> data often matters more than the arithmetic you run on it. Memory optimization is therefore two disciplines woven together: keeping the working set small and contiguous so the cache hierarchy serves it cheaply, and managing the lifetime of allocations so you avoid heap overhead, fragmentation, and the unpredictable stalls of <code>malloc</code>/<code>free</code> on a hot path. This page covers memory profiling, allocation strategies (pools, arenas, free-lists), fragmentation, asset streaming and compression, and cache locality — the techniques that turn a memory-bound program back into a compute-bound one.</p>
-</div>
+On modern hardware, memory — not raw compute — is the dominant cost. A single L1-cache hit costs ~4 cycles; a miss to main memory costs ~200. That two-orders-of-magnitude cliff means how you *arrange* and *allocate* data often matters more than the arithmetic you run on it. Memory optimization is two disciplines woven together: keeping the working set small and contiguous so the cache hierarchy serves it cheaply, and managing allocation lifetimes to avoid heap overhead, fragmentation, and the unpredictable stalls of `malloc`/`free` on a hot path. The core levers:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-memory"></i>
-    <h4>A cache miss costs ~200 cycles</h4>
-    <p>The memory hierarchy spans two orders of magnitude. Contiguous, predictable access patterns are the single biggest lever you have.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>The heap is a hot-path liability</h4>
-    <p>General-purpose <code>malloc</code> takes locks, walks free-lists, and fragments. Pools and arenas replace it with pointer bumps.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-puzzle-piece"></i>
-    <h4>Fragmentation kills long-running processes</h4>
-    <p>You can have gigabytes free and still fail a 1 MB allocation. Size-segregated and relocating allocators defend against it.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Stream within a budget</h4>
-    <p>You can't hold every asset in RAM. Prioritized, async streaming keeps the visible set resident and evicts the rest.</p>
-  </div>
-</div>
+- **A cache miss costs ~200 cycles.** The memory hierarchy spans two orders of magnitude; contiguous, predictable access patterns are the single biggest lever.
+- **The heap is a hot-path liability.** General-purpose `malloc` takes locks, walks free-lists, and fragments. Pools and arenas replace it with pointer bumps.
+- **Fragmentation kills long-running processes.** You can have gigabytes free and still fail a 1 MB allocation; size-segregated and relocating allocators defend against it.
+- **Stream within a budget.** You can't hold every asset in RAM. Prioritized, async streaming keeps the visible set resident and evicts the rest.
+
+This page covers memory profiling, allocation strategies (pools, arenas, free-lists), fragmentation, asset streaming and compression, and cache locality.
 
 ## Memory Profiling
 
@@ -378,14 +357,12 @@ void enforce_budget(AssetCache& cache, size_t budget) {
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Profile before you allocate-tune</h4><p>Use snapshot diffing to find leaks and attribute allocations by subsystem; measure peak RSS in a release build, not reserved virtual size in debug.</p></div>
-  <div class="takeaway-card"><h4>Match the allocator to the lifetime</h4><p>Arenas for "free it all at once", pools for many same-size objects, stack allocators for nested scopes — each turns allocation into an O(1) pointer move.</p></div>
-  <div class="takeaway-card"><h4>Fragmentation is a real failure mode</h4><p>Track largest-free-block ratio; defend long-running processes with size-segregated or relocating (handle-based) allocators.</p></div>
-  <div class="takeaway-card"><h4>Lay out for the cache</h4><p>SoA over hot fields, contiguous arrays over pointer-chasing, cache-line padding against false sharing — a miss costs ~200 cycles.</p></div>
-  <div class="takeaway-card"><h4>Keep assets compressed in RAM</h4><p>BCn/ASTC textures and quantized vertex streams cut resident memory and bandwidth with hardware decode; wrap them in a fast disk codec for transport.</p></div>
-  <div class="takeaway-card"><h4>Stream within a budget</h4><p>Async, prioritized loading with per-category budgets and emergency eviction keeps the visible set resident without stalling the main thread.</p></div>
-</div>
+- **Profile before you allocate-tune.** Use snapshot diffing to find leaks and attribute allocations by subsystem; measure peak RSS in a release build, not reserved virtual size in debug.
+- **Match the allocator to the lifetime.** Arenas for "free it all at once", pools for many same-size objects, stack allocators for nested scopes — each turns allocation into an O(1) pointer move.
+- **Fragmentation is a real failure mode.** Track largest-free-block ratio; defend long-running processes with size-segregated or relocating (handle-based) allocators.
+- **Lay out for the cache.** SoA over hot fields, contiguous arrays over pointer-chasing, cache-line padding against false sharing — a miss costs ~200 cycles.
+- **Keep assets compressed in RAM.** BCn/ASTC textures and quantized vertex streams cut resident memory and bandwidth with hardware decode; wrap them in a fast disk codec for transport.
+- **Stream within a budget.** Async, prioritized loading with per-category budgets and emergency eviction keeps the visible set resident without stalling the main thread.
 
 ## See Also
 

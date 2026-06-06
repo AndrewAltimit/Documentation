@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Schema Evolution &amp; Migrations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Schema Evolution & Migrations
 
 ## Why Schemas Change
 
@@ -319,42 +316,17 @@ If a migration *destroyed or corrupted data* and there is no forward fix, you fa
 
 ## Best Practices Checklist
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Treat schema as versioned code</h4>
-    <p>Every change is an ordered, reviewed, immutable migration recorded in a history table. To fix a mistake, write a new migration — never edit a shipped one.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Expand before you contract</h4>
-    <p>Add new structure, dual-write, backfill, switch reads, then remove the old structure — across multiple deploys so old and new code always work.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Batch and throttle backfills</h4>
-    <p>Update in small, resumable, key-ranged batches with their own transactions and a sleep; watch replication lag and back off.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Build indexes concurrently</h4>
-    <p>Use <code>CREATE INDEX CONCURRENTLY</code> (Postgres) or gh-ost/pt-osc (MySQL) so index builds don't block writes; mark such migrations non-transactional.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Set a short lock timeout</h4>
-    <p>DDL must back off rather than stampede. <code>lock_timeout</code> stops an <code>ALTER</code> from queuing the whole table behind it.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Prefer rolling forward</h4>
-    <p>Production rollback is a corrective migration or, for data loss, a PITR restore. Down-scripts are for dev; back up before anything irreversible.</p>
-  </div>
-</div>
+- **Treat schema as versioned code.** Every change is an ordered, reviewed, immutable migration recorded in a history table. To fix a mistake, write a new migration — never edit a shipped one.
+- **Expand before you contract.** Add new structure, dual-write, backfill, switch reads, then remove the old structure — across multiple deploys so old and new code always work.
+- **Batch and throttle backfills.** Update in small, resumable, key-ranged batches with their own transactions and a sleep; watch replication lag and back off.
+- **Build indexes concurrently.** Use `CREATE INDEX CONCURRENTLY` (Postgres) or gh-ost/pt-osc (MySQL) so index builds don't block writes; mark such migrations non-transactional.
+- **Set a short lock timeout.** DDL must back off rather than stampede. `lock_timeout` stops an `ALTER` from queuing the whole table behind it.
+- **Prefer rolling forward.** Production rollback is a corrective migration or, for data loss, a PITR restore. Down-scripts are for dev; back up before anything irreversible.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema you are evolving and the integrity rules migrations must preserve.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — why <code>CREATE INDEX CONCURRENTLY</code> matters and how indexes are built.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking and MVCC, the machinery that makes online DDL and backfills safe.</li>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — WAL, backups, and point-in-time recovery for migration rollback.</li>
-    <li><a href="./">Database Design hub</a> — the rest of the deep-dive series.</li>
-  </ul>
-</div>
+- [Data Modeling & Normalization](modeling.html) — the schema you are evolving and the integrity rules migrations must preserve.
+- [Indexing & Query Execution](indexing-and-queries.html) — why `CREATE INDEX CONCURRENTLY` matters and how indexes are built.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — locking and MVCC, the machinery that makes online DDL and backfills safe.
+- [Storage Engines & Recovery](storage-internals.html) — WAL, backups, and point-in-time recovery for migration rollback.
+- [Database Design hub](./) — the rest of the deep-dive series.

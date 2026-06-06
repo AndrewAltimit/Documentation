@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed Transactions</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Distributed Transactions
 
 ## Atomicity Across Machines
 
@@ -321,10 +318,7 @@ Three families of solution:
 
 Keeping the original timestamp on retry prevents starvation: a transaction only gets older relative to its peers, so it cannot be aborted forever.
 
-<div class="tip-card">
-  <h4>Cheapest mitigation: consistent lock ordering</h4>
-  <p>Most application-level distributed deadlocks come from two code paths acquiring the same resources in opposite orders (A-then-B vs. B-then-A). Enforce a <strong>global ordering</strong> (e.g., always lock rows in ascending primary-key order, always lock accounts by lowest id first) and the cycle becomes impossible — no detector or timeout needed. This single discipline eliminates the majority of real-world deadlocks.</p>
-</div>
+> **Cheapest mitigation: consistent lock ordering.** Most application-level distributed deadlocks come from two code paths acquiring the same resources in opposite orders (A-then-B vs. B-then-A). Enforce a **global ordering** (e.g., always lock rows in ascending primary-key order, always lock accounts by lowest id first) and the cycle becomes impossible — no detector or timeout needed. This single discipline eliminates the majority of real-world deadlocks.
 
 ## Exactly-Once Semantics
 
@@ -396,13 +390,8 @@ No global coordinator, no distributed locks, no blocking—just local ACID trans
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Foundations:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — single-node ACID, locking, MVCC, and isolation levels that distributed transactions build on.</li>
-    <li><strong>Related:</strong> <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, Raft/Paxos consensus, and the NewSQL systems that implement distributed commit for you.</li>
-    <li><strong>Durability:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the write-ahead log that makes every local commit (and the outbox) atomic and recoverable.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="../networking/">Networking</a> for the protocols beneath distributed coordination, and <a href="../aws/">AWS</a> for managed queues and event services (SQS, EventBridge) that implement the outbox/relay plumbing.</li>
-  </ul>
-</div>
+- **Foundations:** [Transactions & Concurrency](transactions-and-concurrency.html) — single-node ACID, locking, MVCC, and isolation levels that distributed transactions build on.
+- **Related:** [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, Raft/Paxos consensus, and the NewSQL systems that implement distributed commit for you.
+- **Durability:** [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that makes every local commit (and the outbox) atomic and recoverable.
+- **Up:** [Database Design hub](./)
+- See also: [Networking](../networking/) for the protocols beneath distributed coordination, and [AWS](../aws/) for managed queues and event services (SQS, EventBridge) that implement the outbox/relay plumbing.

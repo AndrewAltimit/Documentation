@@ -7,10 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Operations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Day-to-day cluster management with kubectl, Helm package management, troubleshooting techniques, and production best practices.</p>
-</div>
+[Kubernetes](./) &raquo; Operations
+
+Day-to-day cluster management: kubectl, Helm package management, observability wiring, troubleshooting techniques, and production best practices.
 
 ## kubectl Mastery: Command-Line Kubernetes
 
@@ -640,24 +639,10 @@ All exams are hands-on, performance-based tests where you solve real Kubernetes 
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>kubectl Is the Workhorse</h4>
-    <p>Master <code>get</code>, <code>describe</code>, <code>logs</code>, and <code>exec</code> — they answer most "what is happening?" questions. Contexts and namespaces keep you pointed at the right cluster.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Helm Packages Complexity</h4>
-    <p>Charts turn dozens of manifests into one versioned, parameterized unit. Use <code>--dry-run</code> and per-environment values files.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Diagnose Systematically</h4>
-    <p>Start broad (<code>get pods</code>, <code>get events</code>), then narrow with <code>describe</code> and <code>logs --previous</code>. The status (ImagePullBackOff, CrashLoopBackOff, Pending) tells you where to look first.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Production Is a Checklist</h4>
-    <p>Resource limits, 3+ replicas with anti-affinity, RBAC, health probes, and centralized logs are non-negotiable before going live.</p>
-  </div>
-</div>
+- **kubectl is the workhorse.** Master `get`, `describe`, `logs`, and `exec` — they answer most "what is happening?" questions. Contexts and namespaces keep you pointed at the right cluster.
+- **Helm packages complexity.** Charts turn dozens of manifests into one versioned, parameterized unit; use `--dry-run` and per-environment values files.
+- **Diagnose systematically.** Start broad (`get pods`, `get events`), then narrow with `describe` and `logs --previous`. The pod status (ImagePullBackOff, CrashLoopBackOff, Pending) tells you where to look first.
+- **Production is a checklist.** Resource limits, 3+ replicas with anti-affinity, RBAC, health probes, and centralized logs are non-negotiable before going live.
 
 The key to Kubernetes mastery is practice. Start with simple deployments, gradually add complexity, and always follow the principle of declarative configuration: describe what you want, and let Kubernetes make it happen.
 

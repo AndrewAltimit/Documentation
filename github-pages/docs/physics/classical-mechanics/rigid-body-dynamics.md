@@ -7,14 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Rigid Body Dynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The inertia tensor and principal axes, Euler's equations and Euler angles, the symmetric and asymmetric top, gyroscopic precession and nutation, rolling constraints, and the tennis-racket theorem.</p>
-</div>
-
 [Classical Mechanics](./) &raquo; Rigid Body Dynamics
+
+The inertia tensor and principal axes, Euler's equations and Euler angles, the symmetric and asymmetric top, gyroscopic precession and nutation, rolling constraints, and the tennis-racket theorem.
 
 ## From Point Particles to Extended Bodies
 
@@ -98,10 +93,7 @@ The geometric meaning is sharp: **$\vec{L}$ is parallel to $\vec{\omega}$ if and
 
 You rarely diagonalize a matrix by hand. Any axis of geometric symmetry is automatically a principal axis, and any plane of symmetry contains two of them. A cube about its center has $I_1 = I_2 = I_3$ (a "spherical top"); a cylinder or any body of revolution has $I_1 = I_2 \neq I_3$ (a "symmetric top"); a generic brick has all three distinct (an "asymmetric top"). This classification drives the rest of the chapter.
 
-<div class="tip-card">
-  <h4>The inertia ellipsoid</h4>
-  <p>Plotting $\vec{\omega}^{\mathsf{T}}\mathbf{I}\,\vec{\omega} = 1$ traces an ellipsoid whose semi-axes lie along the principal axes with lengths $1/\sqrt{I_k}$. Poinsot showed that torque-free motion is exactly this ellipsoid rolling without slipping on a fixed plane (the "invariable plane" perpendicular to the conserved $\vec{L}$) — a purely geometric picture of free rotation.</p>
-</div>
+**The inertia ellipsoid.** Plotting $\vec{\omega}^{\mathsf{T}}\mathbf{I}\,\vec{\omega} = 1$ traces an ellipsoid whose semi-axes lie along the principal axes with lengths $1/\sqrt{I_k}$. Poinsot showed that torque-free motion is exactly this ellipsoid rolling without slipping on a fixed plane (the "invariable plane" perpendicular to the conserved $\vec{L}$) — a purely geometric picture of free rotation.
 
 ## Euler's Equations of Motion
 
@@ -155,10 +147,7 @@ $$\begin{aligned}
 
 These plug into the Lagrangian $L = T_{\text{rot}} - V$ and make heavy-top problems tractable in the [Lagrangian formulation](lagrangian-hamiltonian.html), where the cyclic coordinates $\phi$ and $\psi$ immediately hand you two conserved momenta.
 
-<div class="warning-card">
-  <h4>Gimbal lock</h4>
-  <p>When $\theta = 0$, the precession and spin axes coincide and $\phi$ and $\psi$ become indistinguishable — the parametrization is singular. This <em>gimbal lock</em> is why aerospace and graphics code prefers quaternions or rotation matrices, which have no such coordinate singularity. Euler angles remain unbeatable for analytic insight, though.</p>
-</div>
+**Gimbal lock.** When $\theta = 0$, the precession and spin axes coincide and $\phi$ and $\psi$ become indistinguishable — the parametrization is singular. This *gimbal lock* is why aerospace and graphics code prefers quaternions or rotation matrices, which have no such coordinate singularity. Euler angles remain unbeatable for analytic insight, though.
 
 ## The Symmetric Top
 
@@ -208,14 +197,15 @@ Rotation about the axis of **largest or smallest** moment of inertia is stable; 
 
 The geometric explanation is the polhode picture from earlier: on the intersection of the energy ellipsoid and the angular-momentum sphere, the curves near the intermediate axis are *hyperbolic* (saddle-like), so the tip of $\vec\omega$ races away along the unstable manifold and back, producing the periodic flips. Near the extreme axes the curves are small closed loops, so the spin merely jitters.
 
-<div class="example-card">
-  <h4>Worked Example: stability of the spinning book</h4>
-  <p>Consider a thin rectangular book with principal moments $I_1 &lt; I_2 &lt; I_3$, thrown with zero external torque so Euler's equations are homogeneous. Spin it primarily about axis 1 with a small wobble: $\omega_1 \approx \omega_0$ (large, nearly constant) and $\omega_2, \omega_3$ tiny. Drop the products of the small quantities and use $\dot\omega_1 \approx 0$:</p>
-  $$I_2\dot\omega_2 = (I_3 - I_1)\,\omega_3\omega_0, \qquad I_3\dot\omega_3 = (I_1 - I_2)\,\omega_2\omega_0.$$
-  <p>Differentiate the first and substitute the second to decouple them:</p>
-  $$\ddot\omega_2 = \frac{(I_3 - I_1)(I_1 - I_2)}{I_2 I_3}\,\omega_0^2\,\omega_2 \equiv -\lambda\,\omega_2.$$
-  <p>Read off the sign of the coefficient $\lambda$. With $I_1$ the <em>smallest</em> moment, $(I_3 - I_1) &gt; 0$ and $(I_1 - I_2) &lt; 0$, so $\lambda &gt; 0$: solutions are $\omega_2 \propto \cos(\sqrt{\lambda}\,t)$ — bounded oscillation, hence <strong>stable</strong>. Repeating the calculation about the largest axis $I_3$ gives the same stable sign. But about the <em>intermediate</em> axis $I_2$, both factors $(I_2 - I_3)$ and $(I_1 - I_2)$ are negative, their product positive, and the coefficient flips sign to give $\ddot\omega \propto +\,\omega$ — exponential growth $\omega \propto e^{\sqrt{|\lambda|}\,t}$. The wobble blows up until the book flips. That sign flip, and nothing more, is the tennis-racket theorem.</p>
-</div>
+**Worked example — stability of the spinning book.** Consider a thin rectangular book with principal moments $I_1 < I_2 < I_3$, thrown with zero external torque so Euler's equations are homogeneous. Spin it primarily about axis 1 with a small wobble: $\omega_1 \approx \omega_0$ (large, nearly constant) and $\omega_2, \omega_3$ tiny. Drop the products of the small quantities and use $\dot\omega_1 \approx 0$:
+
+$$I_2\dot\omega_2 = (I_3 - I_1)\,\omega_3\omega_0, \qquad I_3\dot\omega_3 = (I_1 - I_2)\,\omega_2\omega_0.$$
+
+Differentiate the first and substitute the second to decouple them:
+
+$$\ddot\omega_2 = \frac{(I_3 - I_1)(I_1 - I_2)}{I_2 I_3}\,\omega_0^2\,\omega_2 \equiv -\lambda\,\omega_2.$$
+
+With $I_1$ the *smallest* moment, $(I_3 - I_1) > 0$ and $(I_1 - I_2) < 0$, so $\lambda > 0$: solutions are $\omega_2 \propto \cos(\sqrt{\lambda}\,t)$ — bounded oscillation, hence **stable**. The largest axis $I_3$ gives the same stable sign. But about the *intermediate* axis $I_2$, both factors $(I_2 - I_3)$ and $(I_1 - I_2)$ are negative, their product positive, and the coefficient flips sign to give $\ddot\omega \propto +\,\omega$ — exponential growth $\omega \propto e^{\sqrt{|\lambda|}\,t}$. The wobble blows up until the book flips. That sign flip, and nothing more, is the tennis-racket theorem.
 
 ## Rolling Constraints
 
@@ -234,12 +224,11 @@ The distinction matters for which machinery from the [Lagrangian chapter](lagran
 - A wheel rolling in a **straight line** has a holonomic constraint — $x = R\phi$ integrates to a relation among coordinates alone, so you can eliminate a coordinate outright.
 - A ball or a coin **free to steer** has a *nonholonomic* constraint: the rolling condition links velocities in a way that cannot be integrated to a relation among coordinates. The accessible configuration space is larger than the instantaneous freedom — which is exactly why you can parallel-park a ball into any position and orientation by rolling, and why a coin traces beautiful curves as it spins down. Nonholonomic systems require Lagrange multipliers or the Euler-Lagrange equations with constraint forces, not naive coordinate elimination.
 
-<div class="example-card">
-  <h4>Worked Example: race down the incline</h4>
-  <p>A solid sphere ($I = \tfrac{2}{5}MR^2$) and a hoop ($I = MR^2$) roll without slipping from rest down a ramp of height $h$. Which wins? Energy conservation splits the released potential energy between translation and rotation, and the rolling constraint $v = R\omega$ ties them together:</p>
-  $$Mgh = \tfrac{1}{2}Mv^2 + \tfrac{1}{2}I\omega^2 = \tfrac{1}{2}Mv^2\!\left(1 + \frac{I}{MR^2}\right).$$
-  <p>Solving for the bottom speed, $v = \sqrt{\dfrac{2gh}{1 + I/MR^2}}$. The factor $I/MR^2$ is $\tfrac{2}{5}$ for the sphere and $1$ for the hoop, so the sphere arrives at $v = \sqrt{10gh/7}$ and the hoop at the slower $v = \sqrt{gh}$. The sphere wins, and remarkably the answer is independent of mass and radius — only the <em>shape</em> (how mass is distributed relative to the axis) decides the race. The hoop loses because it must invest a larger fraction of its energy in spinning its rim.</p>
-</div>
+**Worked example — race down the incline.** A solid sphere ($I = \tfrac{2}{5}MR^2$) and a hoop ($I = MR^2$) roll without slipping from rest down a ramp of height $h$. Which wins? Energy conservation splits the released potential energy between translation and rotation, and the rolling constraint $v = R\omega$ ties them together:
+
+$$Mgh = \tfrac{1}{2}Mv^2 + \tfrac{1}{2}I\omega^2 = \tfrac{1}{2}Mv^2\!\left(1 + \frac{I}{MR^2}\right).$$
+
+Solving for the bottom speed, $v = \sqrt{\dfrac{2gh}{1 + I/MR^2}}$. The factor $I/MR^2$ is $\tfrac{2}{5}$ for the sphere and $1$ for the hoop, so the sphere arrives at $v = \sqrt{10gh/7}$ and the hoop at the slower $v = \sqrt{gh}$. The sphere wins, and the answer is independent of mass and radius — only the *shape* (how mass is distributed relative to the axis) decides the race. The hoop loses because it must invest a larger fraction of its energy in spinning its rim.
 
 ## Putting It Together: A Computational View
 
@@ -277,41 +266,16 @@ Both $|\vec{L}|^2$ and $2T$ stay constant to integrator tolerance — a direct n
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Inertia is a tensor</h4>
-    <p>A single number $I$ suffices only for fixed-axis rotation. In general $\vec{L} = \mathbf{I}\vec\omega$, and $\vec L$ need not be parallel to $\vec\omega$.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Principal axes simplify everything</h4>
-    <p>The symmetric tensor diagonalizes along principal axes, where $L_k = I_k\omega_k$ and $\vec L \parallel \vec\omega$ only when spinning about one of them.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Euler's equations govern the spin</h4>
-    <p>The nonlinear cross terms $(I_j - I_k)\omega_j\omega_k$, present even at zero torque, drive precession, nutation, and tumbling.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Gyroscopes precess, not topple</h4>
-    <p>Because torque changes the <em>direction</em> of $\vec L$, a fast spin precesses slowly — the principle behind gyrocompasses and the precession of the equinoxes.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The intermediate axis is unstable</h4>
-    <p>Free rotation is stable about the largest and smallest moments but unstable about the middle one — the tennis-racket / Dzhanibekov theorem.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Rolling can be nonholonomic</h4>
-    <p>A steering ball or coin obeys a velocity constraint that does not integrate to a coordinate relation, expanding its reachable configurations.</p>
-  </div>
-</div>
+- **Inertia is a tensor.** A single number $I$ suffices only for fixed-axis rotation. In general $\vec{L} = \mathbf{I}\vec\omega$, and $\vec L$ need not be parallel to $\vec\omega$.
+- **Principal axes simplify everything.** The symmetric tensor diagonalizes along principal axes, where $L_k = I_k\omega_k$ and $\vec L \parallel \vec\omega$ only when spinning about one of them.
+- **Euler's equations govern the spin.** The nonlinear cross terms $(I_j - I_k)\omega_j\omega_k$, present even at zero torque, drive precession, nutation, and tumbling.
+- **Gyroscopes precess, not topple.** Because torque changes the *direction* of $\vec L$, a fast spin precesses slowly — the principle behind gyrocompasses and the precession of the equinoxes.
+- **The intermediate axis is unstable.** Free rotation is stable about the largest and smallest moments but unstable about the middle one — the tennis-racket / Dzhanibekov theorem.
+- **Rolling can be nonholonomic.** A steering ball or coin obeys a velocity constraint that does not integrate to a coordinate relation, expanding its reachable configurations.
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="newtonian.html">Newtonian Mechanics &amp; Conservation Laws</a> — the force-based foundation, fixed-axis $L = I\omega$, torque, and the conservation of angular momentum this chapter generalizes.</li>
-    <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — the energy method that tames the heavy top via Euler angles and cyclic coordinates, and handles rolling constraints with Lagrange multipliers.</li>
-    <li><a href="chaos-and-computational.html">Chaos, Modern Topics &amp; Computation</a> — numerical integration of Euler's equations and the nonlinear dynamics of tumbling bodies.</li>
-    <li><a href="./">Classical Mechanics Hub</a> — browse all classical mechanics topics.</li>
-  </ul>
-</div>
+- [Newtonian Mechanics &amp; Conservation Laws](newtonian.html) — the force-based foundation, fixed-axis $L = I\omega$, torque, and the conservation of angular momentum this chapter generalizes.
+- [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) — the energy method that tames the heavy top via Euler angles and cyclic coordinates, and handles rolling constraints with Lagrange multipliers.
+- [Chaos &amp; Nonlinear Dynamics](chaos-and-computational.html) — numerical integration of Euler's equations and the nonlinear dynamics of tumbling bodies.
+- [Classical Mechanics Hub](./) — browse all classical mechanics topics.

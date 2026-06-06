@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Observability: Distributed Tracing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Traces, spans, and context propagation — following one request across every service it touches.</p>
-</div>
-
 [Observability](./) &raquo; Distributed Tracing
+
+Traces, spans, and context propagation — following one request across every service it touches.
 
 ## Why Distributed Tracing
 

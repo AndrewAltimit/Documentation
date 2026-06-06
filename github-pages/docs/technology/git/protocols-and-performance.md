@@ -4,15 +4,11 @@ title: "Git Internals: Protocols, Packs & Performance"
 permalink: /docs/technology/git/protocols-and-performance.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Git Internals](./) ›
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Protocols, Packs &amp; Performance</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How the object store synchronizes over the wire, the pack and index formats, and the tuning that keeps large repositories fast</p>
-</div>
+How the object store synchronizes over the wire, the pack and index formats, and the tuning that keeps large repositories fast.
 
 ## Repository Operations at the Protocol Level
 
@@ -227,16 +223,7 @@ git fetch --unshallow              # Convert to full
 
 ---
 
-<div class="nav-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin: 1.5rem 0;">
-  <a class="nav-card" href="object-model.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">← Object Model &amp; Storage</h4>
-    <p style="margin: 0;">The objects, the storage layout, the three trees, and the index/ref structures these protocols move.</p>
-  </a>
-  <a class="nav-card" href="algorithms-and-operations.html" style="display: block; padding: 1.25rem 1.5rem; border: 1px solid #ddd; border-radius: 8px; text-decoration: none;">
-    <h4 style="margin: 0 0 0.5rem;">Algorithms &amp; Advanced Operations →</h4>
-    <p style="margin: 0;">Three-way merge, merge strategies, rebase and bisect, and advanced day-to-day operations.</p>
-  </a>
-</div>
+**Previous:** [← Object Model & Storage](object-model.html). **Next:** [Algorithms & Advanced Operations →](algorithms-and-operations.html) — three-way merge, merge strategies, rebase and bisect, and advanced day-to-day operations.
 
 ## See Also
 

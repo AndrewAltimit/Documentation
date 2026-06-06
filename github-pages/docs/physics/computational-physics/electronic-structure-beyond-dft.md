@@ -9,10 +9,7 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Electronic Structure Beyond DFT</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Electronic Structure Beyond DFT</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Wavefunction methods — Hartree-Fock, MP2, configuration interaction, coupled cluster — and excited states with TD-DFT, each trading cost for accuracy.</p>
-</div>
+Wavefunction methods — Hartree-Fock, MP2, configuration interaction, coupled cluster — and excited states with TD-DFT, each trading cost for accuracy.
 
 <div class="notice--info">
   <p>This page complements <a href="quantum-methods.html">Quantum Computational Methods</a>, which covers density functional theory (DFT) and real-time wavefunction propagation. Here we focus on the <em>ab initio</em> wavefunction hierarchy that systematically improves on (or benchmarks) DFT, plus the time-dependent DFT route to excited states. Read the DFT material first if you have not — the two approaches are complementary, and practitioners routinely cross-check one against the other.</p>
@@ -24,28 +21,12 @@ Density functional theory is the workhorse of computational materials science an
 
 Wavefunction methods take the opposite stance. They start from a well-defined approximation (Hartree-Fock) and add electron correlation through a **systematically improvable hierarchy**. Spend more compute, get provably closer to the exact solution of the electronic Schrödinger equation within a given basis. The price is steep scaling — anywhere from $O(N^5)$ to $O(N^7)$ or worse — so these methods are reserved for small molecules, careful benchmarks, and cases where DFT is known to fail (dispersion-dominated complexes, bond breaking, near-degenerate states, excited states with charge transfer).
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>A convergent hierarchy</h4>
-    <p>HF → MP2 → CCSD → CCSD(T) → Full CI climbs systematically toward the exact answer in a fixed basis, unlike DFT's non-convergent functional zoo.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-coins"></i>
-    <h4>Cost buys accuracy</h4>
-    <p>Each rung adds correlation but multiplies cost: $O(N^4)$ for HF, $O(N^5)$ for MP2, $O(N^7)$ for CCSD(T), factorial for Full CI.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-puzzle-piece"></i>
-    <h4>Basis sets matter</h4>
-    <p>Correlation energy converges slowly with basis size; correlation-consistent sets and extrapolation are essential for benchmark accuracy.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-bolt"></i>
-    <h4>Excited states need new tools</h4>
-    <p>Ground-state DFT says nothing about spectra; TD-DFT, EOM-CC, and CI give absorption energies and oscillator strengths.</p>
-  </div>
-</div>
+Four ideas organize the rest of this page:
+
+- **A convergent hierarchy.** HF → MP2 → CCSD → CCSD(T) → Full CI climbs systematically toward the exact answer in a fixed basis, unlike DFT's non-convergent functional zoo.
+- **Cost buys accuracy.** Each rung adds correlation but multiplies cost: $O(N^4)$ for HF, $O(N^5)$ for MP2, $O(N^7)$ for CCSD(T), factorial for Full CI.
+- **Basis sets matter.** Correlation energy converges slowly with basis size; correlation-consistent sets and extrapolation are essential for benchmark accuracy.
+- **Excited states need new tools.** Ground-state DFT says nothing about spectra; TD-DFT, EOM-CC, and CI give absorption energies and oscillator strengths.
 
 ## The Electronic Structure Problem
 

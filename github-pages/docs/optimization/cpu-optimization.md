@@ -9,18 +9,13 @@ toc_icon: "microchip"
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">CPU Profiling & Tuning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Profile hot paths, respect the cache hierarchy, vectorize the inner loop, and scale across cores without false sharing</p>
-</div>
+# CPU Profiling & Tuning
 
 [Performance Optimization](./) &raquo; CPU Profiling & Tuning
 
-<div class="hub-intro">
-  <p class="lead">Modern CPUs are starved for data, not for arithmetic. The single biggest lever on most workloads is keeping the right bytes in cache, feeding the pipeline straight-line work it can predict, and spreading independent work across cores without making them fight over the same cache lines. This page covers how to find the hot path with a profiler, then how to make it faster.</p>
-</div>
+Modern CPUs are starved for data, not for arithmetic. The single biggest lever on most workloads is keeping the right bytes in cache, feeding the pipeline straight-line work it can predict, and spreading independent work across cores without making them fight over the same cache lines.
 
-CPU optimization is the systematic process of reducing the wall-clock time spent executing code on the processor. It begins with measurement — a profiler tells you where time actually goes, which is almost never where intuition says — and proceeds through a hierarchy of fixes: better algorithms first, then cache-friendly data layout, then vectorization and branch-friendly control flow, and finally parallelism across cores. Each of those fixes targets a specific hardware bottleneck, and the only reliable way to know which one you have is to profile.
+CPU optimization is the systematic process of reducing wall-clock time spent executing code. It begins with measurement — a profiler tells you where time actually goes, which is almost never where intuition says — and proceeds through a hierarchy of fixes: better algorithms first, then cache-friendly data layout, then vectorization and branch-friendly control flow, and finally parallelism across cores. Each fix targets a specific hardware bottleneck, and the only reliable way to know which one you have is to profile.
 
 ## Profiling Tools
 

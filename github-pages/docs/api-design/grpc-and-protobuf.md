@@ -7,39 +7,16 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">gRPC &amp; Protocol Buffers</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A contract-first, binary RPC stack: schema-defined messages, HTTP/2 streaming, generated typed clients, and the operational machinery — deadlines, interceptors, and a structured error model — that makes it production-grade.</p>
-</div>
-
 [API Design](./) &raquo; gRPC &amp; Protocol Buffers
 
-<div class="intro-card">
-  <p class="lead-text">gRPC is a high-performance RPC framework that pairs a compact, schema-driven serialization format (Protocol Buffers) with HTTP/2 as a transport. Instead of hand-writing URL routes and parsing JSON, you describe your messages and services once in a <code>.proto</code> file, a code generator emits typed stubs in a dozen languages, and the runtime handles framing, multiplexing, flow control, and streaming for you. The payoff is low latency, strong typing across service boundaries, first-class bidirectional streaming, and a forward/backward-compatible schema-evolution story — at the cost of human-unreadable wire bytes and weaker browser support. This page works from the wire format up: how protobuf encodes and evolves data, how gRPC layers four call types on HTTP/2, how code generation and channels work, and the cross-cutting concerns — deadlines, cancellation, interceptors, errors, gRPC-Web — you need before shipping.</p>
-</div>
+gRPC is a high-performance RPC framework that pairs a compact, schema-driven serialization format (Protocol Buffers) with HTTP/2 as a transport. Instead of hand-writing URL routes and parsing JSON, you describe your messages and services once in a `.proto` file, a code generator emits typed stubs in a dozen languages, and the runtime handles framing, multiplexing, flow control, and streaming for you. The payoff is low latency, strong typing across service boundaries, first-class bidirectional streaming, and a forward/backward-compatible schema-evolution story — at the cost of human-unreadable wire bytes and weaker browser support. Four ideas recur below:
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-file-contract"></i>
-    <h4>The schema is the contract</h4>
-    <p>A <code>.proto</code> file is the single source of truth; clients and servers in any language are generated from it, so interface drift becomes a compile error rather than a 3am pager.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-feather"></i>
-    <h4>Field numbers, not names, are the wire</h4>
-    <p>Protobuf serializes by tag number. Rename freely, but never reuse a number — that single rule is what makes schemas evolvable across decades.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>HTTP/2 makes streaming native</h4>
-    <p>Multiplexed streams over one connection give you unary, server-stream, client-stream, and bidirectional calls without head-of-line blocking or connection-per-request overhead.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stopwatch"></i>
-    <h4>Deadlines propagate, not timeouts</h4>
-    <p>gRPC ships an absolute deadline down the call tree so the whole chain cancels together — back-pressure and cancellation are built into the model, not bolted on.</p>
-  </div>
-</div>
+- **The schema is the contract.** A `.proto` file is the single source of truth; clients and servers in any language are generated from it, so interface drift becomes a compile error rather than a 3am pager.
+- **Field numbers, not names, are the wire.** Protobuf serializes by tag number. Rename freely, but never reuse a number — that single rule is what makes schemas evolvable across decades.
+- **HTTP/2 makes streaming native.** Multiplexed streams over one connection give you unary, server-stream, client-stream, and bidirectional calls without head-of-line blocking or connection-per-request overhead.
+- **Deadlines propagate, not timeouts.** gRPC ships an absolute deadline down the call tree so the whole chain cancels together — back-pressure and cancellation are built into the model, not bolted on.
+
+This page works from the wire format up: how protobuf encodes and evolves data, how gRPC layers four call types on HTTP/2, how code generation and channels work, and the cross-cutting concerns — deadlines, cancellation, interceptors, errors, gRPC-Web — you need before shipping.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -533,17 +510,12 @@ A gRPC service is production-ready when it has:
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="./">API Design Hub</a> — section overview and the other API styles (REST, GraphQL, versioning, auth).</li>
-    <li><a href="../distributed-systems/microservices-and-event-driven.html">Microservices &amp; Event-Driven Architecture</a> — where gRPC fits as the internal synchronous transport between services, alongside asynchronous messaging.</li>
-    <li><a href="../technology/networking/transport-and-protocols.html">Transport &amp; Protocols</a> — TCP, TLS, and the HTTP/2 substrate gRPC rides on.</li>
-    <li><a href="../technology/networking/">Networking</a> — the unreliable transport beneath every RPC.</li>
-    <li><a href="../technology/database-design/">Database Design</a> — the data stores your gRPC services front.</li>
-    <li><a href="../technology/kubernetes/">Kubernetes</a> — deploying, load-balancing, and service-meshing gRPC backends.</li>
-  </ul>
-</div>
+- **[API Design Hub](./)** — section overview and the other API styles (REST, GraphQL, versioning, auth).
+- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)** — where gRPC fits as the internal synchronous transport between services, alongside asynchronous messaging.
+- **[Transport & Protocols](../technology/networking/transport-and-protocols.html)** — TCP, TLS, and the HTTP/2 substrate gRPC rides on.
+- **[Networking](../technology/networking/)** — the unreliable transport beneath every RPC.
+- **[Database Design](../technology/database-design/)** — the data stores your gRPC services front.
+- **[Kubernetes](../technology/kubernetes/)** — deploying, load-balancing, and service-meshing gRPC backends.
 
 ### Further Reading
 

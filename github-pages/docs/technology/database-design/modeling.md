@@ -7,12 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Data Modeling &amp; Normalization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The relational model, ACID, normalization, relationships, and schema patterns</p>
-</div>
-
 <p><a href="./">&larr; Database Design</a></p>
+
+# Data Modeling & Normalization
 
 ## From Files to Databases
 
@@ -83,10 +80,7 @@ HAVING SUM(o.total) > 1000
 ORDER BY revenue DESC;
 ```
 
-<div class="tip-card">
-  <h4>Dialect note: date arithmetic</h4>
-  <p><code>DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)</code> is MySQL syntax. The rest of this guide leans PostgreSQL, where the equivalent is <code>CURRENT_DATE - INTERVAL '30 days'</code>.</p>
-</div>
+> **Dialect note: date arithmetic.** `DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)` is MySQL syntax. The rest of this guide leans PostgreSQL, where the equivalent is `CURRENT_DATE - INTERVAL '30 days'`.
 
 The database figures out the most efficient way to execute this—which tables to read first, which indexes to use, how to join the data. This separation of "what" from "how" is powerful.
 
@@ -357,10 +351,7 @@ CREATE TABLE comments (
 );
 ```
 
-<div class="tip-card">
-  <h4>Dialect note: inline index syntax</h4>
-  <p>The inline <code>INDEX idx_... (...)</code> clause inside <code>CREATE TABLE</code> is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table first and then issue a separate <code>CREATE INDEX idx_commentable ON comments (commentable_type, commentable_id);</code>.</p>
-</div>
+> **Dialect note: inline index syntax.** The inline `INDEX idx_... (...)` clause inside `CREATE TABLE` is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table first and then issue a separate `CREATE INDEX idx_commentable ON comments (commentable_type, commentable_id);`.
 
 ### Anti-Patterns to Avoid
 
@@ -438,11 +429,6 @@ CREATE TABLE post_tags (
 
 ## Next Steps
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Next:</strong> <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — make the schema you just modeled fast to read.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="../database-crash-course.html">Database Crash Course</a> for the SQL basics behind these schemas.</li>
-  </ul>
-</div>
+- **Next:** [Indexing & Query Execution](indexing-and-queries.html) — make the schema you just modeled fast to read.
+- **Up:** [Database Design hub](./)
+- See also: [Database Crash Course](../database-crash-course.html) for the SQL basics behind these schemas.

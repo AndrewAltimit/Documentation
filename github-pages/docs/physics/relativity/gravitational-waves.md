@@ -4,26 +4,15 @@ title: "Relativity: Gravitational Waves"
 permalink: /docs/physics/relativity/gravitational-waves.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Relativity](./) &raquo; Gravitational Waves
 
-<!-- Custom styles are now loaded via main.scss -->
+## Gravitational Waves
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Gravitational Waves</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Ripples in Spacetime, from the Quadrupole Formula to LIGO</p>
-</div>
+Gravitational waves are propagating ripples in the curvature of spacetime, predicted by Einstein in 1916 and directly detected for the first time in 2015. This page develops them from the ground up: the **linearized field equations**, the gauge freedom that reduces a wave to two physical polarizations, the **transverse–traceless (TT) gauge**, the **quadrupole formula** for wave generation and the energy they carry, the physics of inspiralling binaries, and how interferometers such as **LIGO** measure strains of one part in $10^{21}$. It assumes [General Relativity](general-relativity.html) and the differential-geometry machinery on the [Tensor Formalism](tensor-formalism.html) page.
 
-<div class="section-intro">
-  <p>Gravitational waves are propagating ripples in the curvature of spacetime, predicted by Einstein in 1916 and directly detected for the first time in 2015. This page develops them from the ground up: the <strong>linearized field equations</strong>, the gauge freedom that reduces a wave to two physical polarizations, the <strong>transverse–traceless (TT) gauge</strong>, the <strong>quadrupole formula</strong> for wave generation and the energy they carry, the physics of inspiralling binaries, and how interferometers such as <strong>LIGO</strong> measure strains of one part in $10^{21}$. It assumes the conceptual material on <a href="general-relativity.html">General Relativity</a> and the differential-geometry machinery on the <a href="tensor-formalism.html">Tensor Formalism</a> page.</p>
-</div>
-
-<div class="tip-card">
-  <h4>Conventions used below</h4>
-  <p>We work in <strong>geometric units</strong> with $G = c = 1$ except where a factor of $G$ or $c$ is shown explicitly to make a dimensional or numerical point. The metric signature is <strong>(−,+,+,+)</strong> ("mostly plus"). Greek indices $\mu,\nu,\dots$ run over $0,1,2,3$; Latin indices $i,j,\dots$ over the three spatial directions. The <strong>Einstein summation convention</strong> is in force, and $\Box \equiv \eta^{\mu\nu}\partial_\mu\partial_\nu = -\partial_t^2 + \nabla^2$ is the flat-space d'Alembertian.</p>
-</div>
+**Conventions.** We work in **geometric units** with $G = c = 1$ except where a factor of $G$ or $c$ is shown explicitly. The metric signature is **(−,+,+,+)** ("mostly plus"). Greek indices $\mu,\nu,\dots$ run over $0,1,2,3$; Latin indices $i,j,\dots$ over the three spatial directions. The **Einstein summation convention** is in force, and $\Box \equiv \eta^{\mu\nu}\partial_\mu\partial_\nu = -\partial_t^2 + \nabla^2$ is the flat-space d'Alembertian.
 
 ## Linearized Gravity
 
@@ -77,10 +66,7 @@ $$\Box \bar{h}_{\mu\nu} = -16\pi G\, T_{\mu\nu} .$$
 
 This is the central result of linearized gravity. It is a set of decoupled, sourced wave equations — one for each component of $\bar{h}_{\mu\nu}$ — with the same structure as Maxwell's equations $\Box A^\mu = -4\pi J^\mu$ in Lorenz gauge. Disturbances in the source $T_{\mu\nu}$ propagate outward at the speed of light as gravitational radiation, and in vacuum ($T_{\mu\nu}=0$) the equation reduces to the homogeneous wave equation $\Box \bar{h}_{\mu\nu} = 0$.
 
-<div class="tip-card">
-  <h4>Residual gauge freedom</h4>
-  <p>The Lorenz condition does not exhaust the freedom. Any further $\xi^\mu$ satisfying $\Box\xi^\mu = 0$ preserves $\partial_\mu\bar{h}^{\mu\nu}=0$, and this <em>residual</em> gauge freedom is exactly what we exploit next to strip the radiation down to its two genuine physical degrees of freedom. The lesson mirrors electromagnetism, where after imposing $\partial_\mu A^\mu=0$ one can still remove the longitudinal and timelike photon polarizations, leaving two transverse ones.</p>
-</div>
+**Residual gauge freedom.** The Lorenz condition does not exhaust the freedom. Any further $\xi^\mu$ satisfying $\Box\xi^\mu = 0$ preserves $\partial_\mu\bar{h}^{\mu\nu}=0$, and this *residual* gauge freedom is exactly what we exploit next to strip the radiation down to its two genuine physical degrees of freedom. The lesson mirrors electromagnetism, where after imposing $\partial_\mu A^\mu=0$ one can still remove the longitudinal and timelike photon polarizations, leaving two transverse ones.
 
 ## The Transverse–Traceless Gauge
 
@@ -300,10 +286,7 @@ A binary-coalescence signal divides into three regimes, each described by differ
   </svg>
 </div>
 
-<div class="tip-card">
-  <h4>The first indirect proof: the Hulse–Taylor binary pulsar</h4>
-  <p>Long before any direct detection, the binary pulsar <strong>PSR B1913+16</strong>, discovered by Hulse and Taylor in 1974, provided decisive indirect evidence. Its orbital period shrinks by about 76 microseconds per year — matching the Peters-equation prediction from gravitational-wave emission to better than 0.2%. This agreement, accumulated over decades and visualized as the orbital phase drifting exactly as general relativity demands, earned the 1993 Nobel Prize and made gravitational waves real well before LIGO confirmed them directly.</p>
-</div>
+**The first indirect proof: the Hulse–Taylor binary pulsar.** Long before any direct detection, the binary pulsar **PSR B1913+16**, discovered by Hulse and Taylor in 1974, provided decisive indirect evidence. Its orbital period shrinks by about 76 microseconds per year — matching the Peters-equation prediction from gravitational-wave emission to better than 0.2%. This agreement, accumulated over decades, earned the 1993 Nobel Prize and made gravitational waves real well before LIGO confirmed them directly.
 
 ## Detection: Interferometry and LIGO
 
@@ -392,23 +375,17 @@ Each merger is also a **precision test of general relativity** in the strong-fie
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Within Relativity</h4>
-  <ul>
-    <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle, the field equations, and the curvature whose ripples these waves are.</li>
-    <li><a href="tensor-formalism.html">Tensor Formalism &amp; the Field Equations</a> — the Riemann tensor, the linearized field equations, and the differential geometry used above.</li>
-    <li><a href="special-relativity.html">Special Relativity</a> — Minkowski spacetime, the flat background on which the waves propagate.</li>
-    <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — exact black-hole solutions, black-hole thermodynamics, and quantum-gravity frontiers.</li>
-    <li><a href="./">Relativity Hub</a> — overview and navigation.</li>
-  </ul>
-</div>
+Within relativity:
 
-<div class="see-also-card">
-  <h4>Elsewhere in Physics</h4>
-  <ul>
-    <li><a href="../computational-physics/">Computational Physics</a> — numerical relativity, the source of the merger waveforms LIGO matches against.</li>
-    <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — the spin-2 graviton and gravity as a field theory.</li>
-    <li><a href="../string-theory/">String Theory</a> — a candidate quantum theory of the graviton and gravity.</li>
-    <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
-  </ul>
-</div>
+- [General Relativity](general-relativity.html) — the equivalence principle, the field equations, and the curvature whose ripples these waves are.
+- [Tensor Formalism & the Field Equations](tensor-formalism.html) — the Riemann tensor, the linearized field equations, and the differential geometry used above.
+- [Special Relativity](special-relativity.html) — Minkowski spacetime, the flat background on which the waves propagate.
+- [Graduate Formalism & Frontiers](advanced.html) — exact black-hole solutions, black-hole thermodynamics, and quantum-gravity frontiers.
+- [Relativity Hub](./) — overview and navigation.
+
+Elsewhere in physics:
+
+- [Computational Physics](../computational-physics/) — numerical relativity, the source of the merger waveforms LIGO matches against.
+- [Quantum Field Theory](../quantum-field-theory.html) — the spin-2 graviton and gravity as a field theory.
+- [String Theory](../string-theory/) — a candidate quantum theory of the graviton and gravity.
+- [Physics Hub](../) — browse all physics topics.

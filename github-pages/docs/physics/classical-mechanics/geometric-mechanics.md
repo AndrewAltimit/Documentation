@@ -4,23 +4,17 @@ title: "Classical Mechanics: Geometric Formalism"
 permalink: /docs/physics/classical-mechanics/geometric-mechanics.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Geometric Formalism</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Symplectic geometry, phase-space flow, fiber bundles, geometric phases, and the differential-forms language of mechanics.</p>
-</div>
-
 [Classical Mechanics](./) &raquo; Geometric Formalism
+
+Symplectic geometry, phase-space flow, fiber bundles, geometric phases, and the differential-forms language of mechanics.
 
 ## Modern Perspectives: Geometry Rules
 
 ### Why Geometry?
 
-As we climb from Newton to Lagrange to Hamilton, we increasingly see that mechanics is really about *geometry*. Forces are vectors, energy is a scalar, but phase space carries a rich geometric structure that is invariant under canonical transformations. Modern physics embraces this viewpoint: rather than choosing coordinates and writing equations of motion, we identify the geometric objects (manifolds, forms, flows, bundles) that exist independently of any coordinate choice, and let the dynamics fall out of that structure.
+Climbing from Newton to Lagrange to Hamilton reveals that mechanics is really about *geometry*. Forces are vectors and energy a scalar, but phase space carries a rich geometric structure invariant under canonical transformations. The modern viewpoint identifies the coordinate-independent geometric objects (manifolds, forms, flows, bundles) and lets the dynamics fall out of that structure.
 
 The payoff is conceptual unity and practical power. Conservation laws become statements about invariant geometric quantities; constraints become submanifolds; symmetries become group actions; and the qualitative theory of chaos (KAM tori, Poincaré sections, area preservation) becomes a study of how a flow deforms geometric structure. The same language carries over almost verbatim into quantum mechanics, field theory, and the design of structure-preserving numerical integrators.
 
@@ -120,10 +114,7 @@ $$
 
 Hence $\phi_t^{*}\Omega = \Omega$: **phase-space volume is conserved**. This is **Liouville's theorem**, the foundation of classical statistical mechanics. A swarm of initial conditions filling a region of phase space evolves like an incompressible fluid — the region may stretch, fold, and filament wildly (as it does in chaotic systems), but its total volume never changes. Equivalently, the phase-space density $\rho$ obeys the **Liouville equation** $\partial_t \rho + \{\rho, H\} = 0$, so $\rho$ is constant along trajectories.
 
-<div class="tip-card">
-  <h4>Why naive integrators drift</h4>
-  <p>A generic numerical method (forward Euler, RK4) does <em>not</em> preserve $\omega$, so it slowly violates Liouville's theorem and lets energy drift. <strong>Symplectic integrators</strong> are designed so each step is exactly a symplectomorphism of a nearby "shadow" Hamiltonian, which is why their energy error stays bounded for astronomically long times. This is the practical payoff of phase-space geometry.</p>
-</div>
+**Why naive integrators drift.** A generic numerical method (forward Euler, RK4) does *not* preserve $\omega$, so it slowly violates Liouville's theorem and lets energy drift. **Symplectic integrators** are designed so each step is exactly a symplectomorphism of a nearby "shadow" Hamiltonian, which is why their energy error stays bounded for astronomically long times — the practical payoff of phase-space geometry.
 
 ### Poincaré Invariants
 
@@ -244,14 +235,9 @@ The level sets of $J$ are invariant under the flow, and the **coadjoint orbits**
 
 ## See Also
 
-<div class="see-also-card">
-  <h4>Where to go next</h4>
-  <ul>
-    <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — phase space, Poisson brackets, and canonical transformations that this page recasts geometrically.</li>
-    <li><a href="chaos-and-computational.html">Chaos, Modern Topics &amp; Computation</a> — KAM theory, strange attractors, and the symplectic integrators that exploit this geometry.</li>
-    <li><a href="newtonian.html">Newtonian Mechanics</a> — the force-based starting point of the climb toward geometry.</li>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — where the Poisson bracket becomes the commutator and the Berry phase appears.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — structure-preserving numerical methods built on symplectic geometry.</li>
-    <li><a href="./">Classical Mechanics Hub</a> — back to the overview.</li>
-  </ul>
-</div>
+- [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) — phase space, Poisson brackets, and canonical transformations that this page recasts geometrically.
+- [Chaos &amp; Nonlinear Dynamics](chaos-and-computational.html) — KAM theory, strange attractors, and the symplectic integrators that exploit this geometry.
+- [Newtonian Mechanics](newtonian.html) — the force-based starting point of the climb toward geometry.
+- [Quantum Mechanics](../quantum-mechanics/) — where the Poisson bracket becomes the commutator and the Berry phase appears.
+- [Computational Physics](../computational-physics/) — structure-preserving numerical methods built on symplectic geometry.
+- [Classical Mechanics Hub](./) — back to the overview.

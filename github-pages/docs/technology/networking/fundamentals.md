@@ -4,17 +4,11 @@ title: "Networking: Layers & Addressing"
 permalink: /docs/technology/networking/fundamentals.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
 [Networking](./)
 
 <!-- Custom styles are now loaded via main.scss -->
-
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Layers &amp; Addressing</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Building networks layer by layer, from bits to applications and IP addresses</p>
-</div>
 
 Networks are built in layers, each solving a specific problem and hiding its complexity from the layer above. This page introduces the OSI and TCP/IP models, shows how data is wrapped (encapsulated) as it descends the stack, and then explains the addressing system — IPv4, IPv6, and CIDR subnetting — that lets a packet find any host in the world.
 
@@ -194,19 +188,10 @@ This separation means a broadcast on the guest network won't affect engineering 
 
 ## Continue
 
-<div class="see-also-card">
-  <h4>Previous / Next</h4>
-  <ul>
-    <li><strong>Up:</strong> <a href="./">Networking</a> — overview and navigation hub.</li>
-    <li><strong>Next:</strong> <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — how the transport layer delivers data reliably.</li>
-  </ul>
-</div>
+**Up:** [Networking](./) — overview and navigation hub. &nbsp;**Next:** [Transport & Application Protocols](transport-and-protocols.html) — how the transport layer delivers data reliably.
 
-<div class="see-also-card">
-  <h4>See Also</h4>
-  <ul>
-    <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — TCP, UDP, and the protocols built on top of IP.</li>
-    <li><a href="routing.html">Routing &amp; Switching</a> — how Layer 3 packets find a path, plus VLANs at Layer 2.</li>
-    <li><a href="../cybersecurity/">Cybersecurity</a> — securing the stack you just learned.</li>
-  </ul>
-</div>
+### See Also
+
+- [Transport & Application Protocols](transport-and-protocols.html) — TCP, UDP, and the protocols built on top of IP.
+- [Routing & Switching](routing.html) — how Layer 3 packets find a path, plus VLANs at Layer 2.
+- [Cybersecurity](../cybersecurity/) — securing the stack you just learned.

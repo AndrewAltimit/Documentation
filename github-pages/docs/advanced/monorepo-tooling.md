@@ -9,10 +9,7 @@ toc: true
 toc_sticky: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monorepos: Tooling &amp; Build Systems</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The build-tool landscape — Bazel, Nx, Turborepo, Rush, Lerna, Pants — with a comparison, remote caching internals, and selection guidance</p>
-</div>
+# Monorepos: Tooling &amp; Build Systems
 
 [Monorepo Strategies](../monorepo/) &raquo; Tooling &amp; Build Systems
 
@@ -24,12 +21,10 @@ toc_sticky: true
 
 A monorepo without a graph-aware build tool is just a large folder. The value of a monorepo — atomic cross-project changes, frictionless code reuse, fast CI even at thousands of projects — is unlocked entirely by tools that **model the project dependency graph** and answer one question efficiently: *given this change, what is the minimal set of projects I must rebuild, retest, and redeploy?*
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-project-diagram"></i><h4>The graph is the API</h4><p>Every modern tool builds a project DAG, then derives affected sets, build ordering, and parallelism from it. Pick a tool by how well it discovers and trusts that graph.</p></div>
-  <div class="insight-card"><i class="fas fa-database"></i><h4>Caching is content-addressed</h4><p>Each task's inputs are hashed; the hash keys a cache of outputs. A given input is built once, ever — locally and, with remote caching, across the whole team and CI fleet.</p></div>
-  <div class="insight-card"><i class="fas fa-language"></i><h4>Language mix decides the tier</h4><p>JS/TS-only teams stay in the lightweight tier (Turborepo, Nx). Polyglot, hermetic, massive-scale builds push you to Bazel, Buck2, or Pants.</p></div>
-  <div class="insight-card"><i class="fas fa-balance-scale-right"></i><h4>Power costs configuration</h4><p>Zero-config tools trade away correctness guarantees for ergonomics; hermetic tools trade ergonomics for reproducibility. Choose the point on that curve that matches your scale.</p></div>
-</div>
+- **The graph is the API.** Every modern tool builds a project DAG, then derives affected sets, build ordering, and parallelism from it. Pick a tool by how well it discovers and trusts that graph.
+- **Caching is content-addressed.** Each task's inputs are hashed; the hash keys a cache of outputs. A given input is built once, ever — locally and, with remote caching, across the whole team and CI fleet.
+- **Language mix decides the tier.** JS/TS-only teams stay in the lightweight tier (Turborepo, Nx). Polyglot, hermetic, massive-scale builds push you to Bazel, Buck2, or Pants.
+- **Power costs configuration.** Zero-config tools trade away correctness guarantees for ergonomics; hermetic tools trade ergonomics for reproducibility. Choose the point on that curve that matches your scale.
 
 ## The Tool Landscape
 
@@ -432,14 +427,12 @@ flowchart TD
 
 ## Key Takeaways
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>The graph is the product</h4><p>Every tool's value comes from modeling the project DAG; choose by how it discovers the graph and how much it trusts it.</p></div>
-  <div class="takeaway-card"><h4>Caching is content-addressed</h4><p>Hash inputs to a key, look it up locally then remotely, replay on a hit. Correct keys make the cache safe to share fleet-wide.</p></div>
-  <div class="takeaway-card"><h4>Hermeticity buys correctness</h4><p>Bazel/Buck2/Pants sandbox actions so undeclared inputs cannot leak — the price is explicit graphs and a steeper curve.</p></div>
-  <div class="takeaway-card"><h4>Remote execution ≠ remote caching</h4><p>Caching shares results; remote execution shares compute. Only the hermetic tier (and Nx DTE, coarsely) does the latter.</p></div>
-  <div class="takeaway-card"><h4>Match tool to language &amp; scale</h4><p>JS/TS → Turborepo/Nx; publishing → Lerna; governed JS → Rush; polyglot at scale → Bazel/Buck2/Pants.</p></div>
-  <div class="takeaway-card"><h4>Favor reversible first steps</h4><p>Start with workspaces + Turborepo; escalate to heavier tooling only when scale and language mix force the issue.</p></div>
-</div>
+- **The graph is the product.** Every tool's value comes from modeling the project DAG; choose by how it discovers the graph and how much it trusts it.
+- **Caching is content-addressed.** Hash inputs to a key, look it up locally then remotely, replay on a hit. Correct keys make the cache safe to share fleet-wide.
+- **Hermeticity buys correctness.** Bazel/Buck2/Pants sandbox actions so undeclared inputs cannot leak — the price is explicit graphs and a steeper curve.
+- **Remote execution ≠ remote caching.** Caching shares results; remote execution shares compute. Only the hermetic tier (and Nx DTE, coarsely) does the latter.
+- **Match tool to language &amp; scale.** JS/TS → Turborepo/Nx; publishing → Lerna; governed JS → Rush; polyglot at scale → Bazel/Buck2/Pants.
+- **Favor reversible first steps.** Start with workspaces + Turborepo; escalate to heavier tooling only when scale and language mix force the issue.
 
 ## See Also
 

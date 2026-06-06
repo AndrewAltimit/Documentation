@@ -4,13 +4,9 @@ title: "Quantum Mechanics: States, Operators & Dynamics"
 permalink: /docs/physics/quantum-mechanics/formalism.html
 toc: true
 toc_sticky: true
-hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">States, Operators &amp; Dynamics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The working machinery of quantum mechanics: the Schrödinger equation, states and observables, measurement, angular momentum, time evolution, and perturbation theory.</p>
-</div>
+## States, Operators & Dynamics
 
 [Quantum Mechanics](./) &raquo; States, Operators &amp; Dynamics
 
@@ -139,20 +135,14 @@ The mathematics of quantum mechanics is not in dispute — every interpretation 
 | Pilot Wave (de Broglie–Bohm) | Yes, plus hidden particle positions | No | Yes (but nonlocal) | Definite trajectories restored |
 | QBism | No — it encodes an agent's beliefs | Belief update, not physical | No | Observer-centric, subjective |
 
-<div class="tip-card">
-  <h4>Why this debate persists</h4>
-  <p>Because all interpretations agree on every measurable outcome, no experiment yet devised can decisively choose between them — the disagreement is about ontology, not predictions. They are best judged on parsimony, how naturally they handle the measurement problem, and whether they can be extended to relativity and gravity. For doing physics you can stay agnostic; for understanding what quantum mechanics says about reality, the choice matters.</p>
-</div>
+**Why this debate persists.** Because all interpretations agree on every measurable outcome, no experiment yet devised can decisively choose between them — the disagreement is about ontology, not predictions. They are best judged on parsimony, how naturally they handle the measurement problem, and whether they can be extended to relativity and gravity. For doing physics you can stay agnostic; for understanding what quantum mechanics says about reality, the choice matters.
 
 - **Copenhagen:** Wave function collapses upon measurement; complementarity; no definite reality until measurement.
 - **Many-Worlds:** All possible outcomes occur in parallel branches; no collapse; deterministic evolution.
 - **Pilot Wave (de Broglie–Bohm):** Particles have definite positions guided by a pilot wave; non-local hidden variables; deterministic but non-local.
 - **QBism (Quantum Bayesianism):** Wave functions represent an agent's subjective beliefs; measurement updates those beliefs; observer-centric.
 
-<div class="tip-card">
-  <h4>Decoherence is not a substitute for an interpretation</h4>
-  <p>A common confusion is to treat decoherence as "solving" the measurement problem. It does not: it explains the <em>disappearance of interference</em> and the emergence of a preferred (pointer) basis, but the global state remains a superposition and the question of why <em>one</em> outcome is realized still requires an interpretation. Decoherence is therefore an ingredient that every interpretation uses, not a replacement for them.</p>
-</div>
+**Decoherence is not a substitute for an interpretation.** A common confusion is to treat decoherence as "solving" the measurement problem. It does not: it explains the *disappearance of interference* and the emergence of a preferred (pointer) basis, but the global state remains a superposition and the question of why *one* outcome is realized still requires an interpretation. Decoherence is therefore an ingredient that every interpretation uses, not a replacement for them.
 
 ## Angular Momentum
 

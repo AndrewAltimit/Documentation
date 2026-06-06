@@ -7,16 +7,9 @@ toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Production Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Real-world architectures, Docker Compose at scale, Docker Swarm orchestration, and production case studies.</p>
-</div>
-
 [Docker](./) &raquo; Production Patterns
 
-<div class="intro-card">
-  <p class="lead-text">This page assumes you are comfortable with images, containers, and Dockerfiles. It looks at how Docker is run <strong>in production at scale</strong>: the recurring shapes of real-world architectures, how to grow a Docker Compose file from a laptop convenience into a deployable production stack, how Docker Swarm turns a fleet of hosts into one cluster, and what migrating to containers looks like through worked case studies. Treat it as a tour of "what good looks like" once the basics are second nature.</p>
-</div>
+This page assumes you are comfortable with images, containers, and Dockerfiles. It looks at how Docker is run **in production at scale**: the recurring shapes of real-world architectures, how to grow a Docker Compose file from a laptop convenience into a deployable production stack, how Docker Swarm turns a fleet of hosts into one cluster, and what migrating to containers looks like through worked case studies. Treat it as a tour of "what good looks like" once the basics are second nature.
 
 <div class="notice--info">
   <p><strong>Two topics moved out of this page.</strong> The multi-container <em>design patterns</em> (Sidecar, Ambassador, Adapter, Init) and image/runtime <em>security patterns</em> (distroless, non-root, Falco) now live on <a href="docker-design-patterns.html">Docker: Design Patterns</a>. The <em>runtime alternatives</em> below Docker — gVisor, Kata, Firecracker microVMs, and WebAssembly/WASI — now live on <a href="../container-runtimes.html">Container Runtimes &amp; Alternatives</a>. This page links to both rather than duplicating them.</p>
@@ -555,47 +548,33 @@ The two halves of the ML platform illustrate the **service vs. batch** split fro
 
 The patterns on this page — replicated compose stacks, segmented networks, Swarm rollouts with rollback, and the service-vs-batch split — all serve the same goals: high availability, safe delivery, and predictable behavior at scale. Which ones matter most depends on your role.
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4><i class="fas fa-book"></i> Newcomers</h4>
-    <ul>
-      <li>Solidify the basics in <a href="fundamentals.html">Fundamentals</a> before adopting these patterns</li>
-      <li>Reach for a single Docker Compose file before any orchestrator</li>
-      <li>Add the <code>deploy:</code> block and health checks before you scale past one host</li>
-      <li>Follow security best practices from day one, not as a retrofit</li>
-    </ul>
-  </div>
+**Newcomers**
 
-  <div class="takeaway-card">
-    <h4><i class="fas fa-code"></i> For Developers</h4>
-    <ul>
-      <li>Keep a single compose file as the source of truth from dev to prod</li>
-      <li>Use multi-stage builds to keep production images small and fast to scale</li>
-      <li>Implement health checks so rolling updates can gate on readiness</li>
-      <li>Inject secrets as files, never as environment variables</li>
-    </ul>
-  </div>
+- Solidify the basics in [Fundamentals](fundamentals.html) before adopting these patterns
+- Reach for a single Docker Compose file before any orchestrator
+- Add the `deploy:` block and health checks before you scale past one host
+- Follow security best practices from day one, not as a retrofit
 
-  <div class="takeaway-card">
-    <h4><i class="fas fa-server"></i> For DevOps/SRE</h4>
-    <ul>
-      <li>Run an odd number of Swarm managers across availability zones</li>
-      <li>Segment networks: public frontend, internal-only backend</li>
-      <li>Tune <code>update_config</code> and <code>rollback_config</code> for zero-downtime deploys</li>
-      <li>Front the routing mesh with an external load balancer targeting all nodes</li>
-    </ul>
-  </div>
+**For developers**
 
-  <div class="takeaway-card">
-    <h4><i class="fas fa-building"></i> For Architects</h4>
-    <ul>
-      <li>Pick the architecture (microservices, worker pool, batch) before the tooling</li>
-      <li>Choose the lightest orchestrator that meets the scale: Compose, Swarm, then Kubernetes</li>
-      <li>Adopt database-per-service so domains scale and fail independently</li>
-      <li>Plan the migration path from Swarm to Kubernetes before you hit Swarm's ceiling</li>
-    </ul>
-  </div>
-</div>
+- Keep a single compose file as the source of truth from dev to prod
+- Use multi-stage builds to keep production images small and fast to scale
+- Implement health checks so rolling updates can gate on readiness
+- Inject secrets as files, never as environment variables
+
+**For DevOps/SRE**
+
+- Run an odd number of Swarm managers across availability zones
+- Segment networks: public frontend, internal-only backend
+- Tune `update_config` and `rollback_config` for zero-downtime deploys
+- Front the routing mesh with an external load balancer targeting all nodes
+
+**For architects**
+
+- Pick the architecture (microservices, worker pool, batch) before the tooling
+- Choose the lightest orchestrator that meets the scale: Compose, Swarm, then Kubernetes
+- Adopt database-per-service so domains scale and fail independently
+- Plan the migration path from Swarm to Kubernetes before you hit Swarm's ceiling
 
 ### The Modern Toolchain
 
