@@ -1,0 +1,3432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Engineering large monorepos: build graphs and affected-target analysis, distributed remote execution, dependency visibility rules, code ownership, CI at scal...">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Monorepos: Scaling & Engineering">
+<meta property="og:description" content="Engineering large monorepos: build graphs and affected-target analysis, distributed remote execution, dependency visibility rules, code ownership, CI at scal...">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/monorepo-scaling/">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Monorepos: Scaling & Engineering">
+<meta name="twitter:description" content="Engineering large monorepos: build graphs and affected-target analysis, distributed remote execution, dependency visibility rules, code ownership, CI at scal...">
+
+<title>Monorepos: Scaling & Engineering | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f7f8fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+  
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
+});
+</script>
+
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #f9fafc;
+    z-index: 90;
+    font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.22rem 0.55rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.07);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
+    color: #b0b8c0;
+    text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose'
+    });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
+  <aside class="sidebar sticky">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
+      
+        
+          <h3 class="nav__title">Start Here</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html">
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html">
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html">
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html">
+                      <span class="nav__sub-title">Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html">
+                      <span class="nav__sub-title">Search</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html">
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/">
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html">
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html">
+                              Storage &amp; Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html">
+                              Dockerfiles &amp; CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-networking.html">
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/registry.html">
+                              Registry &amp; Distribution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-design-patterns.html">
+                              Design Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html">
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/container-runtimes.html">
+                              Container Runtimes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/">
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-resources.html">
+                              Fundamentals: Resources
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-networking.html">
+                              Fundamentals: Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html">
+                              Workloads &amp; Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/persistence.html">
+                              Persistence
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html">
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/">
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html">
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html">
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html">
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html">
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html">
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/monitoring.html">
+                              Monitoring &amp; Messaging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/iac.html">
+                              Infrastructure as Code
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/cost.html">
+                              Cost Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/architecture.html">
+                              Architecture &amp; Case Studies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/troubleshooting.html">
+                              Troubleshooting
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/">
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html">
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html">
+                              State &amp; Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html">
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="version-control">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/git/">
+                            Version Control
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-crash-course.html">
+                              Git Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/">
+                              Git Internals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/object-model.html">
+                              Git: Object Model &amp; Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/protocols-and-performance.html">
+                              Git: Protocols, Packs &amp; Performance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/algorithms-and-operations.html">
+                              Git: Algorithms &amp; Advanced Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/conflict-and-recovery.html">
+                              Git: Conflict &amp; Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/auth-and-access-control.html">
+                              Git: Auth &amp; Access Control
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-reference.html">
+                              Command Reference
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/branching.html">
+                              Branching Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/advanced-branching-techniques.html">
+                              Advanced Branching Techniques
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="devops-ci-cd">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ci-cd/">
+                            DevOps &amp; CI/CD
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/">
+                              CI/CD Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/platforms-and-pipelines.html">
+                              Platforms &amp; Pipeline Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/deployment.html">
+                              Deployment Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/security-and-operations.html">
+                              Security, GitOps &amp; Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/please-build.html">
+                              Please Build
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="networking-security">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/networking/">
+                            Networking &amp; Security
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/">
+                              Networking Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/fundamentals.html">
+                              Net: Layers &amp; Addressing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/transport-and-protocols.html">
+                              Net: Transport &amp; Protocols
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/routing.html">
+                              Net: Routing &amp; Switching
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/performance-and-security.html">
+                              Net: Performance, QoS &amp; Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/cloud-networking.html">
+                              Net: Cloud Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/wireless-and-mobile.html">
+                              Net: Wireless &amp; Mobile
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/programmable-networks.html">
+                              Net: Programmable Networks
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/modern-architecture.html">
+                              Net: Modern &amp; Future Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/">
+                              Cybersecurity Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cryptography.html">
+                              Sec: Cryptography
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/application-and-cloud-security.html">
+                              Sec: Web, Cloud &amp; Container
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html">
+                              Sec: Cloud &amp; Container Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/attacks-and-defense.html">
+                              Sec: Attacks &amp; Network Defense
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/operations-and-response.html">
+                              Sec: Operations, Response &amp; Compliance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/security-operations.html">
+                              Sec: Security Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/incident-response.html">
+                              Sec: Incident Response
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/compliance-and-governance.html">
+                              Sec: Compliance &amp; Governance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/privacy-engineering.html">
+                              Sec: Privacy Engineering
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design/">
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-crash-course.html">
+                              Database Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/">
+                              Database Design Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/modeling.html">
+                              DB: Modeling &amp; Normalization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/indexing-and-queries.html">
+                              DB: Indexing &amp; Query Execution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/transactions-and-concurrency.html">
+                              DB: Transactions &amp; Concurrency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-transactions.html">
+                              DB: Distributed Transactions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/storage-internals.html">
+                              DB: Storage Engines &amp; Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/replication-and-consensus.html">
+                              DB: Replication &amp; Consensus
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-and-nosql.html">
+                              DB: Distributed Databases &amp; NoSQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/nosql-data-models.html">
+                              DB: NoSQL Data Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/schema-evolution-and-migrations.html">
+                              DB: Schema Evolution &amp; Migrations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/orm-patterns.html">
+                              DB: ORM Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/operations-and-monitoring.html">
+                              DB: Operations &amp; Monitoring
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="ai-foundations">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ai/">
+                            AI Foundations
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html">
+                              AI Fundamentals (Simplified)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/">
+                              AI &amp; ML Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/ml-foundations.html">
+                              AI: ML Foundations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/core-ml-algorithms.html">
+                              AI: Core ML Algorithms
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/architectures.html">
+                              AI: Neural Network Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-architectures.html">
+                              AI: Deep Learning Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-theory.html">
+                              AI: Deep Learning Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/loss-functions.html">
+                              AI: Loss Functions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/generative-models.html">
+                              AI: Generative Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/fine-tuning.html">
+                              AI: Fine-Tuning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/reinforcement-learning.html">
+                              AI: Reinforcement Learning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/frontier-and-ethics.html">
+                              AI: Frontier Research &amp; Ethics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-lecture-2023.html">
+                              AI Deep Dive (Lecture)
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="game-real-time">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/unreal.html">
+                            Game &amp; Real-Time
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html">
+                              Unreal Engine
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/index.html">
+                              Game Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/multiplayer-networking.html">
+                              GameDev: Multiplayer Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/procedural-generation.html">
+                              GameDev: Procedural Generation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/save-systems.html">
+                              GameDev: Save Systems
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/ui-design.html">
+                              GameDev: UI Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/audio-design.html">
+                              GameDev: Audio Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/testing-qa.html">
+                              GameDev: Testing &amp; QA
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/monetization.html">
+                              GameDev: Monetization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/3d-rendering.html">
+                              3D Graphics &amp; Rendering
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/shaders.html">
+                              Shaders
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/vr-ar/index.html">
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html">
+                              Game AI
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html">
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="fundamentals">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                            Fundamentals
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                              Stable Diffusion
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/base-models-comparison.html">
+                              Base Models Comparison
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-types.html">
+                              Model Types
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sdxl-guide.html">
+                              SDXL Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sd3-guide.html">
+                              SD3 Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/flux-guide.html">
+                              FLUX Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/pony-and-finetunes.html">
+                              Pony &amp; Finetunes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="training-tools">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/lora-training.html">
+                            Training &amp; Tools
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/lora-training.html">
+                              LoRA Training
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/controlnet.html">
+                              ControlNet
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/comfyui-guide.html">
+                              ComfyUI Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/inpainting-editing.html">
+                              Inpainting &amp; Editing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="production">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/output-formats.html">
+                            Production
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/output-formats.html">
+                              Output Formats
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/advanced-techniques.html">
+                              Advanced Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/optimization-guide.html">
+                              Optimization Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-compression.html">
+                              Model Compression
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/production-pipelines.html">
+                              Production Pipelines
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/mlops-production.html">
+                              MLOps &amp; Production
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html">
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="classical-physics">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/classical-mechanics/">
+                            Classical Physics
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/">
+                              Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/newtonian.html">
+                              CM: Newtonian &amp; Conservation Laws
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/lagrangian-hamiltonian.html">
+                              CM: Lagrangian &amp; Hamiltonian
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/rigid-body-dynamics.html">
+                              CM: Rigid Body Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/waves.html">
+                              CM: Waves &amp; Oscillations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/geometric-mechanics.html">
+                              CM: Geometric Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html">
+                              CM: Chaos, Modern Topics &amp; Computation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html">
+                              CM: Computational Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/fluid-mechanics.html">
+                              Fluid Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics.html">
+                              Thermodynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics-advanced.html">
+                              Thermodynamics (Advanced)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/">
+                              Statistical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/classical-and-quantum.html">
+                              Stat Mech: Classical &amp; Quantum
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/phase-transitions-and-advanced.html">
+                              Stat Mech: Phase Transitions &amp; Formalism
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="quantum-modern">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/quantum-mechanics/">
+                            Quantum &amp; Modern
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/">
+                              Quantum Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/formalism.html">
+                              QM: States, Operators &amp; Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/systems-and-phenomena.html">
+                              QM: Systems &amp; Phenomena
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/bell-inequalities-and-tests.html">
+                              QM: Bell Inequalities &amp; Tests
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-advanced-formalism.html">
+                              QM: Advanced Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computing.html">
+                              QM: Computing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html">
+                              QM: Computational Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/computing-and-advanced.html">
+                              QM: Computing, Information &amp; Advanced
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-research-frontiers.html">
+                              QM: Research Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/">
+                              Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/special-relativity.html">
+                              Relativity: Special Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/general-relativity.html">
+                              Relativity: General Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/tensor-formalism.html">
+                              Relativity: Tensor Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/black-holes.html">
+                              Relativity: Black Holes
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/gravitational-waves.html">
+                              Relativity: Gravitational Waves
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/cosmology.html">
+                              Relativity: Cosmology
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/quantum-gravity.html">
+                              Relativity: Quantum Gravity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/advanced.html">
+                              Relativity: Graduate Formalism &amp; Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-field-theory.html">
+                              Quantum Field Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-quantization.html">
+                              QFT: Quantization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-methods.html">
+                              QFT: Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-frontiers.html">
+                              QFT: Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/gauge-and-standard-model.html">
+                              Gauge Theory &amp; Standard Model
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/renormalization.html">
+                              Renormalization
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="advanced-computational">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/condensed-matter/">
+                            Advanced &amp; Computational
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/">
+                              Condensed Matter
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/emergent-phases.html">
+                              CM: Emergent Phases (Superconductivity, QHE, Topology)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html">
+                              CM: Metals &amp; Magnetism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/lattice-dynamics.html">
+                              CM: Lattice Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/disorder-and-localization.html">
+                              CM: Disorder &amp; Localization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/experimental-techniques.html">
+                              CM: Experimental Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/advanced-formalism.html">
+                              CM: Graduate Formalism &amp; Experiment
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/">
+                              String Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/dualities-and-branes.html">
+                              String Theory: D-Branes, Dualities &amp; M-Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/frontiers-and-formalism.html">
+                              String Theory: Criticisms, Research &amp; Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/string-theory-formalism.html">
+                              String Theory: Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/">
+                              Computational Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html">
+                              Comp Phys: Monte Carlo &amp; Molecular Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/fem-and-cfd.html">
+                              Comp Phys: Finite Elements &amp; Fluid Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/quantum-methods.html">
+                              Comp Phys: Quantum Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/electronic-structure-beyond-dft.html">
+                              Comp Phys: Electronic Structure Beyond DFT
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/hpc-and-ml.html">
+                              Comp Phys: Parallel Computing &amp; ML
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/ml-for-physics.html">
+                              Comp Phys: ML for Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/tools-and-practices.html">
+                              Comp Phys: Visualization, Libraries &amp; Practices
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Hubs &amp; Theory</h3>
+          
+            <ul class="nav__items">
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="distributed-systems">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/distributed-systems/index.html">
+                            Distributed Systems
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/consensus-and-coordination.html">
+                              Consensus &amp; Coordination
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/replication-strategies.html">
+                              Replication Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/client-side-consistency.html">
+                              Client-Side Consistency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/failure-detection.html">
+                              Failure Detection
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/service-discovery.html">
+                              Service Discovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/resilience-patterns.html">
+                              Resilience Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/microservices-and-event-driven.html">
+                              Microservices &amp; Event-Driven
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/observability.html">
+                              Observability
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/testing-distributed-systems.html">
+                              Testing Distributed Systems
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="observability">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/observability/">
+                            Observability
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/metrics.html">
+                              Metrics &amp; Monitoring
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/logging.html">
+                              Logging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/tracing.html">
+                              Tracing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="api-design-communication">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/api-design/">
+                            API Design &amp; Communication
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/rest.html">
+                              REST
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/graphql.html">
+                              GraphQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/grpc-and-protobuf.html">
+                              gRPC &amp; Protobuf
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/async-and-events.html">
+                              Async &amp; Events
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="event-driven-architecture">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/event-driven/">
+                            Event-Driven Architecture
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/message-brokers.html">
+                              Message Brokers &amp; Streaming
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/patterns.html">
+                              Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="software-testing-qa">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/testing/">
+                            Software Testing &amp; QA
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/unit-and-integration.html">
+                              Unit &amp; Integration
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/advanced-testing.html">
+                              Advanced Testing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="performance-optimization">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/optimization/index.html">
+                            Performance Optimization
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/algorithmic-optimization.html">
+                              Algorithmic Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/cpu-optimization.html">
+                              CPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/gpu-optimization.html">
+                              GPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/memory-optimization.html">
+                              Memory Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/network-io-optimization.html">
+                              Network &amp; I/O Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/platform-tuning.html">
+                              Platform Tuning
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html">
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html">
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html">
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html">
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/">
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/">
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/">
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/complexity-theory/">
+                      <span class="nav__sub-title">Computational Complexity Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/approximation-algorithms/">
+                      <span class="nav__sub-title">Approximation Algorithms</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/automata-and-formal-languages/">
+                      <span class="nav__sub-title">Automata &amp; Formal Languages</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/category-and-type-theory/">
+                      <span class="nav__sub-title">Category &amp; Type Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/topology-and-geometry-in-computation/">
+                      <span class="nav__sub-title">Topology &amp; Geometry in Computation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/information-coding-theory/">
+                      <span class="nav__sub-title">Information &amp; Coding Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/cryptography/">
+                      <span class="nav__sub-title">Cryptography (Foundations &amp; PQ)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/">
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-scaling/" class="active">
+                      <span class="nav__sub-title">Monorepos: Scaling &amp; Engineering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-tooling/">
+                      <span class="nav__sub-title">Monorepo Tooling</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html">
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references">
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants">
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures">
+                      <span class="nav__sub-title">Algorithms &amp; Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns">
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts">
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists">
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        
+      </header>
+
+      <section id="page-content" class="page__content">
+        <div class="hero-section" style="background: linear-gradient(135deg, #232526 0%, #414345 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Monorepos: Scaling &amp; Engineering</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build graphs, remote execution, dependency rules, ownership, and the VCS techniques that keep a repository workable at billion-line scale</p>
+</div>
+
+<p><a href="./">Advanced Topics</a> » Monorepos: Scaling &amp; Engineering</p>
+
+<div class="advanced-note">
+  <p><strong>Advanced engineering deep-dive.</strong> This page is for platform, build, and infrastructure engineers who already run a monorepo and need it to stay fast as it grows past the point where naïve “build everything” stops working. <strong>Helpful background:</strong> dependency graphs and topological ordering, distributed systems, content-addressed caching, and Git internals. For monorepo fundamentals, the polyrepo trade-off, and tool selection, start with <a href="../monorepo/">Monorepo Strategies and Management</a>. For pipeline basics see <a href="../../technology/ci-cd/">CI/CD Pipelines</a>; for the VCS mechanics see the <a href="../../technology/git-reference.html">Git Reference</a>.</p>
+</div>
+
+<div class="intro-card">
+  <p class="lead-text">A monorepo's central problem is not <em>storage</em> — modern VCS can hold an enormous tree — it is <strong>work amplification</strong>. With <em>N</em> projects in one repository, the temptation is to rebuild and retest all <em>N</em> on every change, turning an O(1) edit into O(N) CI. Everything on this page is, at bottom, a technique to break that coupling: model the code as a graph, compute the small set a change actually affects, cache results so identical inputs are never recomputed, distribute the remaining work across many machines, and keep the working tree on disk small enough to clone and index. Get these right and a 100-engineer monorepo feels as fast as a single small repo; get them wrong and CI becomes the bottleneck that dooms the whole strategy.</p>
+</div>
+
+<div class="key-insights">
+  <div class="insight-card">
+<i class="fas fa-project-diagram"></i><h4>The graph is the substrate</h4>
+<p>Every scaling technique — affected analysis, caching, remote execution, parallelism — is an operation on the project dependency DAG. Without an accurate graph, none of them are sound.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-bullseye"></i><h4>Affected, not everything</h4>
+<p>A change touches a set of files; those map to nodes; the transitive reverse-dependency closure of those nodes is the only work that must run. Everything else is provably unaffected.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-server"></i><h4>Push work off the laptop</h4>
+<p>Remote execution turns a build into a distributed map over a worker pool; remote caching means an input built anywhere is built once, ever, across the whole org.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-hard-drive"></i><h4>Don't materialize what you don't need</h4>
+<p>Sparse checkout and virtual filesystems let a developer see and edit a billion-file repo while only a few thousand files ever hit local disk.</p>
+</div>
+</div>
+
+<h2 id="the-build-graph-as-the-unit-of-scale">The Build Graph as the Unit of Scale</h2>
+
+<p>Naïve monorepo CI scales linearly with repository size: every push reruns the full build and test suite, so cost grows as the repo grows even though an individual change rarely touches more than a handful of projects. The fix is to make the <em>graph</em> — not the repository — the unit of work.</p>
+
+<p>A monorepo’s code is modelled as a directed acyclic graph (DAG) of <strong>targets</strong> (Bazel’s term) or <strong>projects/tasks</strong> (Nx, Turborepo). Each node has:</p>
+
+<ul>
+  <li>a set of <strong>inputs</strong> (source files, configuration, the versions of its dependencies’ outputs, the toolchain),</li>
+  <li>a <strong>command</strong> that transforms those inputs, and</li>
+  <li>a set of <strong>outputs</strong> (compiled artifacts, test results, bundles).</li>
+</ul>
+
+<p>An edge <code class="language-plaintext highlighter-rouge">A -&gt; B</code> means <em>B depends on A</em>: B’s inputs include A’s outputs. Acyclicity is non-negotiable — a cycle has no valid topological build order — which is why monorepo tools enforce “no circular dependencies” as a hard rule.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    utils["lib: utils"]
+    logging["lib: logging"]
+    api["lib: api-client"]
+    ui["lib: ui-components"]
+    web["app: web"]
+    admin["app: admin"]
+    utils --&gt; logging
+    utils --&gt; api
+    utils --&gt; ui
+    api --&gt; web
+    ui --&gt; web
+    ui --&gt; admin
+    logging --&gt; api
+    web --&gt; web_test["test: web e2e"]
+    admin --&gt; admin_test["test: admin e2e"]
+</code></pre>
+
+<h3 id="affected-target-analysis">Affected-Target Analysis</h3>
+
+<p>The core algorithm of every scaling monorepo tool is <strong>affected-target analysis</strong>. Given a changeset (typically the diff between a feature branch and a merge base), it answers: <em>which targets must rebuild and retest?</em></p>
+
+<p>The procedure is:</p>
+
+<ol>
+  <li>
+<strong>Map changed files to source nodes.</strong> Each modified file belongs to exactly one project/package; that project is <em>directly affected</em>.</li>
+  <li>
+<strong>Compute the reverse-dependency (downstream) closure.</strong> A change to a node invalidates every node that transitively depends on it, because their inputs include its outputs. This is a graph reachability problem on the <em>reversed</em> edges.</li>
+  <li>
+<strong>Add graph-structure changes.</strong> Editing a <code class="language-plaintext highlighter-rouge">BUILD</code>/<code class="language-plaintext highlighter-rouge">project.json</code>/<code class="language-plaintext highlighter-rouge">package.json</code> can add or remove edges, so dependency-manifest changes are treated as affecting the project (and sometimes the whole graph).</li>
+</ol>
+
+<p>Formally, let $G = (V, E)$ be the build graph with edge $u \to v$ meaning “<em>v</em> depends on <em>u</em>”. Let $C \subseteq V$ be the set of directly-changed projects. The affected set is the closure under the reverse reachability relation:</p>
+
+\[A(C) = \{\, v \in V : \exists\, u \in C \text{ with a directed path } u \rightsquigarrow v \,\} \cup C\]
+
+<table>
+  <tbody>
+    <tr>
+      <td>In words: a node is affected iff it <em>is</em> changed or <em>depends, transitively, on</em> something changed. Computing $A(C)$ is a multi-source breadth-first search from $C$ over $E$, running in $O(</td>
+      <td>V</td>
+      <td>+</td>
+      <td>E</td>
+      <td>)$ — linear in the graph, independent of how large the unaffected portion is.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+
+<span class="k">def</span> <span class="nf">affected</span><span class="p">(</span><span class="n">changed</span><span class="p">,</span> <span class="n">dependents</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">changed: set of directly-changed node ids.
+       dependents: adjacency where dependents[u] = nodes that depend on u.
+       Returns the transitive set of affected nodes (BFS over reverse edges).</span><span class="sh">"""</span>
+    <span class="n">seen</span><span class="p">,</span> <span class="n">queue</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">changed</span><span class="p">),</span> <span class="nf">deque</span><span class="p">(</span><span class="n">changed</span><span class="p">)</span>
+    <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nf">popleft</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dependents</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="p">()):</span>  <span class="c1"># who depends on `node`
+</span>            <span class="k">if</span> <span class="n">d</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                <span class="n">queue</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">seen</span>
+</code></pre></div></div>
+
+<p>The corresponding CLI invocations across tools:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Nx: build/test only what the diff against main affects</span>
+nx affected <span class="nt">--target</span><span class="o">=</span>build <span class="nt">--base</span><span class="o">=</span>origin/main <span class="nt">--head</span><span class="o">=</span>HEAD
+nx affected <span class="nt">--target</span><span class="o">=</span><span class="nb">test</span>  <span class="nt">--base</span><span class="o">=</span>origin/main <span class="nt">--head</span><span class="o">=</span>HEAD
+
+<span class="c"># Turborepo: filter by changed packages since a ref</span>
+turbo run build <span class="nt">--filter</span><span class="o">=</span>...[origin/main]
+turbo run <span class="nb">test</span>  <span class="nt">--filter</span><span class="o">=</span>...[origin/main]
+
+<span class="c"># Bazel: query the reverse dependencies of changed targets, then build them</span>
+bazel query <span class="s2">"rdeps(//..., set(</span><span class="si">$(</span>git diff <span class="nt">--name-only</span> origin/main | <span class="se">\</span>
+  <span class="nb">sed</span> <span class="s1">'s|/[^/]*$||'</span> | <span class="nb">sort</span> <span class="nt">-u</span> | <span class="nb">sed</span> <span class="s1">'s|^|//|;s|$|/...|'</span> <span class="si">)</span><span class="s2">))"</span> <span class="se">\</span>
+  | xargs bazel <span class="nb">test</span>
+</code></pre></div></div>
+
+<div class="tip-card">
+  <h4 id="soundness-depends-on-input-completeness">Soundness depends on input completeness</h4>
+  <p>Affected analysis is only correct if the graph captures <em>every</em> input that can change a target’s output. A test that reads an environment variable, a build that pulls the current Git SHA, or a generator that hits the network all create <strong>hidden inputs</strong> — edges the tool can’t see. The result is a target that <em>should</em> be affected but isn’t, so CI passes on a change that actually broke it. This is why hermetic build systems (Bazel, Buck2) sandbox actions and declare inputs explicitly: it is the only way to make affected analysis trustworthy at scale.</p>
+</div>
+
+<h3 id="merge-base-selection-and-nx-set-shas">Merge-Base Selection and <code class="language-plaintext highlighter-rouge">nx-set-shas</code>
+</h3>
+
+<p>Affected analysis needs the right comparison point. On a pull request, the base is the merge-base with the target branch. On <code class="language-plaintext highlighter-rouge">main</code> after a merge, the base should be the <strong>last successfully-built commit</strong>, not the immediate parent — otherwise a flaky or skipped CI run leaves a gap where some affected targets are never built. Nx ships <code class="language-plaintext highlighter-rouge">nrwl/nx-set-shas</code> for exactly this: it records the SHA of the last green pipeline and uses it as the base on subsequent runs.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">nrwl/nx-set-shas@v4</span>
+  <span class="c1"># sets NX_BASE = last successful main build, NX_HEAD = HEAD</span>
+<span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">nx affected --target=build --parallel=3</span>
+</code></pre></div></div>
+
+<h2 id="computation-caching-build-once-ever">Computation Caching: Build Once, Ever</h2>
+
+<p>Affected analysis shrinks the <em>set</em> of targets to run. Caching ensures that even within that set, no target is recomputed if its inputs have not changed.</p>
+
+<h3 id="content-addressed-caching">Content-Addressed Caching</h3>
+
+<p>Each cacheable target is reduced to a <strong>cache key</strong>: a hash of all of its inputs — source files, the resolved hashes of its dependencies’ outputs, the command, environment, and toolchain version. Because the key is derived from inputs (it is <em>content-addressed</em>), identical inputs always map to the same key, and the key can be computed <em>before</em> running the command. The lookup is:</p>
+
+\[\mathrm{key}(t) = H\big(\mathrm{srcs}(t) \,\|\, \mathrm{cmd}(t) \,\|\, \mathrm{env}(t) \,\|\, \{\, \mathrm{key}(d) : d \in \mathrm{deps}(t)\,\}\big)\]
+
+<p>Note the recursion: a target’s key folds in its dependencies’ keys, so the hash propagates structurally up the graph. If <code class="language-plaintext highlighter-rouge">utils</code> changes, its key changes, which changes the key of <code class="language-plaintext highlighter-rouge">api-client</code>, which changes the key of <code class="language-plaintext highlighter-rouge">web</code> — exactly the targets affected analysis flagged. <strong>Caching and affected analysis are two views of the same hash.</strong></p>
+
+<pre><code class="language-mermaid">flowchart LR
+    inputs["inputs:\nsrc + deps' keys\n+ cmd + env"] --&gt; H["H(...)"]
+    H --&gt; key["cache key"]
+    key --&gt; hit{"in cache?"}
+    hit -- "yes" --&gt; restore["restore outputs\n+ replay logs"]
+    hit -- "no" --&gt; run["run command"]
+    run --&gt; store["store outputs\nunder key"]
+</code></pre>
+
+<p>On a cache hit the tool restores the stored outputs (and replays captured stdout/stderr so logs look identical) instead of running the command. A correctly-cached <code class="language-plaintext highlighter-rouge">test</code> target that hits is effectively free.</p>
+
+<h3 id="local-vs-remote-cache">Local vs Remote Cache</h3>
+
+<p>A <strong>local cache</strong> lives on one machine and helps an individual developer rebuild after switching branches. A <strong>remote cache</strong> is a shared, networked store (an object store like S3/GCS, or a managed service such as Nx Cloud or Turborepo Remote Cache) keyed by the same content hashes. With a remote cache, a target built by <em>any</em> developer or CI job is available to <em>everyone</em>: CI populates the cache on <code class="language-plaintext highlighter-rouge">main</code>, and a developer pulling the latest code gets warm artifacts for everything they didn’t change.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Turborepo remote cache (managed or self-hosted)</span>
+turbo login <span class="o">&amp;&amp;</span> turbo <span class="nb">link</span>              <span class="c"># managed Vercel cache</span>
+<span class="c"># self-hosted: point at your own server</span>
+<span class="nv">TURBO_API</span><span class="o">=</span>https://cache.internal <span class="nv">TURBO_TOKEN</span><span class="o">=</span>... turbo run build
+
+<span class="c"># Nx Cloud remote cache + distributed execution</span>
+nx connect            <span class="c"># registers the workspace with Nx Cloud</span>
+
+<span class="c"># Bazel remote cache over gRPC/HTTP (any REAPI-compatible backend)</span>
+bazel build //... <span class="se">\</span>
+  <span class="nt">--remote_cache</span><span class="o">=</span>grpcs://remote.internal:443 <span class="se">\</span>
+  <span class="nt">--remote_upload_local_results</span><span class="o">=</span><span class="nb">true</span>
+</code></pre></div></div>
+
+<div class="warning-card">
+  <h4 id="cache-poisoning-and-the-read-only-on-prs-rule">Cache poisoning and the “read-only on PRs” rule</h4>
+  <p>A remote cache is only as trustworthy as the inputs that produced its entries. If a target has a hidden input (see above), two genuinely different builds can collide on one key, and a <em>wrong</em> artifact gets served forever. The standard mitigations: (1) make builds hermetic so keys are complete; (2) give untrusted contexts (PR builds from forks) <strong>read-only</strong> access to the cache, letting only trusted <code class="language-plaintext highlighter-rouge">main</code> CI <em>write</em> entries; and (3) scope cache writes by a signed token so a compromised PR cannot poison the shared cache.</p>
+</div>
+
+<h2 id="distributed-and-remote-build-execution">Distributed and Remote Build Execution</h2>
+
+<p>Caching and affected analysis reduce <em>total</em> work; <strong>distributed execution</strong> parallelizes the work that remains across many machines. Two distinct mechanisms are often conflated:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>What is distributed</th>
+      <th>Granularity</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Distributed Task Execution (DTE)</strong></td>
+      <td>Whole targets/tasks of the build graph</td>
+      <td>Per-project (e.g. “build app A”, “test lib B”)</td>
+      <td>Nx Cloud DTE, Turborepo (via CI sharding)</td>
+    </tr>
+    <tr>
+      <td><strong>Remote Execution (RE)</strong></td>
+      <td>Individual build <em>actions</em> (a single compiler/test invocation)</td>
+      <td>Per-action (one <code class="language-plaintext highlighter-rouge">.o</code> file, one test shard)</td>
+      <td>Bazel/Buck2 over the Remote Execution API (REAPI)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="distributed-task-execution">Distributed Task Execution</h3>
+
+<p>DTE shards the affected target list across a pool of CI agents. A coordinator computes the graph, then hands each agent a slice respecting topological order — an agent cannot run <code class="language-plaintext highlighter-rouge">web</code>’s build until <code class="language-plaintext highlighter-rouge">ui</code> and <code class="language-plaintext highlighter-rouge">api</code> have been built (possibly by <em>other</em> agents), so completed outputs are exchanged through the remote cache.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Nx Cloud DTE: one coordinator + N agents that pull tasks off a shared queue</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">main</span><span class="pi">:</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">nx-cloud start-ci-run --distribute-on="8 linux-medium"</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">nx affected --target=build,test,lint --parallel=3</span>
+      <span class="c1"># agents started by nx-cloud pick up tasks; outputs flow via the cache</span>
+</code></pre></div></div>
+
+<p>The speedup is bounded by the graph’s <strong>critical path</strong> — the longest chain of dependent targets, which no amount of parallelism can shorten. If <code class="language-plaintext highlighter-rouge">utils -&gt; api -&gt; web -&gt; web-e2e</code> is the longest dependent chain, the build cannot finish faster than the sum of those four durations regardless of how many agents you add. This is Amdahl’s law applied to the build DAG: with $W$ total work, critical-path length $L$, and $p$ workers, makespan is bounded below by</p>
+
+\[T(p) \geq \max\!\left(L,\; \frac{W}{p}\right)\]
+
+<p>so once $p \geq W/L$, adding workers buys nothing. Shortening the critical path (splitting a monolithic target, breaking a long dependency chain) is the only way past that floor — and is precisely why over-coupled graphs scale poorly even with a huge worker fleet.</p>
+
+<h3 id="remote-execution-reapi">Remote Execution (REAPI)</h3>
+
+<p>Hermetic systems go finer-grained. Bazel and Buck2 decompose a build into thousands of individual <strong>actions</strong>, each a fully-declared <code class="language-plaintext highlighter-rouge">(input files, command, output files)</code> triple. Because actions are hermetic, any action can run on any worker in any order consistent with the DAG. The Remote Execution API standardizes this as three services:</p>
+
+<ol>
+  <li>
+<strong>Content-Addressable Storage (CAS):</strong> input/output blobs keyed by digest (<code class="language-plaintext highlighter-rouge">hash:size</code>).</li>
+  <li>
+<strong>Action Cache (AC):</strong> maps an action’s digest to its cached result.</li>
+  <li>
+<strong>Execution service:</strong> schedules cache-missing actions onto a worker farm.</li>
+</ol>
+
+<pre><code class="language-mermaid">flowchart LR
+    client["bazel client\n(builds action graph)"] --&gt; ac{"Action Cache\nhit?"}
+    ac -- "hit" --&gt; done["download outputs\nfrom CAS"]
+    ac -- "miss" --&gt; exec["Execution service"]
+    exec --&gt; worker["worker farm\n(runs action in sandbox)"]
+    worker --&gt; cas["store outputs in CAS"]
+    cas --&gt; done
+</code></pre>
+
+<p>A developer on a laptop can drive a build whose compilation runs entirely on a remote farm of hundreds of cores, downloading only the final outputs they asked for. This is how Google/Meta-scale builds remain interactive: the client orchestrates, the farm computes, the CAS deduplicates.</p>
+
+<h2 id="dependency-management-and-visibility-rules">Dependency Management and Visibility Rules</h2>
+
+<p>Affected analysis presumes the graph is <em>accurate</em> and <em>acyclic</em>. At scale, the graph degrades unless actively governed — every undeclared dependency is a hidden input, and every accidental edge widens the affected set and the blast radius of a change.</p>
+
+<h3 id="visibility--module-boundary-rules">Visibility / Module Boundary Rules</h3>
+
+<p>Without constraints, any project can import any other, and the graph drifts toward a fully-connected “big ball of mud” where every change rebuilds everything. <strong>Visibility rules</strong> declare which targets may depend on which, and CI fails the build when a forbidden edge appears.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel: a target lists who is allowed to depend on it
+</span><span class="nf">java_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">internal_impl</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">impl/*.java</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//billing:__subpackages__</span><span class="sh">"</span><span class="p">],</span>  <span class="c1"># only billing/ may depend
+</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Nx encodes the same idea with <strong>tags</strong> and an ESLint rule that bans cross-boundary imports:</p>
+
+<div class="language-jsonc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// project.json — tag each project by type and scope</span><span class="w">
+</span><span class="p">{</span><span class="w"> </span><span class="nl">"tags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"type:feature"</span><span class="p">,</span><span class="w"> </span><span class="s2">"scope:checkout"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-jsonc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// .eslintrc — enforce-module-boundaries</span><span class="w">
+</span><span class="nl">"@nx/enforce-module-boundaries"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w">
+  </span><span class="nl">"depConstraints"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"sourceTag"</span><span class="p">:</span><span class="w"> </span><span class="s2">"type:feature"</span><span class="p">,</span><span class="w"> </span><span class="nl">"onlyDependOnLibsWithTags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"type:ui"</span><span class="p">,</span><span class="w"> </span><span class="s2">"type:util"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"sourceTag"</span><span class="p">:</span><span class="w"> </span><span class="s2">"scope:checkout"</span><span class="p">,</span><span class="w"> </span><span class="nl">"onlyDependOnLibsWithTags"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"scope:checkout"</span><span class="p">,</span><span class="w"> </span><span class="s2">"scope:shared"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}]</span><span class="w">
+</span></code></pre></div></div>
+
+<p>These rules do real architectural work: they keep the DAG shallow and well-layered, prevent feature teams from reaching into each other’s internals, and bound the affected set so a <code class="language-plaintext highlighter-rouge">util</code> change does not accidentally cascade into unrelated domains because someone took an illicit shortcut.</p>
+
+<h3 id="single-version-policy">Single-Version Policy</h3>
+
+<p>Large monorepos almost universally adopt a <strong>single-version policy (SVP)</strong>: at most one version of any third-party dependency exists in the tree. The benefits are structural — no “diamond” version conflicts, no duplicated transitive copies bloating bundles, atomic upgrades that are tested across every consumer at once. The cost is real too: upgrading a widely-used dependency means fixing every breakage in one (large) change, which is why monorepos invest heavily in automated codemods and large-scale-change tooling.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># pnpm catalogs: declare each dependency's version once, reference by name</span>
+<span class="na">catalog</span><span class="pi">:</span>
+  <span class="na">react</span><span class="pi">:</span> <span class="s">^18.2.0</span>
+  <span class="na">typescript</span><span class="pi">:</span> <span class="s">^5.4.0</span>
+<span class="na">packages</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s1">'</span><span class="s">packages/*'</span>
+  <span class="pi">-</span> <span class="s1">'</span><span class="s">apps/*'</span>
+</code></pre></div></div>
+
+<div class="language-jsonc highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// a package references the catalog version instead of pinning its own</span><span class="w">
+</span><span class="p">{</span><span class="w"> </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"react"</span><span class="p">:</span><span class="w"> </span><span class="s2">"catalog:"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Bazel’s <code class="language-plaintext highlighter-rouge">bzlmod</code> (<code class="language-plaintext highlighter-rouge">MODULE.bazel</code>) enforces SVP at the build-system level by resolving the whole external dependency graph to a single version per module via Minimal Version Selection.</p>
+
+<h3 id="detecting-phantom-and-undeclared-dependencies">Detecting Phantom and Undeclared Dependencies</h3>
+
+<p>A <strong>phantom dependency</strong> is a package a project imports but never declares — it works only because a hoisted <code class="language-plaintext highlighter-rouge">node_modules</code> happened to make it resolvable. Phantom deps are invisible to the graph, so affected analysis and caching silently miss them. Strict package managers (pnpm’s non-flat <code class="language-plaintext highlighter-rouge">node_modules</code>, Rush’s strict mode) and Bazel’s sandboxing surface these by making undeclared imports <em>fail to resolve</em>, forcing every real edge into the declared graph.</p>
+
+<h2 id="code-ownership-at-scale">Code Ownership at Scale</h2>
+
+<p>One repository still needs many owners. <code class="language-plaintext highlighter-rouge">CODEOWNERS</code> maps path patterns to teams; the VCS host auto-requests review from the owning team and (with branch protection) blocks merge until they approve.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># .github/CODEOWNERS — last matching pattern wins
+*                          @org/platform-eng
+/apps/web/                 @org/web-team
+/apps/web/src/checkout/    @org/checkout-team   # more specific overrides
+/packages/ui-components/   @org/design-system
+*.sql                      @org/data-platform
+/.github/                  @org/release-eng
+</code></pre></div></div>
+
+<div class="tip-card">
+  <h4 id="ownership-scales-with-the-graph-not-just-the-tree">Ownership scales with the graph, not just the tree</h4>
+  <p><code class="language-plaintext highlighter-rouge">CODEOWNERS</code> is path-based, but the <em>meaningful</em> ownership boundary is the project graph. Aligning ownership to graph boundaries (each library/app owned by one team, boundary rules preventing cross-team reach-ins) means a change’s required reviewers fall out naturally from the affected projects. Tooling like Nx’s <code class="language-plaintext highlighter-rouge">nx affected --graph</code> or <code class="language-plaintext highlighter-rouge">bazel query 'rdeps(...)'</code> can surface <em>which teams</em> a change touches, so reviews are routed by impact rather than by accidental file location.</p>
+</div>
+
+<p>For finer control than <code class="language-plaintext highlighter-rouge">CODEOWNERS</code> offers — per-path minimum-approval counts, escalating sensitive directories — teams layer a policy file enforced in CI:</p>
+
+<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// ownership.config.ts — augments CODEOWNERS with approval thresholds</span>
+<span class="k">export</span> <span class="kd">const</span> <span class="nx">ownership</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">rules</span><span class="p">:</span> <span class="p">[</span>
+    <span class="p">{</span> <span class="na">pattern</span><span class="p">:</span> <span class="dl">'</span><span class="s1">packages/core/**</span><span class="dl">'</span><span class="p">,</span>   <span class="na">owners</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">@core-team</span><span class="dl">'</span><span class="p">],</span>     <span class="na">minApprovals</span><span class="p">:</span> <span class="mi">2</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="na">pattern</span><span class="p">:</span> <span class="dl">'</span><span class="s1">infra/terraform/**</span><span class="dl">'</span><span class="p">,</span> <span class="na">owners</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">@platform-eng</span><span class="dl">'</span><span class="p">],</span>  <span class="na">minApprovals</span><span class="p">:</span> <span class="mi">2</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="na">pattern</span><span class="p">:</span> <span class="dl">'</span><span class="s1">apps/**</span><span class="dl">'</span><span class="p">,</span>            <span class="na">owners</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">@app-team</span><span class="dl">'</span><span class="p">],</span>       <span class="na">minApprovals</span><span class="p">:</span> <span class="mi">1</span> <span class="p">},</span>
+  <span class="p">],</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<h2 id="ci-at-scale">CI at Scale</h2>
+
+<p>Putting the pieces together, a monorepo CI pipeline is fundamentally different from a polyrepo pipeline: it is <em>change-driven</em>, not <em>repo-driven</em>. The shape is always the same — compute the affected set, fan it out across agents with caching, then converge.</p>
+
+<h3 id="dynamic-matrix-generation">Dynamic Matrix Generation</h3>
+
+<p>Because the set of projects to build depends on the diff, the CI matrix must be <em>generated at runtime</em> rather than hard-coded:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">CI</span>
+<span class="na">on</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">pull_request</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span> <span class="pi">}</span> <span class="pi">}</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">setup</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">outputs</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span> <span class="s">${{ steps.affected.outputs.matrix }}</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+        <span class="na">with</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">fetch-depth</span><span class="pi">:</span> <span class="nv">0</span> <span class="pi">}</span>      <span class="c1"># full history so merge-base resolves</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">nrwl/nx-set-shas@v4</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">affected</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">APPS=$(nx show projects --affected --type app --json)</span>
+          <span class="s">echo "matrix={\"app\":$APPS}" &gt;&gt; "$GITHUB_OUTPUT"</span>
+
+  <span class="na">build</span><span class="pi">:</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="s">setup</span>
+    <span class="na">if</span><span class="pi">:</span> <span class="s">${{ needs.setup.outputs.matrix != '{"app":[]}' }}</span>
+    <span class="na">strategy</span><span class="pi">:</span>
+      <span class="na">matrix</span><span class="pi">:</span> <span class="s">${{ fromJson(needs.setup.outputs.matrix) }}</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">nx build ${{ matrix.app }} --configuration=production</span>
+</code></pre></div></div>
+
+<h3 id="the-required-check-problem">The “Required Check” Problem</h3>
+
+<p>Branch protection wants a <em>fixed</em> set of required status checks, but a change-driven pipeline produces a <em>variable</em> set of jobs (a CSS-only change may run zero build jobs). The reconciliation is a <strong>fan-in / convergence job</strong> that always runs and reports the aggregate result; it is the single required check, and it passes only if every dynamically-generated job it depends on passed (or was correctly skipped):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="na">ci-success</span><span class="pi">:</span>                       <span class="c1"># the one required status check</span>
+    <span class="na">needs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">build</span><span class="pi">,</span> <span class="nv">test</span><span class="pi">,</span> <span class="nv">lint</span><span class="pi">]</span>
+    <span class="na">if</span><span class="pi">:</span> <span class="s">always()</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s"># fail if any needed job failed (skipped is OK; failure/cancel is not)</span>
+          <span class="s">[[ "${{ contains(needs.*.result, 'failure') }}" == "false" ]] || exit 1</span>
+          <span class="s">[[ "${{ contains(needs.*.result, 'cancelled') }}" == "false" ]] || exit 1</span>
+</code></pre></div></div>
+
+<h3 id="flaky-test-management">Flaky-Test Management</h3>
+
+<p>At scale, even a 0.1%-flaky test fails constantly: across thousands of test targets run on every PR, the probability that <em>some</em> test flakes approaches one. If $n$ independent test targets each pass with probability $1 - f$, the chance a run is <em>flake-free</em> is $(1-f)^n$, which collapses toward zero as $n$ grows — a 0.1% flake rate over 2000 targets gives only $(0.999)^{2000} \approx 0.135$, i.e. roughly 86% of green-code runs fail spuriously. Monorepos therefore treat flakiness as a first-class scaling problem: automatic retries with quarantine, flaky-test detection from historical pass/fail data, and dashboards that demote chronically-flaky targets out of the required path until fixed.</p>
+
+<h3 id="merge-queues">Merge Queues</h3>
+
+<p>When many PRs target a busy <code class="language-plaintext highlighter-rouge">main</code>, testing each against a stale base is unsound — two individually-green PRs can conflict semantically once both land. A <strong>merge queue</strong> serializes integration: it tests each PR against the <em>prospective</em> <code class="language-plaintext highlighter-rouge">main</code> (with the PRs ahead of it already applied) before merging, optionally batching several together and bisecting on failure. Combined with affected analysis, the queue only reruns the targets a batch actually affects, keeping throughput high without sacrificing a green trunk.</p>
+
+<h2 id="vcs-scaling-keeping-the-working-tree-tractable">VCS Scaling: Keeping the Working Tree Tractable</h2>
+
+<p>The final scaling axis is the version-control system itself. A repository with millions of files and deep history strains <code class="language-plaintext highlighter-rouge">git status</code>, <code class="language-plaintext highlighter-rouge">git checkout</code>, and clone times — operations that are linear in working-tree or history size. The techniques below decouple “what the repo contains” from “what hits local disk.”</p>
+
+<h3 id="partial-and-shallow-clone">Partial and Shallow Clone</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Shallow clone: truncate history to the most recent commit(s)</span>
+git clone <span class="nt">--depth</span><span class="o">=</span>1 https://github.com/org/monorepo.git
+git fetch <span class="nt">--deepen</span><span class="o">=</span>100            <span class="c"># pull more history on demand</span>
+
+<span class="c"># Partial clone: fetch commits + trees now, blobs lazily on access</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none https://github.com/org/monorepo.git
+<span class="c"># blobs are downloaded transparently the first time a file is read</span>
+</code></pre></div></div>
+
+<p>A <strong>partial clone</strong> (<code class="language-plaintext highlighter-rouge">--filter=blob:none</code>) is usually preferable to a shallow clone for monorepos: it keeps full history (so <code class="language-plaintext highlighter-rouge">git log</code>, <code class="language-plaintext highlighter-rouge">blame</code>, and merge-base all work) while deferring the bulk — file <em>contents</em> — until actually needed. The trade is occasional latency when first touching an old blob.</p>
+
+<h3 id="sparse-checkout">Sparse Checkout</h3>
+
+<p>Even with all blobs available, materializing every file is wasteful when a developer works on one corner of the tree. <strong>Sparse checkout</strong> restricts the working tree to a declared set of directories; the rest exist in the index but are never written to disk.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git sparse-checkout init <span class="nt">--cone</span>        <span class="c"># cone mode: directory-prefix based, fast</span>
+git sparse-checkout <span class="nb">set </span>apps/web packages/ui-components packages/utils
+<span class="c"># working tree now contains only those subtrees (plus root files)</span>
+git sparse-checkout add packages/api-client   <span class="c"># widen the cone later</span>
+</code></pre></div></div>
+
+<p>Cone mode trades the full flexibility of arbitrary pattern matching for performance: it matches on directory prefixes only, which keeps the pattern-matching cost proportional to the cone size rather than the whole tree. Combined with partial clone, a developer downloads and materializes only the subtree they own, even if the full repo is hundreds of gigabytes.</p>
+
+<h3 id="virtual--scalar-filesystems">Virtual / Scalar Filesystems</h3>
+
+<p>The endgame is to virtualize the filesystem entirely so files appear present but are hydrated on first access:</p>
+
+<ul>
+  <li>
+<strong>Microsoft’s VFS for Git (formerly GVFS)</strong> projects the Windows repo as a virtual filesystem; a 300 GB+ repo presents instantly and blobs stream in as files are opened. It was built precisely because vanilla Git could not handle the Windows monorepo.</li>
+  <li>
+<strong>Scalar</strong> (now bundled with Git) is the modern, cross-platform successor that orchestrates partial clone, sparse checkout in cone mode, background prefetch, and filesystem monitoring without a custom virtual filesystem driver. <code class="language-plaintext highlighter-rouge">scalar clone</code> configures all of these for you.</li>
+  <li>
+<strong>Meta’s EdenFS</strong> (with the Sapling SCM) virtualizes the working copy on a Mercurial-derived backend, fetching file contents lazily and using <code class="language-plaintext highlighter-rouge">Watchman</code> to make <code class="language-plaintext highlighter-rouge">status</code> queries O(changed files) instead of O(tree).</li>
+</ul>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scalar: one command sets up partial clone + cone sparse-checkout + prefetch</span>
+scalar clone https://github.com/org/monorepo.git
+<span class="nb">cd </span>monorepo/src
+git sparse-checkout <span class="nb">set </span>apps/web        <span class="c"># only hydrate what you work on</span>
+</code></pre></div></div>
+
+<h3 id="filesystem-monitor">Filesystem Monitor</h3>
+
+<p><code class="language-plaintext highlighter-rouge">git status</code> is O(working-tree size) by default because it <code class="language-plaintext highlighter-rouge">lstat</code>s every tracked file. A <strong>filesystem monitor</strong> (<code class="language-plaintext highlighter-rouge">Watchman</code>, or Git’s built-in <code class="language-plaintext highlighter-rouge">core.fsmonitor</code>) subscribes to OS change notifications so Git only re-examines files that actually changed — turning status into O(changed files). On a multi-million-file checkout this is the difference between a multi-second and a sub-second <code class="language-plaintext highlighter-rouge">status</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config core.fsmonitor <span class="nb">true</span>     <span class="c"># use the built-in fsmonitor daemon</span>
+git config core.untrackedcache <span class="nb">true
+</span>git config core.preloadindex <span class="nb">true</span>  <span class="c"># parallelize index lstat on platforms without fsmonitor</span>
+</code></pre></div></div>
+
+<div class="key-insights">
+  <div class="insight-card">
+<i class="fas fa-clone"></i><h4>Clone less</h4>
+<p>Partial clone (<code>--filter=blob:none</code>) keeps full history but fetches file contents lazily, shrinking clone from hours to seconds on a huge repo.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-folder-tree"></i><h4>Materialize less</h4>
+<p>Cone-mode sparse checkout writes only the subtrees a developer declares, so the on-disk working tree is bounded by their area of ownership.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-eye"></i><h4>Scan less</h4>
+<p>A filesystem monitor makes <code>git status</code> O(changed files) instead of O(tree), keeping everyday commands instant.</p>
+</div>
+  <div class="insight-card">
+<i class="fas fa-magic"></i><h4>Virtualize the rest</h4>
+<p>Scalar / VFS / EdenFS present the whole repo while hydrating blobs on first access — the only way Windows- and Meta-scale repos stay usable.</p>
+</div>
+</div>
+
+<h2 id="putting-it-together-a-scaling-checklist">Putting It Together: A Scaling Checklist</h2>
+
+<div class="tip-card">
+  <h4 id="from-small-monorepo-to-fleet-scale">From small monorepo to fleet-scale</h4>
+  <ol>
+    <li>
+<strong>Model the graph accurately.</strong> Declare every dependency; ban cycles; enforce module-boundary/visibility rules so the DAG stays layered.</li>
+    <li>
+<strong>Make builds hermetic enough to trust the cache.</strong> Sandbox actions or at least declare all inputs, so cache keys are complete and affected analysis is sound.</li>
+    <li>
+<strong>Turn on local + remote caching.</strong> Give <code class="language-plaintext highlighter-rouge">main</code> CI write access, PRs read-only access, and key everything by content hash.</li>
+    <li>
+<strong>Compute affected, not everything.</strong> Use merge-base-aware affected commands and record the last-green SHA on the trunk.</li>
+    <li>
+<strong>Distribute the residual work.</strong> DTE for project-level fan-out, or REAPI remote execution for action-level farms; remember the critical path is the floor.</li>
+    <li>
+<strong>Make CI change-driven.</strong> Dynamic matrices, a single fan-in required check, merge queues, and active flaky-test quarantine.</li>
+    <li>
+<strong>Scale the VCS.</strong> Partial clone + cone sparse checkout + fsmonitor; graduate to Scalar/VFS/EdenFS when the working tree outgrows plain Git.</li>
+  </ol>
+</div>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+<h4>The graph is the unit of scale</h4>
+<p>Affected analysis, caching, and distribution are all operations on the project DAG; an inaccurate graph makes every one of them unsound.</p>
+</div>
+  <div class="takeaway-card">
+<h4>Affected = reverse-reachability</h4>
+<p>The set to rebuild is the transitive downstream closure of changed nodes — a linear-time BFS over reversed edges, independent of unaffected repo size.</p>
+</div>
+  <div class="takeaway-card">
+<h4>Cache keys are content hashes</h4>
+<p>Hashing inputs (including dependencies' keys) makes caching and affected analysis two views of the same computation; remote caches share the result org-wide.</p>
+</div>
+  <div class="takeaway-card">
+<h4>Critical path bounds parallelism</h4>
+<p>Remote execution shrinks total work but cannot beat the longest dependency chain; shortening that chain is the only way past the floor.</p>
+</div>
+  <div class="takeaway-card">
+<h4>Boundaries keep the DAG shallow</h4>
+<p>Visibility rules, single-version policy, and phantom-dependency detection prevent the graph from collapsing into a rebuild-everything mud ball.</p>
+</div>
+  <div class="takeaway-card">
+<h4>Decouple repo size from disk</h4>
+<p>Partial clone, cone sparse checkout, fsmonitor, and virtual filesystems let a billion-file repo feel local while only a few thousand files hit disk.</p>
+</div>
+</div>
+
+<h2 id="see-also">See Also</h2>
+
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <p><strong>Related Advanced Topics</strong></p>
+  <ul>
+    <li>
+<a href="../monorepo/">Monorepo Strategies and Management</a> — Fundamentals, the polyrepo trade-off, tooling overview, and migration</li>
+    <li>
+<a href="../distributed-systems-theory/">Distributed Systems Theory</a> — The consistency and scheduling theory behind remote execution farms</li>
+    <li>
+<a href="../information-coding-theory/">Information &amp; Coding Theory</a> — Content-addressed hashing and deduplication foundations</li>
+    <li>
+<a href="../ai-mathematics/">AI Mathematics</a> — Managing very large ML research codebases</li>
+  </ul>
+
+  <p><strong>Applied Technology</strong></p>
+  <ul>
+    <li>
+<a href="../../technology/git-reference.html">Git Reference</a> — Sparse checkout, partial/shallow clone, LFS, and fsmonitor</li>
+    <li>
+<a href="../../technology/ci-cd/">CI/CD Pipelines</a> — Change-driven pipelines and merge queues</li>
+    <li>
+<a href="../../technology/docker/">Docker</a> — Hermetic, containerized build environments</li>
+    <li>
+<a href="../../optimization/">Performance Optimization</a> — Build-time, caching, and parallelism optimization</li>
+  </ul>
+
+  <p><strong>External Documentation</strong></p>
+  <ul>
+    <li>
+<a href="https://nx.dev/ci/features/affect">Nx Affected</a> · <a href="https://turbo.build">Turborepo</a> · <a href="https://bazel.build/remote/rbe">Bazel Remote Execution</a> · <a href="https://github.com/bazelbuild/remote-apis">Remote Execution API</a> · <a href="https://github.com/microsoft/scalar">Scalar</a> · <a href="https://sapling-scm.com">Sapling/EdenFS</a>
+</li>
+  </ul>
+</div>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

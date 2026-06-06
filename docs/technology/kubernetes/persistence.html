@@ -1,0 +1,3729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Kubernetes: Stateful Workloads & Persistence">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/persistence.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes: Stateful Workloads & Persistence">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Kubernetes: Stateful Workloads & Persistence | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f7f8fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+  
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
+});
+</script>
+
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #f9fafc;
+    z-index: 90;
+    font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.22rem 0.55rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.07);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
+    color: #b0b8c0;
+    text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose'
+    });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
+  <aside class="sidebar sticky">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
+      
+        
+          <h3 class="nav__title">Start Here</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">Search</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/registry.html"
+                               >
+                              Registry & Distribution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-design-patterns.html"
+                               >
+                              Design Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/container-runtimes.html"
+                               >
+                              Container Runtimes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-resources.html"
+                               >
+                              Fundamentals: Resources
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-networking.html"
+                               >
+                              Fundamentals: Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/persistence.html"
+                               class="active">
+                              Persistence
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/monitoring.html"
+                               >
+                              Monitoring & Messaging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/iac.html"
+                               >
+                              Infrastructure as Code
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/cost.html"
+                               >
+                              Cost Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/architecture.html"
+                               >
+                              Architecture & Case Studies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/troubleshooting.html"
+                               >
+                              Troubleshooting
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="version-control">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/git/"
+                             >
+                            Version Control
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-crash-course.html"
+                               >
+                              Git Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/"
+                               >
+                              Git Internals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/object-model.html"
+                               >
+                              Git: Object Model & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/protocols-and-performance.html"
+                               >
+                              Git: Protocols, Packs & Performance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/algorithms-and-operations.html"
+                               >
+                              Git: Algorithms & Advanced Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/conflict-and-recovery.html"
+                               >
+                              Git: Conflict & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/auth-and-access-control.html"
+                               >
+                              Git: Auth & Access Control
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-reference.html"
+                               >
+                              Command Reference
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/branching.html"
+                               >
+                              Branching Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/advanced-branching-techniques.html"
+                               >
+                              Advanced Branching Techniques
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="devops-ci-cd">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ci-cd/"
+                             >
+                            DevOps & CI/CD
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/"
+                               >
+                              CI/CD Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/platforms-and-pipelines.html"
+                               >
+                              Platforms & Pipeline Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/deployment.html"
+                               >
+                              Deployment Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/security-and-operations.html"
+                               >
+                              Security, GitOps & Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/please-build.html"
+                               >
+                              Please Build
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="networking-security">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/networking/"
+                             >
+                            Networking & Security
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/"
+                               >
+                              Networking Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/fundamentals.html"
+                               >
+                              Net: Layers & Addressing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/transport-and-protocols.html"
+                               >
+                              Net: Transport & Protocols
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/routing.html"
+                               >
+                              Net: Routing & Switching
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/performance-and-security.html"
+                               >
+                              Net: Performance, QoS & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/cloud-networking.html"
+                               >
+                              Net: Cloud Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/wireless-and-mobile.html"
+                               >
+                              Net: Wireless & Mobile
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/programmable-networks.html"
+                               >
+                              Net: Programmable Networks
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/modern-architecture.html"
+                               >
+                              Net: Modern & Future Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/"
+                               >
+                              Cybersecurity Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cryptography.html"
+                               >
+                              Sec: Cryptography
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/application-and-cloud-security.html"
+                               >
+                              Sec: Web, Cloud & Container
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html"
+                               >
+                              Sec: Cloud & Container Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/attacks-and-defense.html"
+                               >
+                              Sec: Attacks & Network Defense
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/operations-and-response.html"
+                               >
+                              Sec: Operations, Response & Compliance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/security-operations.html"
+                               >
+                              Sec: Security Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/incident-response.html"
+                               >
+                              Sec: Incident Response
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/compliance-and-governance.html"
+                               >
+                              Sec: Compliance & Governance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/privacy-engineering.html"
+                               >
+                              Sec: Privacy Engineering
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design/"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-crash-course.html"
+                               >
+                              Database Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/"
+                               >
+                              Database Design Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/modeling.html"
+                               >
+                              DB: Modeling & Normalization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/indexing-and-queries.html"
+                               >
+                              DB: Indexing & Query Execution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/transactions-and-concurrency.html"
+                               >
+                              DB: Transactions & Concurrency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-transactions.html"
+                               >
+                              DB: Distributed Transactions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/storage-internals.html"
+                               >
+                              DB: Storage Engines & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/replication-and-consensus.html"
+                               >
+                              DB: Replication & Consensus
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-and-nosql.html"
+                               >
+                              DB: Distributed Databases & NoSQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/nosql-data-models.html"
+                               >
+                              DB: NoSQL Data Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/schema-evolution-and-migrations.html"
+                               >
+                              DB: Schema Evolution & Migrations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/orm-patterns.html"
+                               >
+                              DB: ORM Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/operations-and-monitoring.html"
+                               >
+                              DB: Operations & Monitoring
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="ai-foundations">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ai/"
+                             >
+                            AI Foundations
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                               >
+                              AI Fundamentals (Simplified)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/"
+                               >
+                              AI & ML Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/ml-foundations.html"
+                               >
+                              AI: ML Foundations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/core-ml-algorithms.html"
+                               >
+                              AI: Core ML Algorithms
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/architectures.html"
+                               >
+                              AI: Neural Network Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-architectures.html"
+                               >
+                              AI: Deep Learning Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-theory.html"
+                               >
+                              AI: Deep Learning Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/loss-functions.html"
+                               >
+                              AI: Loss Functions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/generative-models.html"
+                               >
+                              AI: Generative Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/fine-tuning.html"
+                               >
+                              AI: Fine-Tuning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/reinforcement-learning.html"
+                               >
+                              AI: Reinforcement Learning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/frontier-and-ethics.html"
+                               >
+                              AI: Frontier Research & Ethics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                               >
+                              AI Deep Dive (Lecture)
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="game-real-time">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/unreal.html"
+                             >
+                            Game & Real-Time
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/index.html"
+                               >
+                              Game Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/multiplayer-networking.html"
+                               >
+                              GameDev: Multiplayer Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/procedural-generation.html"
+                               >
+                              GameDev: Procedural Generation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/save-systems.html"
+                               >
+                              GameDev: Save Systems
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/ui-design.html"
+                               >
+                              GameDev: UI Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/audio-design.html"
+                               >
+                              GameDev: Audio Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/testing-qa.html"
+                               >
+                              GameDev: Testing & QA
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/monetization.html"
+                               >
+                              GameDev: Monetization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/3d-rendering.html"
+                               >
+                              3D Graphics & Rendering
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/shaders.html"
+                               >
+                              Shaders
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/vr-ar/index.html"
+                               >
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="fundamentals">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                             >
+                            Fundamentals
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                               >
+                              Stable Diffusion
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                               >
+                              Base Models Comparison
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-types.html"
+                               >
+                              Model Types
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sdxl-guide.html"
+                               >
+                              SDXL Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sd3-guide.html"
+                               >
+                              SD3 Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/flux-guide.html"
+                               >
+                              FLUX Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/pony-and-finetunes.html"
+                               >
+                              Pony & Finetunes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="training-tools">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/lora-training.html"
+                             >
+                            Training & Tools
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/lora-training.html"
+                               >
+                              LoRA Training
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/controlnet.html"
+                               >
+                              ControlNet
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                               >
+                              ComfyUI Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/inpainting-editing.html"
+                               >
+                              Inpainting & Editing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="production">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/output-formats.html"
+                             >
+                            Production
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/output-formats.html"
+                               >
+                              Output Formats
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                               >
+                              Advanced Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/optimization-guide.html"
+                               >
+                              Optimization Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-compression.html"
+                               >
+                              Model Compression
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/production-pipelines.html"
+                               >
+                              Production Pipelines
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/mlops-production.html"
+                               >
+                              MLOps & Production
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="classical-physics">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/classical-mechanics/"
+                             >
+                            Classical Physics
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/"
+                               >
+                              Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/newtonian.html"
+                               >
+                              CM: Newtonian & Conservation Laws
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/lagrangian-hamiltonian.html"
+                               >
+                              CM: Lagrangian & Hamiltonian
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/rigid-body-dynamics.html"
+                               >
+                              CM: Rigid Body Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/waves.html"
+                               >
+                              CM: Waves & Oscillations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/geometric-mechanics.html"
+                               >
+                              CM: Geometric Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html"
+                               >
+                              CM: Chaos, Modern Topics & Computation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html"
+                               >
+                              CM: Computational Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/fluid-mechanics.html"
+                               >
+                              Fluid Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics.html"
+                               >
+                              Thermodynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics-advanced.html"
+                               >
+                              Thermodynamics (Advanced)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/"
+                               >
+                              Statistical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/classical-and-quantum.html"
+                               >
+                              Stat Mech: Classical & Quantum
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/phase-transitions-and-advanced.html"
+                               >
+                              Stat Mech: Phase Transitions & Formalism
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="quantum-modern">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/quantum-mechanics/"
+                             >
+                            Quantum & Modern
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/"
+                               >
+                              Quantum Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/formalism.html"
+                               >
+                              QM: States, Operators & Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/systems-and-phenomena.html"
+                               >
+                              QM: Systems & Phenomena
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/bell-inequalities-and-tests.html"
+                               >
+                              QM: Bell Inequalities & Tests
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-advanced-formalism.html"
+                               >
+                              QM: Advanced Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computing.html"
+                               >
+                              QM: Computing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html"
+                               >
+                              QM: Computational Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/computing-and-advanced.html"
+                               >
+                              QM: Computing, Information & Advanced
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-research-frontiers.html"
+                               >
+                              QM: Research Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/"
+                               >
+                              Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/special-relativity.html"
+                               >
+                              Relativity: Special Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/general-relativity.html"
+                               >
+                              Relativity: General Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/tensor-formalism.html"
+                               >
+                              Relativity: Tensor Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/black-holes.html"
+                               >
+                              Relativity: Black Holes
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/gravitational-waves.html"
+                               >
+                              Relativity: Gravitational Waves
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/cosmology.html"
+                               >
+                              Relativity: Cosmology
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/quantum-gravity.html"
+                               >
+                              Relativity: Quantum Gravity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/advanced.html"
+                               >
+                              Relativity: Graduate Formalism & Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                               >
+                              Quantum Field Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-quantization.html"
+                               >
+                              QFT: Quantization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-methods.html"
+                               >
+                              QFT: Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-frontiers.html"
+                               >
+                              QFT: Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/gauge-and-standard-model.html"
+                               >
+                              Gauge Theory & Standard Model
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/renormalization.html"
+                               >
+                              Renormalization
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="advanced-computational">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/condensed-matter/"
+                             >
+                            Advanced & Computational
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/"
+                               >
+                              Condensed Matter
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/emergent-phases.html"
+                               >
+                              CM: Emergent Phases (Superconductivity, QHE, Topology)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html"
+                               >
+                              CM: Metals & Magnetism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/lattice-dynamics.html"
+                               >
+                              CM: Lattice Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/disorder-and-localization.html"
+                               >
+                              CM: Disorder & Localization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/experimental-techniques.html"
+                               >
+                              CM: Experimental Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/advanced-formalism.html"
+                               >
+                              CM: Graduate Formalism & Experiment
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/"
+                               >
+                              String Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/dualities-and-branes.html"
+                               >
+                              String Theory: D-Branes, Dualities & M-Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/frontiers-and-formalism.html"
+                               >
+                              String Theory: Criticisms, Research & Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/string-theory-formalism.html"
+                               >
+                              String Theory: Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/"
+                               >
+                              Computational Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html"
+                               >
+                              Comp Phys: Monte Carlo & Molecular Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/fem-and-cfd.html"
+                               >
+                              Comp Phys: Finite Elements & Fluid Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/quantum-methods.html"
+                               >
+                              Comp Phys: Quantum Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/electronic-structure-beyond-dft.html"
+                               >
+                              Comp Phys: Electronic Structure Beyond DFT
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/hpc-and-ml.html"
+                               >
+                              Comp Phys: Parallel Computing & ML
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/ml-for-physics.html"
+                               >
+                              Comp Phys: ML for Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/tools-and-practices.html"
+                               >
+                              Comp Phys: Visualization, Libraries & Practices
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Hubs & Theory</h3>
+          
+            <ul class="nav__items">
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="distributed-systems">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/distributed-systems/index.html"
+                             >
+                            Distributed Systems
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/consensus-and-coordination.html"
+                               >
+                              Consensus & Coordination
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/replication-strategies.html"
+                               >
+                              Replication Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/client-side-consistency.html"
+                               >
+                              Client-Side Consistency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/failure-detection.html"
+                               >
+                              Failure Detection
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/service-discovery.html"
+                               >
+                              Service Discovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/resilience-patterns.html"
+                               >
+                              Resilience Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/microservices-and-event-driven.html"
+                               >
+                              Microservices & Event-Driven
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/observability.html"
+                               >
+                              Observability
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/testing-distributed-systems.html"
+                               >
+                              Testing Distributed Systems
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="observability">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/observability/"
+                             >
+                            Observability
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/metrics.html"
+                               >
+                              Metrics & Monitoring
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/logging.html"
+                               >
+                              Logging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/tracing.html"
+                               >
+                              Tracing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="api-design-communication">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/api-design/"
+                             >
+                            API Design & Communication
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/rest.html"
+                               >
+                              REST
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/graphql.html"
+                               >
+                              GraphQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/grpc-and-protobuf.html"
+                               >
+                              gRPC & Protobuf
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/async-and-events.html"
+                               >
+                              Async & Events
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="event-driven-architecture">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/event-driven/"
+                             >
+                            Event-Driven Architecture
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/message-brokers.html"
+                               >
+                              Message Brokers & Streaming
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/patterns.html"
+                               >
+                              Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="software-testing-qa">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/testing/"
+                             >
+                            Software Testing & QA
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/unit-and-integration.html"
+                               >
+                              Unit & Integration
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/advanced-testing.html"
+                               >
+                              Advanced Testing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="performance-optimization">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/optimization/index.html"
+                             >
+                            Performance Optimization
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/algorithmic-optimization.html"
+                               >
+                              Algorithmic Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/cpu-optimization.html"
+                               >
+                              CPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/gpu-optimization.html"
+                               >
+                              GPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/memory-optimization.html"
+                               >
+                              Memory Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/network-io-optimization.html"
+                               >
+                              Network & I/O Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/platform-tuning.html"
+                               >
+                              Platform Tuning
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/complexity-theory/"
+                       >
+                      <span class="nav__sub-title">Computational Complexity Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/approximation-algorithms/"
+                       >
+                      <span class="nav__sub-title">Approximation Algorithms</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/automata-and-formal-languages/"
+                       >
+                      <span class="nav__sub-title">Automata & Formal Languages</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/category-and-type-theory/"
+                       >
+                      <span class="nav__sub-title">Category & Type Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/topology-and-geometry-in-computation/"
+                       >
+                      <span class="nav__sub-title">Topology & Geometry in Computation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/information-coding-theory/"
+                       >
+                      <span class="nav__sub-title">Information & Coding Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/cryptography/"
+                       >
+                      <span class="nav__sub-title">Cryptography (Foundations & PQ)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-scaling/"
+                       >
+                      <span class="nav__sub-title">Monorepos: Scaling & Engineering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-tooling/"
+                       >
+                      <span class="nav__sub-title">Monorepo Tooling</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        
+      </header>
+
+      <section id="page-content" class="page__content">
+        <div class="hero-section" style="background: linear-gradient(135deg, #326ce5 0%, #54a3ff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Kubernetes: Stateful Workloads &amp; Persistence</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Persistent storage, dynamic provisioning, StatefulSet ordering guarantees, backup and disaster recovery, and the real patterns behind databases, queues, and caches on Kubernetes.</p>
+</div>
+
+<p><a href="./">Kubernetes</a> » Stateful Workloads &amp; Persistence</p>
+
+<div class="intro-card">
+  <p class="lead-text">Kubernetes was built for stateless cattle, but the most valuable systems we run — databases, message brokers, caches — are stateful pets that must survive pod rescheduling, keep a stable identity, and never lose a byte. This page is the deep dive on how Kubernetes makes that possible: the storage primitives (PV, PVC, StorageClass), the controller that gives pods identity (StatefulSet), the DNS that makes peers addressable (headless Services), and the operational disciplines (snapshots, backup, DR) that turn "it runs" into "it survives an outage."</p>
+</div>
+
+<p>The <a href="workloads.html">Workloads &amp; Storage</a> page introduces these primitives at a glance. This page is the reference treatment: every guarantee, every failure mode, and three production-grade patterns you can lift into a real cluster.</p>
+
+<h2 id="the-storage-object-model">The Storage Object Model</h2>
+
+<p>Kubernetes deliberately splits storage into a <em>request</em> and a <em>resource</em> so that application authors never have to know what disk technology backs their data.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Owned by</th>
+      <th>Answers the question</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>PersistentVolume (PV)</strong></td>
+      <td>Cluster admin / provisioner</td>
+      <td>“What real storage exists?”</td>
+    </tr>
+    <tr>
+      <td><strong>PersistentVolumeClaim (PVC)</strong></td>
+      <td>Application author</td>
+      <td>“How much storage, what mode, what class do I want?”</td>
+    </tr>
+    <tr>
+      <td><strong>StorageClass</strong></td>
+      <td>Cluster admin</td>
+      <td>“How do I create a PV on demand, and with what parameters?”</td>
+    </tr>
+    <tr>
+      <td><strong>CSI Driver</strong></td>
+      <td>Storage vendor</td>
+      <td>“How do I attach, mount, snapshot, and resize real volumes?”</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The PVC is the contract. A Pod references a PVC by name; the PVC binds to exactly one PV; the PV points at real storage through a CSI driver. The Pod never names a disk, a zone, or an AWS volume ID — it names a claim, and that indirection is what makes manifests portable across clouds.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Pod[Pod spec&lt;br/&gt;volumes.persistentVolumeClaim] --&gt;|by name| PVC[PVC: data-0&lt;br/&gt;10Gi RWO class=fast-ssd]
+    PVC --&gt;|references| SC[StorageClass fast-ssd&lt;br/&gt;provisioner=ebs.csi.aws.com]
+    SC --&gt;|provisions| PV[(PersistentVolume&lt;br/&gt;vol-0abc123 gp3)]
+    PVC -.bound 1:1.-&gt; PV
+    PV -.CSI attach+mount.-&gt; Pod
+</code></pre>
+
+<h3 id="static-vs-dynamic-provisioning">Static vs Dynamic Provisioning</h3>
+
+<p>There are two ways a PVC gets a PV.</p>
+
+<p><strong>Static provisioning</strong> — an administrator pre-creates PV objects describing existing disks (an NFS export, a pre-cut LUN). When a PVC appears, the control plane’s PV controller looks for an <em>unbound</em> PV whose capacity, access modes, and <code class="language-plaintext highlighter-rouge">storageClassName</code> satisfy the claim, and binds them. If nothing matches, the PVC stays <code class="language-plaintext highlighter-rouge">Pending</code> forever. Static provisioning is mostly used for legacy NFS exports and for importing pre-existing cloud disks.</p>
+
+<p><strong>Dynamic provisioning</strong> — the common case. The PVC names a <code class="language-plaintext highlighter-rouge">StorageClass</code>; the class’s external provisioner (the CSI controller plugin) calls the storage backend, creates a brand-new volume sized to the claim, writes a matching PV object, and binds it. No human ever touches a PV.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Dynamic: the PVC names a class, the class makes the disk.</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">fast-ssd</span>     <span class="c1"># triggers dynamic provisioning</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">20Gi</span>
+</code></pre></div></div>
+
+<p>A subtle but important rule: <code class="language-plaintext highlighter-rouge">storageClassName: ""</code> (empty string) explicitly <em>disables</em> dynamic provisioning and forces static binding, while <em>omitting</em> the field falls back to the cluster’s <strong>default StorageClass</strong> (the one annotated <code class="language-plaintext highlighter-rouge">storageclass.kubernetes.io/is-default-class: "true"</code>). Forgetting this is the classic cause of a PVC that hangs in <code class="language-plaintext highlighter-rouge">Pending</code> in a cluster that has no default class.</p>
+
+<h3 id="binding-modes-immediate-vs-waitforfirstconsumer">Binding Modes: Immediate vs WaitForFirstConsumer</h3>
+
+<p><code class="language-plaintext highlighter-rouge">volumeBindingMode</code> on the StorageClass decides <em>when</em> the PV is created.</p>
+
+<ul>
+  <li><strong>Immediate</strong> — the volume is provisioned the moment the PVC is created, before any Pod is scheduled. On a multi-zone cluster this is dangerous: the provisioner may put the disk in <code class="language-plaintext highlighter-rouge">us-east-1a</code> while the scheduler later places the Pod in <code class="language-plaintext highlighter-rouge">us-east-1c</code>, and a zonal block device cannot be attached across zones. The Pod is then unschedulable.</li>
+  <li><strong>WaitForFirstConsumer (WFFC)</strong> — provisioning is <em>delayed</em> until a Pod that mounts the PVC is scheduled. The scheduler picks a node first, then the provisioner creates the disk in that node’s zone. This is the correct default for any zonal block storage (EBS, GCE PD, Azure Disk).</li>
+</ul>
+
+<p>Always prefer <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for block storage. Use <code class="language-plaintext highlighter-rouge">Immediate</code> only for topology-independent backends (some networked file systems) where you actively want the volume to exist before scheduling.</p>
+
+<h2 id="storageclasses-in-depth">StorageClasses in Depth</h2>
+
+<p>A StorageClass is a named recipe for making PVs. The same cluster typically defines several tiers.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">fast-ssd</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="na">storageclass.kubernetes.io/is-default-class</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">ebs.csi.aws.com</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">gp3</span>
+  <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5000"</span>
+  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250"</span>
+  <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>            <span class="c1"># keep the disk if the PVC is deleted</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>       <span class="c1"># PVCs of this class can grow</span>
+<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">WaitForFirstConsumer</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Purpose</th>
+      <th>Recommendation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">provisioner</code></td>
+      <td>Which CSI driver creates the volume</td>
+      <td>Match your platform (EBS, PD, Disk, Ceph)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">parameters</code></td>
+      <td>Backend-specific tuning (disk type, IOPS, encryption)</td>
+      <td>Always enable encryption at rest</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reclaimPolicy</code></td>
+      <td>Fate of the PV when its PVC is deleted</td>
+      <td><code class="language-plaintext highlighter-rouge">Retain</code> for stateful data, <code class="language-plaintext highlighter-rouge">Delete</code> for scratch</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">allowVolumeExpansion</code></td>
+      <td>Whether PVCs can be grown in place</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code> so you can resize without re-creating</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">volumeBindingMode</code></td>
+      <td>When to provision</td>
+      <td><code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for zonal block storage</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mountOptions</code></td>
+      <td>Mount flags passed to the kernel</td>
+      <td>e.g. NFS <code class="language-plaintext highlighter-rouge">nconnect</code>, <code class="language-plaintext highlighter-rouge">hard</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="reclaim-policy-and-the-released-state">Reclaim Policy and the Released State</h3>
+
+<p>The reclaim policy is the single most consequential storage setting, because it decides whether deleting a PVC also destroys your data.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Policy</th>
+      <th>On PVC delete</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Delete</strong></td>
+      <td>PV and the underlying disk are destroyed</td>
+      <td>Caches, CI scratch, replaceable data</td>
+    </tr>
+    <tr>
+      <td><strong>Retain</strong></td>
+      <td>PV moves to <code class="language-plaintext highlighter-rouge">Released</code>; the disk and its data survive</td>
+      <td>Databases, anything you cannot lose</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>With <code class="language-plaintext highlighter-rouge">Retain</code>, after the PVC is gone the PV is <code class="language-plaintext highlighter-rouge">Released</code> but <strong>not</strong> <code class="language-plaintext highlighter-rouge">Available</code> — it still records the UID of the old claim and Kubernetes will not auto-bind a new PVC to it. To re-use a retained disk you manually clear <code class="language-plaintext highlighter-rouge">spec.claimRef</code> on the PV, which returns it to <code class="language-plaintext highlighter-rouge">Available</code>. This friction is intentional: it forces a human decision before stale data is handed to a new workload.</p>
+
+<h3 id="volume-expansion">Volume Expansion</h3>
+
+<p>When <code class="language-plaintext highlighter-rouge">allowVolumeExpansion: true</code>, growing a volume is as simple as editing the PVC’s requested size upward (you can never shrink):</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl patch pvc data-postgres-0 <span class="nt">-p</span> <span class="s1">'{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'</span>
+</code></pre></div></div>
+
+<p>The CSI controller enlarges the backend volume. Filesystem expansion happens online for most drivers; a few require the Pod to restart so the node plugin can run <code class="language-plaintext highlighter-rouge">resize2fs</code>/<code class="language-plaintext highlighter-rouge">xfs_growfs</code>. Watch the PVC’s <code class="language-plaintext highlighter-rouge">status.conditions</code> for <code class="language-plaintext highlighter-rouge">FileSystemResizePending</code>.</p>
+
+<h2 id="access-modes">Access Modes</h2>
+
+<p>Access modes describe <em>how many nodes</em> may mount a volume and in what mode — they are a property of the volume technology, not a wish.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Short</th>
+      <th>Meaning</th>
+      <th>Backed by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ReadWriteOnce</strong></td>
+      <td>RWO</td>
+      <td>One <em>node</em> mounts read-write</td>
+      <td>Block storage (EBS, PD, Azure Disk)</td>
+    </tr>
+    <tr>
+      <td><strong>ReadOnlyMany</strong></td>
+      <td>ROX</td>
+      <td>Many nodes mount read-only</td>
+      <td>File storage, snapshots</td>
+    </tr>
+    <tr>
+      <td><strong>ReadWriteMany</strong></td>
+      <td>RWX</td>
+      <td>Many nodes mount read-write</td>
+      <td>File storage (EFS, NFS, CephFS, Longhorn)</td>
+    </tr>
+    <tr>
+      <td><strong>ReadWriteOncePod</strong></td>
+      <td>RWOP</td>
+      <td>Exactly one <em>Pod</em> (cluster-wide) mounts read-write</td>
+      <td>CSI drivers supporting it (1.22+)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Two traps catch nearly everyone:</p>
+
+<ol>
+  <li><strong>RWO is per-node, not per-pod.</strong> Two Pods scheduled to the <em>same</em> node can both mount an RWO volume read-write. If you need a hard “only one writer in the entire cluster” guarantee (e.g. to prevent a split-brain second writer during a rolling update), use <strong>ReadWriteOncePod</strong>.</li>
+  <li><strong>You cannot get RWX from block storage.</strong> A PVC requesting <code class="language-plaintext highlighter-rouge">ReadWriteMany</code> against an EBS/PD-backed StorageClass will sit in <code class="language-plaintext highlighter-rouge">Pending</code> forever, because block devices physically attach to one node. RWX requires a file-based backend.</li>
+</ol>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A volume that must never have two writers, even briefly.</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOncePod"</span><span class="pi">]</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
+</code></pre></div></div>
+
+<h2 id="statefulsets-identity-storage-and-ordering">StatefulSets: Identity, Storage, and Ordering</h2>
+
+<p>A Deployment treats Pods as fungible cattle: any replica is as good as any other, names are random, and storage (if any) is shared. That model breaks for clustered stateful systems where each member has a <em>role</em> — a Postgres primary, a Kafka broker with assigned partitions, a Redis master. The StatefulSet controller exists to give Pods three things Deployments cannot:</p>
+
+<ol>
+  <li><strong>Stable network identity</strong> — a deterministic, ordinal hostname that survives rescheduling.</li>
+  <li><strong>Stable per-Pod storage</strong> — each ordinal gets its <em>own</em> PVC that follows it across nodes.</li>
+  <li><strong>Ordered, controlled lifecycle</strong> — predictable creation, scaling, and rollout order.</li>
+</ol>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StatefulSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">serviceName</span><span class="pi">:</span> <span class="s">postgres-headless</span>   <span class="c1"># MUST be a headless Service</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">podManagementPolicy</span><span class="pi">:</span> <span class="s">OrderedReady</span> <span class="c1"># or Parallel</span>
+  <span class="na">updateStrategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">RollingUpdate</span>
+    <span class="na">rollingUpdate</span><span class="pi">:</span>
+      <span class="na">partition</span><span class="pi">:</span> <span class="m">0</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">terminationGracePeriodSeconds</span><span class="pi">:</span> <span class="m">60</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:16</span>
+        <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">5432</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/postgresql/data</span>
+  <span class="na">volumeClaimTemplates</span><span class="pi">:</span>           <span class="c1"># one PVC per ordinal, created automatically</span>
+  <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
+      <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">fast-ssd</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">requests</span><span class="pi">:</span>
+          <span class="na">storage</span><span class="pi">:</span> <span class="s">50Gi</span>
+</code></pre></div></div>
+
+<h3 id="stable-identity">Stable Identity</h3>
+
+<p>Each Pod is named <code class="language-plaintext highlighter-rouge">&lt;statefulset&gt;-&lt;ordinal&gt;</code>: <code class="language-plaintext highlighter-rouge">postgres-0</code>, <code class="language-plaintext highlighter-rouge">postgres-1</code>, <code class="language-plaintext highlighter-rouge">postgres-2</code>. The ordinal is sticky — if <code class="language-plaintext highlighter-rouge">postgres-1</code> is deleted, its replacement is <em>also</em> named <code class="language-plaintext highlighter-rouge">postgres-1</code> and re-attaches the same PVC. That stability is what lets a peer hard-code “the primary is <code class="language-plaintext highlighter-rouge">postgres-0</code>” or “broker id = ordinal.”</p>
+
+<h3 id="per-ordinal-storage-via-volumeclaimtemplates">Per-Ordinal Storage via volumeClaimTemplates</h3>
+
+<p><code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code> is the heart of StatefulSet persistence. The controller stamps out one PVC <em>per Pod</em>, named <code class="language-plaintext highlighter-rouge">&lt;template&gt;-&lt;statefulset&gt;-&lt;ordinal&gt;</code> — <code class="language-plaintext highlighter-rouge">data-postgres-0</code>, <code class="language-plaintext highlighter-rouge">data-postgres-1</code>, and so on. Critically, <strong>these PVCs are not deleted when the StatefulSet scales down or is deleted.</strong> That is a safety feature: deleting the StatefulSet does not throw away your database. (Kubernetes 1.27+ adds <code class="language-plaintext highlighter-rouge">persistentVolumeClaimRetentionPolicy</code> to opt into automatic cleanup on <code class="language-plaintext highlighter-rouge">whenScaled</code>/<code class="language-plaintext highlighter-rouge">whenDeleted</code> if you genuinely want it.)</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>kubectl get pvc <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>postgres
+NAME              STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS
+data-postgres-0   Bound    pvc-aaa...   50Gi       RWO            fast-ssd
+data-postgres-1   Bound    pvc-bbb...   50Gi       RWO            fast-ssd
+data-postgres-2   Bound    pvc-ccc...   50Gi       RWO            fast-ssd
+</code></pre></div></div>
+
+<h3 id="ordering-guarantees">Ordering Guarantees</h3>
+
+<p><code class="language-plaintext highlighter-rouge">podManagementPolicy</code> controls scaling order:</p>
+
+<ul>
+  <li><strong>OrderedReady</strong> (default) — Pods are created strictly one at a time in ascending ordinal order, and each must pass its readiness probe before the next starts. Scale-down deletes in <em>descending</em> order, one at a time. This is what you want when member N must register with members 0..N-1 before it is useful (most quorum systems).</li>
+  <li><strong>Parallel</strong> — all Pods are launched/terminated at once. Faster, appropriate when members are truly independent and self-discover (some sharded stores).</li>
+</ul>
+
+<p>Rolling updates honor the same ordering in reverse — highest ordinal first, down to zero — and the <code class="language-plaintext highlighter-rouge">partition</code> knob enables <strong>canary/staged rollouts</strong>: setting <code class="language-plaintext highlighter-rouge">rollingUpdate.partition: 2</code> means only Pods with ordinal ≥ 2 are updated, letting you soak a new image on <code class="language-plaintext highlighter-rouge">postgres-2</code> before lowering the partition to <code class="language-plaintext highlighter-rouge">0</code> to roll the rest.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Guarantee</th>
+      <th>OrderedReady</th>
+      <th>Parallel</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Creation order</td>
+      <td>0, 1, 2 sequentially, gated on Ready</td>
+      <td>all at once</td>
+    </tr>
+    <tr>
+      <td>Deletion order</td>
+      <td>2, 1, 0 sequentially</td>
+      <td>all at once</td>
+    </tr>
+    <tr>
+      <td>Use when</td>
+      <td>Members depend on lower ordinals</td>
+      <td>Members are independent</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A caution: OrderedReady can deadlock a rollout. If <code class="language-plaintext highlighter-rouge">postgres-1</code> is broken and never becomes Ready, the controller will not proceed to <code class="language-plaintext highlighter-rouge">postgres-0</code> — the update stalls. The fix is usually to correct the manifest and force-delete the stuck Pod, or temporarily switch troubleshooting to <code class="language-plaintext highlighter-rouge">Parallel</code>.</p>
+
+<h2 id="headless-services-dns-for-peers">Headless Services: DNS for Peers</h2>
+
+<p>A normal <code class="language-plaintext highlighter-rouge">ClusterIP</code> Service gives you <em>one</em> virtual IP and load-balances across Pods — exactly wrong for a database cluster where you must address a <em>specific</em> member. A <strong>headless Service</strong> (<code class="language-plaintext highlighter-rouge">clusterIP: None</code>) allocates no virtual IP; instead DNS returns the individual Pod addresses, and combined with a StatefulSet’s <code class="language-plaintext highlighter-rouge">serviceName</code>, each Pod gets a stable, resolvable hostname.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-headless</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterIP</span><span class="pi">:</span> <span class="s">None</span>                 <span class="c1"># this is what makes it headless</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
+</code></pre></div></div>
+
+<p>With this Service plus the StatefulSet above, each Pod is reachable at:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>postgres-0.postgres-headless.default.svc.cluster.local
+postgres-1.postgres-headless.default.svc.cluster.local
+postgres-2.postgres-headless.default.svc.cluster.local
+</code></pre></div></div>
+
+<p>This is the linchpin of clustered systems: a replica can <code class="language-plaintext highlighter-rouge">pg_basebackup</code> directly from <code class="language-plaintext highlighter-rouge">postgres-0.postgres-headless</code>, a Kafka broker advertises its own ordinal hostname so clients connect to the right partition leader, and Redis sentinels gossip over the per-Pod DNS names. A common production layout pairs <strong>two</strong> Services: the headless one for peer discovery, and a regular ClusterIP (or a <code class="language-plaintext highlighter-rouge">postgres-0</code>-selecting Service) that points clients at the current primary for writes.</p>
+
+<h2 id="snapshots-backup-and-disaster-recovery">Snapshots, Backup, and Disaster Recovery</h2>
+
+<h3 id="volume-snapshots-are-not-backups">Volume Snapshots Are Not Backups</h3>
+
+<p>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code> objects create a point-in-time copy of a PVC at the block layer.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-snap-2026-06-06</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">volumeSnapshotClassName</span><span class="pi">:</span> <span class="s">csi-snapshots</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">persistentVolumeClaimName</span><span class="pi">:</span> <span class="s">data-postgres-0</span>
+</code></pre></div></div>
+
+<p>Restoring is a PVC with a <code class="language-plaintext highlighter-rouge">dataSource</code>:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">data-postgres-0-restored</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">fast-ssd</span>
+  <span class="na">dataSource</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-snap-2026-06-06</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
+    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io</span>
+  <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">50Gi</span>
+</code></pre></div></div>
+
+<p>Snapshots are fast and convenient, but they have two limits that disqualify them as your <em>only</em> backup:</p>
+
+<ol>
+  <li><strong>They usually live in the same storage system</strong> as the source. A regional outage or account compromise that takes the volume takes the snapshot with it.</li>
+  <li><strong>They are crash-consistent, not application-consistent.</strong> A block snapshot of a running database captures whatever was on disk at that instant — equivalent to pulling the power cord. The database will recover via its WAL on restore, but for guaranteed consistency you should quiesce or use the engine’s own backup tool (<code class="language-plaintext highlighter-rouge">pg_basebackup</code>, <code class="language-plaintext highlighter-rouge">pg_dump</code>, a WAL archive).</li>
+</ol>
+
+<h3 id="a-layered-backup-strategy">A Layered Backup Strategy</h3>
+
+<p>Treat backup as defense in depth:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Tool</th>
+      <th>Protects against</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Volume snapshots</strong></td>
+      <td>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code> (often via <a href="operations.html">Velero</a>)</td>
+      <td>Accidental delete, fast rollback</td>
+    </tr>
+    <tr>
+      <td><strong>Logical / engine backups</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">pg_dump</code>, <code class="language-plaintext highlighter-rouge">mongodump</code>, WAL archiving to S3</td>
+      <td>Logical corruption, cross-version restore</td>
+    </tr>
+    <tr>
+      <td><strong>Off-site object copy</strong></td>
+      <td>Snapshot/dump shipped to a <em>different</em> region/account</td>
+      <td>Regional outage, ransomware</td>
+    </tr>
+    <tr>
+      <td><strong>Cluster-state backup</strong></td>
+      <td>Velero (manifests + PV data)</td>
+      <td>Whole-cluster loss, namespace recreation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><a href="operations.html">Velero</a> is the de facto tool: it backs up Kubernetes API objects <em>and</em> triggers CSI snapshots, can copy them to a different cloud region, and restores an entire namespace — Pods, Services, PVCs, and data — into a fresh cluster, which is the backbone of cross-cluster DR.</p>
+
+<h3 id="disaster-recovery-targets">Disaster Recovery Targets</h3>
+
+<p>Two numbers drive every DR design:</p>
+
+<ul>
+  <li><strong>RPO (Recovery Point Objective)</strong> — how much data you can afford to lose, set by backup/replication frequency. Continuous WAL streaming gives an RPO of seconds; nightly dumps give an RPO of up to 24 hours.</li>
+  <li><strong>RTO (Recovery Time Objective)</strong> — how long recovery may take. A warm standby in another region promotes in minutes; restoring a multi-terabyte snapshot may take hours.</li>
+</ul>
+
+<p>For stateful systems the highest-leverage DR pattern is <strong>asynchronous replication to a standby cluster in another region</strong> (Postgres streaming replication, Kafka MirrorMaker, Redis replica) backed by periodic off-site snapshots. Replication keeps RPO low; the off-site backup is the floor you fall back to when replication itself is the thing that broke.</p>
+
+<h2 id="production-patterns">Production Patterns</h2>
+
+<h3 id="postgresql-with-high-availability">PostgreSQL with High Availability</h3>
+
+<p>A self-managed Postgres HA cluster is the canonical StatefulSet workload. The shape:</p>
+
+<ul>
+  <li>A <strong>3-replica StatefulSet</strong> so each Pod has its own RWO volume from <code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code>.</li>
+  <li>A <strong>headless Service</strong> for replica discovery so <code class="language-plaintext highlighter-rouge">postgres-1</code> and <code class="language-plaintext highlighter-rouge">postgres-2</code> can stream WAL from the primary at <code class="language-plaintext highlighter-rouge">postgres-0.postgres-headless</code>.</li>
+  <li>A <strong>primary Service</strong> (selecting the current leader by label) that clients use for writes; failover updates the label so traffic follows the new primary.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">ReadWriteOncePod</code></strong> on the data volume to make split-brain physically impossible: even a stray second Pod cannot mount the primary’s disk.</li>
+  <li><strong>WAL archiving to object storage</strong> for point-in-time recovery, plus nightly <code class="language-plaintext highlighter-rouge">pg_basebackup</code>.</li>
+</ul>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Primary Service: points clients at whichever Pod carries role=primary.</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-primary</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
+    <span class="na">role</span><span class="pi">:</span> <span class="s">primary</span>       <span class="c1"># a controller/operator flips this label on failover</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
+</code></pre></div></div>
+
+<p>In practice almost nobody hand-rolls the failover controller. The labels-and-streaming choreography — promoting a replica, repointing the primary Service, re-syncing the old leader — is exactly what a <strong><a href="advanced.html">Postgres operator</a></strong> (CloudNativePG, Zalando Postgres Operator, Crunchy PGO) automates. You declare a <code class="language-plaintext highlighter-rouge">Cluster</code> object with a replica count and backup target, and the operator owns the StatefulSet, the Services, failover, and base backups. This is the textbook case for the <a href="advanced.html">operator pattern</a>: encode an experienced DBA’s runbook as a reconcile loop.</p>
+
+<h3 id="kafka-brokers-with-stable-identity">Kafka: Brokers with Stable Identity</h3>
+
+<p>Kafka maps almost perfectly onto a StatefulSet because each broker has a fixed <code class="language-plaintext highlighter-rouge">broker.id</code> and owns specific partition replicas:</p>
+
+<ul>
+  <li>The <strong>ordinal becomes the broker id</strong> — <code class="language-plaintext highlighter-rouge">kafka-0</code> is broker 0 — so partition assignments survive rescheduling.</li>
+  <li>The <strong>headless Service</strong> lets each broker advertise its own <code class="language-plaintext highlighter-rouge">kafka-N.kafka-headless...</code> hostname; producers and consumers must reach the <em>specific</em> leader of a partition, which a load-balanced ClusterIP would break.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">podManagementPolicy: Parallel</code></strong> is often used — brokers self-organize through the controller quorum (KRaft) and don’t need strict ordinal startup gating.</li>
+  <li>Each broker keeps its <strong>own large RWO log volume</strong>; throughput, not capacity, usually drives the StorageClass choice (<code class="language-plaintext highlighter-rouge">iops</code>/<code class="language-plaintext highlighter-rouge">throughput</code> on gp3).</li>
+  <li>Durability comes from <strong>replication factor ≥ 3 with <code class="language-plaintext highlighter-rouge">min.insync.replicas=2</code></strong>, so a single Pod (and its volume) can be lost without data loss — the cluster, not the disk, is the unit of durability.</li>
+</ul>
+
+<p>Because rebalancing partitions on broker loss is heavy, Kafka in production is typically run via the <strong>Strimzi operator</strong>, which manages the StatefulSet, per-broker storage, rolling restarts that respect in-sync replicas, and certificate rotation.</p>
+
+<h3 id="redis-cache-vs-durable-store">Redis: Cache vs Durable Store</h3>
+
+<p>Redis spans the spectrum, and the right design depends entirely on whether you can lose the data:</p>
+
+<ul>
+  <li><strong>Pure cache</strong> — run Redis as a <strong>Deployment</strong> with <code class="language-plaintext highlighter-rouge">emptyDir</code> (or no volume at all). If a Pod dies the cache simply re-warms; persistence would be wasted I/O. This is the one stateful-looking workload that is correctly stateless.</li>
+  <li><strong>Durable store / queue</strong> — run Redis as a <strong>StatefulSet</strong> with per-Pod RWO volumes and AOF (append-only file) persistence so a restarted Pod recovers its data from disk.</li>
+  <li><strong>High availability</strong> — Redis Sentinel or Redis Cluster, both StatefulSets behind a headless Service. Sentinel watches the master over the per-Pod DNS names and promotes a replica on failure; Redis Cluster shards keyspace across ordinals using the same stable hostnames for the cluster bus.</li>
+</ul>
+
+<p>The decision table:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Workload type</th>
+      <th>Storage</th>
+      <th>Persistence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ephemeral cache</td>
+      <td>Deployment</td>
+      <td>none / emptyDir</td>
+      <td>off</td>
+    </tr>
+    <tr>
+      <td>Durable single instance</td>
+      <td>StatefulSet (1 replica)</td>
+      <td>RWO PVC</td>
+      <td>AOF</td>
+    </tr>
+    <tr>
+      <td>HA / failover</td>
+      <td>StatefulSet + Sentinel</td>
+      <td>RWO PVC per Pod</td>
+      <td>AOF + replication</td>
+    </tr>
+    <tr>
+      <td>Sharded at scale</td>
+      <td>StatefulSet (Redis Cluster)</td>
+      <td>RWO PVC per Pod</td>
+      <td>AOF + replication</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notice--warning">
+  <h4>Stateful Workload Pitfalls</h4>
+  <ul>
+    <li><strong>Assuming RWO means one Pod:</strong> RWO is per-<em>node</em> — two Pods on the same node can both write. Use <code>ReadWriteOncePod</code> when you need a single cluster-wide writer.</li>
+    <li><strong>Requesting RWX from block storage:</strong> EBS/PD/Azure Disk are RWO only. An RWX claim against them sits <code>Pending</code> forever; use EFS/NFS/CephFS for shared read-write.</li>
+    <li><strong>Immediate binding across zones:</strong> Without <code>WaitForFirstConsumer</code>, a zonal disk can be provisioned in a zone with no schedulable node, leaving the Pod unschedulable.</li>
+    <li><strong>Treating snapshots as backups:</strong> Snapshots are crash-consistent and usually co-located with the source. Pair them with engine-level, off-site backups.</li>
+    <li><strong>Expecting StatefulSet delete to clean up data:</strong> <code>volumeClaimTemplate</code> PVCs (and their disks) survive scale-down and deletion by design. Reclaim them deliberately, or set <code>persistentVolumeClaimRetentionPolicy</code>.</li>
+    <li><strong>Deadlocked OrderedReady rollout:</strong> One un-Ready ordinal blocks the entire rollout. Watch readiness probes and the rollout <code>partition</code>.</li>
+  </ul>
+</div>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-grid">
+  <div class="takeaway-card">
+    <h4>Claims, Not Disks</h4>
+    <p>Pods reference PVCs; StorageClasses dynamically provision PVs. The indirection keeps manifests portable. Use <code>WaitForFirstConsumer</code> so zonal disks land where the Pod is scheduled.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>StatefulSets Give Identity</h4>
+    <p>Stable ordinal names, per-ordinal <code>volumeClaimTemplate</code> PVCs that follow the Pod, and ordered lifecycle. The PVCs outlive the StatefulSet on purpose.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Headless Services Address Peers</h4>
+    <p><code>clusterIP: None</code> plus a StatefulSet <code>serviceName</code> yields stable per-Pod DNS — the foundation of replication, leader election, and partition routing.</p>
+  </div>
+  <div class="takeaway-card">
+    <h4>Back Up in Layers</h4>
+    <p>Snapshots for fast rollback, engine/logical dumps for consistency, off-site copies for regional DR. Drive the design from explicit RPO and RTO targets.</p>
+  </div>
+</div>
+
+<hr />
+
+<h2 id="see-also">See Also</h2>
+
+<ul>
+  <li><a href="workloads.html">Workloads &amp; Storage</a> - The storage primitives at a glance, plus resource limits and RBAC</li>
+  <li><a href="fundamentals.html">Fundamentals</a> - Pods, Deployments, Services, and the Deployment-vs-StatefulSet decision</li>
+  <li><a href="operations.html">Operations</a> - kubectl, Helm, Velero, and a systematic troubleshooting guide</li>
+  <li><a href="advanced.html">Advanced Topics</a> - CRDs and the Operator pattern that automates database HA</li>
+  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a> - Volumes and persistence at the container level</li>
+  <li><a href="../aws/compute.html">AWS EKS</a> - Managed Kubernetes, EBS/EFS CSI drivers, and cross-AZ storage</li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

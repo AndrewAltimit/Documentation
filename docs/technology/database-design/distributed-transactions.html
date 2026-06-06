@@ -1,0 +1,3578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Database Design: Distributed Transactions">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/distributed-transactions.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Database Design: Distributed Transactions">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Database Design: Distributed Transactions | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f7f8fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+  
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
+});
+</script>
+
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #f9fafc;
+    z-index: 90;
+    font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.22rem 0.55rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.07);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
+    color: #b0b8c0;
+    text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose'
+    });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
+  <aside class="sidebar sticky">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
+      
+        
+          <h3 class="nav__title">Start Here</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">Search</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/registry.html"
+                               >
+                              Registry & Distribution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-design-patterns.html"
+                               >
+                              Design Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/container-runtimes.html"
+                               >
+                              Container Runtimes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-resources.html"
+                               >
+                              Fundamentals: Resources
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-networking.html"
+                               >
+                              Fundamentals: Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/persistence.html"
+                               >
+                              Persistence
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/monitoring.html"
+                               >
+                              Monitoring & Messaging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/iac.html"
+                               >
+                              Infrastructure as Code
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/cost.html"
+                               >
+                              Cost Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/architecture.html"
+                               >
+                              Architecture & Case Studies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/troubleshooting.html"
+                               >
+                              Troubleshooting
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="version-control">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/git/"
+                             >
+                            Version Control
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-crash-course.html"
+                               >
+                              Git Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/"
+                               >
+                              Git Internals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/object-model.html"
+                               >
+                              Git: Object Model & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/protocols-and-performance.html"
+                               >
+                              Git: Protocols, Packs & Performance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/algorithms-and-operations.html"
+                               >
+                              Git: Algorithms & Advanced Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/conflict-and-recovery.html"
+                               >
+                              Git: Conflict & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/auth-and-access-control.html"
+                               >
+                              Git: Auth & Access Control
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-reference.html"
+                               >
+                              Command Reference
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/branching.html"
+                               >
+                              Branching Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/advanced-branching-techniques.html"
+                               >
+                              Advanced Branching Techniques
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="devops-ci-cd">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ci-cd/"
+                             >
+                            DevOps & CI/CD
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/"
+                               >
+                              CI/CD Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/platforms-and-pipelines.html"
+                               >
+                              Platforms & Pipeline Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/deployment.html"
+                               >
+                              Deployment Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/security-and-operations.html"
+                               >
+                              Security, GitOps & Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/please-build.html"
+                               >
+                              Please Build
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="networking-security">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/networking/"
+                             >
+                            Networking & Security
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/"
+                               >
+                              Networking Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/fundamentals.html"
+                               >
+                              Net: Layers & Addressing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/transport-and-protocols.html"
+                               >
+                              Net: Transport & Protocols
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/routing.html"
+                               >
+                              Net: Routing & Switching
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/performance-and-security.html"
+                               >
+                              Net: Performance, QoS & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/cloud-networking.html"
+                               >
+                              Net: Cloud Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/wireless-and-mobile.html"
+                               >
+                              Net: Wireless & Mobile
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/programmable-networks.html"
+                               >
+                              Net: Programmable Networks
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/modern-architecture.html"
+                               >
+                              Net: Modern & Future Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/"
+                               >
+                              Cybersecurity Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cryptography.html"
+                               >
+                              Sec: Cryptography
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/application-and-cloud-security.html"
+                               >
+                              Sec: Web, Cloud & Container
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html"
+                               >
+                              Sec: Cloud & Container Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/attacks-and-defense.html"
+                               >
+                              Sec: Attacks & Network Defense
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/operations-and-response.html"
+                               >
+                              Sec: Operations, Response & Compliance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/security-operations.html"
+                               >
+                              Sec: Security Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/incident-response.html"
+                               >
+                              Sec: Incident Response
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/compliance-and-governance.html"
+                               >
+                              Sec: Compliance & Governance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/privacy-engineering.html"
+                               >
+                              Sec: Privacy Engineering
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design/"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-crash-course.html"
+                               >
+                              Database Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/"
+                               >
+                              Database Design Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/modeling.html"
+                               >
+                              DB: Modeling & Normalization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/indexing-and-queries.html"
+                               >
+                              DB: Indexing & Query Execution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/transactions-and-concurrency.html"
+                               >
+                              DB: Transactions & Concurrency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-transactions.html"
+                               class="active">
+                              DB: Distributed Transactions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/storage-internals.html"
+                               >
+                              DB: Storage Engines & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/replication-and-consensus.html"
+                               >
+                              DB: Replication & Consensus
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-and-nosql.html"
+                               >
+                              DB: Distributed Databases & NoSQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/nosql-data-models.html"
+                               >
+                              DB: NoSQL Data Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/schema-evolution-and-migrations.html"
+                               >
+                              DB: Schema Evolution & Migrations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/orm-patterns.html"
+                               >
+                              DB: ORM Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/operations-and-monitoring.html"
+                               >
+                              DB: Operations & Monitoring
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="ai-foundations">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ai/"
+                             >
+                            AI Foundations
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                               >
+                              AI Fundamentals (Simplified)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/"
+                               >
+                              AI & ML Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/ml-foundations.html"
+                               >
+                              AI: ML Foundations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/core-ml-algorithms.html"
+                               >
+                              AI: Core ML Algorithms
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/architectures.html"
+                               >
+                              AI: Neural Network Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-architectures.html"
+                               >
+                              AI: Deep Learning Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-theory.html"
+                               >
+                              AI: Deep Learning Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/loss-functions.html"
+                               >
+                              AI: Loss Functions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/generative-models.html"
+                               >
+                              AI: Generative Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/fine-tuning.html"
+                               >
+                              AI: Fine-Tuning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/reinforcement-learning.html"
+                               >
+                              AI: Reinforcement Learning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/frontier-and-ethics.html"
+                               >
+                              AI: Frontier Research & Ethics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                               >
+                              AI Deep Dive (Lecture)
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="game-real-time">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/unreal.html"
+                             >
+                            Game & Real-Time
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/index.html"
+                               >
+                              Game Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/multiplayer-networking.html"
+                               >
+                              GameDev: Multiplayer Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/procedural-generation.html"
+                               >
+                              GameDev: Procedural Generation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/save-systems.html"
+                               >
+                              GameDev: Save Systems
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/ui-design.html"
+                               >
+                              GameDev: UI Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/audio-design.html"
+                               >
+                              GameDev: Audio Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/testing-qa.html"
+                               >
+                              GameDev: Testing & QA
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/monetization.html"
+                               >
+                              GameDev: Monetization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/3d-rendering.html"
+                               >
+                              3D Graphics & Rendering
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/shaders.html"
+                               >
+                              Shaders
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/vr-ar/index.html"
+                               >
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="fundamentals">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                             >
+                            Fundamentals
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                               >
+                              Stable Diffusion
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                               >
+                              Base Models Comparison
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-types.html"
+                               >
+                              Model Types
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sdxl-guide.html"
+                               >
+                              SDXL Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sd3-guide.html"
+                               >
+                              SD3 Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/flux-guide.html"
+                               >
+                              FLUX Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/pony-and-finetunes.html"
+                               >
+                              Pony & Finetunes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="training-tools">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/lora-training.html"
+                             >
+                            Training & Tools
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/lora-training.html"
+                               >
+                              LoRA Training
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/controlnet.html"
+                               >
+                              ControlNet
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                               >
+                              ComfyUI Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/inpainting-editing.html"
+                               >
+                              Inpainting & Editing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="production">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/output-formats.html"
+                             >
+                            Production
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/output-formats.html"
+                               >
+                              Output Formats
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                               >
+                              Advanced Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/optimization-guide.html"
+                               >
+                              Optimization Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-compression.html"
+                               >
+                              Model Compression
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/production-pipelines.html"
+                               >
+                              Production Pipelines
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/mlops-production.html"
+                               >
+                              MLOps & Production
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="classical-physics">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/classical-mechanics/"
+                             >
+                            Classical Physics
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/"
+                               >
+                              Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/newtonian.html"
+                               >
+                              CM: Newtonian & Conservation Laws
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/lagrangian-hamiltonian.html"
+                               >
+                              CM: Lagrangian & Hamiltonian
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/rigid-body-dynamics.html"
+                               >
+                              CM: Rigid Body Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/waves.html"
+                               >
+                              CM: Waves & Oscillations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/geometric-mechanics.html"
+                               >
+                              CM: Geometric Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html"
+                               >
+                              CM: Chaos, Modern Topics & Computation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html"
+                               >
+                              CM: Computational Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/fluid-mechanics.html"
+                               >
+                              Fluid Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics.html"
+                               >
+                              Thermodynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics-advanced.html"
+                               >
+                              Thermodynamics (Advanced)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/"
+                               >
+                              Statistical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/classical-and-quantum.html"
+                               >
+                              Stat Mech: Classical & Quantum
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/phase-transitions-and-advanced.html"
+                               >
+                              Stat Mech: Phase Transitions & Formalism
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="quantum-modern">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/quantum-mechanics/"
+                             >
+                            Quantum & Modern
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/"
+                               >
+                              Quantum Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/formalism.html"
+                               >
+                              QM: States, Operators & Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/systems-and-phenomena.html"
+                               >
+                              QM: Systems & Phenomena
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/bell-inequalities-and-tests.html"
+                               >
+                              QM: Bell Inequalities & Tests
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-advanced-formalism.html"
+                               >
+                              QM: Advanced Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computing.html"
+                               >
+                              QM: Computing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html"
+                               >
+                              QM: Computational Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/computing-and-advanced.html"
+                               >
+                              QM: Computing, Information & Advanced
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-research-frontiers.html"
+                               >
+                              QM: Research Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/"
+                               >
+                              Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/special-relativity.html"
+                               >
+                              Relativity: Special Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/general-relativity.html"
+                               >
+                              Relativity: General Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/tensor-formalism.html"
+                               >
+                              Relativity: Tensor Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/black-holes.html"
+                               >
+                              Relativity: Black Holes
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/gravitational-waves.html"
+                               >
+                              Relativity: Gravitational Waves
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/cosmology.html"
+                               >
+                              Relativity: Cosmology
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/quantum-gravity.html"
+                               >
+                              Relativity: Quantum Gravity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/advanced.html"
+                               >
+                              Relativity: Graduate Formalism & Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                               >
+                              Quantum Field Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-quantization.html"
+                               >
+                              QFT: Quantization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-methods.html"
+                               >
+                              QFT: Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-frontiers.html"
+                               >
+                              QFT: Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/gauge-and-standard-model.html"
+                               >
+                              Gauge Theory & Standard Model
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/renormalization.html"
+                               >
+                              Renormalization
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="advanced-computational">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/condensed-matter/"
+                             >
+                            Advanced & Computational
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/"
+                               >
+                              Condensed Matter
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/emergent-phases.html"
+                               >
+                              CM: Emergent Phases (Superconductivity, QHE, Topology)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html"
+                               >
+                              CM: Metals & Magnetism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/lattice-dynamics.html"
+                               >
+                              CM: Lattice Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/disorder-and-localization.html"
+                               >
+                              CM: Disorder & Localization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/experimental-techniques.html"
+                               >
+                              CM: Experimental Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/advanced-formalism.html"
+                               >
+                              CM: Graduate Formalism & Experiment
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/"
+                               >
+                              String Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/dualities-and-branes.html"
+                               >
+                              String Theory: D-Branes, Dualities & M-Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/frontiers-and-formalism.html"
+                               >
+                              String Theory: Criticisms, Research & Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/string-theory-formalism.html"
+                               >
+                              String Theory: Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/"
+                               >
+                              Computational Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html"
+                               >
+                              Comp Phys: Monte Carlo & Molecular Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/fem-and-cfd.html"
+                               >
+                              Comp Phys: Finite Elements & Fluid Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/quantum-methods.html"
+                               >
+                              Comp Phys: Quantum Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/electronic-structure-beyond-dft.html"
+                               >
+                              Comp Phys: Electronic Structure Beyond DFT
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/hpc-and-ml.html"
+                               >
+                              Comp Phys: Parallel Computing & ML
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/ml-for-physics.html"
+                               >
+                              Comp Phys: ML for Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/tools-and-practices.html"
+                               >
+                              Comp Phys: Visualization, Libraries & Practices
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Hubs & Theory</h3>
+          
+            <ul class="nav__items">
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="distributed-systems">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/distributed-systems/index.html"
+                             >
+                            Distributed Systems
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/consensus-and-coordination.html"
+                               >
+                              Consensus & Coordination
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/replication-strategies.html"
+                               >
+                              Replication Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/client-side-consistency.html"
+                               >
+                              Client-Side Consistency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/failure-detection.html"
+                               >
+                              Failure Detection
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/service-discovery.html"
+                               >
+                              Service Discovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/resilience-patterns.html"
+                               >
+                              Resilience Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/microservices-and-event-driven.html"
+                               >
+                              Microservices & Event-Driven
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/observability.html"
+                               >
+                              Observability
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/testing-distributed-systems.html"
+                               >
+                              Testing Distributed Systems
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="observability">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/observability/"
+                             >
+                            Observability
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/metrics.html"
+                               >
+                              Metrics & Monitoring
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/logging.html"
+                               >
+                              Logging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/tracing.html"
+                               >
+                              Tracing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="api-design-communication">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/api-design/"
+                             >
+                            API Design & Communication
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/rest.html"
+                               >
+                              REST
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/graphql.html"
+                               >
+                              GraphQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/grpc-and-protobuf.html"
+                               >
+                              gRPC & Protobuf
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/async-and-events.html"
+                               >
+                              Async & Events
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="event-driven-architecture">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/event-driven/"
+                             >
+                            Event-Driven Architecture
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/message-brokers.html"
+                               >
+                              Message Brokers & Streaming
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/patterns.html"
+                               >
+                              Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="software-testing-qa">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/testing/"
+                             >
+                            Software Testing & QA
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/unit-and-integration.html"
+                               >
+                              Unit & Integration
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/advanced-testing.html"
+                               >
+                              Advanced Testing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="performance-optimization">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/optimization/index.html"
+                             >
+                            Performance Optimization
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/algorithmic-optimization.html"
+                               >
+                              Algorithmic Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/cpu-optimization.html"
+                               >
+                              CPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/gpu-optimization.html"
+                               >
+                              GPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/memory-optimization.html"
+                               >
+                              Memory Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/network-io-optimization.html"
+                               >
+                              Network & I/O Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/platform-tuning.html"
+                               >
+                              Platform Tuning
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/complexity-theory/"
+                       >
+                      <span class="nav__sub-title">Computational Complexity Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/approximation-algorithms/"
+                       >
+                      <span class="nav__sub-title">Approximation Algorithms</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/automata-and-formal-languages/"
+                       >
+                      <span class="nav__sub-title">Automata & Formal Languages</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/category-and-type-theory/"
+                       >
+                      <span class="nav__sub-title">Category & Type Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/topology-and-geometry-in-computation/"
+                       >
+                      <span class="nav__sub-title">Topology & Geometry in Computation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/information-coding-theory/"
+                       >
+                      <span class="nav__sub-title">Information & Coding Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/cryptography/"
+                       >
+                      <span class="nav__sub-title">Cryptography (Foundations & PQ)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-scaling/"
+                       >
+                      <span class="nav__sub-title">Monorepos: Scaling & Engineering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-tooling/"
+                       >
+                      <span class="nav__sub-title">Monorepo Tooling</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        
+      </header>
+
+      <section id="page-content" class="page__content">
+        <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Distributed Transactions</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics</p>
+</div>
+
+<p><a href="./">&larr; Database Design</a></p>
+
+<h2 id="atomicity-across-machines">Atomicity Across Machines</h2>
+
+<p>A single-node database gives you atomicity for free: the storage engine writes a commit record to the write-ahead log, and either the whole transaction is durable or none of it is. Once data spans <strong>multiple machines</strong>—shards, microservices, or independent databases—that guarantee evaporates. Each node has its own log, its own clock, and its own failure modes, and the network between them can drop, delay, or reorder messages at any moment.</p>
+
+<p>The central question of distributed transactions is: <strong>how do you make <code class="language-plaintext highlighter-rouge">N</code> independent participants either all commit or all abort, despite crashes and network partitions?</strong> There is no perfect answer—the <a href="#why-2pc-blocks">FLP impossibility result</a> proves you cannot have a protocol that is simultaneously safe, live, and fault-tolerant in an asynchronous network. Every technique below is a different point on that trade-off curve.</p>
+
+<div class="notice--info">
+  <p><strong>Two philosophies.</strong> You can either coordinate a single atomic commit across all participants (<strong>2PC/3PC</strong>—strong consistency, blocking, tight coupling), or accept that each participant commits independently and stitch the steps together with application logic (<strong>sagas, outbox, idempotency</strong>—eventual consistency, non-blocking, loose coupling). Modern microservice architectures overwhelmingly choose the second.</p>
+</div>
+
+<h2 id="two-phase-commit-2pc">Two-Phase Commit (2PC)</h2>
+
+<p>Two-phase commit is the classic protocol for an <em>atomic</em> distributed commit. A designated <strong>coordinator</strong> drives the protocol; the other nodes are <strong>participants</strong> (also called cohorts or resource managers). It works like a wedding ceremony: first everyone is asked whether they consent, then—only if all agree—the union is finalized.</p>
+
+<p><strong>Phase 1 — Prepare (voting):</strong></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Coordinator (the officiant)
+</span><span class="k">def</span> <span class="nf">prepare_transaction</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">participants</span><span class="p">):</span>
+    <span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">participant</span> <span class="ow">in</span> <span class="n">participants</span><span class="p">:</span>
+        <span class="c1"># "Can you commit? Promise not to back out."
+</span>        <span class="n">response</span> <span class="o">=</span> <span class="n">participant</span><span class="p">.</span><span class="nf">prepare</span><span class="p">(</span><span class="n">tx_id</span><span class="p">)</span>
+        <span class="n">responses</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nf">all</span><span class="p">(</span><span class="n">r</span> <span class="o">==</span> <span class="sh">"</span><span class="s">YES</span><span class="sh">"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">):</span>
+        <span class="n">decision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">COMMIT</span><span class="sh">"</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">decision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">ABORT</span><span class="sh">"</span>
+
+    <span class="nf">log_decision</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">decision</span><span class="p">)</span>  <span class="c1"># Write to disk BEFORE telling anyone
+</span>    <span class="k">return</span> <span class="n">decision</span>
+</code></pre></div></div>
+
+<p>When a participant votes <code class="language-plaintext highlighter-rouge">YES</code>, it does something crucial: it makes the changes durable in its own log (so it can survive a crash) but does <strong>not</strong> release locks. It is now <strong>in doubt</strong>—bound by its promise, unable to act unilaterally until the coordinator tells it the outcome.</p>
+
+<p><strong>Phase 2 — Commit/Abort (decision):</strong></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">finish_transaction</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">participants</span><span class="p">,</span> <span class="n">decision</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">participant</span> <span class="ow">in</span> <span class="n">participants</span><span class="p">:</span>
+        <span class="n">participant</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="n">tx_id</span><span class="p">,</span> <span class="n">decision</span><span class="p">)</span>  <span class="c1"># COMMIT or ABORT
+</span>        <span class="c1"># Participant applies changes (or rolls back) and releases locks
+</span></code></pre></div></div>
+
+<h3 id="the-commit-point">The commit point</h3>
+
+<p>The single most important moment in 2PC is when the coordinator <strong>forces its decision to its own log</strong>. Before that write, the default is abort; after it, the default is commit. This is the “point of no return.” If the coordinator crashes after logging <code class="language-plaintext highlighter-rouge">COMMIT</code> but before notifying participants, recovery reads the log and resends the decision. This is why both the coordinator and the participants must use durable, recoverable logging—2PC is built on top of each node’s local WAL, not a replacement for it.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   Coordinator                Participant A            Participant B
+       |                           |                        |
+       |------ PREPARE -----------&gt;|                        |
+       |------ PREPARE ------------------------------------&gt;|
+       |                           | (flush to log, lock)   |
+       |&lt;----- YES ----------------|                        |
+       |&lt;----- YES -----------------------------------------|
+       |                           |                        |
+   [force COMMIT to log]  &lt;-- commit point                  |
+       |                           |                        |
+       |------ COMMIT ------------&gt;| (apply, release locks) |
+       |------ COMMIT -------------------------------------&gt;|
+       |&lt;----- ACK ----------------|                        |
+       |&lt;----- ACK -----------------------------------------|
+</code></pre></div></div>
+
+<h3 id="why-2pc-blocks">Why 2PC blocks</h3>
+
+<p>2PC is <strong>safe</strong> (it never lets some nodes commit while others abort) but it is <strong>not live</strong> under failure. Consider the coordinator crashing right after every participant has voted <code class="language-plaintext highlighter-rouge">YES</code> but before sending any decision:</p>
+
+<ul>
+  <li>Participants are <strong>stuck holding locks</strong> (“standing at the altar”), in doubt.</li>
+  <li>They cannot commit—the coordinator might have decided to abort.</li>
+  <li>They cannot abort—the coordinator might have decided to commit, and other participants might already have applied it.</li>
+  <li>They cannot even ask each other, because a peer that voted <code class="language-plaintext highlighter-rouge">YES</code> knows no more than they do.</li>
+</ul>
+
+<p>This is the famous <strong>blocking problem</strong>. In-doubt transactions hold locks indefinitely, stalling unrelated work, until the coordinator recovers. Worse, a <em>participant</em> crash during phase 2 leaves the coordinator unable to complete until that node returns. For this reason 2PC is best confined to a single datacenter with a highly available coordinator, and it is the reason most internet-scale systems avoid it.</p>
+
+<div class="notice--warning">
+  <p><strong>2PC couples availability.</strong> A transaction across N participants is only as available as the <em>least</em> available participant <em>and</em> the coordinator. The probability that all are up multiplies down quickly: five 99.9%-available services give roughly 99.5% combined availability for a cross-service commit. This multiplicative fragility, not just the blocking window, is why 2PC scales poorly.</p>
+</div>
+
+<h2 id="three-phase-commit-3pc">Three-Phase Commit (3PC)</h2>
+
+<p>Three-phase commit was designed to make distributed commit <strong>non-blocking</strong> by inserting an extra round. The insight: in 2PC, a participant moves directly from “voted yes” to “committed,” so a recovering node can’t tell which side of the commit point the cluster was on. 3PC adds an intermediate <strong>pre-commit</strong> state that all participants reach <em>before</em> anyone commits.</p>
+
+<p><strong>The three phases:</strong></p>
+
+<ol>
+  <li><strong>CanCommit</strong> — coordinator asks, participants vote yes/no (like 2PC prepare, but participants do not yet lock resources irrevocably).</li>
+  <li><strong>PreCommit</strong> — if all voted yes, the coordinator sends <code class="language-plaintext highlighter-rouge">PRECOMMIT</code>; participants acknowledge and enter a “prepared to commit” state. Reaching this state means <em>everyone agreed</em>.</li>
+  <li><strong>DoCommit</strong> — coordinator sends <code class="language-plaintext highlighter-rouge">DOCOMMIT</code>; participants commit and release locks.</li>
+</ol>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Phase 1: CanCommit?  ---&gt;  yes/no votes
+Phase 2: PreCommit   ---&gt;  acks   (now everyone knows everyone said yes)
+Phase 3: DoCommit    ---&gt;  commit
+</code></pre></div></div>
+
+<p>Because the <code class="language-plaintext highlighter-rouge">PRECOMMIT</code> state is reached by all participants before any commit, a recovering participant can reason about the global state using a <strong>timeout-based default</strong>: if it has received <code class="language-plaintext highlighter-rouge">PRECOMMIT</code>, it can safely commit even without hearing from the coordinator (everyone must have agreed); if it has not, it can safely abort. This removes the indefinite blocking of 2PC.</p>
+
+<div class="notice--warning">
+  <p><strong>Why nobody uses 3PC.</strong> 3PC only achieves non-blocking under a synchronous network with reliable failure detection and no network partitions. Real networks <em>do</em> partition, and under a partition 3PC can violate safety: a partitioned group that has seen <code>PRECOMMIT</code> commits while another group times out and aborts—a split-brain. The extra round-trip also adds latency. In practice, production systems skip 3PC and instead use a partition-tolerant <strong>consensus protocol</strong> (Raft, Paxos, or Spanner's Paxos-over-TrueTime) to replicate the commit decision itself, which gives both safety and availability with a majority quorum.</p>
+</div>
+
+<blockquote>
+  <p><strong>See also:</strong> Consensus protocols like Raft and Paxos—covered in <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a>—are the modern replacement for a fragile single coordinator. A consensus group can lose a minority of nodes and still make progress, eliminating the single point of failure that makes 2PC block.</p>
+</blockquote>
+
+<h2 id="the-saga-pattern">The Saga Pattern</h2>
+
+<p>For business processes that span multiple services or run for a long time (booking a trip, fulfilling an order, onboarding a customer), holding distributed locks for the whole duration—as 2PC requires—is untenable. The <strong>saga pattern</strong> trades atomicity for availability: a saga is a <em>sequence of local transactions</em>, each of which commits independently. If a later step fails, the saga runs <strong>compensating transactions</strong> to semantically undo the earlier steps.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TripBookingSaga</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">flight_id</span> <span class="o">=</span> <span class="n">hotel_id</span> <span class="o">=</span> <span class="n">car_id</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">flight_id</span> <span class="o">=</span> <span class="nf">book_flight</span><span class="p">()</span>        <span class="c1"># Step 1 (local commit)
+</span>            <span class="n">hotel_id</span> <span class="o">=</span> <span class="nf">book_hotel</span><span class="p">()</span>          <span class="c1"># Step 2 (local commit)
+</span>            <span class="n">car_id</span> <span class="o">=</span> <span class="nf">book_rental_car</span><span class="p">()</span>       <span class="c1"># Step 3 (local commit)
+</span>            <span class="nf">send_confirmation</span><span class="p">()</span>              <span class="c1"># Step 4
+</span>        <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># Compensate in REVERSE order
+</span>            <span class="k">if</span> <span class="n">car_id</span><span class="p">:</span>    <span class="nf">cancel_rental_car</span><span class="p">(</span><span class="n">car_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">hotel_id</span><span class="p">:</span>  <span class="nf">cancel_hotel</span><span class="p">(</span><span class="n">hotel_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">flight_id</span><span class="p">:</span> <span class="nf">cancel_flight</span><span class="p">(</span><span class="n">flight_id</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">e</span>
+</code></pre></div></div>
+
+<h3 id="compensation-is-semantic-not-physical">Compensation is semantic, not physical</h3>
+
+<p>A compensating transaction does not “roll back” in the storage-engine sense—the original local transaction already committed and is visible to everyone. Instead it performs a <em>new</em> transaction that <strong>semantically reverses</strong> the effect: a <code class="language-plaintext highlighter-rouge">cancel_flight</code> that issues a refund and frees the seat, not a magical un-booking. This has consequences:</p>
+
+<ul>
+  <li><strong>Compensations may themselves be complex.</strong> Refunding money is not the inverse of charging it; it may incur fees, trigger notifications, or be impossible after a cutoff.</li>
+  <li><strong>Some actions are irreversible.</strong> You cannot un-send an email or un-launch a missile. For these, the saga must place the irreversible step <strong>last</strong> (a <em>pivot transaction</em>), or split it into a reversible reservation plus a separate, idempotent confirmation.</li>
+  <li><strong>Compensations must commute with concurrent activity.</strong> Between booking and cancelling, another process may have read the booking. Sagas therefore provide weaker isolation than a single ACID transaction—see “lack of isolation” below.</li>
+</ul>
+
+<h3 id="orchestration-vs-choreography">Orchestration vs. choreography</h3>
+
+<p>Sagas come in two coordination styles:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>Orchestration</strong></th>
+      <th><strong>Choreography</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Control</td>
+      <td>A central orchestrator tells each service what to do next</td>
+      <td>Each service emits events; others react</td>
+    </tr>
+    <tr>
+      <td>Coupling</td>
+      <td>Orchestrator knows the whole flow</td>
+      <td>No central knowledge; flow is emergent</td>
+    </tr>
+    <tr>
+      <td>Visibility</td>
+      <td>Easy to see/trace the whole saga</td>
+      <td>Hard to reason about end-to-end</td>
+    </tr>
+    <tr>
+      <td>Risk</td>
+      <td>Orchestrator is a focal point of logic</td>
+      <td>Cyclic event dependencies, hard to debug</td>
+    </tr>
+    <tr>
+      <td>Good for</td>
+      <td>Complex flows, many steps, clear ownership</td>
+      <td>Simple flows, highly decoupled teams</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Orchestrated saga</strong> (a stateful coordinator drives the steps and records progress in a saga log):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">OrderSagaOrchestrator</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_state</span><span class="p">(</span><span class="n">saga_id</span><span class="p">)</span>   <span class="c1"># durable saga log
+</span>
+        <span class="k">if</span> <span class="n">state</span><span class="p">.</span><span class="n">step</span> <span class="o">==</span> <span class="sh">"</span><span class="s">START</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="sh">"</span><span class="s">payment.charge</span><span class="sh">"</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">save_state</span><span class="p">(</span><span class="n">saga_id</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="sh">"</span><span class="s">CHARGED</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">state</span><span class="p">.</span><span class="n">step</span> <span class="o">==</span> <span class="sh">"</span><span class="s">CHARGED</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="sh">"</span><span class="s">inventory.reserve</span><span class="sh">"</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">save_state</span><span class="p">(</span><span class="n">saga_id</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="sh">"</span><span class="s">RESERVED</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">state</span><span class="p">.</span><span class="n">step</span> <span class="o">==</span> <span class="sh">"</span><span class="s">RESERVED</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="sh">"</span><span class="s">shipping.dispatch</span><span class="sh">"</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">save_state</span><span class="p">(</span><span class="n">saga_id</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="sh">"</span><span class="s">COMPLETE</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">on_failure</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">,</span> <span class="n">failed_step</span><span class="p">):</span>
+        <span class="c1"># walk the saga log backward, invoking compensations
+</span>        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">reversed</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">completed_steps</span><span class="p">(</span><span class="n">saga_id</span><span class="p">)):</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">compensation_for</span><span class="p">(</span><span class="n">step</span><span class="p">),</span> <span class="n">saga_id</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Choreographed saga</strong> (services react to each other’s events, no central brain):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>OrderCreated      -&gt; Payment service charges, emits PaymentCompleted
+PaymentCompleted  -&gt; Inventory service reserves, emits StockReserved
+StockReserved     -&gt; Shipping service dispatches, emits OrderShipped
+
+# Failure path:
+PaymentFailed     -&gt; Order service marks order failed (nothing to compensate yet)
+StockReservationFailed -&gt; Payment service refunds (compensation), Order cancels
+</code></pre></div></div>
+
+<h3 id="sagas-lack-isolation">Sagas lack isolation</h3>
+
+<p>Because each step commits independently, a saga has <strong>no isolation</strong> by default—intermediate states are visible to other transactions. A trip might briefly show a booked flight before the hotel step fails and the flight is cancelled; a reader in that window sees a state that never “really” existed. Mitigations borrow from the literature on long-lived transactions:</p>
+
+<ul>
+  <li><strong>Semantic lock</strong> — mark a record as “pending”/”reserved” so other sagas know it is in flight (a flag, not a database lock).</li>
+  <li><strong>Commutative updates</strong> — design operations so order does not matter (increment/decrement rather than absolute set).</li>
+  <li><strong>Reread / version check</strong> — before compensating, re-read and verify nothing incompatible happened (optimistic concurrency, see <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>).</li>
+  <li><strong>By-pass the dirty read at the app layer</strong> — hide pending entities from other users’ views until the saga completes.</li>
+</ul>
+
+<h2 id="the-outbox-pattern">The Outbox Pattern</h2>
+
+<p>Sagas, choreography, and event-driven systems all share a deceptively hard sub-problem: <strong>how do you update your database AND publish a message atomically?</strong> A service that does this—</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># BROKEN: dual write, no atomicity
+</span><span class="k">def</span> <span class="nf">place_order</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+    <span class="n">db</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>              <span class="c1"># commits to Postgres
+</span>    <span class="n">broker</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span><span class="sh">"</span><span class="s">OrderCreated</span><span class="sh">"</span><span class="p">,</span> <span class="n">order</span><span class="p">)</span>  <span class="c1"># sends to Kafka/RabbitMQ
+</span></code></pre></div></div>
+
+<p>—has a <em>dual-write</em> bug. If the process crashes between the two lines, you get one of two corruptions:</p>
+
+<ul>
+  <li>DB commit succeeds, publish fails ⇒ order exists but <strong>no event</strong> (downstream never reacts; lost message).</li>
+  <li>Publish succeeds, DB commit rolls back ⇒ event exists but <strong>no order</strong> (downstream acts on a phantom; ghost message).</li>
+</ul>
+
+<p>You cannot fix this by reordering the two operations or wrapping them in a try/except—the broker and the database are separate systems with no shared transaction. (You <em>could</em> use 2PC/XA across them, but that reintroduces all the blocking and coupling problems above, and many brokers don’t support it.)</p>
+
+<h3 id="the-transactional-outbox">The transactional outbox</h3>
+
+<p>The fix is to make the message part of the <strong>same local database transaction</strong> as the state change, by writing it to an <code class="language-plaintext highlighter-rouge">outbox</code> table:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">BEGIN</span><span class="p">;</span>
+  <span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">orders</span> <span class="p">(</span><span class="n">id</span><span class="p">,</span> <span class="n">customer_id</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">status</span><span class="p">)</span>
+  <span class="k">VALUES</span> <span class="p">(</span><span class="s1">'ord-1'</span><span class="p">,</span> <span class="s1">'cust-9'</span><span class="p">,</span> <span class="mi">49</span><span class="p">.</span><span class="mi">99</span><span class="p">,</span> <span class="s1">'created'</span><span class="p">);</span>
+
+  <span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">outbox</span> <span class="p">(</span><span class="n">id</span><span class="p">,</span> <span class="n">aggregate_id</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">created_at</span><span class="p">)</span>
+  <span class="k">VALUES</span> <span class="p">(</span><span class="n">gen_random_uuid</span><span class="p">(),</span> <span class="s1">'ord-1'</span><span class="p">,</span> <span class="s1">'OrderCreated'</span><span class="p">,</span>
+          <span class="s1">'{"orderId":"ord-1","total":49.99}'</span><span class="p">,</span> <span class="n">now</span><span class="p">());</span>
+<span class="k">COMMIT</span><span class="p">;</span>   <span class="c1">-- both rows commit together, atomically, via the local WAL</span>
+</code></pre></div></div>
+
+<p>A separate <strong>relay</strong> (message relay / publisher) then reads unpublished rows from the outbox and pushes them to the broker, marking them sent (or deleting them) afterward:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">relay_outbox</span><span class="p">():</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">SELECT * FROM outbox WHERE published_at IS NULL </span><span class="sh">"</span>
+        <span class="sh">"</span><span class="s">ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+        <span class="n">broker</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">topic</span><span class="p">,</span> <span class="n">row</span><span class="p">.</span><span class="n">payload</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">row</span><span class="p">.</span><span class="n">aggregate_id</span><span class="p">)</span>
+        <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">UPDATE outbox SET published_at = now() WHERE id = %s</span><span class="sh">"</span><span class="p">,</span>
+                   <span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="nb">id</span><span class="p">,))</span>
+</code></pre></div></div>
+
+<p>Two ways to drive the relay:</p>
+
+<ul>
+  <li><strong>Polling publisher</strong> — a worker polls the table on an interval (simple, but adds query load and latency; <code class="language-plaintext highlighter-rouge">FOR UPDATE SKIP LOCKED</code> lets many workers share the table safely—see the queue pattern in <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>).</li>
+  <li><strong>Change Data Capture (CDC)</strong> — a tool like Debezium tails the database’s WAL/binlog and emits an event for every committed outbox row. No polling, lower latency, no extra query load, but more infrastructure.</li>
+</ul>
+
+<div class="notice--info">
+  <p><strong>Outbox guarantees at-least-once, not exactly-once.</strong> The relay may crash <em>after</em> publishing but <em>before</em> recording the row as sent, so the same message can be published again. That is fine—and intentional. The outbox guarantees the message is <strong>never lost</strong>; making the redelivered message harmless is the job of <a href="#idempotency-keys">idempotency</a> on the consumer side. Together, outbox (no loss) + idempotent consumer (no duplicate effect) yield effective <a href="#exactly-once-semantics">exactly-once processing</a>.</p>
+</div>
+
+<p>The mirror image on the receiving side is the <strong>inbox pattern</strong>: a consumer records each processed message id in an <code class="language-plaintext highlighter-rouge">inbox</code> table inside the same transaction as its effect, and skips messages whose id it has already seen—turning at-least-once delivery into exactly-once processing.</p>
+
+<h2 id="idempotency-keys">Idempotency Keys</h2>
+
+<p>An operation is <strong>idempotent</strong> if applying it more than once has the same effect as applying it once. In distributed systems, retries are unavoidable—timeouts, redeliveries, relays, and client retries all cause the same request to arrive twice—so idempotency is the workhorse that makes those retries safe.</p>
+
+<p>Some operations are <em>naturally</em> idempotent: <code class="language-plaintext highlighter-rouge">SET status = 'shipped'</code>, <code class="language-plaintext highlighter-rouge">PUT /users/42</code> with a full body, <code class="language-plaintext highlighter-rouge">DELETE</code>. Others are not: <code class="language-plaintext highlighter-rouge">balance = balance + 100</code>, “create order,” “charge card,” “send email.” For the non-idempotent ones you attach an <strong>idempotency key</strong>—a unique client-generated identifier for the <em>logical</em> operation—and the server deduplicates on it.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">charge</span><span class="p">(</span><span class="n">idempotency_key</span><span class="p">,</span> <span class="n">amount</span><span class="p">,</span> <span class="n">customer</span><span class="p">):</span>
+    <span class="c1"># 1. Has this key been seen? Return the stored result if so.
+</span>    <span class="n">existing</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">SELECT response FROM idempotency WHERE key = %s</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">idempotency_key</span><span class="p">,))</span>
+    <span class="k">if</span> <span class="n">existing</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">existing</span><span class="p">.</span><span class="n">response</span>       <span class="c1"># same answer, no double charge
+</span>
+    <span class="c1"># 2. First time: do the work and record key + result atomically.
+</span>    <span class="k">with</span> <span class="n">db</span><span class="p">.</span><span class="nf">transaction</span><span class="p">():</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">payment_gateway</span><span class="p">.</span><span class="nf">charge</span><span class="p">(</span><span class="n">amount</span><span class="p">,</span> <span class="n">customer</span><span class="p">)</span>
+        <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">INSERT INTO idempotency (key, response, created_at) </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">VALUES (%s, %s, now())</span><span class="sh">"</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">idempotency_key</span><span class="p">,</span> <span class="n">result</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">result</span>
+</code></pre></div></div>
+
+<h3 id="getting-idempotency-right">Getting idempotency right</h3>
+
+<ul>
+  <li><strong>Key uniqueness is on the client.</strong> The client must generate the key (a UUID) once and reuse it across retries of the <em>same</em> logical request—if it generates a new key per retry, dedup is impossible. Stripe’s API, for example, takes an <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header for exactly this.</li>
+  <li><strong>Insert the key in the same transaction as the effect.</strong> If you record the key separately, a crash in between can either double-apply (effect committed, key not recorded) or lose the operation (key recorded, effect not). A <code class="language-plaintext highlighter-rouge">UNIQUE</code> constraint on the key column turns a concurrent duplicate into a constraint violation you can catch and treat as “already done.”</li>
+  <li><strong>Store the response, not just the key.</strong> A retry should get the <em>same answer</em> (same order id, same charge id), not a fresh one or a generic “duplicate” error.</li>
+  <li><strong>Scope and expire keys.</strong> Keys are usually scoped per endpoint/operation and may expire (e.g., 24h) once the window for retries has passed.</li>
+  <li><strong>Beware non-deterministic side effects.</strong> If the original attempt half-completed (charged the card but crashed before recording the key), reconciliation against the downstream system is needed—idempotency keys reduce, but do not entirely remove, the need for reconciliation.</li>
+</ul>
+
+<h2 id="distributed-deadlocks">Distributed Deadlocks</h2>
+
+<p>A <a href="transactions-and-concurrency.html">deadlock</a> on one node is a cycle in the local lock graph, and the database detects it by inspecting that graph and killing a victim. Across multiple nodes the cycle can span machines, and <strong>no single node can see the whole graph</strong>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Node 1:  T1 holds row A, waits for row B (on Node 2)
+Node 2:  T2 holds row B, waits for row A (on Node 1)
+
+# Node 1's local graph:  T1 -&gt; (waiting for B, off-node)   -- no cycle visible
+# Node 2's local graph:  T2 -&gt; (waiting for A, off-node)   -- no cycle visible
+# Global graph:          T1 -&gt; T2 -&gt; T1                     -- a cycle nobody sees
+</code></pre></div></div>
+
+<p>Three families of solution:</p>
+
+<p><strong>1. Timeout-based (the pragmatic default).</strong> Give every distributed lock/transaction a deadline; if it waits too long, abort and retry with backoff. Simple and partition-tolerant, but tuning is hard—too short causes spurious aborts of slow-but-live transactions, too long means deadlocks linger. Most distributed databases (including CockroachDB’s earlier versions and many app-level lock managers) lean on timeouts.</p>
+
+<p><strong>2. Global deadlock detection.</strong> Periodically aggregate every node’s local <em>wait-for</em> graph into a global graph and search it for cycles, then kill a victim. This is precise but expensive and adds latency; the aggregated graph can also be stale (a “phantom deadlock”—a cycle that has already resolved by the time it’s detected), so detectors confirm before killing.</p>
+
+<p><strong>3. Deadlock prevention via ordering.</strong> Avoid cycles by construction. Two classic timestamp schemes assign each transaction a start timestamp and only ever let an <em>older</em> transaction wait on a <em>younger</em> one (or vice versa), guaranteeing no cycle:</p>
+
+<ul>
+  <li><strong>Wait-Die</strong> (non-preemptive): if an older transaction requests a lock held by a younger one, it <strong>waits</strong>; if a younger one requests a lock held by an older one, it <strong>dies</strong> (aborts and retries with its <em>original</em> timestamp, so it eventually becomes oldest and wins).</li>
+  <li><strong>Wound-Wait</strong> (preemptive): if an older transaction wants a lock held by a younger one, it <strong>wounds</strong> (aborts) the younger; if a younger one wants a lock held by an older one, it <strong>waits</strong>.</li>
+</ul>
+
+<p>Keeping the original timestamp on retry prevents starvation: a transaction only gets older relative to its peers, so it cannot be aborted forever.</p>
+
+<div class="tip-card">
+  <h4>Cheapest mitigation: consistent lock ordering</h4>
+  <p>Most application-level distributed deadlocks come from two code paths acquiring the same resources in opposite orders (A-then-B vs. B-then-A). Enforce a <strong>global ordering</strong> (e.g., always lock rows in ascending primary-key order, always lock accounts by lowest id first) and the cycle becomes impossible — no detector or timeout needed. This single discipline eliminates the majority of real-world deadlocks.</p>
+</div>
+
+<h2 id="exactly-once-semantics">Exactly-Once Semantics</h2>
+
+<p>“Exactly-once delivery” is the most misunderstood phrase in distributed systems. Over an unreliable network it is <strong>provably impossible</strong> to deliver a message exactly once: the sender cannot distinguish “the message was lost” from “the message arrived but the ack was lost,” so it must either risk loss (at-most-once) or risk duplication (at-least-once). You only ever get to pick:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Guarantee</th>
+      <th>Mechanism</th>
+      <th>Risk</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>At-most-once</strong></td>
+      <td>Fire and forget; never retry</td>
+      <td>Messages can be <strong>lost</strong></td>
+    </tr>
+    <tr>
+      <td><strong>At-least-once</strong></td>
+      <td>Retry until acknowledged</td>
+      <td>Messages can be <strong>duplicated</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Exactly-once</strong></td>
+      <td><em>Not</em> a delivery guarantee — see below</td>
+      <td>(achieved at the processing layer)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>What is actually achievable, and what people mean when they say “exactly-once,” is <strong>exactly-once <em>processing</em></strong>: the message may be <em>delivered</em> many times, but its <em>effect</em> is applied exactly once. You get there by combining the building blocks already covered:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  at-least-once delivery        guarantees no message is lost
++ idempotent / deduplicated processing  guarantees no duplicate effect
+= exactly-once effect (effective exactly-once)
+</code></pre></div></div>
+
+<h3 id="how-to-build-it">How to build it</h3>
+
+<ol>
+  <li><strong>No loss on the producer side</strong> — use the <a href="#the-outbox-pattern">outbox pattern</a> so the state change and the message commit atomically. The message <em>will</em> eventually be published (at-least-once).</li>
+  <li><strong>Dedup on the consumer side</strong> — give each message a stable id and process it with an <a href="#idempotency-keys">idempotency key</a> or the inbox pattern, so reprocessing the same id is a no-op that returns the prior result.</li>
+  <li><strong>Atomic “consume + act + ack”</strong> — the consumer must record “I processed message X” in the <em>same transaction</em> as the effect of X. If ack and effect are separate, a crash in between reintroduces either loss or duplication.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">message</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">db</span><span class="p">.</span><span class="nf">transaction</span><span class="p">():</span>
+        <span class="c1"># Dedup: have we already processed this message id?
+</span>        <span class="k">if</span> <span class="n">db</span><span class="p">.</span><span class="nf">exists</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT 1 FROM inbox WHERE msg_id = %s</span><span class="sh">"</span><span class="p">,</span> <span class="n">message</span><span class="p">.</span><span class="nb">id</span><span class="p">):</span>
+            <span class="k">return</span>                      <span class="c1"># duplicate delivery -&gt; no-op
+</span>
+        <span class="nf">apply_business_effect</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>              <span class="c1"># the real work
+</span>        <span class="n">db</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="sh">"</span><span class="s">inbox</span><span class="sh">"</span><span class="p">,</span> <span class="n">msg_id</span><span class="o">=</span><span class="n">message</span><span class="p">.</span><span class="nb">id</span><span class="p">)</span>       <span class="c1"># record in SAME tx
+</span>    <span class="c1"># only now ack the broker; redelivery before ack is harmless (dedup catches it)
+</span>    <span class="n">broker</span><span class="p">.</span><span class="nf">ack</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="notice--info">
+  <p><strong>"Exactly-once" platforms still rely on this.</strong> Kafka's exactly-once semantics (idempotent producer + transactional writes that bind the consumed-offset commit to the produced output in one transaction) is exactly this pattern implemented inside the platform: at-least-once delivery underneath, deduplication and atomic offset+output commit on top. There is no magic that makes the network reliable — only careful placement of idempotency and atomic commits around an at-least-once core.</p>
+</div>
+
+<h3 id="choosing-a-guarantee">Choosing a guarantee</h3>
+
+<ul>
+  <li><strong>At-most-once</strong> is fine for high-volume, loss-tolerant data: metrics, logs, telemetry where an occasional dropped sample doesn’t matter.</li>
+  <li><strong>At-least-once + idempotent processing</strong> is the right default for almost everything with side effects: payments, orders, notifications. Duplicates are caught; nothing is lost.</li>
+  <li><strong>True exactly-once delivery</strong> is a marketing claim; ask what the system actually does at the producer and consumer, and you will find the outbox/idempotency pattern underneath.</li>
+</ul>
+
+<h2 id="putting-it-together-a-distributed-order">Putting It Together: a Distributed Order</h2>
+
+<p>A realistic e-commerce checkout combines every technique on this page:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Order service:  BEGIN; insert order(status=pending);
+                          insert outbox(OrderCreated); COMMIT;   &lt;- outbox, no dual-write
+2. Relay/CDC publishes OrderCreated (at-least-once)              &lt;- no message lost
+3. Payment service consumes it with idempotency key=order_id     &lt;- duplicate deliveries deduped
+       charges card, emits PaymentCompleted (via its own outbox)
+4. Inventory service reserves stock, emits StockReserved         &lt;- saga step (local commit)
+5. If any step fails -&gt; compensations run in reverse:
+       refund payment, release stock, mark order failed          &lt;- saga compensation
+6. Locks across services are never held -&gt; no distributed 2PC,   &lt;- non-blocking
+       so no blocking and no multiplicative availability hit
+</code></pre></div></div>
+
+<p>No global coordinator, no distributed locks, no blocking—just local ACID transactions glued together by an at-least-once event backbone with idempotent, compensatable steps. That is how internet-scale systems get <em>effective</em> atomicity without paying the price of 2PC.</p>
+
+<blockquote>
+  <p><strong>Code Reference:</strong> For working implementations of these algorithms, see <a href="../../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a>.</p>
+</blockquote>
+
+<h2 id="see-also">See Also</h2>
+
+<div class="see-also-card">
+  <h4>Continue the deep dive</h4>
+  <ul>
+    <li><strong>Foundations:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — single-node ACID, locking, MVCC, and isolation levels that distributed transactions build on.</li>
+    <li><strong>Related:</strong> <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, Raft/Paxos consensus, and the NewSQL systems that implement distributed commit for you.</li>
+    <li><strong>Durability:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the write-ahead log that makes every local commit (and the outbox) atomic and recoverable.</li>
+    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
+    <li>See also: <a href="../networking/">Networking</a> for the protocols beneath distributed coordination, and <a href="../aws/">AWS</a> for managed queues and event services (SQS, EventBridge) that implement the outbox/relay plumbing.</li>
+  </ul>
+</div>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

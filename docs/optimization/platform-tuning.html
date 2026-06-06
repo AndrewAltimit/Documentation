@@ -1,0 +1,3665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Optimization: Platform-Specific Tuning">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/optimization/platform-tuning.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Optimization: Platform-Specific Tuning">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>Optimization: Platform-Specific Tuning | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f7f8fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+  
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
+});
+</script>
+
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #f9fafc;
+    z-index: 90;
+    font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.22rem 0.55rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.07);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
+    color: #b0b8c0;
+    text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose'
+    });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
+  <aside class="sidebar sticky">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
+      
+        
+          <h3 class="nav__title">Start Here</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html"
+                       >
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html"
+                       >
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html"
+                       >
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html"
+                       >
+                      <span class="nav__sub-title">Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html"
+                       >
+                      <span class="nav__sub-title">Search</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html"
+                       >
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/"
+                             >
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html"
+                               >
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html"
+                               >
+                              Storage & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html"
+                               >
+                              Dockerfiles & CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/registry.html"
+                               >
+                              Registry & Distribution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-design-patterns.html"
+                               >
+                              Design Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html"
+                               >
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/container-runtimes.html"
+                               >
+                              Container Runtimes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/"
+                             >
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html"
+                               >
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-resources.html"
+                               >
+                              Fundamentals: Resources
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-networking.html"
+                               >
+                              Fundamentals: Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html"
+                               >
+                              Workloads & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/persistence.html"
+                               >
+                              Persistence
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html"
+                               >
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/"
+                             >
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html"
+                               >
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html"
+                               >
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html"
+                               >
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html"
+                               >
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html"
+                               >
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/monitoring.html"
+                               >
+                              Monitoring & Messaging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/iac.html"
+                               >
+                              Infrastructure as Code
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/cost.html"
+                               >
+                              Cost Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/architecture.html"
+                               >
+                              Architecture & Case Studies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/troubleshooting.html"
+                               >
+                              Troubleshooting
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/"
+                             >
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html"
+                               >
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html"
+                               >
+                              State & Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html"
+                               >
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html"
+                               >
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="version-control">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/git/"
+                             >
+                            Version Control
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-crash-course.html"
+                               >
+                              Git Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/"
+                               >
+                              Git Internals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/object-model.html"
+                               >
+                              Git: Object Model & Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/protocols-and-performance.html"
+                               >
+                              Git: Protocols, Packs & Performance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/algorithms-and-operations.html"
+                               >
+                              Git: Algorithms & Advanced Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/conflict-and-recovery.html"
+                               >
+                              Git: Conflict & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/auth-and-access-control.html"
+                               >
+                              Git: Auth & Access Control
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-reference.html"
+                               >
+                              Command Reference
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/branching.html"
+                               >
+                              Branching Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/advanced-branching-techniques.html"
+                               >
+                              Advanced Branching Techniques
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="devops-ci-cd">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ci-cd/"
+                             >
+                            DevOps & CI/CD
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/"
+                               >
+                              CI/CD Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/platforms-and-pipelines.html"
+                               >
+                              Platforms & Pipeline Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/deployment.html"
+                               >
+                              Deployment Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/security-and-operations.html"
+                               >
+                              Security, GitOps & Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/please-build.html"
+                               >
+                              Please Build
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="networking-security">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/networking/"
+                             >
+                            Networking & Security
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/"
+                               >
+                              Networking Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/fundamentals.html"
+                               >
+                              Net: Layers & Addressing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/transport-and-protocols.html"
+                               >
+                              Net: Transport & Protocols
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/routing.html"
+                               >
+                              Net: Routing & Switching
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/performance-and-security.html"
+                               >
+                              Net: Performance, QoS & Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/cloud-networking.html"
+                               >
+                              Net: Cloud Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/wireless-and-mobile.html"
+                               >
+                              Net: Wireless & Mobile
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/programmable-networks.html"
+                               >
+                              Net: Programmable Networks
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/modern-architecture.html"
+                               >
+                              Net: Modern & Future Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/"
+                               >
+                              Cybersecurity Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cryptography.html"
+                               >
+                              Sec: Cryptography
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/application-and-cloud-security.html"
+                               >
+                              Sec: Web, Cloud & Container
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html"
+                               >
+                              Sec: Cloud & Container Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/attacks-and-defense.html"
+                               >
+                              Sec: Attacks & Network Defense
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/operations-and-response.html"
+                               >
+                              Sec: Operations, Response & Compliance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/security-operations.html"
+                               >
+                              Sec: Security Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/incident-response.html"
+                               >
+                              Sec: Incident Response
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/compliance-and-governance.html"
+                               >
+                              Sec: Compliance & Governance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/privacy-engineering.html"
+                               >
+                              Sec: Privacy Engineering
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design/"
+                             >
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-crash-course.html"
+                               >
+                              Database Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/"
+                               >
+                              Database Design Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/modeling.html"
+                               >
+                              DB: Modeling & Normalization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/indexing-and-queries.html"
+                               >
+                              DB: Indexing & Query Execution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/transactions-and-concurrency.html"
+                               >
+                              DB: Transactions & Concurrency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-transactions.html"
+                               >
+                              DB: Distributed Transactions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/storage-internals.html"
+                               >
+                              DB: Storage Engines & Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/replication-and-consensus.html"
+                               >
+                              DB: Replication & Consensus
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-and-nosql.html"
+                               >
+                              DB: Distributed Databases & NoSQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/nosql-data-models.html"
+                               >
+                              DB: NoSQL Data Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/schema-evolution-and-migrations.html"
+                               >
+                              DB: Schema Evolution & Migrations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/orm-patterns.html"
+                               >
+                              DB: ORM Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/operations-and-monitoring.html"
+                               >
+                              DB: Operations & Monitoring
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="ai-foundations">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ai/"
+                             >
+                            AI Foundations
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html"
+                               >
+                              AI Fundamentals (Simplified)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/"
+                               >
+                              AI & ML Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/ml-foundations.html"
+                               >
+                              AI: ML Foundations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/core-ml-algorithms.html"
+                               >
+                              AI: Core ML Algorithms
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/architectures.html"
+                               >
+                              AI: Neural Network Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-architectures.html"
+                               >
+                              AI: Deep Learning Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-theory.html"
+                               >
+                              AI: Deep Learning Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/loss-functions.html"
+                               >
+                              AI: Loss Functions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/generative-models.html"
+                               >
+                              AI: Generative Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/fine-tuning.html"
+                               >
+                              AI: Fine-Tuning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/reinforcement-learning.html"
+                               >
+                              AI: Reinforcement Learning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/frontier-and-ethics.html"
+                               >
+                              AI: Frontier Research & Ethics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-lecture-2023.html"
+                               >
+                              AI Deep Dive (Lecture)
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="game-real-time">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/unreal.html"
+                             >
+                            Game & Real-Time
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html"
+                               >
+                              Unreal Engine
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/index.html"
+                               >
+                              Game Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/multiplayer-networking.html"
+                               >
+                              GameDev: Multiplayer Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/procedural-generation.html"
+                               >
+                              GameDev: Procedural Generation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/save-systems.html"
+                               >
+                              GameDev: Save Systems
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/ui-design.html"
+                               >
+                              GameDev: UI Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/audio-design.html"
+                               >
+                              GameDev: Audio Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/testing-qa.html"
+                               >
+                              GameDev: Testing & QA
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/monetization.html"
+                               >
+                              GameDev: Monetization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/3d-rendering.html"
+                               >
+                              3D Graphics & Rendering
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/shaders.html"
+                               >
+                              Shaders
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/vr-ar/index.html"
+                               >
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html"
+                               >
+                              Game AI
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html"
+                       >
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="fundamentals">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                             >
+                            Fundamentals
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html"
+                               >
+                              Stable Diffusion
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/base-models-comparison.html"
+                               >
+                              Base Models Comparison
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-types.html"
+                               >
+                              Model Types
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sdxl-guide.html"
+                               >
+                              SDXL Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sd3-guide.html"
+                               >
+                              SD3 Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/flux-guide.html"
+                               >
+                              FLUX Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/pony-and-finetunes.html"
+                               >
+                              Pony & Finetunes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="training-tools">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/lora-training.html"
+                             >
+                            Training & Tools
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/lora-training.html"
+                               >
+                              LoRA Training
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/controlnet.html"
+                               >
+                              ControlNet
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/comfyui-guide.html"
+                               >
+                              ComfyUI Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/inpainting-editing.html"
+                               >
+                              Inpainting & Editing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="production">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/output-formats.html"
+                             >
+                            Production
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/output-formats.html"
+                               >
+                              Output Formats
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/advanced-techniques.html"
+                               >
+                              Advanced Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/optimization-guide.html"
+                               >
+                              Optimization Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-compression.html"
+                               >
+                              Model Compression
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/production-pipelines.html"
+                               >
+                              Production Pipelines
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/mlops-production.html"
+                               >
+                              MLOps & Production
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html"
+                       >
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="classical-physics">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/classical-mechanics/"
+                             >
+                            Classical Physics
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/"
+                               >
+                              Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/newtonian.html"
+                               >
+                              CM: Newtonian & Conservation Laws
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/lagrangian-hamiltonian.html"
+                               >
+                              CM: Lagrangian & Hamiltonian
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/rigid-body-dynamics.html"
+                               >
+                              CM: Rigid Body Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/waves.html"
+                               >
+                              CM: Waves & Oscillations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/geometric-mechanics.html"
+                               >
+                              CM: Geometric Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html"
+                               >
+                              CM: Chaos, Modern Topics & Computation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html"
+                               >
+                              CM: Computational Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/fluid-mechanics.html"
+                               >
+                              Fluid Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics.html"
+                               >
+                              Thermodynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics-advanced.html"
+                               >
+                              Thermodynamics (Advanced)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/"
+                               >
+                              Statistical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/classical-and-quantum.html"
+                               >
+                              Stat Mech: Classical & Quantum
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/phase-transitions-and-advanced.html"
+                               >
+                              Stat Mech: Phase Transitions & Formalism
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="quantum-modern">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/quantum-mechanics/"
+                             >
+                            Quantum & Modern
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/"
+                               >
+                              Quantum Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/formalism.html"
+                               >
+                              QM: States, Operators & Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/systems-and-phenomena.html"
+                               >
+                              QM: Systems & Phenomena
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/bell-inequalities-and-tests.html"
+                               >
+                              QM: Bell Inequalities & Tests
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-advanced-formalism.html"
+                               >
+                              QM: Advanced Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computing.html"
+                               >
+                              QM: Computing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html"
+                               >
+                              QM: Computational Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/computing-and-advanced.html"
+                               >
+                              QM: Computing, Information & Advanced
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-research-frontiers.html"
+                               >
+                              QM: Research Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/"
+                               >
+                              Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/special-relativity.html"
+                               >
+                              Relativity: Special Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/general-relativity.html"
+                               >
+                              Relativity: General Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/tensor-formalism.html"
+                               >
+                              Relativity: Tensor Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/black-holes.html"
+                               >
+                              Relativity: Black Holes
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/gravitational-waves.html"
+                               >
+                              Relativity: Gravitational Waves
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/cosmology.html"
+                               >
+                              Relativity: Cosmology
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/quantum-gravity.html"
+                               >
+                              Relativity: Quantum Gravity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/advanced.html"
+                               >
+                              Relativity: Graduate Formalism & Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-field-theory.html"
+                               >
+                              Quantum Field Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-quantization.html"
+                               >
+                              QFT: Quantization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-methods.html"
+                               >
+                              QFT: Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-frontiers.html"
+                               >
+                              QFT: Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/gauge-and-standard-model.html"
+                               >
+                              Gauge Theory & Standard Model
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/renormalization.html"
+                               >
+                              Renormalization
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="advanced-computational">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/condensed-matter/"
+                             >
+                            Advanced & Computational
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/"
+                               >
+                              Condensed Matter
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/emergent-phases.html"
+                               >
+                              CM: Emergent Phases (Superconductivity, QHE, Topology)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html"
+                               >
+                              CM: Metals & Magnetism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/lattice-dynamics.html"
+                               >
+                              CM: Lattice Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/disorder-and-localization.html"
+                               >
+                              CM: Disorder & Localization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/experimental-techniques.html"
+                               >
+                              CM: Experimental Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/advanced-formalism.html"
+                               >
+                              CM: Graduate Formalism & Experiment
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/"
+                               >
+                              String Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/dualities-and-branes.html"
+                               >
+                              String Theory: D-Branes, Dualities & M-Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/frontiers-and-formalism.html"
+                               >
+                              String Theory: Criticisms, Research & Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/string-theory-formalism.html"
+                               >
+                              String Theory: Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/"
+                               >
+                              Computational Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html"
+                               >
+                              Comp Phys: Monte Carlo & Molecular Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/fem-and-cfd.html"
+                               >
+                              Comp Phys: Finite Elements & Fluid Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/quantum-methods.html"
+                               >
+                              Comp Phys: Quantum Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/electronic-structure-beyond-dft.html"
+                               >
+                              Comp Phys: Electronic Structure Beyond DFT
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/hpc-and-ml.html"
+                               >
+                              Comp Phys: Parallel Computing & ML
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/ml-for-physics.html"
+                               >
+                              Comp Phys: ML for Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/tools-and-practices.html"
+                               >
+                              Comp Phys: Visualization, Libraries & Practices
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Hubs & Theory</h3>
+          
+            <ul class="nav__items">
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="distributed-systems">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/distributed-systems/index.html"
+                             >
+                            Distributed Systems
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/consensus-and-coordination.html"
+                               >
+                              Consensus & Coordination
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/replication-strategies.html"
+                               >
+                              Replication Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/client-side-consistency.html"
+                               >
+                              Client-Side Consistency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/failure-detection.html"
+                               >
+                              Failure Detection
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/service-discovery.html"
+                               >
+                              Service Discovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/resilience-patterns.html"
+                               >
+                              Resilience Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/microservices-and-event-driven.html"
+                               >
+                              Microservices & Event-Driven
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/observability.html"
+                               >
+                              Observability
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/testing-distributed-systems.html"
+                               >
+                              Testing Distributed Systems
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="observability">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/observability/"
+                             >
+                            Observability
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/metrics.html"
+                               >
+                              Metrics & Monitoring
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/logging.html"
+                               >
+                              Logging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/tracing.html"
+                               >
+                              Tracing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="api-design-communication">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/api-design/"
+                             >
+                            API Design & Communication
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/rest.html"
+                               >
+                              REST
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/graphql.html"
+                               >
+                              GraphQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/grpc-and-protobuf.html"
+                               >
+                              gRPC & Protobuf
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/async-and-events.html"
+                               >
+                              Async & Events
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="event-driven-architecture">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/event-driven/"
+                             >
+                            Event-Driven Architecture
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/message-brokers.html"
+                               >
+                              Message Brokers & Streaming
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/patterns.html"
+                               >
+                              Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="software-testing-qa">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/testing/"
+                             >
+                            Software Testing & QA
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/unit-and-integration.html"
+                               >
+                              Unit & Integration
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/advanced-testing.html"
+                               >
+                              Advanced Testing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="performance-optimization">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/optimization/index.html"
+                             >
+                            Performance Optimization
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/algorithmic-optimization.html"
+                               >
+                              Algorithmic Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/cpu-optimization.html"
+                               >
+                              CPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/gpu-optimization.html"
+                               >
+                              GPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/memory-optimization.html"
+                               >
+                              Memory Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/network-io-optimization.html"
+                               >
+                              Network & I/O Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/platform-tuning.html"
+                               class="active">
+                              Platform Tuning
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html"
+                       >
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html"
+                       >
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html"
+                       >
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/"
+                       >
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/"
+                       >
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/"
+                       >
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/complexity-theory/"
+                       >
+                      <span class="nav__sub-title">Computational Complexity Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/approximation-algorithms/"
+                       >
+                      <span class="nav__sub-title">Approximation Algorithms</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/automata-and-formal-languages/"
+                       >
+                      <span class="nav__sub-title">Automata & Formal Languages</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/category-and-type-theory/"
+                       >
+                      <span class="nav__sub-title">Category & Type Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/topology-and-geometry-in-computation/"
+                       >
+                      <span class="nav__sub-title">Topology & Geometry in Computation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/information-coding-theory/"
+                       >
+                      <span class="nav__sub-title">Information & Coding Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/cryptography/"
+                       >
+                      <span class="nav__sub-title">Cryptography (Foundations & PQ)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/"
+                       >
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-scaling/"
+                       >
+                      <span class="nav__sub-title">Monorepos: Scaling & Engineering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-tooling/"
+                       >
+                      <span class="nav__sub-title">Monorepo Tooling</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html"
+                       >
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references"
+                       >
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants"
+                       >
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures"
+                       >
+                      <span class="nav__sub-title">Algorithms & Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns"
+                       >
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts"
+                       >
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists"
+                       >
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        
+      </header>
+
+      <section id="page-content" class="page__content">
+        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Platform-Specific Tuning</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Mobile thermals, console fixed-hardware tuning, PC scalability presets, and compiler PGO</p>
+</div>
+
+<p><a href="./">Performance Optimization</a> » Platform-Specific Tuning</p>
+
+<div class="code-example">
+  <p>A frame-time budget is not a single number — it is three different numbers on three different classes of hardware. A 16.67 ms/frame target that is comfortable on a desktop GPU is a thermal-throttle death sentence on a phone, a known-quantity engineering problem on a console, and a scalability matrix on PC. This page covers how to tune for each: managing <strong>power and thermal</strong> envelopes on mobile, exploiting <strong>fixed hardware</strong> on consoles, exposing <strong>scalable quality presets</strong> on PC, and squeezing the last few percent out of every platform with <strong>compiler optimizations and profile-guided optimization (PGO)</strong>.</p>
+</div>
+
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
+
+<ol id="markdown-toc">
+  <li><a href="#why-platform-matters" id="markdown-toc-why-platform-matters">Why Platform Matters</a></li>
+  <li><a href="#mobile-optimization" id="markdown-toc-mobile-optimization">Mobile Optimization</a>    <ol>
+      <li><a href="#power-and-thermal" id="markdown-toc-power-and-thermal">Power and Thermal</a>        <ol>
+          <li><a href="#the-thermal-curve" id="markdown-toc-the-thermal-curve">The thermal curve</a></li>
+          <li><a href="#energy-is-power-x-time" id="markdown-toc-energy-is-power-x-time">Energy is power x time</a></li>
+          <li><a href="#frame-rate-vs-battery-quantified" id="markdown-toc-frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</a></li>
+          <li><a href="#tile-based-deferred-rendering-tbdr" id="markdown-toc-tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</a></li>
+          <li><a href="#reacting-to-thermal-state-in-code" id="markdown-toc-reacting-to-thermal-state-in-code">Reacting to thermal state in code</a></li>
+        </ol>
+      </li>
+      <li><a href="#memory-constraints" id="markdown-toc-memory-constraints">Memory Constraints</a></li>
+    </ol>
+  </li>
+  <li><a href="#console-optimization" id="markdown-toc-console-optimization">Console Optimization</a>    <ol>
+      <li><a href="#fixed-hardware-benefits" id="markdown-toc-fixed-hardware-benefits">Fixed Hardware Benefits</a></li>
+      <li><a href="#techniques" id="markdown-toc-techniques">Techniques</a>        <ol>
+          <li><a href="#unified-memory-and-the-bandwidth-budget" id="markdown-toc-unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</a></li>
+          <li><a href="#fixed-spec-constants" id="markdown-toc-fixed-spec-constants">Fixed-spec constants</a></li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+  <li><a href="#pc-scalability" id="markdown-toc-pc-scalability">PC Scalability</a>    <ol>
+      <li><a href="#graphics-options" id="markdown-toc-graphics-options">Graphics Options</a>        <ol>
+          <li><a href="#designing-quality-presets" id="markdown-toc-designing-quality-presets">Designing quality presets</a></li>
+        </ol>
+      </li>
+      <li><a href="#dynamic-resolution" id="markdown-toc-dynamic-resolution">Dynamic Resolution</a></li>
+    </ol>
+  </li>
+  <li><a href="#compiler-optimizations-and-pgo" id="markdown-toc-compiler-optimizations-and-pgo">Compiler Optimizations and PGO</a>    <ol>
+      <li><a href="#optimization-levels-and-flags" id="markdown-toc-optimization-levels-and-flags">Optimization levels and flags</a></li>
+      <li><a href="#profile-guided-optimization-pgo" id="markdown-toc-profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</a>        <ol>
+          <li><a href="#the-three-step-workflow" id="markdown-toc-the-three-step-workflow">The three-step workflow</a></li>
+          <li><a href="#what-pgo-actually-improves" id="markdown-toc-what-pgo-actually-improves">What PGO actually improves</a></li>
+          <li><a href="#the-representativeness-rule" id="markdown-toc-the-representativeness-rule">The representativeness rule</a></li>
+        </ol>
+      </li>
+    </ol>
+  </li>
+  <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
+  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+</ol>
+
+<hr />
+
+<h2 id="why-platform-matters">Why Platform Matters</h2>
+
+<p>The same engine, the same scene, and the same render path behave radically differently across hardware classes because the binding constraint is different in each case:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Platform</th>
+      <th>Binding constraint</th>
+      <th>Optimization posture</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Mobile</strong></td>
+      <td>Energy and heat (sustained power budget)</td>
+      <td>Throttle-aware; minimize joules per frame</td>
+    </tr>
+    <tr>
+      <td><strong>Console</strong></td>
+      <td>Fixed, known silicon</td>
+      <td>Optimize to the exact spec; no driver variance</td>
+    </tr>
+    <tr>
+      <td><strong>PC</strong></td>
+      <td>Unknown, wildly variable hardware</td>
+      <td>Scale gracefully across a 50x performance range</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A useful mental model: on a desktop you optimize for the <em>instantaneous</em> frame, on a phone you optimize for the <em>thousandth consecutive</em> frame (after the SoC has heated up), on a console you optimize for the <em>exact</em> frame the hardware will always produce, and on PC you optimize for the <em>worst plausible</em> frame your customer will run.</p>
+
+<hr />
+
+<h2 id="mobile-optimization">Mobile Optimization</h2>
+
+<p>Mobile SoCs (smartphones, tablets, handhelds, standalone VR) share a defining characteristic: there is no fan, or only a small one, so <strong>all dissipated power eventually becomes heat the chassis cannot shed</strong>. The hardware will run flat-out for a few seconds, then the on-die thermal governor will quietly reduce clocks to protect the silicon and the user’s hand. Mobile optimization is therefore fundamentally about <em>sustained</em> performance, not peak.</p>
+
+<h3 id="power-and-thermal">Power and Thermal</h3>
+
+<p>The original guidance is simple and remains the core of the discipline:</p>
+
+<ul>
+  <li><strong>Reduce GPU load to prevent throttling</strong> — the GPU is usually the dominant power consumer in a graphics workload.</li>
+  <li><strong>Target 30 FPS for better battery life</strong> when smoothness allows; halving the frame rate roughly halves render-related energy draw.</li>
+  <li><strong>Minimize background processing</strong> — wake locks, polling loops, and unbatched network calls drain the battery even when nothing is on screen.</li>
+  <li><strong>Use platform power management APIs</strong> to react to the OS’s own thermal and battery signals rather than guessing.</li>
+</ul>
+
+<h4 id="the-thermal-curve">The thermal curve</h4>
+
+<p>A mobile device does not run at a constant performance level. Its behaviour over a long session follows a predictable curve:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Performance
+    ^
+    |  ____ boost clocks (first ~30-90 s)
+    | /    \
+    |/      \___ throttle step 1
+    |           \____ throttle step 2 (sustained)
+    |                \________________________
+    +------------------------------------------&gt; time
+       "burst"        "thermal cliff"   "sustained floor"
+</code></pre></div></div>
+
+<p>Benchmarking only the first few seconds (the “burst” region) produces numbers your players will never see. <strong>Always measure sustained performance</strong>: run the workload for 10–20 minutes with the device thermally soaked, ideally in a warm room and inside its real case.</p>
+
+<h4 id="energy-is-power-x-time">Energy is power x time</h4>
+
+<p>The quantity that actually drains the battery and heats the chassis is energy, not power. The work done per frame, integrated over the session, is:</p>
+
+\[E = \int_0^T P(t)\, dt \approx \sum_{i=1}^{N} P_i \, \Delta t_i\]
+
+<p>Two corollaries fall directly out of this:</p>
+
+<ul>
+  <li><strong>Race to idle.</strong> A CPU core that finishes its work quickly and returns to a deep sleep state often uses <em>less</em> total energy than one that dawdles at a low clock, because static leakage and the fixed cost of being awake dominate. Bursty, then-asleep beats slow-but-steady on most mobile cores.</li>
+  <li><strong>Frame pacing beats frame count.</strong> Rendering at a steady, capped 30 FPS draws far less energy than rendering an uncapped 45 FPS that the display cannot even show. Always cap to the display refresh (or a clean divisor of it) so you do not burn joules on frames that are discarded.</li>
+</ul>
+
+<h4 id="frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</h4>
+
+<p>A rough first-order model: if rendering one frame costs a fixed energy $e$ and the device draws a baseline idle power $P_0$, then the battery life $L$ for a battery of capacity $Q$ at frame rate $f$ is:</p>
+
+\[L = \frac{Q}{P_0 + e \cdot f}\]
+
+<p>Dropping from 60 FPS to 30 FPS does not double battery life (the constant $P_0$ — screen backlight, radio, OS — does not change), but for GPU-heavy games where $e \cdot f \gg P_0$ it gets close. This is why a “30 FPS battery saver” mode is the single highest-leverage power option a mobile title can ship.</p>
+
+<h4 id="tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</h4>
+
+<p>Most mobile GPUs (Apple, ARM Mali, Qualcomm Adreno, Imagination PowerVR) are <strong>tile-based deferred renderers</strong>. The screen is split into small on-chip tiles; all geometry for a tile is binned, then shaded entirely in fast on-chip tile memory before being written out to main memory once. This architecture rewards a very different style of rendering than a desktop immediate-mode GPU:</p>
+
+<ul>
+  <li><strong>Avoid mid-frame framebuffer reads.</strong> Reading back a render target you just wrote forces the tile to be flushed to main memory and reloaded — the single most expensive mistake on mobile. Structure post-processing to stay within one render pass where possible (subpasses in Vulkan, programmable blending on Apple).</li>
+  <li><strong>Use <code class="language-plaintext highlighter-rouge">LOAD</code>/<code class="language-plaintext highlighter-rouge">STORE</code>/<code class="language-plaintext highlighter-rouge">DONT_CARE</code> correctly.</strong> Tell the driver when a render target’s previous contents are not needed (<code class="language-plaintext highlighter-rouge">DONT_CARE</code> on load) and when its results need not be kept (<code class="language-plaintext highlighter-rouge">DONT_CARE</code> on store). A depth buffer almost never needs to be stored to main memory; marking it <code class="language-plaintext highlighter-rouge">DONT_CARE</code> on store saves a large chunk of bandwidth, which is energy.</li>
+  <li><strong>MSAA is cheap, bandwidth is not.</strong> Because resolve happens in tile memory, MSAA is far cheaper on TBDR hardware than on desktop. Conversely, large G-buffers (deferred shading) are <em>more</em> expensive because the fat per-pixel data must spill out of tile memory. Forward / forward+ rendering is usually the better fit on mobile.</li>
+</ul>
+
+<h4 id="reacting-to-thermal-state-in-code">Reacting to thermal state in code</h4>
+
+<p>Modern mobile OSes expose the current thermal pressure so the app can shed load <em>before</em> the OS forces a hard throttle. The pattern is to map a thermal state to a quality tier and adjust dynamically:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Pseudocode: cross-platform thermal-aware quality governor.</span>
+<span class="c1">// On Android, read PowerManager.getCurrentThermalStatus();</span>
+<span class="c1">// on iOS, observe ProcessInfo.thermalState.</span>
+
+<span class="k">enum</span> <span class="k">class</span> <span class="nc">ThermalState</span> <span class="p">{</span> <span class="n">Nominal</span><span class="p">,</span> <span class="n">Fair</span><span class="p">,</span> <span class="n">Serious</span><span class="p">,</span> <span class="n">Critical</span> <span class="p">};</span>
+
+<span class="kt">void</span> <span class="nf">update_quality_for_thermal</span><span class="p">(</span><span class="n">ThermalState</span> <span class="n">state</span><span class="p">,</span> <span class="n">RenderSettings</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Nominal</span><span class="p">:</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">60</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">1.0f</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">High</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Fair</span><span class="p">:</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">60</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.85f</span><span class="p">;</span>   <span class="c1">// dynamic-resolution cushion</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Medium</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Serious</span><span class="p">:</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>      <span class="c1">// halve render energy</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.7f</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Low</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Critical</span><span class="p">:</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.6f</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Off</span><span class="p">;</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">post_effects</span>    <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>   <span class="c1">// strip the most expensive passes</span>
+            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The goal is graceful, <em>gradual</em> degradation: small render-scale and shadow concessions long before the OS would otherwise impose a sudden, jarring 50% clock cut.</p>
+
+<h3 id="memory-constraints">Memory Constraints</h3>
+
+<p>Mobile memory is shared between the OS, the GPU, and every backgrounded app, and the OS will kill your process without warning if it exceeds its share. The original guidance applies in full:</p>
+
+<ul>
+  <li><strong>Aggressive texture compression</strong> — use ASTC (variable 1–8 bpp) on modern hardware, ETC2 (4–8 bpp) as a baseline. Never ship uncompressed RGBA8 textures to a phone.</li>
+  <li><strong>Stream assets from storage</strong> rather than loading the whole world resident.</li>
+  <li><strong>Unload unused assets quickly</strong> — return memory the moment a level or screen is left.</li>
+  <li><strong>Monitor memory warnings</strong> — both Android (<code class="language-plaintext highlighter-rouge">onTrimMemory</code>) and iOS (<code class="language-plaintext highlighter-rouge">didReceiveMemoryWarning</code>) signal pressure; treat these as a hard instruction to free caches immediately, not advice.</li>
+</ul>
+
+<p>A practical budget on a mid-tier device is to keep total resident memory well under ~50–60% of the device RAM, because the OS, the compositor, and the GPU framebuffer claim a large fixed slice you never see. Profile on the <em>cheapest</em> device you intend to support, not the flagship.</p>
+
+<hr />
+
+<h2 id="console-optimization">Console Optimization</h2>
+
+<p>Consoles are the opposite of mobile’s uncertainty: a console is a single, frozen hardware specification that every unit shares for the lifetime of the generation. This is an enormous gift to the optimizer.</p>
+
+<h3 id="fixed-hardware-benefits">Fixed Hardware Benefits</h3>
+
+<ul>
+  <li><strong>Known performance characteristics</strong> — you know the exact CPU core count and clock, the exact GPU compute-unit count, the memory bandwidth, and the storage throughput. There is no “minimum spec” to guess at.</li>
+  <li><strong>Can optimize to exact specs</strong> — a constant you tune for one console is correct for <em>every</em> unit of that console, forever.</li>
+  <li><strong>No driver variation</strong> — the graphics driver is fixed and ships with the OS; a shader that works today works identically on every machine.</li>
+  <li><strong>Predictable memory budget</strong> — you are given a precise, contractual amount of memory and can fill it to the brim without the safety margin a PC requires.</li>
+</ul>
+
+<p>The single biggest consequence: <strong>you can profile once and trust the result.</strong> A frame that fits the budget on a dev kit fits the budget for every player. This lets console teams chase the last 1–2 ms of a frame with confidence that would be wasted effort on PC.</p>
+
+<h3 id="techniques">Techniques</h3>
+
+<p>The original techniques remain the backbone:</p>
+
+<ul>
+  <li><strong>SPU / compute-shader offloading</strong> — move parallelizable CPU work (culling, particle simulation, skinning, decompression) onto the GPU’s compute units or dedicated coprocessors, which fixed hardware lets you schedule precisely.</li>
+  <li><strong>Platform-specific APIs</strong> — consoles expose lower-level, lower-overhead graphics APIs (GNM/GNMX on PlayStation, the Xbox flavour of D3D12) than any cross-platform abstraction. Bypassing the portable layer recovers real CPU time.</li>
+  <li><strong>Hardware-specific features</strong> — dedicated decompression blocks, hardware ray-tracing units, and fixed-function tessellators can be used unconditionally because every unit has them.</li>
+  <li><strong>Memory layout optimization</strong> — with a known cache hierarchy and a unified memory architecture, you can hand-place data structures for the exact cache-line and bank layout of the silicon.</li>
+</ul>
+
+<h4 id="unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</h4>
+
+<p>Current-generation consoles use a <strong>unified memory architecture (UMA)</strong>: CPU and GPU share one physical pool, so there is no PCIe copy to move data from system to video memory — but they also <em>contend</em> for the same memory bus. The optimization problem shifts from “how do I get data to the GPU” to “how do I stay within the shared bandwidth budget”.</p>
+
+<p>You can reason about it directly. If the console offers $B$ bytes/second of memory bandwidth and you target $f$ frames/second, the bandwidth budget per frame is:</p>
+
+\[B_{\text{frame}} = \frac{B}{f}\]
+
+<p>For a console with 448 GB/s of bandwidth targeting 60 FPS, that is roughly 7.46 GB of memory traffic per frame. Every G-buffer write, texture fetch, and framebuffer resolve draws against that number. Counting bytes per frame — not just GPU math — is often the real console optimization loop.</p>
+
+<h4 id="fixed-spec-constants">Fixed-spec constants</h4>
+
+<p>Because the hardware never changes, magic numbers that would be reckless on PC are correct and permanent on console:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// On a fixed console spec these are not heuristics — they are facts.</span>
+<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kCpuCores</span>          <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>     <span class="c1">// known core count</span>
+<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kReservedForOs</span>     <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>     <span class="c1">// OS keeps these; game gets 6</span>
+<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kGameWorkerThreads</span> <span class="o">=</span> <span class="n">kCpuCores</span> <span class="o">-</span> <span class="n">kReservedForOs</span><span class="p">;</span>
+<span class="k">constexpr</span> <span class="kt">float</span> <span class="n">kGpuClockGHz</span>       <span class="o">=</span> <span class="mf">2.23f</span><span class="p">;</span> <span class="c1">// exact, every unit</span>
+<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kCacheLineBytes</span>    <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>    <span class="c1">// tune data layout to this</span>
+
+<span class="c1">// Hand-place hot data to one cache line, knowing the exact line size.</span>
+<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="n">kCacheLineBytes</span><span class="p">)</span> <span class="n">HotEntityData</span> <span class="p">{</span>
+    <span class="n">Vector3</span> <span class="n">position</span><span class="p">;</span>
+    <span class="n">Vector3</span> <span class="n">velocity</span><span class="p">;</span>
+    <span class="kt">float</span>   <span class="n">health</span><span class="p">;</span>
+    <span class="c1">// ... packed to fill, not straddle, a 64-byte line</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="pc-scalability">PC Scalability</h2>
+
+<p>PC is the hardest target precisely because it is the <em>least</em> like a console: an integrated laptop GPU and a flagship desktop card can differ by more than 50x in throughput, and both run your binary. The strategy is not to pick one target but to <strong>scale gracefully</strong> across the whole range, exposing knobs the user (or an auto-detector) can set.</p>
+
+<h3 id="graphics-options">Graphics Options</h3>
+
+<p>The original taxonomy of settings is the canonical menu:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Resolution: 720p to 4K+
+Quality Presets: Low, Medium, High, Ultra
+Individual Settings:
+├── Texture Quality
+├── Shadow Quality
+├── Anti-Aliasing
+├── Post-Processing
+├── Draw Distance
+├── LOD Bias
+└── Effect Quality
+</code></pre></div></div>
+
+<h4 id="designing-quality-presets">Designing quality presets</h4>
+
+<p>The “Low / Medium / High / Ultra” presets are not arbitrary — each is a curated bundle of the individual settings, chosen so that each step up costs <em>roughly</em> proportional GPU time for the visual gain. Good preset design follows a few rules:</p>
+
+<ul>
+  <li><strong>Order settings by cost-per-quality.</strong> Spend the first quality budget on the settings with the highest visual return per millisecond (texture resolution, shadow resolution) before the diminishing-returns settings (ultra-distance shadows, screen-space reflections at full resolution).</li>
+  <li><strong>Make Low actually run.</strong> “Low” must hit playable frame rates on the <em>minimum</em> supported GPU, not merely look worse on a good one. Validate it on real low-end silicon.</li>
+  <li><strong>Make Ultra a true headroom setting.</strong> “Ultra” exists for high-end and future hardware; it is acceptable for it to be unattainable on mid-range cards today.</li>
+  <li><strong>Detect and default sensibly.</strong> Auto-detect the GPU on first launch and pick a preset, so the median player never sees a slideshow before they find the settings menu.</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Cheapest tier</th>
+      <th>Most expensive tier</th>
+      <th>Primary cost class</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Texture Quality</td>
+      <td>Lower-resolution mips</td>
+      <td>Full-resolution textures</td>
+      <td>Memory / bandwidth</td>
+    </tr>
+    <tr>
+      <td>Shadow Quality</td>
+      <td>Low-res, short-range maps</td>
+      <td>High-res cascaded maps</td>
+      <td>Fill rate + draw calls</td>
+    </tr>
+    <tr>
+      <td>Anti-Aliasing</td>
+      <td>None / FXAA</td>
+      <td>TAA / MSAA / DLAA</td>
+      <td>Fill rate / bandwidth</td>
+    </tr>
+    <tr>
+      <td>Draw Distance</td>
+      <td>Near cull plane</td>
+      <td>Far cull plane</td>
+      <td>Geometry + draw calls</td>
+    </tr>
+    <tr>
+      <td>LOD Bias</td>
+      <td>Aggressive (low detail)</td>
+      <td>Conservative (high detail)</td>
+      <td>Geometry throughput</td>
+    </tr>
+    <tr>
+      <td>Effect Quality</td>
+      <td>Half-res particles/SSR</td>
+      <td>Full-res, more samples</td>
+      <td>Fill rate / shader ALU</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="dynamic-resolution">Dynamic Resolution</h3>
+
+<p>When a fixed preset still cannot guarantee the target frame rate (the worst-case scene is always heavier than the average), <strong>dynamic resolution</strong> closes the gap automatically. The original guidance is the heart of it:</p>
+
+<ul>
+  <li><strong>Target frame time</strong> — pick a millisecond budget (e.g. 16.67 ms for 60 FPS).</li>
+  <li><strong>Scale resolution to maintain FPS</strong> — when a frame runs long, shrink the internal render resolution next frame; when it runs short, grow it back toward native.</li>
+  <li><strong>Temporal upscaling to hide changes</strong> — reconstruct the lost detail with TAA-based upscalers (TAAU, DLSS, FSR, XeSS) so the resolution change is imperceptible.</li>
+</ul>
+
+<p>The control loop is a simple feedback controller. Letting $t$ be the measured GPU frame time, $t^*$ the target, and $s$ the current render-scale factor:</p>
+
+\[s_{n+1} = \text{clamp}\left( s_n \cdot \sqrt{\frac{t^\*}{t_n}},\; s_{\min},\; s_{\max} \right)\]
+
+<p>The square root appears because GPU cost scales roughly with pixel <em>count</em>, which is the square of the linear scale factor; correcting in linear space therefore needs the square root of the time ratio. Clamping prevents the resolution from collapsing to an unusable blur during a momentary spike.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Dynamic-resolution controller, run once per frame.</span>
+<span class="kt">float</span> <span class="nf">update_render_scale</span><span class="p">(</span><span class="kt">float</span> <span class="n">last_gpu_ms</span><span class="p">,</span> <span class="kt">float</span> <span class="n">target_ms</span><span class="p">,</span>
+                          <span class="kt">float</span> <span class="n">scale</span><span class="p">,</span> <span class="kt">float</span> <span class="n">min_s</span><span class="p">,</span> <span class="kt">float</span> <span class="n">max_s</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">float</span> <span class="n">ratio</span>    <span class="o">=</span> <span class="n">target_ms</span> <span class="o">/</span> <span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="n">last_gpu_ms</span><span class="p">,</span> <span class="mf">0.01f</span><span class="p">);</span>
+    <span class="kt">float</span> <span class="n">proposed</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">std</span><span class="o">::</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ratio</span><span class="p">);</span>
+    <span class="c1">// Damp toward the proposed value to avoid oscillation/visible pumping.</span>
+    <span class="kt">float</span> <span class="n">damped</span>   <span class="o">=</span> <span class="n">scale</span> <span class="o">+</span> <span class="mf">0.25f</span> <span class="o">*</span> <span class="p">(</span><span class="n">proposed</span> <span class="o">-</span> <span class="n">scale</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">clamp</span><span class="p">(</span><span class="n">damped</span><span class="p">,</span> <span class="n">min_s</span><span class="p">,</span> <span class="n">max_s</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>A small damping factor (here 0.25) is important: snapping resolution to the exact proposed value every frame produces visible “resolution pumping”. Easing toward the target keeps the change below the perceptual threshold.</p>
+
+<hr />
+
+<h2 id="compiler-optimizations-and-pgo">Compiler Optimizations and PGO</h2>
+
+<p>The platform discussion so far has been about runtime behaviour, but a large, free performance margin lives in <em>how the binary is built</em>. The compiler and linker can transform the same source into substantially faster machine code — and profile-guided optimization (PGO) lets them do it using evidence from real runs instead of static guesses.</p>
+
+<h3 id="optimization-levels-and-flags">Optimization levels and flags</h3>
+
+<p>Every production binary should be built with optimizations on. The common levels:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Flag (GCC/Clang)</th>
+      <th>Meaning</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O0</code></td>
+      <td>No optimization</td>
+      <td>Debug builds only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O1</code></td>
+      <td>Light optimization</td>
+      <td>Rare; faster builds with some speedup</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O2</code></td>
+      <td>Full optimization, no size/speed tradeoff risk</td>
+      <td><strong>Default for shipping</strong></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O3</code></td>
+      <td>Aggressive (more inlining, vectorization)</td>
+      <td>Hot, math-heavy code; measure — can regress</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-Os</code></td>
+      <td>Optimize for size</td>
+      <td>Memory-constrained / embedded</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-Ofast</code></td>
+      <td><code class="language-plaintext highlighter-rouge">-O3</code> plus relaxed IEEE math</td>
+      <td>Only where strict FP is not required</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p><strong>Never profile or ship a debug build.</strong> A <code class="language-plaintext highlighter-rouge">-O0</code> build can be several times slower than <code class="language-plaintext highlighter-rouge">-O2</code> and will mislead every profiling decision — the original “Avoiding Common Pitfalls” warning that <em>“debug builds hide real performance”</em> is largely a statement about optimization flags.</p>
+</blockquote>
+
+<p>Two structural flags deserve special mention:</p>
+
+<ul>
+  <li><strong>Link-Time Optimization (<code class="language-plaintext highlighter-rouge">-flto</code>)</strong> lets the optimizer see across translation-unit boundaries at link time, enabling cross-file inlining and dead-code elimination that per-file compilation cannot. It often yields a few percent for modest build-time cost.</li>
+  <li><strong>Architecture targeting (<code class="language-plaintext highlighter-rouge">-march=native</code>, or a specific <code class="language-plaintext highlighter-rouge">-march=x86-64-v3</code>)</strong> lets the compiler emit newer instructions (AVX2, etc.). On a console with fixed hardware this is free and unconditional; on PC it must be balanced against the minimum CPU you support (or shipped as multiple dispatched code paths).</li>
+</ul>
+
+<h3 id="profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</h3>
+
+<p>Many of a compiler’s most consequential decisions — which branch is the likely one, which function is hot enough to inline, how to lay out basic blocks so the common path stays in the instruction cache — are <em>guesses</em> when made from source alone. <strong>PGO replaces those guesses with measured truth</strong> by feeding the compiler an execution profile gathered from a real run.</p>
+
+<h4 id="the-three-step-workflow">The three-step workflow</h4>
+
+<p>PGO is an instrument-run-rebuild loop:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+   │ 1. INSTRUMENT     │     │ 2. TRAIN          │     │ 3. OPTIMIZE       │
+   │ compile with      │ --&gt; │ run on a          │ --&gt; │ recompile using   │
+   │ profiling probes  │     │ representative    │     │ the collected     │
+   │ (-fprofile-       │     │ workload; emit    │     │ profile           │
+   │  generate)        │     │ .profraw data     │     │ (-fprofile-use)   │
+   └──────────────────┘     └──────────────────┘     └──────────────────┘
+</code></pre></div></div>
+
+<p>With Clang the concrete sequence is:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Build an instrumented binary.</span>
+clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-generate</span> <span class="nt">-o</span> app.inst app.cpp
+
+<span class="c"># 2. Run it on a REPRESENTATIVE workload (a real level, a real benchmark).</span>
+<span class="c">#    This drops .profraw files recording which branches/functions ran hot.</span>
+./app.inst <span class="nt">--run-typical-workload</span>
+
+<span class="c"># 3. Merge the raw profile, then rebuild using it.</span>
+llvm-profdata merge <span class="nt">-output</span><span class="o">=</span>app.profdata <span class="k">*</span>.profraw
+clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-use</span><span class="o">=</span>app.profdata <span class="nt">-o</span> app app.cpp
+</code></pre></div></div>
+
+<p>GCC uses the analogous <code class="language-plaintext highlighter-rouge">-fprofile-generate</code> / <code class="language-plaintext highlighter-rouge">-fprofile-use</code> pair.</p>
+
+<h4 id="what-pgo-actually-improves">What PGO actually improves</h4>
+
+<ul>
+  <li><strong>Branch layout</strong> — the hot side of each <code class="language-plaintext highlighter-rouge">if</code> is made the fall-through, keeping the common path in straight-line code.</li>
+  <li><strong>Inlining decisions</strong> — functions that are <em>actually</em> called frequently get inlined even if they look large; functions that are rarely called are left out-of-line to keep hot code dense.</li>
+  <li><strong>Basic-block ordering and code locality</strong> — hot blocks are clustered so the CPU instruction cache and the branch predictor stay warm; cold paths (error handling, rare cases) are exiled to the end of the function or to separate “cold” sections.</li>
+  <li><strong>Devirtualization and switch lowering</strong> — a profile that shows one virtual target or one <code class="language-plaintext highlighter-rouge">switch</code> case dominates lets the compiler speculate on it directly.</li>
+</ul>
+
+<p>Typical real-world gains are in the <strong>5–20%</strong> range on branch-heavy code (interpreters, parsers, game logic, compilers themselves), with essentially no source changes. Because the win comes entirely from the build, it stacks on top of every algorithmic and data-layout optimization done elsewhere.</p>
+
+<h4 id="the-representativeness-rule">The representativeness rule</h4>
+
+<p>PGO is only as good as the training run. <strong>The profile must reflect how the program is actually used</strong>; optimizing for a workload nobody runs can pessimize the workload everybody runs. Practical guidance:</p>
+
+<ul>
+  <li>Train on a realistic, worst-case-inclusive scenario, not a trivial smoke test.</li>
+  <li>For games, train on representative gameplay (a real level, real input), not the main menu.</li>
+  <li>Re-collect the profile when the code or the dominant workload changes meaningfully; a stale profile slowly drifts from reality.</li>
+  <li>In CI, automate the instrument → run-benchmark → rebuild loop so every release ships with a fresh, representative profile.</li>
+</ul>
+
+<p>A related, lower-effort variant is <strong>AutoFDO / sampling-based PGO</strong>, which gathers the profile from low-overhead hardware sampling (e.g. Linux <code class="language-plaintext highlighter-rouge">perf</code>) on an ordinary optimized build rather than a special instrumented one. It trades a little accuracy for the ability to profile production binaries continuously, which makes keeping the profile representative far easier.</p>
+
+<hr />
+
+<h2 id="putting-it-together">Putting It Together</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Platform</th>
+      <th>First thing to measure</th>
+      <th>First lever to pull</th>
+      <th>Key build flag</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Mobile</strong></td>
+      <td>Sustained (thermally soaked) frame time</td>
+      <td>Cap FPS; cut GPU energy; stay in tile memory</td>
+      <td><code class="language-plaintext highlighter-rouge">-O2</code> + size-aware; ASTC textures</td>
+    </tr>
+    <tr>
+      <td><strong>Console</strong></td>
+      <td>Bytes of memory traffic per frame</td>
+      <td>Offload to compute; native low-level API</td>
+      <td><code class="language-plaintext highlighter-rouge">-O3</code>/<code class="language-plaintext highlighter-rouge">-march=&lt;exact&gt;</code> + PGO (fixed spec)</td>
+    </tr>
+    <tr>
+      <td><strong>PC</strong></td>
+      <td>Worst-case frame on minimum spec</td>
+      <td>Quality presets + dynamic resolution</td>
+      <td><code class="language-plaintext highlighter-rouge">-O2 -flto</code> + PGO; multi-arch dispatch</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The unifying discipline is unchanged from the rest of this section: <strong>profile on the real target, optimize the binding constraint, and verify the win.</strong> Platform tuning simply changes <em>which</em> constraint binds — energy on mobile, shared bandwidth on console, the long tail of unknown hardware on PC — and adds the compiler itself as a final, almost-free source of speed through optimization flags and PGO.</p>
+
+<h2 id="see-also">See Also</h2>
+
+<ul>
+  <li><a href="./">Performance Optimization</a> — the optimization hub and overview</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> — rendering pipelines and GPU architecture that platform tuning targets</li>
+  <li><a href="../vr-ar/">VR/AR Development</a> — standalone-headset performance shares mobile’s thermal and battery constraints</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> — engine scalability settings and platform profiling tools</li>
+  <li><a href="../gamedev/">Game Development</a> — game development workflows and frame-budget planning</li>
+</ul>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>

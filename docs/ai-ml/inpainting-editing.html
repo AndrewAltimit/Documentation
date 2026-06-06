@@ -1,0 +1,3538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Technology and Physics notes">
+<meta name="author" content="Andrew">
+
+<!-- Open Graph -->
+<meta property="og:title" content="AI/ML: Inpainting & Image Editing">
+<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/inpainting-editing.html">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AI/ML: Inpainting & Image Editing">
+<meta name="twitter:description" content="Technology and Physics notes">
+
+<title>AI/ML: Inpainting & Image Editing | Andrews Notebook</title>
+
+
+  <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
+
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/Documentation/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css"></noscript>
+
+<!-- Custom styles -->
+<!-- Theme (light/dark): apply saved/preferred theme before paint to avoid a flash -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();
+</script>
+
+<!-- MathJax for LaTeX equation rendering -->
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+    ignoreHtmlClass: 'tex2jax_ignore',
+    processHtmlClass: 'tex2jax_process'
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+/* MathJax equation styling */
+mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+mjx-container[display="true"] {
+  display: block !important;
+  margin: 1.5em 0 !important;
+  text-align: center;
+}
+
+mjx-container[display="true"] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Inline equations */
+mjx-container:not([display="true"]) {
+  display: inline !important;
+  margin: 0 0.1em;
+}
+
+/* Equation numbering (if used) */
+.MathJax .mjx-mtr {
+  margin: 0.25em 0;
+}
+
+/* Better scrolling for wide equations on mobile */
+@media (max-width: 768px) {
+  mjx-container[display="true"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+</style>
+
+<!-- Custom styles for documentation -->
+<link rel="stylesheet" href="/Documentation/style.css?v=2.0.1">
+<link rel="stylesheet" href="/Documentation/assets/css/condensed.css?v=2.0.1">
+<style>
+  /* Widescreen optimized layout */
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Main container - full width */
+  #main {
+    display: flex;
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Sidebar fixed to left edge */
+  .sidebar.sticky {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #f7f8fa;
+    border-right: 1px solid #e1e4e8;
+    padding: 2rem 1rem;
+    z-index: 100;
+    /* Subtle shadow to separate from content */
+    box-shadow: 2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+  
+  /* Sidebar brand / home link */
+  .sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.25rem;
+    padding: 0 0 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1f24;
+    text-decoration: none;
+    border-bottom: 1px solid #e1e4e8;
+    transition: color 0.15s ease;
+  }
+
+  .sidebar__brand i {
+    color: #0066cc;
+    font-size: 1.15rem;
+  }
+
+  .sidebar__brand:hover {
+    color: #0066cc;
+    text-decoration: none;
+  }
+
+  /* Sidebar navigation styling */
+  .nav__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__title {
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .nav__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .nav__items a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .nav__items a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+  
+  .nav__items a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Collapsible navigation sections */
+  .nav__item--collapsible {
+    margin: 0.25rem 0;
+  }
+
+  .nav__item--collapsible details {
+    margin: 0;
+  }
+
+  .nav__item--collapsible summary {
+    display: flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.875rem;
+    color: #333;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+    list-style: none;
+  }
+
+  .nav__item--collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .nav__item--collapsible summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+  }
+
+  .nav__item--collapsible details[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .nav__item--collapsible summary:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+    border-left-color: #0066cc;
+  }
+
+  .nav__item--collapsible summary a {
+    display: inline;
+    padding: 0;
+    border-left: none;
+    font-weight: 500;
+  }
+
+  .nav__item--collapsible summary a:hover {
+    background: none;
+    border-left: none;
+  }
+
+  .nav__item--collapsible summary a.active {
+    color: #0066cc;
+    font-weight: 600;
+    background: none;
+    border-left: none;
+  }
+
+  /* Nested sub-items */
+  .nav__subitems {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    padding-left: 1.25rem;
+    border-left: 1px solid #e1e4e8;
+    margin-left: 1rem;
+  }
+
+  .nav__subitems li {
+    margin: 0;
+  }
+
+  .nav__subitems a {
+    display: block;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    color: #555;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .nav__subitems a:hover {
+    color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.03);
+    border-left-color: #0066cc;
+  }
+
+  .nav__subitems a.active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background-color: rgba(0, 102, 204, 0.05);
+  }
+
+  /* Content area with left margin for sidebar */
+  article.page {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: white;
+    width: calc(100% - 280px);
+    max-width: none;
+  }
+  
+  /* Content wrapper - use full width */
+  .page__inner-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 2rem 3rem;
+  }
+  
+  .page__title {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  /* Let content use available width */
+  .page__content {
+    max-width: none;
+    width: 100%;
+  }
+  
+  /* For optimal reading, constrain just the text paragraphs */
+  .page__content > p,
+  .page__content > ul,
+  .page__content > ol {
+    max-width: 65ch;
+  }
+  
+  /* Let code blocks, tables, and special content use full width */
+  .page__content pre,
+  .page__content table,
+  .page__content .noteBoxes,
+  .page__content figure,
+  .page__content .highlight {
+    max-width: 100%;
+  }
+  
+  /* Wide note boxes */
+  .noteBoxes {
+    width: 90% !important;
+    max-width: 800px;
+  }
+  
+  /* Tables use available width */
+  table {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Code blocks optimization */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  .highlight {
+    max-width: 100%;
+    margin: 1rem 0;
+  }
+  
+  /* Responsive adjustments */
+  @media (min-width: 2000px) {
+    .sidebar.sticky {
+      width: 320px;
+    }
+    
+    article.page {
+      margin-left: 320px;
+      width: calc(100% - 320px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 4rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 75ch;
+    }
+  }
+  
+  @media (min-width: 1024px) and (max-width: 1439px) {
+    .sidebar.sticky {
+      width: 250px;
+    }
+    
+    article.page {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+    
+    .page__inner-wrap {
+      padding: 2rem 2rem;
+    }
+  }
+  
+  /* Tablet and mobile */
+  @media (max-width: 1023px) {
+    #main {
+      flex-direction: column;
+    }
+    
+    .sidebar.sticky {
+      position: relative;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      padding: 1rem;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+    
+    .page__inner-wrap {
+      padding: 1rem;
+    }
+    
+    .page__content > p,
+    .page__content > ul,
+    .page__content > ol {
+      max-width: 100%;
+    }
+  }
+  
+  /* Mobile navigation toggle */
+  .nav-toggle {
+    display: none;
+  }
+  
+  @media (max-width: 1023px) {
+    .nav-toggle {
+      display: block;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.sticky {
+      position: fixed;
+      left: -100%;
+      top: 0;
+      transition: left 0.3s ease;
+      z-index: 150;
+      height: 100vh;
+      width: 280px;
+    }
+    
+    .sidebar.sticky.active {
+      left: 0;
+    }
+    
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 140;
+    }
+    
+    .sidebar-overlay.active {
+      display: block;
+    }
+    
+    article.page {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Mobile navigation toggle script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Mobile menu functionality.
+  // The toggle/overlay are always created; CSS media queries control whether
+  // the toggle is visible, so resizing across the breakpoint behaves correctly.
+  var sidebar = document.querySelector('.sidebar.sticky');
+  if (sidebar && !document.querySelector('.nav-toggle')) {
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'nav-toggle';
+    toggleBtn.type = 'button';
+    toggleBtn.innerHTML = '☰ Menu';
+    toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(toggleBtn);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function closeNav() {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      var open = sidebar.classList.toggle('active');
+      overlay.classList.toggle('active', open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    overlay.addEventListener('click', closeNav);
+
+    // Close the menu after following a link, and on Escape.
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.closest('a')) { closeNav(); }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeNav(); }
+    });
+
+    // Reset state when resizing back to desktop.
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (window.innerWidth > 1023) { closeNav(); }
+      }, 200);
+    });
+  }
+});
+</script>
+
+<!-- Light/dark theme toggle button -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.theme-toggle')) return;
+  var root = document.documentElement;
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle';
+  btn.type = 'button';
+
+  function isDark() { return root.getAttribute('data-theme') === 'dark'; }
+  function render() {
+    var dark = isDark();
+    btn.innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
+  render();
+
+  btn.addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    render();
+  });
+
+  // Follow OS changes only when the user hasn't made an explicit choice.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onChange = function (e) {
+      var saved;
+      try { saved = localStorage.getItem('theme'); } catch (err) { saved = null; }
+      if (!saved) { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); render(); }
+    };
+    if (mq.addEventListener) { mq.addEventListener('change', onChange); }
+    else if (mq.addListener) { mq.addListener(onChange); }
+  }
+
+  document.body.appendChild(btn);
+});
+</script>
+
+<!-- ============================================================
+     On-page Table of Contents ("On This Page") + reading enhancers
+     ============================================================ -->
+<style>
+  /* Right-hand sticky On This Page navigation (docs pages only) */
+  .doc-toc {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.25rem 2rem;
+    border-left: 1px solid #e1e4e8;
+    background: #f9fafc;
+    z-index: 90;
+    font-size: 0.8125rem;
+    /* Subtle shadow to visually separate from content */
+    box-shadow: -2px 0 8px rgba(27, 31, 36, 0.04);
+  }
+
+  .doc-toc__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6a737d;
+  }
+
+  .doc-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .doc-toc li { margin: 0; }
+
+  .doc-toc a {
+    display: block;
+    padding: 0.22rem 0.55rem;
+    color: #57606a;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 3px 3px 0;
+    line-height: 1.35;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .doc-toc a:hover {
+    color: #0066cc;
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: rgba(0, 102, 204, 0.3);
+  }
+
+  .doc-toc a.toc-h3 {
+    padding-left: 1.35rem;
+    font-size: 0.76rem;
+    color: #6b7280;
+  }
+
+  .doc-toc a.is-active {
+    color: #0066cc;
+    font-weight: 600;
+    border-left-color: #0066cc;
+    background: rgba(0, 102, 204, 0.07);
+  }
+
+  /* When the TOC is present, leave room for it on wide screens */
+  body.has-doc-toc article.page { padding-right: 240px; }
+
+  /* Heading anchor affordance */
+  .page__content h2,
+  .page__content h3,
+  .page__content h4 { scroll-margin-top: 1.5rem; }
+
+  .heading-anchor {
+    opacity: 0;
+    margin-left: 0.45rem;
+    font-size: 0.75em;
+    color: #b0b8c0;
+    text-decoration: none;
+    border-bottom: none !important;
+    /* Vertically center the icon with the heading baseline */
+    vertical-align: middle;
+    transition: opacity 0.15s ease, color 0.15s ease;
+  }
+
+  .page__content h2:hover .heading-anchor,
+  .page__content h3:hover .heading-anchor,
+  .page__content h4:hover .heading-anchor { opacity: 1; }
+
+  .heading-anchor:hover {
+    color: #0066cc;
+    text-decoration: none;
+    border-bottom: none !important;
+    background: none !important;
+  }
+
+  /* Copy-to-clipboard button on code blocks */
+  .page__content pre { position: relative; }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    padding: 0.18rem 0.5rem;
+    font-size: 0.68rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #57606a;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+  }
+
+  .page__content pre:hover .code-copy-btn { opacity: 1; }
+  .code-copy-btn:hover {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+    transform: scale(1.04);
+  }
+  .code-copy-btn.copied {
+    background: #28a745;
+    color: #fff;
+    border-color: #28a745;
+    opacity: 1;
+  }
+
+  /* Mermaid rendered diagrams center nicely */
+  .mermaid {
+    margin: 1.5rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+
+  /* Hide the right TOC on narrower viewports and on mobile */
+  @media (max-width: 1399px) {
+    .doc-toc { display: none; }
+    body.has-doc-toc article.page { padding-right: 0; }
+  }
+</style>
+
+<!-- Mermaid diagram rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* ---- Mermaid: convert fenced ```mermaid blocks into rendered diagrams ----
+     kramdown + rouge wraps fenced ```mermaid as:
+       <div class="language-mermaid highlighter-rouge"><div class="highlight">
+         <pre class="highlight"><code>...</code></pre></div></div>
+     (or, without highlighting, <pre><code class="language-mermaid">...). We
+     collect the raw text, replace the wrapper with a <div class="mermaid">,
+     then run mermaid on those nodes. */
+  if (typeof mermaid !== 'undefined') {
+    // The diagrams in this site hard-code LIGHT node fills (e.g. fill:#e3f2fd)
+    // via classDef/style, so mermaid's 'dark' theme would render light text on
+    // light boxes (unreadable). We therefore always render with the light
+    // 'neutral' theme and, in dark mode, sit the diagram on a light card (see
+    // the .mermaid dark-mode rule in style.css) so it stays readable.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose'
+    });
+
+    var mermaidBlocks = [];
+    // rouge-highlighted form
+    document.querySelectorAll('div.language-mermaid, code.language-mermaid').forEach(function (node) {
+      var codeEl = node.matches('code') ? node : node.querySelector('code');
+      var source = (codeEl ? codeEl.textContent : node.textContent) || '';
+      // The outermost replaceable wrapper: the .language-mermaid wrapper div,
+      // else the enclosing <pre>, else the node itself.
+      var wrapper = node.closest('div.language-mermaid') || node.closest('pre') || node;
+      var holder = document.createElement('div');
+      holder.className = 'mermaid';
+      holder.textContent = source.trim();
+      wrapper.parentNode.replaceChild(holder, wrapper);
+      mermaidBlocks.push(holder);
+    });
+
+    if (mermaidBlocks.length) {
+      try {
+        mermaid.run({ nodes: mermaidBlocks });
+      } catch (e) {
+        // mermaid <10.3 fallback
+        if (mermaid.init) { mermaid.init(undefined, mermaidBlocks); }
+      }
+    }
+  }
+
+  /* ---- Heading anchor links (h2/h3/h4 inside content) ---- */
+  var content = document.querySelector('.page__content');
+  if (content) {
+    var slugCounts = {};
+    function slugify(text) {
+      var base = text.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+      if (!base) base = 'section';
+      if (slugCounts[base] === undefined) { slugCounts[base] = 0; return base; }
+      slugCounts[base] += 1;
+      return base + '-' + slugCounts[base];
+    }
+
+    var headings = content.querySelectorAll('h2, h3, h4');
+    headings.forEach(function (h) {
+      if (!h.id) { h.id = slugify(h.textContent || ''); }
+      else { slugCounts[h.id] = 0; }
+      var a = document.createElement('a');
+      a.className = 'heading-anchor';
+      a.href = '#' + h.id;
+      a.setAttribute('aria-label', 'Link to this section');
+      a.innerHTML = '<i class="fas fa-link"></i>';
+      h.appendChild(a);
+    });
+
+    /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
+    var wantsToc = true;
+    var tocHeadings = Array.prototype.filter.call(
+      content.querySelectorAll('h2, h3'),
+      function (h) { return (h.textContent || '').trim().length > 0; }
+    );
+    if (wantsToc && tocHeadings.length >= 3 && window.innerWidth >= 1400) {
+      var nav = document.createElement('nav');
+      nav.className = 'doc-toc';
+      nav.setAttribute('aria-label', 'On this page');
+      var html = '<p class="doc-toc__title">On This Page</p><ul>';
+      tocHeadings.forEach(function (h) {
+        var cls = h.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2';
+        var label = h.textContent.replace(/\s*$/, '');
+        html += '<li><a class="' + cls + '" href="#' + h.id + '">' + label + '</a></li>';
+      });
+      html += '</ul>';
+      nav.innerHTML = html;
+      document.body.appendChild(nav);
+      document.body.classList.add('has-doc-toc');
+
+      /* Scroll-spy: highlight the current section */
+      var links = nav.querySelectorAll('a');
+      var byId = {};
+      links.forEach(function (l) { byId[l.getAttribute('href').slice(1)] = l; });
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var l = byId[entry.target.id];
+            if (!l) return;
+            if (entry.isIntersecting) {
+              links.forEach(function (x) { x.classList.remove('is-active'); });
+              l.classList.add('is-active');
+            }
+          });
+        }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+        tocHeadings.forEach(function (h) { observer.observe(h); });
+      }
+    }
+
+    /* ---- Copy-to-clipboard buttons on code blocks ---- */
+    content.querySelectorAll('pre').forEach(function (pre) {
+      if (pre.querySelector('.mermaid')) return;
+      var code = pre.querySelector('code');
+      if (!code) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function () {
+        var text = code.innerText;
+        function done() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          document.body.removeChild(ta); done();
+        }
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  /* ---- Smooth scroll for in-page anchor links ---- */
+  document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+    anchor.addEventListener('click', function (e) {
+      var id = this.getAttribute('href');
+      if (id.length <= 1) return;
+      var target = document.getElementById(id.slice(1));
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (history.pushState) { history.pushState(null, '', id); }
+      }
+    });
+  });
+});
+</script>
+
+
+  
+    <script src="/Documentation/assets/js/custom.js"></script>
+  
+
+</head>
+<body>
+  <a class="skip-link" href="#page-content">Skip to content</a>
+
+<div id="main" role="main">
+  <aside class="sidebar sticky">
+    <a class="sidebar__brand" href="/Documentation/index.html">
+      <i class="fas fa-book-open"></i>
+      <span>Andrew's Notebook</span>
+    </a>
+    <nav class="nav__list" aria-label="Documentation">
+      
+        
+          <h3 class="nav__title">Start Here</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/index.html">
+                      <span class="nav__sub-title">Home</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/getting-started.html">
+                      <span class="nav__sub-title">Getting Started</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/index.html">
+                      <span class="nav__sub-title">All Documentation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/topic-map.html">
+                      <span class="nav__sub-title">Topic Map</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/search.html">
+                      <span class="nav__sub-title">Search</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Technology</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/technology/index.html">
+                      <span class="nav__sub-title">Technology Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="docker">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/docker/">
+                            Docker
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker-essentials.html">
+                              Docker Essentials (Quick Ref)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/storage-security.html">
+                              Storage &amp; Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/dockerfiles.html">
+                              Dockerfiles &amp; CI/CD
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-networking.html">
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/registry.html">
+                              Registry &amp; Distribution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/docker-design-patterns.html">
+                              Design Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/docker/advanced.html">
+                              Advanced Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/container-runtimes.html">
+                              Container Runtimes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="kubernetes">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/kubernetes/">
+                            Kubernetes
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals.html">
+                              Fundamentals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-resources.html">
+                              Fundamentals: Resources
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/fundamentals-networking.html">
+                              Fundamentals: Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/workloads.html">
+                              Workloads &amp; Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/persistence.html">
+                              Persistence
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/operations.html">
+                              Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/kubernetes/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="aws">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/aws/">
+                            AWS
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/compute.html">
+                              Compute
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/storage.html">
+                              Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/databases.html">
+                              Databases
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/networking.html">
+                              Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/security.html">
+                              Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/monitoring.html">
+                              Monitoring &amp; Messaging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/iac.html">
+                              Infrastructure as Code
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/cost.html">
+                              Cost Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/architecture.html">
+                              Architecture &amp; Case Studies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/aws/troubleshooting.html">
+                              Troubleshooting
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="terraform">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/terraform/">
+                            Terraform
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/core-concepts.html">
+                              Core Concepts
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/state-modules.html">
+                              State &amp; Modules
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/patterns.html">
+                              Enterprise Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/terraform/advanced.html">
+                              Advanced Topics
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="version-control">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/git/">
+                            Version Control
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-crash-course.html">
+                              Git Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/">
+                              Git Internals
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/object-model.html">
+                              Git: Object Model &amp; Storage
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/protocols-and-performance.html">
+                              Git: Protocols, Packs &amp; Performance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/algorithms-and-operations.html">
+                              Git: Algorithms &amp; Advanced Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/conflict-and-recovery.html">
+                              Git: Conflict &amp; Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git/auth-and-access-control.html">
+                              Git: Auth &amp; Access Control
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/git-reference.html">
+                              Command Reference
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/branching.html">
+                              Branching Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/advanced-branching-techniques.html">
+                              Advanced Branching Techniques
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="devops-ci-cd">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ci-cd/">
+                            DevOps &amp; CI/CD
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/">
+                              CI/CD Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/platforms-and-pipelines.html">
+                              Platforms &amp; Pipeline Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/deployment.html">
+                              Deployment Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ci-cd/security-and-operations.html">
+                              Security, GitOps &amp; Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/please-build.html">
+                              Please Build
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="networking-security">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/networking/">
+                            Networking &amp; Security
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/">
+                              Networking Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/fundamentals.html">
+                              Net: Layers &amp; Addressing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/transport-and-protocols.html">
+                              Net: Transport &amp; Protocols
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/routing.html">
+                              Net: Routing &amp; Switching
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/performance-and-security.html">
+                              Net: Performance, QoS &amp; Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/cloud-networking.html">
+                              Net: Cloud Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/wireless-and-mobile.html">
+                              Net: Wireless &amp; Mobile
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/programmable-networks.html">
+                              Net: Programmable Networks
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/networking/modern-architecture.html">
+                              Net: Modern &amp; Future Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/">
+                              Cybersecurity Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cryptography.html">
+                              Sec: Cryptography
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/application-and-cloud-security.html">
+                              Sec: Web, Cloud &amp; Container
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html">
+                              Sec: Cloud &amp; Container Security
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/attacks-and-defense.html">
+                              Sec: Attacks &amp; Network Defense
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/operations-and-response.html">
+                              Sec: Operations, Response &amp; Compliance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/security-operations.html">
+                              Sec: Security Operations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/incident-response.html">
+                              Sec: Incident Response
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/compliance-and-governance.html">
+                              Sec: Compliance &amp; Governance
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/cybersecurity/privacy-engineering.html">
+                              Sec: Privacy Engineering
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="databases">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/database-design/">
+                            Databases
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-crash-course.html">
+                              Database Crash Course
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/">
+                              Database Design Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/modeling.html">
+                              DB: Modeling &amp; Normalization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/indexing-and-queries.html">
+                              DB: Indexing &amp; Query Execution
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/transactions-and-concurrency.html">
+                              DB: Transactions &amp; Concurrency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-transactions.html">
+                              DB: Distributed Transactions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/storage-internals.html">
+                              DB: Storage Engines &amp; Recovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/replication-and-consensus.html">
+                              DB: Replication &amp; Consensus
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/distributed-and-nosql.html">
+                              DB: Distributed Databases &amp; NoSQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/nosql-data-models.html">
+                              DB: NoSQL Data Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/schema-evolution-and-migrations.html">
+                              DB: Schema Evolution &amp; Migrations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/orm-patterns.html">
+                              DB: ORM Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/database-design/operations-and-monitoring.html">
+                              DB: Operations &amp; Monitoring
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="ai-foundations">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/ai/">
+                            AI Foundations
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-fundamentals-simple.html">
+                              AI Fundamentals (Simplified)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/">
+                              AI &amp; ML Overview
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/ml-foundations.html">
+                              AI: ML Foundations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/core-ml-algorithms.html">
+                              AI: Core ML Algorithms
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/architectures.html">
+                              AI: Neural Network Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-architectures.html">
+                              AI: Deep Learning Architectures
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/deep-learning-theory.html">
+                              AI: Deep Learning Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/loss-functions.html">
+                              AI: Loss Functions
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/generative-models.html">
+                              AI: Generative Models
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/fine-tuning.html">
+                              AI: Fine-Tuning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/reinforcement-learning.html">
+                              AI: Reinforcement Learning
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai/frontier-and-ethics.html">
+                              AI: Frontier Research &amp; Ethics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/ai-lecture-2023.html">
+                              AI Deep Dive (Lecture)
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="game-real-time">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/unreal.html">
+                            Game &amp; Real-Time
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/technology/unreal.html">
+                              Unreal Engine
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/index.html">
+                              Game Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/multiplayer-networking.html">
+                              GameDev: Multiplayer Networking
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/procedural-generation.html">
+                              GameDev: Procedural Generation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/save-systems.html">
+                              GameDev: Save Systems
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/ui-design.html">
+                              GameDev: UI Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/audio-design.html">
+                              GameDev: Audio Design
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/testing-qa.html">
+                              GameDev: Testing &amp; QA
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/gamedev/monetization.html">
+                              GameDev: Monetization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/3d-rendering.html">
+                              3D Graphics &amp; Rendering
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/graphics/shaders.html">
+                              Shaders
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/vr-ar/index.html">
+                              VR / AR Development
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/game-ai.html">
+                              Game AI
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">AI / ML - Generative AI</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/ai-ml/index.html">
+                      <span class="nav__sub-title">AI/ML Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="fundamentals">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                            Fundamentals
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/stable-diffusion-fundamentals.html">
+                              Stable Diffusion
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/base-models-comparison.html">
+                              Base Models Comparison
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-types.html">
+                              Model Types
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sdxl-guide.html">
+                              SDXL Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/sd3-guide.html">
+                              SD3 Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/flux-guide.html">
+                              FLUX Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/pony-and-finetunes.html">
+                              Pony &amp; Finetunes
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details open data-nav-section="training-tools">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/lora-training.html">
+                            Training &amp; Tools
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/lora-training.html">
+                              LoRA Training
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/controlnet.html">
+                              ControlNet
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/comfyui-guide.html">
+                              ComfyUI Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/inpainting-editing.html" class="active">
+                              Inpainting &amp; Editing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="production">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/ai-ml/output-formats.html">
+                            Production
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/output-formats.html">
+                              Output Formats
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/advanced-techniques.html">
+                              Advanced Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/optimization-guide.html">
+                              Optimization Guide
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/model-compression.html">
+                              Model Compression
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/production-pipelines.html">
+                              Production Pipelines
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/ai-ml/mlops-production.html">
+                              MLOps &amp; Production
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Physics</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/physics/index.html">
+                      <span class="nav__sub-title">Physics Overview</span>
+                    </a>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="classical-physics">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/classical-mechanics/">
+                            Classical Physics
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/">
+                              Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/newtonian.html">
+                              CM: Newtonian &amp; Conservation Laws
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/lagrangian-hamiltonian.html">
+                              CM: Lagrangian &amp; Hamiltonian
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/rigid-body-dynamics.html">
+                              CM: Rigid Body Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/waves.html">
+                              CM: Waves &amp; Oscillations
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/geometric-mechanics.html">
+                              CM: Geometric Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html">
+                              CM: Chaos, Modern Topics &amp; Computation
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html">
+                              CM: Computational Classical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/fluid-mechanics.html">
+                              Fluid Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics.html">
+                              Thermodynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/thermodynamics-advanced.html">
+                              Thermodynamics (Advanced)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/">
+                              Statistical Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/classical-and-quantum.html">
+                              Stat Mech: Classical &amp; Quantum
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/statistical-mechanics/phase-transitions-and-advanced.html">
+                              Stat Mech: Phase Transitions &amp; Formalism
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="quantum-modern">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/quantum-mechanics/">
+                            Quantum &amp; Modern
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/">
+                              Quantum Mechanics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/formalism.html">
+                              QM: States, Operators &amp; Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/systems-and-phenomena.html">
+                              QM: Systems &amp; Phenomena
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/bell-inequalities-and-tests.html">
+                              QM: Bell Inequalities &amp; Tests
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-advanced-formalism.html">
+                              QM: Advanced Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computing.html">
+                              QM: Computing
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html">
+                              QM: Computational Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/computing-and-advanced.html">
+                              QM: Computing, Information &amp; Advanced
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-mechanics/qm-research-frontiers.html">
+                              QM: Research Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/">
+                              Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/special-relativity.html">
+                              Relativity: Special Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/general-relativity.html">
+                              Relativity: General Relativity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/tensor-formalism.html">
+                              Relativity: Tensor Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/black-holes.html">
+                              Relativity: Black Holes
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/gravitational-waves.html">
+                              Relativity: Gravitational Waves
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/cosmology.html">
+                              Relativity: Cosmology
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/quantum-gravity.html">
+                              Relativity: Quantum Gravity
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/relativity/advanced.html">
+                              Relativity: Graduate Formalism &amp; Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/quantum-field-theory.html">
+                              Quantum Field Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-quantization.html">
+                              QFT: Quantization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-methods.html">
+                              QFT: Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/qft-frontiers.html">
+                              QFT: Frontiers
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/gauge-and-standard-model.html">
+                              Gauge Theory &amp; Standard Model
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/renormalization.html">
+                              Renormalization
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="advanced-computational">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/physics/condensed-matter/">
+                            Advanced &amp; Computational
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/">
+                              Condensed Matter
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/emergent-phases.html">
+                              CM: Emergent Phases (Superconductivity, QHE, Topology)
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html">
+                              CM: Metals &amp; Magnetism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/lattice-dynamics.html">
+                              CM: Lattice Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/disorder-and-localization.html">
+                              CM: Disorder &amp; Localization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/experimental-techniques.html">
+                              CM: Experimental Techniques
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/condensed-matter/advanced-formalism.html">
+                              CM: Graduate Formalism &amp; Experiment
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/">
+                              String Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/dualities-and-branes.html">
+                              String Theory: D-Branes, Dualities &amp; M-Theory
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/frontiers-and-formalism.html">
+                              String Theory: Criticisms, Research &amp; Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/string-theory/string-theory-formalism.html">
+                              String Theory: Formalism
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/">
+                              Computational Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html">
+                              Comp Phys: Monte Carlo &amp; Molecular Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/fem-and-cfd.html">
+                              Comp Phys: Finite Elements &amp; Fluid Dynamics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/quantum-methods.html">
+                              Comp Phys: Quantum Methods
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/electronic-structure-beyond-dft.html">
+                              Comp Phys: Electronic Structure Beyond DFT
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/hpc-and-ml.html">
+                              Comp Phys: Parallel Computing &amp; ML
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/ml-for-physics.html">
+                              Comp Phys: ML for Physics
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/physics/computational-physics/tools-and-practices.html">
+                              Comp Phys: Visualization, Libraries &amp; Practices
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Hubs &amp; Theory</h3>
+          
+            <ul class="nav__items">
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="distributed-systems">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/distributed-systems/index.html">
+                            Distributed Systems
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/consensus-and-coordination.html">
+                              Consensus &amp; Coordination
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/replication-strategies.html">
+                              Replication Strategies
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/client-side-consistency.html">
+                              Client-Side Consistency
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/failure-detection.html">
+                              Failure Detection
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/service-discovery.html">
+                              Service Discovery
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/resilience-patterns.html">
+                              Resilience Patterns
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/microservices-and-event-driven.html">
+                              Microservices &amp; Event-Driven
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/observability.html">
+                              Observability
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/distributed-systems/testing-distributed-systems.html">
+                              Testing Distributed Systems
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="observability">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/observability/">
+                            Observability
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/metrics.html">
+                              Metrics &amp; Monitoring
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/logging.html">
+                              Logging
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/observability/tracing.html">
+                              Tracing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="api-design-communication">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/api-design/">
+                            API Design &amp; Communication
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/rest.html">
+                              REST
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/graphql.html">
+                              GraphQL
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/grpc-and-protobuf.html">
+                              gRPC &amp; Protobuf
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/api-design/async-and-events.html">
+                              Async &amp; Events
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="event-driven-architecture">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/event-driven/">
+                            Event-Driven Architecture
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/message-brokers.html">
+                              Message Brokers &amp; Streaming
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/event-driven/patterns.html">
+                              Patterns
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="software-testing-qa">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/testing/">
+                            Software Testing &amp; QA
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/unit-and-integration.html">
+                              Unit &amp; Integration
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/testing/advanced-testing.html">
+                              Advanced Testing
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details data-nav-section="performance-optimization">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/optimization/index.html">
+                            Performance Optimization
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/algorithmic-optimization.html">
+                              Algorithmic Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/cpu-optimization.html">
+                              CPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/gpu-optimization.html">
+                              GPU Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/memory-optimization.html">
+                              Memory Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/network-io-optimization.html">
+                              Network &amp; I/O Optimization
+                            </a>
+                          </li>
+                        
+                          <li>
+                            <a href="/Documentation/docs/optimization/platform-tuning.html">
+                              Platform Tuning
+                            </a>
+                          </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/artificial-intelligence/index.html">
+                      <span class="nav__sub-title">Artificial Intelligence Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/quantum-computing/index.html">
+                      <span class="nav__sub-title">Quantum Computing Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/technology/quantumcomputing.html">
+                      <span class="nav__sub-title">Quantum Computing (Tech)</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Advanced Research</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/index.html">
+                      <span class="nav__sub-title">Research Hub</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/ai-mathematics/">
+                      <span class="nav__sub-title">AI Mathematics</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/distributed-systems-theory/">
+                      <span class="nav__sub-title">Distributed Systems Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/quantum-algorithms-research/">
+                      <span class="nav__sub-title">Quantum Algorithms Research</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/complexity-theory/">
+                      <span class="nav__sub-title">Computational Complexity Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/approximation-algorithms/">
+                      <span class="nav__sub-title">Approximation Algorithms</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/automata-and-formal-languages/">
+                      <span class="nav__sub-title">Automata &amp; Formal Languages</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/category-and-type-theory/">
+                      <span class="nav__sub-title">Category &amp; Type Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/topology-and-geometry-in-computation/">
+                      <span class="nav__sub-title">Topology &amp; Geometry in Computation</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/information-coding-theory/">
+                      <span class="nav__sub-title">Information &amp; Coding Theory</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/cryptography/">
+                      <span class="nav__sub-title">Cryptography (Foundations &amp; PQ)</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo/">
+                      <span class="nav__sub-title">Monorepo Architecture</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-scaling/">
+                      <span class="nav__sub-title">Monorepos: Scaling &amp; Engineering</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/advanced/monorepo-tooling/">
+                      <span class="nav__sub-title">Monorepo Tooling</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+          <h3 class="nav__title">Quick Reference</h3>
+          
+            <ul class="nav__items">
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html">
+                      <span class="nav__sub-title">Reference Guide</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#command-line-references">
+                      <span class="nav__sub-title">Command Cheat Sheets</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#physics-formulas--constants">
+                      <span class="nav__sub-title">Physics Formulas</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#algorithms--data-structures">
+                      <span class="nav__sub-title">Algorithms &amp; Big O</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#api-reference-patterns">
+                      <span class="nav__sub-title">API Patterns</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#troubleshooting-flowcharts">
+                      <span class="nav__sub-title">Troubleshooting</span>
+                    </a>
+                  </li>
+                
+              
+                <li>
+                    <a href="/Documentation/docs/reference/index.html#best-practices-checklists">
+                      <span class="nav__sub-title">Best Practices</span>
+                    </a>
+                  </li>
+                
+              
+            </ul>
+          
+        
+      
+    </nav>
+  </aside>
+
+  <article class="page">
+    <div class="page__inner-wrap">
+      <header>
+        
+      </header>
+
+      <section id="page-content" class="page__content">
+        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Inpainting &amp; Image Editing</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Edit existing images with diffusion — mask, regenerate, extend, and blend regions instead of rerolling the whole frame.</p>
+</div>
+
+<p><a href="./">AI/ML Documentation</a> » Inpainting &amp; Image Editing</p>
+
+<div class="code-example">
+  <p>Generation makes a picture from nothing; editing changes a picture you already have. Inpainting, outpainting, and img2img all share one mechanism — re-noise part of an existing image and let the model re-denoise it under a new prompt — and most editing skill is learning <em>how much</em> to re-noise <em>where</em>.</p>
+</div>
+
+<h2 id="why-editing-is-different-from-generation">Why Editing Is Different From Generation</h2>
+
+<p>A text-to-image run starts from pure noise and has no commitment to any pixel. Editing starts from a real image you want to <em>mostly keep</em>. The whole game is preserving what works while regenerating what doesn’t — change a person’s jacket without redrawing their face, extend a background past the original frame, or repair a malformed hand without rerolling a hard-won composition.</p>
+
+<p>Every technique on this page is a variation on the same idea: convert the image to latents, add a controlled amount of noise, and denoise back down under guidance. The knobs that matter are <strong>where</strong> you allow change (the mask) and <strong>how much</strong> change you allow (denoise strength). Get those two right and the rest is workflow.</p>
+
+<div class="key-insights">
+  <div class="insight-card">
+    <i class="fas fa-paint-brush"></i>
+    <h4>The Mask Picks Where</h4>
+    <p>A mask marks the region to regenerate. Soft, feathered edges blend; hard edges leave visible seams.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-sliders-h"></i>
+    <h4>Denoise Picks How Much</h4>
+    <p>Denoise strength sets how far from the original the result can drift — low for subtle fixes, high for full replacement.</p>
+  </div>
+  <div class="insight-card">
+    <i class="fas fa-object-group"></i>
+    <h4>Blend, Don't Paste</h4>
+    <p>Feathering, latent compositing, and differential diffusion hide the seam so edits look native, not stitched.</p>
+  </div>
+</div>
+
+<h2 id="the-editing-family-at-a-glance">The Editing Family at a Glance</h2>
+
+<p>The techniques differ mainly in <em>which pixels they touch</em> and <em>where new canvas comes from</em>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>What it changes</th>
+      <th>Where new content comes from</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>img2img</strong></td>
+      <td>The whole image, lightly</td>
+      <td>The original image re-noised</td>
+      <td>Restyle, refine, polish a base</td>
+    </tr>
+    <tr>
+      <td><strong>Inpainting</strong></td>
+      <td>A masked region only</td>
+      <td>The model, conditioned on surroundings</td>
+      <td>Replace/remove/repair an object</td>
+    </tr>
+    <tr>
+      <td><strong>Outpainting</strong></td>
+      <td>New canvas beyond the edges</td>
+      <td>The model, conditioned on the existing edge</td>
+      <td>Extend a scene, change aspect ratio</td>
+    </tr>
+    <tr>
+      <td><strong>Regional prompting</strong></td>
+      <td>Different prompts per region</td>
+      <td>The model, per-region conditioning</td>
+      <td>Compose multiple subjects in one pass</td>
+    </tr>
+    <tr>
+      <td><strong>Differential diffusion</strong></td>
+      <td>A <em>continuous</em> strength map</td>
+      <td>Per-pixel re-noise amount</td>
+      <td>Feathered, seamless partial edits</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>All of these can be combined with <a href="controlnet.html">ControlNet</a> to constrain <em>structure</em> while you edit <em>content</em> — the last section covers that pairing.</p>
+
+<h2 id="denoise-strength-the-master-dial">Denoise Strength: The Master Dial</h2>
+
+<p>Denoise strength (also called <em>denoising strength</em> or, in latent terms, the <strong>starting noise level</strong>) is the single most important parameter in editing. It controls how much noise is added to the input before re-denoising, which sets a ceiling on how far the result can move from the original.</p>
+
+<p>Conceptually, a full diffusion run starts at maximum noise level $\sigma_{\max}$ and walks down to $0$. Editing at denoise strength $d \in [0, 1]$ skips the top of that schedule: it starts the image partway down at noise level $\sigma_{\text{start}}$ and only runs the remaining steps. At $d = 1.0$ the original is completely destroyed (pure generation); at $d = 0$ nothing changes.</p>
+
+\[\sigma_{\text{start}} = \sigma(d), \qquad n_{\text{steps run}} = \lceil d \cdot N_{\text{total}} \rceil\]
+
+<p>The starting latent is the encoded image plus noise scaled to that level:</p>
+
+\[\mathbf{z}_{\text{start}} = \mathbf{z}_0 + \sigma_{\text{start}}\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})\]
+
+<p>where $\mathbf{z}_0$ is the VAE-encoded input image. Because only $\lceil d \cdot N \rceil$ steps actually run, a low denoise both limits drift <em>and</em> runs faster.</p>
+
+<h3 id="choosing-a-denoise-value">Choosing a Denoise Value</h3>
+
+<p>The right value depends entirely on how much you want to change:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Denoise</th>
+      <th>Effect</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0.1 - 0.25</td>
+      <td>Subtle: texture, grain, light polish</td>
+      <td>Detail passes, upscale refinement, gentle restyle</td>
+    </tr>
+    <tr>
+      <td>0.3 - 0.45</td>
+      <td>Moderate: refine shapes, fix small flaws</td>
+      <td>Cleaning up an img2img base, coherence fixes</td>
+    </tr>
+    <tr>
+      <td>0.5 - 0.65</td>
+      <td>Significant: clear restyle, keep layout</td>
+      <td>Style transfer, material/color swaps</td>
+    </tr>
+    <tr>
+      <td>0.7 - 0.85</td>
+      <td>Heavy: composition mostly survives, content reimagined</td>
+      <td>Strong reinterpretation, inpainting replacements</td>
+    </tr>
+    <tr>
+      <td>0.9 - 1.0</td>
+      <td>Near-total / total replacement</td>
+      <td>Full inpaint of a region, generation from a layout sketch</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A common mistake is using too <em>high</em> a denoise for a subtle edit (“why did the whole face change when I only wanted to fix the eye?”) or too <em>low</em> for a replacement (“the old object is still ghosting through”). When in doubt, sweep denoise in steps of 0.1 with a fixed seed and pick the lowest value that achieves the change.</p>
+
+<h2 id="mask-preparation">Mask Preparation</h2>
+
+<p>For inpainting and outpainting, the <strong>mask</strong> decides which pixels the model is free to repaint. A mask is just a grayscale image: white = “regenerate this,” black = “leave this alone,” and gray = partial (with differential diffusion). The quality of an inpaint is often decided here, before any sampling happens.</p>
+
+<h3 id="what-makes-a-good-mask">What Makes a Good Mask</h3>
+
+<ul>
+  <li>
+<strong>Cover the whole thing you want gone.</strong> A mask that clips an object leaves a sliver of the original, which the model will try to “explain” — often by regrowing the object. Mask generously, including shadows and reflections.</li>
+  <li>
+<strong>Feather the edges.</strong> A hard binary edge produces a visible seam where regenerated pixels meet originals. A few pixels of Gaussian blur on the mask boundary lets the two blend. Most tools expose this as <strong>mask blur</strong> or <strong>mask feather</strong>.</li>
+  <li>
+<strong>Give the model room to work.</strong> If you mask a tiny region, the model has little context and few pixels to express the new content. Inpaint at higher effective resolution (see <em>Inpaint Only Masked</em>, below) when the region is small.</li>
+  <li>
+<strong>Match the mask to the edit.</strong> Removing an object wants a tight mask plus generous feather; replacing a large area wants a loose mask so the new content can reshape the boundary.</li>
+</ul>
+
+<h3 id="mask-edges-and-feathering">Mask Edges and Feathering</h3>
+
+<p>Feathering blends the regenerated region into its surroundings by making the mask a smooth ramp instead of a step. If $m(x, y) \in [0, 1]$ is the (blurred) mask, the composite of regenerated pixels $I_{\text{new}}$ over originals $I_{\text{orig}}$ is a per-pixel linear blend:</p>
+
+\[I_{\text{out}} = m \cdot I_{\text{new}} + (1 - m) \cdot I_{\text{orig}}\]
+
+<p>A Gaussian-blurred mask gives $m$ a soft falloff at the boundary, so the seam fades over several pixels instead of appearing as a sharp line. Blur radius is a trade-off: too little leaves a seam, too much lets the edit bleed into pixels you wanted to keep.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.ndimage</span> <span class="kn">import</span> <span class="n">gaussian_filter</span>
+
+<span class="k">def</span> <span class="nf">feather_mask</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">blur_radius</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Soften a binary mask so inpaint edges blend instead of seaming.
+    mask: float array in [0, 1], 1 = regenerate, 0 = keep.</span><span class="sh">"""</span>
+    <span class="n">soft</span> <span class="o">=</span> <span class="nf">gaussian_filter</span><span class="p">(</span><span class="n">mask</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">sigma</span><span class="o">=</span><span class="n">blur_radius</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">(</span><span class="n">soft</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">composite</span><span class="p">(</span><span class="n">orig</span><span class="p">,</span> <span class="n">generated</span><span class="p">,</span> <span class="n">soft_mask</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Linear blend per the feathered mask.</span><span class="sh">"""</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">soft_mask</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]</span>  <span class="c1"># broadcast over color channels
+</span>    <span class="k">return</span> <span class="n">m</span> <span class="o">*</span> <span class="n">generated</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">orig</span>
+</code></pre></div></div>
+
+<h3 id="mask-sources">Mask Sources</h3>
+
+<p>Masks rarely need to be hand-painted pixel by pixel:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>How it works</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Brush (manual)</td>
+      <td>Paint the region in the tool’s canvas</td>
+      <td>Quick, arbitrary edits</td>
+    </tr>
+    <tr>
+      <td>Segmentation (SAM)</td>
+      <td>“Segment Anything” turns a click/box into a precise object mask</td>
+      <td>Clean object selection without tracing</td>
+    </tr>
+    <tr>
+      <td>Detection (YOLO/Impact Pack)</td>
+      <td>Auto-detect faces, hands, persons</td>
+      <td>Batch face/hand repair (ADetailer-style)</td>
+    </tr>
+    <tr>
+      <td>Threshold / luminance</td>
+      <td>Mask by brightness or color range</td>
+      <td>Sky replacement, isolating bright/dark areas</td>
+    </tr>
+    <tr>
+      <td>Alpha channel</td>
+      <td>Use an image’s existing transparency</td>
+      <td>Compositing layered assets</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <strong>Segment Anything Model (SAM)</strong> is the workhorse for precise masks — click an object and get a pixel-accurate selection, then feather it. The Impact Pack in ComfyUI wires SAM and detectors directly into the editing graph.</p>
+
+<h2 id="inpainting">Inpainting</h2>
+
+<p>Inpainting regenerates only the masked region while conditioning on the <em>unmasked</em> surroundings, so the new content matches the scene’s lighting, perspective, and style. It is the tool for object removal, object replacement, and localized repair.</p>
+
+<h3 id="how-inpainting-works">How Inpainting Works</h3>
+
+<p>During sampling, the unmasked pixels are repeatedly “pinned” back to the (noised) original at each step, while the masked pixels are free to denoise toward the prompt. The model therefore always <em>sees</em> the surrounding context as it fills the hole:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Img["Input image"] --&gt; Enc["VAE encode"]
+    Mask["Mask (white = edit)"] --&gt; Blend
+    Enc --&gt; Noise["Add noise&lt;br/&gt;(denoise strength)"]
+    Noise --&gt; Blend["Blend: noised-original&lt;br/&gt;outside mask"]
+    Prompt["Prompt"] --&gt; KS["KSampler&lt;br/&gt;(re-denoise)"]
+    Blend --&gt; KS
+    KS --&gt; Dec["VAE decode"] --&gt; Comp["Composite over original"]
+    Mask --&gt; Comp
+    Comp --&gt; Out["Edited image"]
+</code></pre>
+
+<p>There are two flavors:</p>
+
+<ul>
+  <li>
+<strong>Base-model inpainting.</strong> Any checkpoint can inpaint by masking the latent and pinning the unmasked region. Simple, works everywhere, but the model wasn’t trained for it, so large/high-denoise inpaints can be incoherent.</li>
+  <li>
+<strong>Dedicated inpainting models.</strong> Models with extra input channels for the mask and masked image (e.g. SD 1.5 <code class="language-plaintext highlighter-rouge">*-inpainting</code>, SDXL inpainting checkpoints, and FLUX <strong>Fill</strong>) are trained specifically to fill masked regions. They produce far cleaner results, especially for object removal and large edits. There is also <strong>ControlNet Inpaint</strong>, which adds inpaint conditioning to a normal checkpoint without swapping models.</li>
+</ul>
+
+<p>Prefer a dedicated inpainting model or ControlNet Inpaint whenever the edit is large or removal-style; base-model inpainting is fine for small touch-ups.</p>
+
+<h3 id="inpaint-only-masked-higher-effective-resolution">Inpaint Only Masked (Higher Effective Resolution)</h3>
+
+<p>For a small region in a large image, inpainting the whole canvas wastes resolution — the masked area might be only 200px wide in a 2048px image, so the model has almost no pixels to work with. <strong>Inpaint Only Masked</strong> (A1111) / crop-and-stitch nodes (ComfyUI) fix this:</p>
+
+<ol>
+  <li>
+<strong>Crop</strong> a padded box around the mask.</li>
+  <li>
+<strong>Upscale</strong> that crop to the model’s native resolution (512/1024).</li>
+  <li>
+<strong>Inpaint</strong> at full effective resolution, so the region gets the model’s full detail budget.</li>
+  <li>
+<strong>Downscale and composite</strong> the result back into the original.</li>
+</ol>
+
+<p>This is why a face fixed with “only masked” looks dramatically sharper than one fixed in full-image mode — it was effectively regenerated at 1024px instead of at its tiny native size.</p>
+
+<h3 id="inpainting-parameters">Inpainting Parameters</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>What it does</th>
+      <th>Typical</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Denoise strength</td>
+      <td>How far the masked region can change</td>
+      <td>0.6 - 0.85 replace, 0.3 - 0.5 repair</td>
+    </tr>
+    <tr>
+      <td>Mask blur / feather</td>
+      <td>Softens the seam</td>
+      <td>4 - 16 px</td>
+    </tr>
+    <tr>
+      <td>Masked content</td>
+      <td>What the region starts from: <code class="language-plaintext highlighter-rouge">original</code>, <code class="language-plaintext highlighter-rouge">fill</code>, <code class="language-plaintext highlighter-rouge">latent noise</code>, <code class="language-plaintext highlighter-rouge">latent nothing</code>
+</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">original</code> for repair, <code class="language-plaintext highlighter-rouge">fill</code>/<code class="language-plaintext highlighter-rouge">latent noise</code> for replacement</td>
+    </tr>
+    <tr>
+      <td>Inpaint area</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">whole picture</code> vs <code class="language-plaintext highlighter-rouge">only masked</code>
+</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">only masked</code> for small regions</td>
+    </tr>
+    <tr>
+      <td>Mask padding</td>
+      <td>Context pixels included around the mask</td>
+      <td>32 - 64 px</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <strong>masked-content</strong> mode is subtle but important: starting from <code class="language-plaintext highlighter-rouge">original</code> biases toward the existing pixels (good for repairs), while <code class="language-plaintext highlighter-rouge">latent noise</code> / <code class="language-plaintext highlighter-rouge">fill</code> discards them (good when you want something genuinely different and the old object keeps ghosting through).</p>
+
+<div class="tip-card">
+  <p><strong>Common inpainting pitfalls</strong></p>
+
+  <ul>
+    <li>
+<strong>The old object ghosts back.</strong> Denoise too low, or masked-content set to <code class="language-plaintext highlighter-rouge">original</code>. Raise denoise toward 0.85 and switch to <code class="language-plaintext highlighter-rouge">latent noise</code>/<code class="language-plaintext highlighter-rouge">fill</code>.</li>
+    <li>
+<strong>Visible seam around the edit.</strong> Mask not feathered. Add mask blur (8-16 px).</li>
+    <li>
+<strong>New content ignores the scene.</strong> Mask padding too small — the model can’t see enough surrounding context. Increase padding or inpaint <code class="language-plaintext highlighter-rouge">whole picture</code>.</li>
+    <li>
+<strong>Blurry, low-detail fill in a small region.</strong> Inpainting full-image at the region’s tiny native size. Switch to <code class="language-plaintext highlighter-rouge">only masked</code> / crop-and-stitch.</li>
+    <li>
+<strong>Incoherent large fills.</strong> Using a base checkpoint for a big edit. Switch to a dedicated inpainting model or ControlNet Inpaint.</li>
+  </ul>
+</div>
+
+<h2 id="outpainting">Outpainting</h2>
+
+<p>Outpainting extends an image <em>beyond its original borders</em> — adding sky above, scenery to the sides, or converting a portrait crop to a wide landscape. Mechanically it is inpainting where the mask is the <em>new, empty canvas</em> and the “context” is the existing image edge.</p>
+
+<h3 id="the-outpainting-loop">The Outpainting Loop</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    Orig["Original image"] --&gt; Pad["Pad canvas&lt;br/&gt;(add empty border)"]
+    Pad --&gt; Mask["Mask = new border region"]
+    Mask --&gt; Inp["Inpaint new region&lt;br/&gt;(conditioned on existing edge)"]
+    Inp --&gt; Merged["Extended image"]
+    Merged --&gt;|repeat for more| Pad
+</code></pre>
+
+<p>Key practices that make outpainting work:</p>
+
+<ul>
+  <li>
+<strong>Extend in modest steps.</strong> Adding a huge border at once gives the model too little anchoring context and it drifts or repeats. Extend by ~25-50% of the dimension per pass and loop.</li>
+  <li>
+<strong>Overlap the seam.</strong> Include a strip of the <em>original</em> image inside the masked/blended region so the model has gradient context to continue, not a hard wall.</li>
+  <li>
+<strong>Keep the prompt consistent with the scene</strong>, and describe what should appear in the new area. A prompt that contradicts the existing image (e.g. “indoor” while extending an outdoor photo) produces a jarring transition.</li>
+  <li>
+<strong>Use a dedicated fill model.</strong> SDXL inpainting checkpoints and FLUX Fill are markedly better at outpainting than base checkpoints because they’re trained to invent coherent content from a one-sided context.</li>
+</ul>
+
+<p>Because outpainting is iterative, it pairs naturally with the multi-stage and tiling workflows in <a href="advanced-techniques.html">Advanced Techniques</a>.</p>
+
+<h2 id="regional-prompting">Regional Prompting</h2>
+
+<p>Regional prompting routes <em>different prompts to different regions</em> of the same image so you can compose multiple subjects in a single pass — “a robot on the left, a forest on the right” without the two bleeding together. Unlike inpainting (which edits an existing image), regional prompting shapes a <em>generation</em> by partitioning the conditioning spatially.</p>
+
+<h3 id="how-it-works">How It Works</h3>
+
+<p>The most common approach masks the <strong>cross-attention</strong> so each prompt only influences its region. You define a region as a <code class="language-plaintext highlighter-rouge">(prompt, mask, weight)</code> triple, and the sampler keeps each prompt’s influence inside its mask. In effect, the conditioning for a pixel at $(x, y)$ is a mask-weighted combination of the regional prompts:</p>
+
+\[c(x, y) = \sum_{r} w_r \, m_r(x, y) \, c_r, \qquad \sum_{r} m_r(x, y) = 1\]
+
+<p>where $c_r$ is region $r$’s text embedding, $m_r$ its mask, and $w_r$ its weight. ComfyUI exposes this through <em>Conditioning (Set Area)</em> / <em>Set Mask</em> nodes; A1111/Forge through the <strong>Regional Prompter</strong> extension.</p>
+
+<h3 id="approaches-to-regional-control">Approaches to Regional Control</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Granularity</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Attention/area masking</td>
+      <td>Arbitrary painted regions</td>
+      <td>Most flexible; the default in ComfyUI</td>
+    </tr>
+    <tr>
+      <td>GLIGEN</td>
+      <td>Bounding boxes</td>
+      <td>“Put <code class="language-plaintext highlighter-rouge">a red car</code> in this box” — object-level layout without hand-painted masks</td>
+    </tr>
+    <tr>
+      <td>Composable diffusion</td>
+      <td>Whole-image concepts</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">a cat AND a dog</code> denoises each concept and merges; per-term weights bias the balance</td>
+    </tr>
+    <tr>
+      <td>Prompt scheduling</td>
+      <td>Over <em>time</em>, not space</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">[cat:dog:0.4]</code> switches prompt at 40% of steps — for hybrids/morphs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Use <strong>area masks</strong> when you know the silhouette, <strong>GLIGEN</strong> when you know the box but not the shape, and <strong>composable diffusion</strong> when you just need two concepts to coexist anywhere in the frame. These overlap with the regional-prompting material in <a href="advanced-techniques.html">Advanced Techniques</a>, which covers the latent-composition cousin of this technique.</p>
+
+<h2 id="differential-diffusion">Differential Diffusion</h2>
+
+<p>Differential diffusion generalizes inpainting from a <strong>binary</strong> mask to a <strong>continuous</strong> strength map. Instead of “regenerate here, freeze there,” you specify <em>how much</em> to change each pixel — strong changes in the center of a region fading to none at its edges — without the hard seams a binary mask leaves.</p>
+
+<h3 id="from-binary-mask-to-strength-map">From Binary Mask to Strength Map</h3>
+
+<p>Standard inpainting pins unmasked pixels and fully regenerates masked ones — a step function. Differential diffusion replaces that with a per-pixel <strong>change map</strong> $s(x, y) \in [0, 1]$ that sets each pixel’s <em>starting noise level</em> individually. A pixel with $s = 0$ is frozen; a pixel with $s = 1$ is fully regenerated; and anything between is partially re-noised:</p>
+
+\[\sigma_{\text{start}}(x, y) = s(x, y) \cdot \sigma_{\max}\]
+
+<p>At each denoising step, a pixel is only allowed to change once the schedule reaches its assigned noise level — so high-strength pixels participate in more steps and low-strength pixels “thaw” later (or never). The result is a smooth gradient of edit intensity rather than a masked patch.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Img["Input image"] --&gt; Enc["VAE encode"]
+    SMap["Strength map&lt;br/&gt;(grayscale, per-pixel)"] --&gt; Sched["Per-pixel&lt;br/&gt;start noise level"]
+    Enc --&gt; Sched
+    Sched --&gt; KS["KSampler&lt;br/&gt;(pixels thaw at their level)"]
+    Prompt["Prompt"] --&gt; KS
+    KS --&gt; Dec["VAE decode"] --&gt; Out["Seamlessly edited image"]
+</code></pre>
+
+<h3 id="when-to-use-it">When to Use It</h3>
+
+<p>Differential diffusion shines where a binary mask would leave a seam or where you want a <em>gradient</em> of change:</p>
+
+<ul>
+  <li>
+<strong>Feathered edits</strong> — a strong change in the subject fading smoothly into an untouched background, with no seam to hide.</li>
+  <li>
+<strong>Graduated style transfer</strong> — restyle the foreground heavily and the background lightly in one pass.</li>
+  <li>
+<strong>Soft object insertion/removal</strong> — blend a change into surroundings continuously instead of compositing a hard-edged patch.</li>
+</ul>
+
+<p>You author the strength map the same way you’d author a mask — paint it, or derive it from a depth/segmentation map — but in grayscale rather than black-and-white. A blurred binary mask fed as a strength map is the simplest version, and already removes most seams.</p>
+
+<h2 id="img2img-editing-workflows">img2img Editing Workflows</h2>
+
+<p>img2img re-noises the <em>whole</em> image (no mask) and re-denoises under a new prompt. It is the foundation for restyling, refining, and chaining edits — and the denoise dial is everything.</p>
+
+<h3 id="core-img2img-loop">Core img2img Loop</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    In["Input image"] --&gt; Enc["VAE encode"]
+    Enc --&gt; Noise["Add noise&lt;br/&gt;(denoise strength)"]
+    Prompt["New prompt"] --&gt; KS["KSampler"]
+    Noise --&gt; KS
+    KS --&gt; Dec["VAE decode"] --&gt; Out["Restyled / refined image"]
+</code></pre>
+
+<p>Because there is no mask, the denoise strength alone governs how much survives. Three common patterns:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pattern</th>
+      <th>Denoise</th>
+      <th>What you do</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Polish / refine</strong></td>
+      <td>0.2 - 0.4</td>
+      <td>Same prompt, clean up an img2img or rough base</td>
+    </tr>
+    <tr>
+      <td><strong>Restyle</strong></td>
+      <td>0.45 - 0.65</td>
+      <td>New style prompt, keep composition and subject</td>
+    </tr>
+    <tr>
+      <td><strong>Reinterpret</strong></td>
+      <td>0.7 - 0.85</td>
+      <td>Heavily new prompt; only broad layout survives</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="iterative-refinement">Iterative Refinement</h3>
+
+<p>A powerful workflow is to run img2img <em>repeatedly</em> at low denoise, nudging the prompt each pass. Each iteration locks in the previous result and refines it, letting you steer toward a target gradually instead of in one risky high-denoise jump. This is the manual cousin of the multi-stage upscaling pipeline in <a href="advanced-techniques.html">Advanced Techniques</a>: each pass at a lower denoise refines rather than redraws.</p>
+
+<h3 id="sketch-to-image-low-effort-input">Sketch-to-Image (Low-Effort Input)</h3>
+
+<p>img2img also turns a rough sketch or color block-in into a finished render: feed the sketch as input, prompt for the finished subject, and use a <em>high</em> denoise (0.7-0.9) so the model reinterprets your shapes into real content while honoring the broad layout and color placement. For tighter adherence to the sketch’s lines, pair it with a <strong>Scribble ControlNet</strong> (next section).</p>
+
+<h2 id="compositing--blending">Compositing &amp; Blending</h2>
+
+<p>Whether content is inpainted, outpainted, or pasted in, the final step is making the seam disappear. Three levels of blending, from crudest to cleanest:</p>
+
+<h3 id="1-pixel-space-compositing-feathered-paste">1. Pixel-Space Compositing (Feathered Paste)</h3>
+
+<p>The simplest composite is a feathered alpha blend (the <code class="language-plaintext highlighter-rouge">composite()</code> function above): paste the new region over the original through a soft-edged mask. Fast and predictable, but pixel-space blending can’t fix lighting or color mismatches between the two sources — it only hides the <em>edge</em>.</p>
+
+<h3 id="2-latent-compositing">2. Latent Compositing</h3>
+
+<p>Compositing in <strong>latent space</strong> before the VAE decode blends more cleanly than pasting pixels, because the decode harmonizes the seam: keep latent A where mask A is white, latent B where mask B is white, then decode the combined latent once. The VAE’s receptive field smooths the boundary, so colors and textures meet more naturally. This is the latent-space cousin of regional prompting.</p>
+
+<h3 id="3-re-diffusion-over-the-seam">3. Re-Diffusion Over the Seam</h3>
+
+<p>The most thorough fix is to run a <strong>low-denoise img2img pass over the seam</strong> after compositing. Paste the new content (pixel or latent), then re-noise at ~0.2-0.35 and re-denoise the whole image so the model harmonizes lighting, grain, and color across the boundary. This is what makes a composited element look <em>photographed together</em> rather than cut and pasted, and it is the standard finishing pass for serious composites.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Element / region"] --&gt; Paste["Composite over base&lt;br/&gt;(feathered)"]
+    Base["Base image"] --&gt; Paste
+    Paste --&gt; Low["Low-denoise img2img&lt;br/&gt;(~0.25, harmonize seam)"]
+    Low --&gt; Out["Seamless composite"]
+</code></pre>
+
+<h3 id="matching-before-blending">Matching Before Blending</h3>
+
+<p>Before any blend, reduce the gap the blend has to hide: match <strong>color/white balance</strong>, <strong>lighting direction</strong>, and <strong>grain/noise</strong> between the sources. A blend hides an <em>edge</em>; it cannot reconcile a daylight subject pasted onto a nighttime scene. Match first, then blend, then optionally re-diffuse the seam.</p>
+
+<h2 id="controlnet-assisted-edits">ControlNet-Assisted Edits</h2>
+
+<p><a href="controlnet.html">ControlNet</a> and editing combine naturally because they constrain <em>different things</em>: ControlNet fixes <strong>structure</strong> (pose, edges, depth) while the editing prompt and denoise control <strong>content</strong>. Several recurring patterns:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Edit goal</th>
+      <th>ControlNet</th>
+      <th>Editing method</th>
+      <th>Why it works</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Restyle a photo, keep composition</td>
+      <td>Depth (+ SoftEdge)</td>
+      <td>img2img, denoise ~0.6</td>
+      <td>Depth/edges pin geometry while the prompt changes the look</td>
+    </tr>
+    <tr>
+      <td>Replace an object, keep its shape</td>
+      <td>Canny / Lineart on the region</td>
+      <td>Inpaint</td>
+      <td>Edges hold the silhouette; inpaint fills new content inside it</td>
+    </tr>
+    <tr>
+      <td>Finish a sketch faithfully</td>
+      <td>Scribble</td>
+      <td>img2img, high denoise</td>
+      <td>Scribble locks the lines; high denoise renders them</td>
+    </tr>
+    <tr>
+      <td>Repaint clothing on a posed figure</td>
+      <td>OpenPose</td>
+      <td>Inpaint (clothing mask)</td>
+      <td>Pose keeps the body; inpaint changes only the garment</td>
+    </tr>
+    <tr>
+      <td>Coherent high-res detail pass</td>
+      <td>Tile</td>
+      <td>img2img upscale, low denoise</td>
+      <td>Tile keeps tiles consistent while detail is added</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <strong>Inpaint ControlNet</strong> deserves special mention: it adds inpaint conditioning to a <em>normal</em> checkpoint, so you can do clean masked edits without swapping to a dedicated inpainting model — useful when your favorite checkpoint has no inpainting variant.</p>
+
+<p>A typical structured edit chains the two: preprocess the reference for structure, apply the ControlNet to the conditioning, then route that conditioning into an inpaint or img2img sampler.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Ref["Image to edit"] --&gt; Pre["Preprocessor&lt;br/&gt;(depth / canny / pose)"]
+    Pre --&gt; Apply["Apply ControlNet"]
+    Prompt["Edit prompt"] --&gt; Apply
+    Apply --&gt;|conditioning| Edit["Inpaint / img2img sampler"]
+    Mask["Mask (if inpainting)"] --&gt; Edit
+    Ref --&gt; Edit
+    Edit --&gt; Out["Structurally-faithful edit"]
+</code></pre>
+
+<p>Keep ControlNet strength moderate (~0.6-0.8) on edits so structure guides without overriding the new content — the same <code class="language-plaintext highlighter-rouge">end_percent</code> windowing from the <a href="controlnet.html">ControlNet guide</a> applies: release control before the final steps so the edit gets detail the control map never specified.</p>
+
+<h2 id="putting-it-together-a-practical-editing-recipe">Putting It Together: A Practical Editing Recipe</h2>
+
+<p>Most real edits are a short pipeline, not a single node. A representative “replace an object cleanly” recipe:</p>
+
+<ol>
+  <li>
+<strong>Select</strong> the object with SAM (click → precise mask), then <strong>feather</strong> the mask (~8 px blur) and <strong>pad</strong> generously to include shadow.</li>
+  <li>
+<strong>Choose denoise</strong> by intent — ~0.85 with <code class="language-plaintext highlighter-rouge">latent noise</code> masked-content to fully replace; ~0.4 with <code class="language-plaintext highlighter-rouge">original</code> to repair.</li>
+  <li>
+<strong>Inpaint only masked</strong> so the region regenerates at full resolution, with a dedicated inpainting model (or ControlNet Inpaint).</li>
+  <li>
+<strong>Optionally constrain structure</strong> with a Canny/Depth ControlNet if the replacement must match the original silhouette.</li>
+  <li>
+<strong>Composite back</strong> and run a <strong>low-denoise (~0.25) img2img pass</strong> over the whole image to harmonize lighting and grain across the seam.</li>
+</ol>
+
+<p>Each step maps to a section above: mask prep, denoise choice, inpainting, ControlNet-assisted edits, and compositing &amp; blending.</p>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="do">Do</h3>
+
+<ul>
+  <li>Feather every inpaint/outpaint mask to avoid seams</li>
+  <li>Sweep denoise strength with a fixed seed to find the minimum that works</li>
+  <li>Use “only masked” / crop-and-stitch for small regions</li>
+  <li>Match color, lighting, and grain <em>before</em> blending</li>
+  <li>Finish composites with a low-denoise harmonizing pass</li>
+  <li>Use a dedicated inpainting model (or ControlNet Inpaint) for large edits</li>
+</ul>
+
+<h3 id="avoid">Avoid</h3>
+
+<ul>
+  <li>Pinning denoise at 1.0 for a subtle edit</li>
+  <li>Hard binary masks where a seam will show</li>
+  <li>Tiny masks with no padding (the model loses context)</li>
+  <li>Outpainting a huge border in one pass</li>
+  <li>Pasting elements without matching their lighting to the scene</li>
+  <li>Expecting a binary mask to give the soft falloff that differential diffusion provides</li>
+</ul>
+
+<h2 id="key-takeaways">Key Takeaways</h2>
+
+<div class="takeaway-card">
+  <ul>
+    <li>
+<strong>Editing is re-noising.</strong> img2img, inpainting, and outpainting all add controlled noise to an existing image and re-denoise it — the skill is choosing <em>where</em> (mask) and <em>how much</em> (denoise strength).</li>
+    <li>
+<strong>Denoise strength is the master dial.</strong> It sets a ceiling on drift, $\mathbf{z}_{\text{start}} = \mathbf{z}_0 + \sigma(d)\,\boldsymbol{\epsilon}$ — low for repairs and polish, high for replacements and sketch-to-image.</li>
+    <li>
+<strong>Feather masks and inpaint small regions at full resolution.</strong> Soft mask edges blend the seam; “only masked” / crop-and-stitch gives a small region the model’s full detail budget.</li>
+    <li>
+<strong>Differential diffusion replaces the binary mask with a continuous strength map</strong>, $\sigma_{\text{start}}(x,y) = s(x,y)\,\sigma_{\max}$, for feathered, seamless gradient edits.</li>
+    <li>
+<strong>Blend, then re-diffuse the seam.</strong> Latent compositing and a low-denoise harmonizing pass make pasted or inpainted content look photographed together, not stitched.</li>
+    <li>
+<strong>Pair with ControlNet to fix structure while you edit content</strong> — Depth/Canny/Pose hold geometry while the prompt and denoise change the look.</li>
+  </ul>
+</div>
+
+<hr>
+
+<div class="see-also-card">
+  <h4 id="see-also">See Also</h4>
+
+  <ul>
+    <li>
+<a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - The diffusion process editing builds on</li>
+    <li>
+<a href="controlnet.html">ControlNet</a> - Constrain structure while you edit content</li>
+    <li>
+<a href="advanced-techniques.html">Advanced Techniques</a> - Regional prompting, latent composition, multi-stage workflows</li>
+    <li>
+<a href="comfyui-guide.html">ComfyUI Guide</a> - Build inpaint, outpaint, and img2img graphs</li>
+    <li>
+<a href="base-models-comparison.html">Base Models Comparison</a> - Inpainting and Fill model support across SD 1.5, SDXL, FLUX</li>
+    <li>
+<a href="output-formats.html">Output Formats</a> - Exporting and using edited results</li>
+    <li>
+<a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+  </ul>
+</div>
+
+      </section>
+    </div>
+  </article>
+</div>
+</body>
+</html>
