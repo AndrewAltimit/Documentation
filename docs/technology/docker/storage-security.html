@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,7 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Storage &amp; Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Persist data with volumes, bind mounts, and tmpfs; back it up safely; and harden images, builds, and running containers for production.</p>
-</div>
-
-<p><a href="./">Docker</a> » Storage &amp; Security</p>
+        <p><a href="./">Docker</a> » Storage &amp; Security</p>
 
 <h2 id="two-sides-of-the-same-problem">Two Sides of the Same Problem</h2>
 
@@ -3171,48 +3186,42 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<div class="storage-section">
-  <h3><i class="fas fa-database"></i> Understanding Docker Storage</h3>
+<p>The three mount types compared across the dimensions that matter:</p>
 
-  <p class="storage-intro">Docker provides three ways to persist data beyond the container lifecycle. The right choice depends on your use case.</p>
-  
-  <div class="storage-comparison">
-    <table class="storage-table">
-      <thead>
-        <tr>
-          <th>Storage Type</th>
-          <th>Use Case</th>
-          <th>Performance</th>
-          <th>Portability</th>
-          <th>Management</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Volumes</strong></td>
-          <td>Production data, databases, shared data between containers</td>
-          <td>Best (native to Docker)</td>
-          <td>High (managed by Docker)</td>
-          <td>Easy (Docker commands)</td>
-        </tr>
-        <tr>
-          <td><strong>Bind Mounts</strong></td>
-          <td>Development, config files, source code</td>
-          <td>Good (direct filesystem)</td>
-          <td>Low (host-dependent)</td>
-          <td>Manual (filesystem)</td>
-        </tr>
-        <tr>
-          <td><strong>tmpfs</strong></td>
-          <td>Temporary data, secrets, caches</td>
-          <td>Excellent (memory)</td>
-          <td>None (memory only)</td>
-          <td>Automatic (cleared on stop)</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Storage type</th>
+      <th>Use case</th>
+      <th>Performance</th>
+      <th>Portability</th>
+      <th>Management</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Volumes</strong></td>
+      <td>Production data, databases, shared data between containers</td>
+      <td>Best (native to Docker)</td>
+      <td>High (managed by Docker)</td>
+      <td>Easy (Docker commands)</td>
+    </tr>
+    <tr>
+      <td><strong>Bind mounts</strong></td>
+      <td>Development, config files, source code</td>
+      <td>Good (direct filesystem)</td>
+      <td>Low (host-dependent)</td>
+      <td>Manual (filesystem)</td>
+    </tr>
+    <tr>
+      <td><strong>tmpfs</strong></td>
+      <td>Temporary data, secrets, caches</td>
+      <td>Excellent (memory)</td>
+      <td>None (memory only)</td>
+      <td>Automatic (cleared on stop)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="where-each-mount-type-lives">Where Each Mount Type Lives</h3>
 
@@ -3230,22 +3239,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Prefer the explicit <code class="language-plaintext highlighter-rouge">--mount</code> syntax in scripts and Compose — it is self-documenting and fails loudly on typos, whereas the terser <code class="language-plaintext highlighter-rouge">-v</code> syntax silently creates a new anonymous volume if you misspell a name.</p>
 
-<div class="volume-examples">
-  <h4>Essential Volume Commands</h4>
-  <pre><code class="language-bash"># Create and use a named volume
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create and use a named volume</span>
 docker volume create app-data
-docker run -d -v app-data:/var/lib/postgresql/data postgres:16
+docker run <span class="nt">-d</span> <span class="nt">-v</span> app-data:/var/lib/postgresql/data postgres:16
 
-# Equivalent with the explicit, self-documenting --mount syntax
-docker run -d \
-  --mount type=volume,source=app-data,target=/var/lib/postgresql/data \
+<span class="c"># Equivalent with the explicit, self-documenting --mount syntax</span>
+docker run <span class="nt">-d</span> <span class="se">\</span>
+  <span class="nt">--mount</span> <span class="nb">type</span><span class="o">=</span>volume,source<span class="o">=</span>app-data,target<span class="o">=</span>/var/lib/postgresql/data <span class="se">\</span>
   postgres:16
 
-# List and clean up volumes
-docker volume ls
-docker volume inspect app-data   # See driver, mountpoint, labels
-docker volume prune              # Remove unused (dangling) volumes</code></pre>
-</div>
+<span class="c"># List and clean up volumes</span>
+docker volume <span class="nb">ls
+</span>docker volume inspect app-data   <span class="c"># See driver, mountpoint, labels</span>
+docker volume prune              <span class="c"># Remove unused (dangling) volumes</span>
+</code></pre></div></div>
 
 <p>Anonymous volumes (created when an image’s <code class="language-plaintext highlighter-rouge">VOLUME</code> instruction has no host counterpart, or when you run <code class="language-plaintext highlighter-rouge">-v /data</code> with no name) accumulate quickly and are the usual culprit behind a Docker host that mysteriously fills up. Audit them with <code class="language-plaintext highlighter-rouge">docker volume ls -f dangling=true</code> and reclaim space with <code class="language-plaintext highlighter-rouge">docker volume prune</code>.</p>
 
@@ -3253,15 +3260,14 @@ docker volume prune              # Remove unused (dangling) volumes</code></pre>
 
 <p><strong>When to use:</strong> Development workflows where you want to edit files on your host and see changes immediately in the container.</p>
 
-<div class="bind-mount-examples">
-  <h4>Development Workflow</h4>
-  <pre><code class="language-bash"># Mount the project (with its package.json) and set it as the workdir
-docker run -d -v $(pwd):/app -w /app -p 3000:3000 node:22 npm run dev
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Mount the project (with its package.json) and set it as the workdir</span>
+docker run <span class="nt">-d</span> <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>:/app <span class="nt">-w</span> /app <span class="nt">-p</span> 3000:3000 node:22 npm run dev
 
-# Mount config file read-only (container cannot modify)
-docker run -d -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx</code></pre>
-  <p class="explanation">The <code>:ro</code> suffix makes the mount read-only, preventing the container from modifying your host files.</p>
-</div>
+<span class="c"># Mount config file read-only (container cannot modify)</span>
+docker run <span class="nt">-d</span> <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/nginx.conf:/etc/nginx/nginx.conf:ro nginx
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">:ro</code> suffix makes the mount read-only, preventing the container from modifying your host files.</p>
 
 <p>Two bind-mount footguns worth internalizing:</p>
 
@@ -3274,15 +3280,14 @@ docker run -d -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx</code></pre>
 
 <p><strong>When to use:</strong> Sensitive data like secrets or tokens that should never be written to disk, or temporary caches that can be discarded.</p>
 
-<div class="tmpfs-examples">
-  <h4>Secure Temporary Storage</h4>
-  <pre><code class="language-bash"># Store secrets in memory only (never touches disk)
-docker run -d --tmpfs /run/secrets:size=10m,mode=0700 my-app
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Store secrets in memory only (never touches disk)</span>
+docker run <span class="nt">-d</span> <span class="nt">--tmpfs</span> /run/secrets:size<span class="o">=</span>10m,mode<span class="o">=</span>0700 my-app
 
-# Fast temporary cache
-docker run -d --tmpfs /app/cache:size=100m my-app</code></pre>
-  <p class="explanation">tmpfs mounts exist only in memory. When the container stops, the data is gone. This is ideal for sensitive information.</p>
-</div>
+<span class="c"># Fast temporary cache</span>
+docker run <span class="nt">-d</span> <span class="nt">--tmpfs</span> /app/cache:size<span class="o">=</span>100m my-app
+</code></pre></div></div>
+
+<p>tmpfs mounts exist only in memory. When the container stops, the data is gone — ideal for sensitive information.</p>
 
 <p>Because tmpfs consumes RAM, always set a <code class="language-plaintext highlighter-rouge">size=</code> limit — an unbounded tmpfs that fills up will pressure the host’s memory and can trigger the OOM killer. tmpfs mounts are also a natural partner for <code class="language-plaintext highlighter-rouge">--read-only</code> containers (covered below): the root filesystem is immutable, but the handful of paths that genuinely need to be writable (<code class="language-plaintext highlighter-rouge">/tmp</code>, a PID file directory) are backed by disposable memory.</p>
 
@@ -3290,14 +3295,13 @@ docker run -d --tmpfs /app/cache:size=100m my-app</code></pre>
 
 <p><strong>When to use:</strong> When multiple containers need to read or write the same data, such as a web server and a log processor.</p>
 
-<div class="data-sharing-examples">
-  <h4>Volume Sharing Pattern</h4>
-  <pre><code class="language-bash"># Both containers access the same volume
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Both containers access the same volume</span>
 docker volume create shared-data
-docker run -d -v shared-data:/data --name writer my-app
-docker run -d -v shared-data:/data:ro --name reader log-processor</code></pre>
-  <p class="explanation">The writer container can modify data; the reader has read-only access. Both see the same files.</p>
-</div>
+docker run <span class="nt">-d</span> <span class="nt">-v</span> shared-data:/data <span class="nt">--name</span> writer my-app
+docker run <span class="nt">-d</span> <span class="nt">-v</span> shared-data:/data:ro <span class="nt">--name</span> reader log-processor
+</code></pre></div></div>
+
+<p>The writer container can modify data; the reader has read-only access. Both see the same files.</p>
 
 <p>Grant the least access that works: if a sidecar only needs to <em>read</em> logs, mount the volume <code class="language-plaintext highlighter-rouge">:ro</code> so a compromise of that container cannot corrupt the shared data. Note that Docker does not coordinate concurrent writes for you — if two containers write the same files, the application is responsible for locking.</p>
 
@@ -3305,15 +3309,14 @@ docker run -d -v shared-data:/data:ro --name reader log-processor</code></pre>
 
 <p>Volumes are managed by Docker, but Docker does not back them up for you. The portable pattern is to run a short-lived helper container (Alpine is ideal — tiny and has <code class="language-plaintext highlighter-rouge">tar</code>) that mounts the volume and streams a tarball to a bind-mounted host directory. Mount the source volume read-only during backup so a stuck job can never mutate live data.</p>
 
-<div class="volume-examples">
-  <pre><code class="language-bash"># Backup: mount volume read-only, tar to host
-docker run --rm -v app-data:/source:ro -v $(pwd):/backup \
-  alpine tar czf /backup/backup.tar.gz -C /source .
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Backup: mount volume read-only, tar to host</span>
+docker run <span class="nt">--rm</span> <span class="nt">-v</span> app-data:/source:ro <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>:/backup <span class="se">\</span>
+  alpine <span class="nb">tar </span>czf /backup/backup.tar.gz <span class="nt">-C</span> /source <span class="nb">.</span>
 
-# Restore: extract tar into a (typically fresh) volume
-docker run --rm -v app-data:/target -v $(pwd):/backup:ro \
-  alpine tar xzf /backup/backup.tar.gz -C /target</code></pre>
-</div>
+<span class="c"># Restore: extract tar into a (typically fresh) volume</span>
+docker run <span class="nt">--rm</span> <span class="nt">-v</span> app-data:/target <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>:/backup:ro <span class="se">\</span>
+  alpine <span class="nb">tar </span>xzf /backup/backup.tar.gz <span class="nt">-C</span> /target
+</code></pre></div></div>
 
 <p>A few production cautions:</p>
 
@@ -3370,57 +3373,21 @@ docker run --rm -v app-data:/target -v $(pwd):/backup:ro \
 
 <p>The <strong>Network</strong> layer — custom bridges, segmentation, encrypted overlays, and restricting container-to-container traffic — is covered in depth on the <a href="docker-networking.html">Docker: Networking</a> page; the rest of this section drills into image, build, runtime, and secret controls.</p>
 
-<div class="security-section">
-  <h3><i class="fas fa-shield-alt"></i> Container Security Fundamentals</h3>
-
-  <p class="security-intro">The following practices significantly reduce your attack surface. Start with the basics and add more controls as your security requirements grow.</p>
-  
-  <div class="security-principles">
-    <h4>Security Principles</h4>
-    
-    <div class="principle-grid">
-      <div class="principle-card">
-        <i class="fas fa-user-lock"></i>
-        <h5>Least Privilege</h5>
-        <p>Run containers with minimal permissions required for operation</p>
-      </div>
-      
-      <div class="principle-card">
-        <i class="fas fa-layer-group"></i>
-        <h5>Defense in Depth</h5>
-        <p>Multiple security layers from host to application</p>
-      </div>
-      
-      <div class="principle-card">
-        <i class="fas fa-shield-virus"></i>
-        <h5>Immutability</h5>
-        <p>Containers should be stateless and read-only where possible</p>
-      </div>
-      
-      <div class="principle-card">
-        <i class="fas fa-search"></i>
-        <h5>Vulnerability Scanning</h5>
-        <p>Regular scanning of images for known vulnerabilities</p>
-      </div>
-    </div>
-  </div>
-</div>
+<p>These practices significantly reduce your attack surface; start with the basics and add controls as requirements grow. Four principles run through all of them: <strong>least privilege</strong> (run containers with the minimal permissions they need), <strong>defense in depth</strong> (multiple security layers from host to application), <strong>immutability</strong> (keep containers stateless and read-only where possible), and <strong>vulnerability scanning</strong> (scan images regularly for known CVEs).</p>
 
 <h3 id="image-security">Image Security</h3>
 
 <p>Everything downstream depends on what you put <em>into</em> the image. A container can only be as trustworthy as the layers it is built from.</p>
 
-<div class="security-section">
-  <h4>Build a Small, Auditable Base</h4>
-  <pre><code class="language-dockerfile"># Pin a specific minimal base, not a moving 'latest' tag
-FROM alpine:3.20
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Pin a specific minimal base, not a moving 'latest' tag</span>
+<span class="k">FROM</span><span class="s"> alpine:3.20</span>
 
-# Install only what the app needs, then remove the package cache
-RUN apk add --no-cache ca-certificates
+<span class="c"># Install only what the app needs, then remove the package cache</span>
+<span class="k">RUN </span>apk add <span class="nt">--no-cache</span> ca-certificates
 
-# For compiled/static binaries, go further: a distroless or scratch base
-# has no shell and no package manager, shrinking the attack surface</code></pre>
-</div>
+<span class="c"># For compiled/static binaries, go further: a distroless or scratch base</span>
+<span class="c"># has no shell and no package manager, shrinking the attack surface</span>
+</code></pre></div></div>
 
 <p>Key image-hardening habits:</p>
 
@@ -3435,28 +3402,31 @@ RUN apk add --no-cache ca-certificates
 
 <p><strong>The most impactful change:</strong> Run containers as non-root users. This single practice prevents many container escape vulnerabilities — if a process is compromised but only runs as an unprivileged UID, the blast radius is dramatically smaller.</p>
 
-<div class="secure-runtime">
-  <h4>Non-Root User in Dockerfile</h4>
-  <pre><code class="language-dockerfile">FROM alpine:3.20
-RUN adduser -D appuser
-COPY --chown=appuser . /app
-USER appuser
-CMD ["python3", "app.py"]</code></pre>
+<p>Add a non-root user in the Dockerfile:</p>
 
-  <h4>Runtime Hardening</h4>
-  <pre><code class="language-bash"># Read-only filesystem with necessary tmpfs
-docker run -d --read-only --tmpfs /tmp my-app
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">FROM</span><span class="s"> alpine:3.20</span>
+<span class="k">RUN </span>adduser <span class="nt">-D</span> appuser
+<span class="k">COPY</span><span class="s"> --chown=appuser . /app</span>
+<span class="k">USER</span><span class="s"> appuser</span>
+<span class="k">CMD</span><span class="s"> ["python3", "app.py"]</span>
+</code></pre></div></div>
 
-# Drop all capabilities, add only what is needed
-docker run -d --cap-drop ALL --cap-add NET_BIND_SERVICE nginx
+<p>Then harden the runtime at launch:</p>
 
-# Prevent a process from gaining new privileges (defeats setuid escalation)
-docker run -d --security-opt no-new-privileges my-app
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Read-only filesystem with necessary tmpfs</span>
+docker run <span class="nt">-d</span> <span class="nt">--read-only</span> <span class="nt">--tmpfs</span> /tmp my-app
 
-# Limit resources to prevent DoS
-docker run -d --memory 512m --cpus 0.5 --pids-limit 100 my-app</code></pre>
-  <p class="explanation">Each flag adds a layer of protection. <code>--read-only</code> prevents filesystem modifications. <code>--cap-drop ALL</code> removes Linux capabilities. <code>--security-opt no-new-privileges</code> blocks privilege escalation via setuid binaries. Resource limits prevent runaway processes from starving the host.</p>
-</div>
+<span class="c"># Drop all capabilities, add only what is needed</span>
+docker run <span class="nt">-d</span> <span class="nt">--cap-drop</span> ALL <span class="nt">--cap-add</span> NET_BIND_SERVICE nginx
+
+<span class="c"># Prevent a process from gaining new privileges (defeats setuid escalation)</span>
+docker run <span class="nt">-d</span> <span class="nt">--security-opt</span> no-new-privileges my-app
+
+<span class="c"># Limit resources to prevent DoS</span>
+docker run <span class="nt">-d</span> <span class="nt">--memory</span> 512m <span class="nt">--cpus</span> 0.5 <span class="nt">--pids-limit</span> 100 my-app
+</code></pre></div></div>
+
+<p>Each flag adds a layer: <code class="language-plaintext highlighter-rouge">--read-only</code> prevents filesystem modifications, <code class="language-plaintext highlighter-rouge">--cap-drop ALL</code> removes Linux capabilities, <code class="language-plaintext highlighter-rouge">--security-opt no-new-privileges</code> blocks setuid escalation, and the resource limits prevent runaway processes from starving the host.</p>
 
 <p>Beyond these flags, three host-level controls deepen runtime isolation:</p>
 
@@ -3471,22 +3441,44 @@ docker run -d --memory 512m --cpus 0.5 --pids-limit 100 my-app</code></pre>
 
 <p><strong>Never put secrets in:</strong> Dockerfiles, environment variables in compose files committed to git, or image layers. These are all visible to anyone with access to the image or source code — <code class="language-plaintext highlighter-rouge">docker history</code> and <code class="language-plaintext highlighter-rouge">docker inspect</code> will happily reveal them.</p>
 
-<div class="secrets-management">
-  <h4>Safe Options for Secrets</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Use case</th>
+      <th>How it works</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Docker Secrets (Swarm)</td>
+      <td>Production services</td>
+      <td>Stored encrypted, mounted as files at <code class="language-plaintext highlighter-rouge">/run/secrets/</code></td>
+    </tr>
+    <tr>
+      <td>BuildKit secrets</td>
+      <td>Build-time credentials</td>
+      <td>Available only during build, not in the final image</td>
+    </tr>
+    <tr>
+      <td>External secrets manager</td>
+      <td>Enterprise deployments</td>
+      <td>Vault, AWS Secrets Manager inject at runtime</td>
+    </tr>
+    <tr>
+      <td>Environment file</td>
+      <td>Development only</td>
+      <td><code class="language-plaintext highlighter-rouge">.env</code> file loaded at runtime (never commit to git)</td>
+    </tr>
+  </tbody>
+</table>
 
-| Method | Use Case | How It Works |
-|--------|----------|--------------|
-| Docker Secrets (Swarm) | Production services | Secrets stored encrypted, mounted as files at /run/secrets/ |
-| BuildKit secrets | Build-time credentials | Secret available only during build, not in final image |
-| External secrets manager | Enterprise deployments | Vault, AWS Secrets Manager inject at runtime |
-| Environment file | Development only | .env file loaded at runtime (never commit to git) |
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># BuildKit: secret available only during build, never in a layer</span>
+<span class="nv">DOCKER_BUILDKIT</span><span class="o">=</span>1 docker build <span class="nt">--secret</span> <span class="nb">id</span><span class="o">=</span>token,src<span class="o">=</span>./token.txt <span class="nb">.</span>
 
-  <pre><code class="language-bash"># BuildKit: secret available only during build, never in a layer
-DOCKER_BUILDKIT=1 docker build --secret id=token,src=./token.txt .
-
-# Development: use .env file (add to .gitignore!)
-docker run --env-file .env my-app</code></pre>
-</div>
+<span class="c"># Development: use .env file (add to .gitignore!)</span>
+docker run <span class="nt">--env-file</span> .env my-app
+</code></pre></div></div>
 
 <p>The throughline is <em>don’t bake, mount instead</em>: a good secret is delivered to the running container as a file (<code class="language-plaintext highlighter-rouge">/run/secrets/...</code>) or pulled at startup from a secrets manager, so it never lands in an image layer, in your shell history, or in <code class="language-plaintext highlighter-rouge">docker inspect</code> output. Prefer file-mounted secrets over environment variables even at runtime, since env vars are visible to any process that can read <code class="language-plaintext highlighter-rouge">/proc/&lt;pid&gt;/environ</code> and are frequently leaked into logs and crash dumps.</p>
 
@@ -3494,171 +3486,162 @@ docker run --env-file .env my-app</code></pre>
 
 <p>Scan images for known vulnerabilities before deploying them, and integrate scanning into your CI/CD pipeline to catch issues early — a vulnerable base image discovered in CI is cheap to fix; the same image discovered in production is an incident.</p>
 
-<div class="image-scanning">
-  <pre><code class="language-bash"># Docker Scout (built into Docker Desktop)
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Docker Scout (built into Docker Desktop)</span>
 docker scout cves my-app:latest
 
-# Trivy (open source, widely used)
+<span class="c"># Trivy (open source, widely used)</span>
 trivy image my-app:latest
 
-# Enable image signing to verify provenance
-export DOCKER_CONTENT_TRUST=1
-docker pull my-registry/my-app:latest  # Fails if not signed</code></pre>
-</div>
+<span class="c"># Enable image signing to verify provenance</span>
+<span class="nb">export </span><span class="nv">DOCKER_CONTENT_TRUST</span><span class="o">=</span>1
+docker pull my-registry/my-app:latest  <span class="c"># Fails if not signed</span>
+</code></pre></div></div>
 
 <p>Scanning tells you <em>what is vulnerable</em>; signing (Docker Content Trust, or the newer Sigstore/cosign workflow) tells you <em>whether the image is the one you built</em>. Use both: scan on every build, and require signatures on pull so a tampered or unexpected image is rejected before it ever runs.</p>
 
 <h3 id="security-compliance-checklist">Security Compliance Checklist</h3>
 
-<div class="security-checklist">
-  <h4>Image Security</h4>
-  <ul>
-    <li>Use minimal base images (alpine, distroless)</li>
-    <li>Scan images for vulnerabilities regularly</li>
-    <li>Don't store secrets in images</li>
-    <li>Use specific version tags, not 'latest'</li>
-    <li>Sign images with Docker Content Trust</li>
-    <li>Remove unnecessary packages and files</li>
-  </ul>
-  
-  <h4>Runtime Security</h4>
-  <ul>
-    <li>Run containers as non-root user</li>
-    <li>Use read-only root filesystems</li>
-    <li>Drop unnecessary capabilities</li>
-    <li>Limit resources (memory, CPU, PIDs)</li>
-    <li>Use security profiles (AppArmor, SELinux, Seccomp)</li>
-    <li>Add <code>--security-opt no-new-privileges</code></li>
-    <li>Isolate containers with user namespaces</li>
-  </ul>
-  
-  <h4>Network Security</h4>
-  <ul>
-    <li>Use custom bridge networks, not default</li>
-    <li>Encrypt overlay network traffic</li>
-    <li>Implement network segmentation</li>
-    <li>Use TLS for container communication</li>
-    <li>Restrict container-to-container communication</li>
-  </ul>
-  <p class="explanation">Network hardening is detailed on the <a href="docker-networking.html">Docker: Networking</a> page.</p>
-</div>
+<p><strong>Image security</strong></p>
+
+<ul>
+  <li>Use minimal base images (alpine, distroless)</li>
+  <li>Scan images for vulnerabilities regularly</li>
+  <li>Don’t store secrets in images</li>
+  <li>Use specific version tags, not <code class="language-plaintext highlighter-rouge">latest</code></li>
+  <li>Sign images with Docker Content Trust</li>
+  <li>Remove unnecessary packages and files</li>
+</ul>
+
+<p><strong>Runtime security</strong></p>
+
+<ul>
+  <li>Run containers as a non-root user</li>
+  <li>Use read-only root filesystems</li>
+  <li>Drop unnecessary capabilities</li>
+  <li>Limit resources (memory, CPU, PIDs)</li>
+  <li>Use security profiles (AppArmor, SELinux, Seccomp)</li>
+  <li>Add <code class="language-plaintext highlighter-rouge">--security-opt no-new-privileges</code></li>
+  <li>Isolate containers with user namespaces</li>
+</ul>
+
+<p><strong>Network security</strong> (detailed on the <a href="docker-networking.html">Docker: Networking</a> page)</p>
+
+<ul>
+  <li>Use custom bridge networks, not the default</li>
+  <li>Encrypt overlay network traffic</li>
+  <li>Implement network segmentation</li>
+  <li>Use TLS for container communication</li>
+  <li>Restrict container-to-container communication</li>
+</ul>
 
 <h2 id="troubleshooting-common-docker-issues">Troubleshooting Common Docker Issues</h2>
 
 <p>When something goes wrong, start with the simplest checks and work your way to more detailed investigation. Many storage and security problems surface as cryptic permission errors, exhausted disk, or containers that exit immediately — the techniques below isolate the cause quickly.</p>
 
-<div class="troubleshooting-section">
-  <h3><i class="fas fa-tools"></i> Debugging Containers</h3>
+<h3 id="debugging-containers">Debugging Containers</h3>
 
-  <div class="debug-techniques">
-    <h4>Container Will Not Start</h4>
-    <pre><code class="language-bash"># First, check the logs
+<p><strong>Container will not start:</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># First, check the logs</span>
 docker logs container-name
 
-# Get the exit code (non-zero means error)
-docker inspect container-name --format='{{.State.ExitCode}}'
+<span class="c"># Get the exit code (non-zero means error)</span>
+docker inspect container-name <span class="nt">--format</span><span class="o">=</span><span class="s1">'{{.State.ExitCode}}'</span>
 
-# Start an interactive shell to investigate
-docker run -it --entrypoint /bin/sh my-image</code></pre>
+<span class="c"># Start an interactive shell to investigate</span>
+docker run <span class="nt">-it</span> <span class="nt">--entrypoint</span> /bin/sh my-image
+</code></pre></div></div>
 
-    <h4>Permission &amp; Mount Problems</h4>
-    <pre><code class="language-bash"># Inspect exactly what is mounted and how
-docker inspect container-name --format='{{json .Mounts}}'
+<p><strong>Permission and mount problems:</strong></p>
 
-# Check the UID the process runs as vs. the file ownership
-docker exec container-name id
-docker exec container-name ls -ln /data</code></pre>
-    <p class="explanation">Most volume/bind-mount errors are UID mismatches: the in-container user does not own the mounted files. Align the user with <code>--user</code> or <code>chown</code> on the host.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Inspect exactly what is mounted and how</span>
+docker inspect container-name <span class="nt">--format</span><span class="o">=</span><span class="s1">'{{json .Mounts}}'</span>
 
-    <h4>Performance Problems</h4>
-    <pre><code class="language-bash"># Real-time stats for all containers
+<span class="c"># Check the UID the process runs as vs. the file ownership</span>
+docker <span class="nb">exec </span>container-name <span class="nb">id
+</span>docker <span class="nb">exec </span>container-name <span class="nb">ls</span> <span class="nt">-ln</span> /data
+</code></pre></div></div>
+
+<p>Most volume/bind-mount errors are UID mismatches: the in-container user does not own the mounted files. Align the user with <code class="language-plaintext highlighter-rouge">--user</code> or <code class="language-plaintext highlighter-rouge">chown</code> on the host.</p>
+
+<p><strong>Performance problems:</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Real-time stats for all containers</span>
 docker stats
 
-# Check disk usage broken down by images, containers, and volumes
-docker system df -v</code></pre>
-  </div>
-  
-  <h3><i class="fas fa-exclamation-circle"></i> Common Error Solutions</h3>
+<span class="c"># Check disk usage broken down by images, containers, and volumes</span>
+docker system <span class="nb">df</span> <span class="nt">-v</span>
+</code></pre></div></div>
 
-  <div class="error-solutions">
+<h3 id="common-error-solutions">Common Error Solutions</h3>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Error</th>
-          <th>Quick Fix</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>“Cannot connect to Docker daemon”</td>
-          <td><code class="language-plaintext highlighter-rouge">sudo systemctl start docker</code> or add user to docker group</td>
-        </tr>
-        <tr>
-          <td>“No space left on device”</td>
-          <td><code class="language-plaintext highlighter-rouge">docker system prune -a --volumes</code> (note: also deletes unused volumes)</td>
-        </tr>
-        <tr>
-          <td>“Permission denied” on a mount</td>
-          <td>UID mismatch — align <code class="language-plaintext highlighter-rouge">--user</code> with host file ownership, or <code class="language-plaintext highlighter-rouge">chown</code> the host path</td>
-        </tr>
-        <tr>
-          <td>“Permission denied” on the socket</td>
-          <td>Run with sudo, or add user to docker group and log out/in</td>
-        </tr>
-        <tr>
-          <td>Read-only filesystem error</td>
-          <td>Container started <code class="language-plaintext highlighter-rouge">--read-only</code>; add a <code class="language-plaintext highlighter-rouge">--tmpfs</code> for the path that needs writes</td>
-        </tr>
-      </tbody>
-    </table>
+<table>
+  <thead>
+    <tr>
+      <th>Error</th>
+      <th>Quick Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>“Cannot connect to Docker daemon”</td>
+      <td><code class="language-plaintext highlighter-rouge">sudo systemctl start docker</code> or add user to docker group</td>
+    </tr>
+    <tr>
+      <td>“No space left on device”</td>
+      <td><code class="language-plaintext highlighter-rouge">docker system prune -a --volumes</code> (note: also deletes unused volumes)</td>
+    </tr>
+    <tr>
+      <td>“Permission denied” on a mount</td>
+      <td>UID mismatch — align <code class="language-plaintext highlighter-rouge">--user</code> with host file ownership, or <code class="language-plaintext highlighter-rouge">chown</code> the host path</td>
+    </tr>
+    <tr>
+      <td>“Permission denied” on the socket</td>
+      <td>Run with sudo, or add user to docker group and log out/in</td>
+    </tr>
+    <tr>
+      <td>Read-only filesystem error</td>
+      <td>Container started <code class="language-plaintext highlighter-rouge">--read-only</code>; add a <code class="language-plaintext highlighter-rouge">--tmpfs</code> for the path that needs writes</td>
+    </tr>
+  </tbody>
+</table>
 
-    <h4>Cleaning Up Disk Space</h4>
-    <pre><code class="language-bash"># See what is using space
-docker system df
+<p><strong>Cleaning up disk space:</strong></p>
 
-# Remove everything unused (images, containers, AND volumes)
-docker system prune -a --volumes
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># See what is using space</span>
+docker system <span class="nb">df</span>
 
-# Reclaim only dangling/anonymous volumes (safer)
-docker volume prune</code></pre>
-    <p>Be deliberate with <code>--volumes</code>: it deletes any volume not currently attached to a container, which can destroy data you meant to keep. Prefer <code>docker volume prune</code> when you only want to reclaim anonymous leftovers.</p>
-  </div>
+<span class="c"># Remove everything unused (images, containers, AND volumes)</span>
+docker system prune <span class="nt">-a</span> <span class="nt">--volumes</span>
 
-  <h3><i class="fas fa-heartbeat"></i> Health Checks</h3>
+<span class="c"># Reclaim only dangling/anonymous volumes (safer)</span>
+docker volume prune
+</code></pre></div></div>
 
-  <p>Health checks let Docker know if your application is actually working, not just running.</p>
+<p>Be deliberate with <code class="language-plaintext highlighter-rouge">--volumes</code>: it deletes any volume not currently attached to a container, which can destroy data you meant to keep. Prefer <code class="language-plaintext highlighter-rouge">docker volume prune</code> when you only want to reclaim anonymous leftovers.</p>
 
-  <div class="health-monitoring">
-    <pre><code class="language-dockerfile"># Add to Dockerfile
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1</code></pre>
-    <pre><code class="language-bash"># Check health status
-docker ps  # Shows health in STATUS column
-docker inspect --format='{{.State.Health.Status}}' container-name</code></pre>
-  </div>
-</div>
+<h3 id="health-checks">Health Checks</h3>
+
+<p>Health checks let Docker know if your application is actually working, not just running.</p>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add to Dockerfile</span>
+<span class="k">HEALTHCHECK</span><span class="s"> --interval=30s --timeout=3s --retries=3 \</span>
+  CMD curl -f http://localhost:8080/health || exit 1
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check health status</span>
+docker ps  <span class="c"># Shows health in STATUS column</span>
+docker inspect <span class="nt">--format</span><span class="o">=</span><span class="s1">'{{.State.Health.Status}}'</span> container-name
+</code></pre></div></div>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Volumes for Persistence</h4>
-    <p>Container writable layers are ephemeral. Use named volumes for production data, bind mounts for local development, and tmpfs for secrets that must never touch disk.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Back Up Volumes Yourself</h4>
-    <p>Docker does not back up volumes for you. Tar them from a read-only helper container, quiesce databases before snapshotting, and actually test your restores.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Run as Non-Root</h4>
-    <p>The single highest-impact hardening step. Add a <code>USER</code> directive, drop capabilities with <code>--cap-drop ALL</code>, and add <code>--security-opt no-new-privileges</code>.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Mount Secrets, Don't Bake Them</h4>
-    <p>Keep secrets out of image layers and env vars. Use BuildKit secrets at build time and file-mounted secrets or a secrets manager at runtime, and scan &amp; sign images before deploy.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Volumes for persistence.</strong> Container writable layers are ephemeral. Use named volumes for production data, bind mounts for local development, and tmpfs for secrets that must never touch disk.</li>
+  <li><strong>Back up volumes yourself.</strong> Docker does not back up volumes for you. Tar them from a read-only helper container, quiesce databases before snapshotting, and actually test your restores.</li>
+  <li><strong>Run as non-root.</strong> The single highest-impact hardening step. Add a <code class="language-plaintext highlighter-rouge">USER</code> directive, drop capabilities with <code class="language-plaintext highlighter-rouge">--cap-drop ALL</code>, and add <code class="language-plaintext highlighter-rouge">--security-opt no-new-privileges</code>.</li>
+  <li><strong>Mount secrets, don’t bake them.</strong> Keep secrets out of image layers and env vars. Use BuildKit secrets at build time and file-mounted secrets or a secrets manager at runtime, and scan and sign images before deploy.</li>
+</ul>
 
 <hr />
 

@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,7 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Registries &amp; Supply-Chain Security</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Distribute images through registries, pin them by digest, and prove what you ship with signing, SBOMs, scanning, and provenance.</p>
-</div>
-
-<p><a href="./">Docker</a> » Registries &amp; Supply-Chain Security</p>
+        <p><a href="./">Docker</a> » Registries &amp; Supply-Chain Security</p>
 
 <p>A registry is where images live between <code class="language-plaintext highlighter-rouge">docker build</code> and <code class="language-plaintext highlighter-rouge">docker run</code>. Everything downstream — what runs in production, what a vulnerability scanner reports, what an auditor trusts — depends on the integrity of that distribution step. This page covers how registries store and address images, how tags differ from immutable digests, and the modern supply-chain controls (signing, SBOMs, scanning, and provenance) that let you prove an image is the one you built from source you control.</p>
 
@@ -3131,12 +3146,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>A <strong>tag</strong> is just a mutable human-friendly name (a pointer) stored in the registry that resolves to a manifest digest. A <strong>multi-arch image</strong> uses a <em>manifest list</em> (also called an image index): one top-level manifest whose entries are per-platform manifests (<code class="language-plaintext highlighter-rouge">linux/amd64</code>, <code class="language-plaintext highlighter-rouge">linux/arm64</code>, …). The client picks the entry matching its platform.</p>
 
-<div class="docker-section">
-  <div class="docker-intro">
-    <p>Pushing and pulling both reduce to "exchange blobs and manifests by digest." Because every object is named by the hash of its content, the registry can deduplicate shared layers across images and the client can verify integrity end-to-end.</p>
+<p>Pushing and pulling both reduce to “exchange blobs and manifests by digest.” Because every object is named by the hash of its content, the registry can deduplicate shared layers across images and the client can verify integrity end-to-end.</p>
 
-    <div class="docker-workflow">
-      <h3><i class="fas fa-sitemap"></i> Registry Object Model</h3>
+<div class="docker-workflow">
       <svg viewBox="0 0 700 260" class="workflow-diagram">
         <!-- Tag -->
         <rect x="30" y="20" width="150" height="50" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2" />
@@ -3179,8 +3191,6 @@ document.addEventListener('DOMContentLoaded', function () {
         <path d="M 400 65 L 468 100" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
         <path d="M 400 145 L 468 140" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
       </svg>
-    </div>
-  </div>
 </div>
 
 <p>The digest you see in <code class="language-plaintext highlighter-rouge">docker images --digests</code> or <code class="language-plaintext highlighter-rouge">docker buildx imagetools inspect</code> is the SHA-256 of the manifest bytes. That single hash transitively pins the config and every layer, because the manifest references them by their own digests. This is the property that makes digests trustworthy: change anything inside the image and the top-level digest changes.</p>
@@ -3230,60 +3240,54 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Most teams use one of a few registries. They all speak the OCI distribution protocol, so <code class="language-plaintext highlighter-rouge">docker</code>, <code class="language-plaintext highlighter-rouge">buildx</code>, <code class="language-plaintext highlighter-rouge">crane</code>, and <code class="language-plaintext highlighter-rouge">cosign</code> work against any of them; they differ in hosting model, authentication, and integration.</p>
 
-<div class="storage-section">
-  <h3><i class="fas fa-warehouse"></i> Registry Options</h3>
-
-  <div class="storage-comparison">
-    <table class="storage-table">
-      <thead>
-        <tr>
-          <th>Registry</th>
-          <th>Hosting</th>
-          <th>Auth Model</th>
-          <th>Best For</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Docker Hub</strong></td>
-          <td>SaaS (Docker, Inc.)</td>
-          <td>Docker ID / PAT</td>
-          <td>Public images, official base images, getting started</td>
-        </tr>
-        <tr>
-          <td><strong>GitHub Container Registry (GHCR)</strong></td>
-          <td>SaaS (GitHub)</td>
-          <td>GitHub token / PAT</td>
-          <td>Repos already on GitHub; tight Actions integration</td>
-        </tr>
-        <tr>
-          <td><strong>Amazon ECR</strong></td>
-          <td>SaaS (AWS)</td>
-          <td>IAM (short-lived tokens)</td>
-          <td>Workloads on ECS/EKS; IAM-native access control</td>
-        </tr>
-        <tr>
-          <td><strong>Google Artifact Registry (GAR/GCR)</strong></td>
-          <td>SaaS (Google Cloud)</td>
-          <td>IAM / service accounts</td>
-          <td>GKE and Cloud Run deployments</td>
-        </tr>
-        <tr>
-          <td><strong>Harbor</strong></td>
-          <td>Self-hosted (CNCF)</td>
-          <td>Local / OIDC / LDAP</td>
-          <td>On-prem, air-gapped, policy-driven enterprises</td>
-        </tr>
-        <tr>
-          <td><strong>Azure Container Registry (ACR)</strong></td>
-          <td>SaaS (Azure)</td>
-          <td>Entra ID / tokens</td>
-          <td>AKS and Azure-native pipelines</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Registry</th>
+      <th>Hosting</th>
+      <th>Auth model</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Docker Hub</strong></td>
+      <td>SaaS (Docker, Inc.)</td>
+      <td>Docker ID / PAT</td>
+      <td>Public images, official base images, getting started</td>
+    </tr>
+    <tr>
+      <td><strong>GitHub Container Registry (GHCR)</strong></td>
+      <td>SaaS (GitHub)</td>
+      <td>GitHub token / PAT</td>
+      <td>Repos already on GitHub; tight Actions integration</td>
+    </tr>
+    <tr>
+      <td><strong>Amazon ECR</strong></td>
+      <td>SaaS (AWS)</td>
+      <td>IAM (short-lived tokens)</td>
+      <td>Workloads on ECS/EKS; IAM-native access control</td>
+    </tr>
+    <tr>
+      <td><strong>Google Artifact Registry (GAR/GCR)</strong></td>
+      <td>SaaS (Google Cloud)</td>
+      <td>IAM / service accounts</td>
+      <td>GKE and Cloud Run deployments</td>
+    </tr>
+    <tr>
+      <td><strong>Harbor</strong></td>
+      <td>Self-hosted (CNCF)</td>
+      <td>Local / OIDC / LDAP</td>
+      <td>On-prem, air-gapped, policy-driven enterprises</td>
+    </tr>
+    <tr>
+      <td><strong>Azure Container Registry (ACR)</strong></td>
+      <td>SaaS (Azure)</td>
+      <td>Entra ID / tokens</td>
+      <td>AKS and Azure-native pipelines</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="authenticating-and-pushing">Authenticating and Pushing</h3>
 
@@ -3311,32 +3315,14 @@ docker push us-docker.pkg.dev/my-project/my-repo/myapp:1.4.2
 
 <p>ECR tokens expire after 12 hours, which is why CI authenticates on every run rather than storing a static password. GHCR inside GitHub Actions can authenticate with the automatically provisioned <code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code>, scoped to the repository — no long-lived secret required.</p>
 
-<div class="security-section">
-  <div class="security-principles">
-    <div class="principle-grid">
-      <div class="principle-card">
-        <i class="fas fa-server"></i>
-        <h5>Self-Host vs SaaS</h5>
-        <p>Harbor gives you on-prem control, replication, and air-gap support; managed registries remove the ops burden.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-id-badge"></i>
-        <h5>Identity-Native Auth</h5>
-        <p>Cloud registries fold into IAM, so access follows your existing roles instead of separate registry credentials.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-copy"></i>
-        <h5>Replication &amp; Caching</h5>
-        <p>Harbor and pull-through caches mirror upstream images to cut egress and survive upstream outages.</p>
-      </div>
-      <div class="principle-card">
-        <i class="fas fa-trash-alt"></i>
-        <h5>Retention &amp; GC</h5>
-        <p>Tag retention rules plus garbage collection reclaim space from untagged, content-addressed blobs.</p>
-      </div>
-    </div>
-  </div>
-</div>
+<p>A few axes distinguish them:</p>
+
+<ul>
+  <li><strong>Self-host vs SaaS</strong> — Harbor gives you on-prem control, replication, and air-gap support; managed registries remove the ops burden.</li>
+  <li><strong>Identity-native auth</strong> — cloud registries fold into IAM, so access follows your existing roles instead of separate registry credentials.</li>
+  <li><strong>Replication and caching</strong> — Harbor and pull-through caches mirror upstream images to cut egress and survive upstream outages.</li>
+  <li><strong>Retention and GC</strong> — tag retention rules plus garbage collection reclaim space from untagged, content-addressed blobs.</li>
+</ul>
 
 <h3 id="harbor-a-self-hosted-registry">Harbor: a Self-Hosted Registry</h3>
 
@@ -3516,37 +3502,38 @@ cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
 notation verify <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...   <span class="c"># uses configured trust policy</span>
 </code></pre></div></div>
 
-<div class="security-section">
-  <h3><i class="fas fa-shield-alt"></i> Choosing a Signer</h3>
+<h3 id="choosing-a-signer">Choosing a Signer</h3>
 
-  <div class="storage-comparison">
-    <table class="storage-table">
-      <thead>
-        <tr><th>Tool</th><th>Trust root</th><th>Signature storage</th><th>Pick it when</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>cosign</strong></td>
-          <td>Keys or keyless (Fulcio + OIDC)</td>
-          <td>OCI artifact</td>
-          <td>You want keyless CI signing and the broadest ecosystem</td>
-        </tr>
-        <tr>
-          <td><strong>Notation</strong></td>
-          <td>x.509 / your own CA</td>
-          <td>OCI artifact</td>
-          <td>You already run PKI and want CA-rooted trust policies</td>
-        </tr>
-        <tr>
-          <td><strong>Docker Content Trust</strong></td>
-          <td>TUF / Notary v1</td>
-          <td>Separate Notary server</td>
-          <td>Maintaining existing DCT setups only; avoid for new work</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Trust root</th>
+      <th>Signature storage</th>
+      <th>Pick it when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>cosign</strong></td>
+      <td>Keys or keyless (Fulcio + OIDC)</td>
+      <td>OCI artifact</td>
+      <td>You want keyless CI signing and the broadest ecosystem</td>
+    </tr>
+    <tr>
+      <td><strong>Notation</strong></td>
+      <td>x.509 / your own CA</td>
+      <td>OCI artifact</td>
+      <td>You already run PKI and want CA-rooted trust policies</td>
+    </tr>
+    <tr>
+      <td><strong>Docker Content Trust</strong></td>
+      <td>TUF / Notary v1</td>
+      <td>Separate Notary server</td>
+      <td>Maintaining existing DCT setups only; avoid for new work</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="software-bill-of-materials-sbom">Software Bill of Materials (SBOM)</h2>
 
@@ -3732,24 +3719,12 @@ cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Deploy by Digest</h4>
-    <p>Tags are mutable pointers; the <code>sha256:</code> digest immutably pins the config and every layer. Resolve tags to digests once and deploy the digest.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Enforce Immutability Server-Side</h4>
-    <p>Set ECR/GAR repos or Harbor projects to reject tag overwrites, and never deploy <code>latest</code> — convention alone is not enough.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Sign with cosign</h4>
-    <p>Keyless cosign signing binds a workflow identity to an image digest with no long-lived keys to leak. Verify identity <em>and</em> issuer.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>SBOM + Scan + Provenance</h4>
-    <p>Generate an SBOM (Syft/BuildKit), gate on fixable High/Critical CVEs (Trivy/Grype), and attach SLSA provenance so you can prove what shipped and how.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Deploy by digest.</strong> Tags are mutable pointers; the <code class="language-plaintext highlighter-rouge">sha256:</code> digest immutably pins the config and every layer. Resolve tags to digests once and deploy the digest.</li>
+  <li><strong>Enforce immutability server-side.</strong> Set ECR/GAR repos or Harbor projects to reject tag overwrites, and never deploy <code class="language-plaintext highlighter-rouge">latest</code> — convention alone is not enough.</li>
+  <li><strong>Sign with cosign.</strong> Keyless cosign signing binds a workflow identity to an image digest with no long-lived keys to leak. Verify identity <em>and</em> issuer.</li>
+  <li><strong>SBOM + scan + provenance.</strong> Generate an SBOM (Syft/BuildKit), gate on fixable High/Critical CVEs (Trivy/Grype), and attach SLSA provenance so you can prove what shipped and how.</li>
+</ul>
 
 <hr />
 

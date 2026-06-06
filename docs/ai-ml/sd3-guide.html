@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3108,43 +3128,26 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="page__inner-wrap">
       <header>
         
+          <h1 id="page-title" class="page__title">AI/ML: Stable Diffusion 3 Guide</h1>
+        
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Stable Diffusion 3 Guide</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">SD3 and the MMDiT architecture: how triple text encoding, rectified-flow training, and legible text rendering set this family apart - plus settings and licensing.</p>
-</div>
+        <p><a href="./">AI/ML Documentation</a> » Stable Diffusion 3 Guide</p>
 
-<p><a href="./">AI/ML Documentation</a> » Stable Diffusion 3 Guide</p>
-
-<div class="code-example">
-  <p>A focused guide to Stable Diffusion 3 (and SD3.5): the Multimodal Diffusion Transformer backbone, rectified-flow / flow-matching training, why it renders text and follows prompts better than SDXL, and the licensing you need to understand before deploying it.</p>
-</div>
+<p>A focused guide to Stable Diffusion 3 (and SD3.5): the Multimodal Diffusion Transformer backbone, rectified-flow / flow-matching training, why it renders text and follows prompts better than SDXL, and the licensing you need to understand before deploying it.</p>
 
 <h2 id="overview">Overview</h2>
 
 <p>SD3 marks the Stable Diffusion lineage’s shift from the U-Net to a <strong>Multimodal Diffusion Transformer (MM-DiT)</strong> trained with <strong>rectified flow</strong> - the same family of ideas behind FLUX, but with different design choices and lower resource demands. It is the bridge between the mature U-Net ecosystem (SD 1.5, SDXL, Pony) and the newer transformer flow-matching models, and it was the first model in the family to bring credible in-image text rendering and strong prompt adherence to consumer hardware.</p>
 
-<p>If you have read <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>, the short version is this: SD3 keeps the latent-diffusion idea (work in a compressed VAE latent, not pixels) but replaces <em>both</em> the denoising network (U-Net → transformer) <em>and</em> the training objective (noise prediction → velocity / rectified flow).</p>
+<p>If you have read <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>, the short version is this: SD3 keeps the latent-diffusion idea (work in a compressed VAE latent, not pixels) but replaces <em>both</em> the denoising network (U-Net → transformer) <em>and</em> the training objective (noise prediction → velocity / rectified flow). Three changes define the family:</p>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-project-diagram"></i>
-    <h4>Transformer, Not U-Net</h4>
-    <p>MM-DiT processes image and text tokens jointly with shared attention, replacing the convolutional U-Net and its cross-attention.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-route"></i>
-    <h4>Rectified Flow</h4>
-    <p>Trained to follow a near-straight path from noise to data, so fewer steps and a lower CFG produce coherent images.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-font"></i>
-    <h4>Text You Can Read</h4>
-    <p>A large T5 encoder alongside two CLIP encoders lets SD3 render legible words and follow long natural-language prompts.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Transformer, not U-Net.</strong> MM-DiT processes image and text tokens jointly with shared attention, replacing the convolutional U-Net and its cross-attention.</li>
+  <li><strong>Rectified flow.</strong> Trained to follow a near-straight path from noise to data, so fewer steps and a lower CFG produce coherent images.</li>
+  <li><strong>Text you can read.</strong> A large T5 encoder alongside two CLIP encoders lets SD3 render legible words and follow long natural-language prompts.</li>
+</ul>
 
 <h2 id="technical-specifications">Technical Specifications</h2>
 
@@ -3554,32 +3557,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-card">
-  <ul>
-    <li><strong>SD3 swaps the whole denoiser:</strong> convolutional U-Net → Multimodal Diffusion Transformer (MM-DiT) with joint image+text attention.</li>
-    <li><strong>It is trained with rectified flow,</strong> learning a velocity field along near-straight noise→data paths - hence ~28 steps, a low CFG (~5), and the SD3-specific <code class="language-plaintext highlighter-rouge">shift</code> knob.</li>
-    <li><strong>Triple text encoding (2× CLIP + T5)</strong> is what unlocks legible in-image text and strong prompt adherence; T5 is the special ingredient and prompting is natural-language.</li>
-    <li><strong>Prefer SD3.5</strong> over the original SD3 Medium - it fixed launch-day anatomy and licensing complaints.</li>
-    <li><strong>Mind the license:</strong> SD3 uses Stability’s gated community/enterprise terms, not the permissive SD 1.5/SDXL licenses. Verify the current Hugging Face terms before any commercial use.</li>
-  </ul>
-</div>
+<ul>
+  <li><strong>SD3 swaps the whole denoiser:</strong> convolutional U-Net → Multimodal Diffusion Transformer (MM-DiT) with joint image+text attention.</li>
+  <li><strong>It is trained with rectified flow,</strong> learning a velocity field along near-straight noise→data paths - hence ~28 steps, a low CFG (~5), and the SD3-specific <code class="language-plaintext highlighter-rouge">shift</code> knob.</li>
+  <li><strong>Triple text encoding (2× CLIP + T5)</strong> is what unlocks legible in-image text and strong prompt adherence; T5 is the special ingredient and prompting is natural-language.</li>
+  <li><strong>Prefer SD3.5</strong> over the original SD3 Medium - it fixed launch-day anatomy and licensing complaints.</li>
+  <li><strong>Mind the license:</strong> SD3 uses Stability’s gated community/enterprise terms, not the permissive SD 1.5/SDXL licenses. Verify the current Hugging Face terms before any commercial use.</li>
+</ul>
 
-<hr />
+<h2 id="see-also">See Also</h2>
 
-<div class="see-also-card">
-  <h4 id="see-also">See Also</h4>
-
-  <ul>
-    <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD3 in context with SD 1.5, SDXL, Pony, and FLUX</li>
-    <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Latent diffusion, the forward/reverse process, and flow matching</li>
-    <li><a href="model-types.html">Model Types</a> - Checkpoints, LoRAs, VAEs, and how the pieces fit together</li>
-    <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building the SD3 inference graph visually</li>
-    <li><a href="lora-training.html">LoRA Training</a> - Training custom models on transformer backbones</li>
-    <li><a href="controlnet.html">ControlNet</a> - Precise control over generation</li>
-    <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
-    <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
-  </ul>
-</div>
+<ul>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD3 in context with SD 1.5, SDXL, Pony, and FLUX</li>
+  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Latent diffusion, the forward/reverse process, and flow matching</li>
+  <li><a href="model-types.html">Model Types</a> - Checkpoints, LoRAs, VAEs, and how the pieces fit together</li>
+  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building the SD3 inference graph visually</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Training custom models on transformer backbones</li>
+  <li><a href="controlnet.html">ControlNet</a> - Precise control over generation</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
+  <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+</ul>
 
       </section>
     </div>

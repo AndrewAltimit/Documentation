@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,16 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Container Runtimes &amp; Alternatives</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The OCI spec, runc/containerd/CRI-O, sandboxed runtimes (gVisor, Kata), Firecracker microVMs, and WebAssembly — and when to choose each over Docker.</p>
-</div>
+        <p><a href="./">Technology</a> » Container Runtimes &amp; Alternatives</p>
 
-<p><a href="./">Technology</a> » Container Runtimes &amp; Alternatives</p>
-
-<div class="intro-card">
-  <p class="lead-text">"Docker" is a brand, not a runtime. Underneath the friendly CLI sits a <strong>stack of standardized components</strong> — an image format, a high-level daemon, and a low-level runtime that actually talks to the kernel. Once you understand that stack, you can swap pieces in and out: replace the daemon with containerd or CRI-O, replace the low-level runtime with a sandbox like gVisor or a microVM like Kata/Firecracker, or step outside containers entirely with WebAssembly. This page maps the landscape and gives you a decision framework for picking the right isolation boundary for a workload.</p>
-</div>
+<p>“Docker” is a brand, not a runtime. Underneath the friendly CLI sits a <strong>stack of standardized components</strong> — an image format, a high-level daemon, and a low-level runtime that actually talks to the kernel. Once you understand that stack, you can swap pieces in and out: replace the daemon with containerd or CRI-O, replace the low-level runtime with a sandbox like gVisor or a microVM like Kata/Firecracker, or step outside containers entirely with WebAssembly. This page maps the landscape and gives a decision framework for picking the right isolation boundary for a workload.</p>
 
 <div class="tip-card">
   <h4>Where this fits</h4>
@@ -3377,17 +3390,15 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
 
 <h2 id="webassembly-and-wasi-a-next-generation-runtime">WebAssembly and WASI: A Next-Generation Runtime</h2>
 
-<p>While Docker and traditional container runtimes have revolutionized application deployment, the technology continues to evolve. One of the most promising developments is the emergence of WebAssembly as a potential container runtime alternative. This represents a significant shift in how we think about application isolation and portability.</p>
+<p>WebAssembly (WASM) and the WebAssembly System Interface (WASI) are a potential paradigm shift in container technology: a lightweight, secure, portable alternative that runs anywhere — browsers, servers, edge devices. Unlike traditional containers, which share the host kernel, WebAssembly provides a fully sandboxed execution environment.</p>
 
 <h3 id="wasmwasi-as-container-runtime-alternative">WASM/WASI as Container Runtime Alternative</h3>
-
-<p>WebAssembly (WASM) and the WebAssembly System Interface (WASI) represent a potential paradigm shift in container technology, offering a lightweight, secure, and portable alternative to traditional container runtimes. Unlike traditional containers that share the host kernel, WebAssembly provides a completely sandboxed execution environment that can run anywhere — from browsers to servers to edge devices.</p>
 
 <p>Crucially, WASM is a <em>different kind of isolation</em> than everything above. runc, gVisor, and Kata all isolate an OS process — they differ only in how strong the boundary around that process is. WebAssembly does not run an OS process at all: it runs a <strong>bytecode module inside a virtual machine</strong> that has no inherent access to the host. The boundary is the VM itself.</p>
 
 <h4 id="understanding-webassembly">Understanding WebAssembly</h4>
 
-<p>To appreciate why WebAssembly is relevant to containerization, let’s examine its core characteristics that make it suitable as a container runtime alternative:</p>
+<p>The characteristics that make WebAssembly viable as a container runtime:</p>
 
 <p><strong>Core Characteristics:</strong></p>
 <ul>
@@ -3461,7 +3472,7 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>With these extended capabilities, WebAssembly becomes viable for a broader range of applications. But how do we actually run WebAssembly modules as containers? There are two camps: standalone runtimes, and OCI-integrated runtimes.</p>
+<p>These extended capabilities widen WASM’s reach. Running a WASM module <em>as a container</em> involves two camps: standalone runtimes and OCI-integrated runtimes.</p>
 
 <h4 id="the-runtimes-wasmtime-wasmedge-wasmer-and-crun">The runtimes: Wasmtime, WasmEdge, Wasmer, and crun</h4>
 
@@ -3496,8 +3507,6 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
 </code></pre></div></div>
 
 <p>The other integration path is <strong>runwasi</strong>, a containerd shim that runs WASM modules directly as containerd-managed workloads — this is the mechanism behind the Kubernetes <code class="language-plaintext highlighter-rouge">RuntimeClass</code> examples below. Either way, the orchestrator sees an ordinary OCI workload; the runtime quietly executes bytecode instead of a Linux process.</p>
-
-<p>Now that we’ve seen how WebAssembly can function as a container runtime, let’s examine the compelling advantages it offers over traditional container technologies.</p>
 
 <h3 id="advantages-of-wasm-containers">Advantages of WASM Containers</h3>
 
@@ -3567,7 +3576,7 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>These advantages make WebAssembly particularly attractive for modern cloud-native applications. But how do we manage WebAssembly containers at scale? The answer lies in integrating with existing orchestration platforms.</p>
+<p>Managing WASM containers at scale reuses the existing orchestration platforms.</p>
 
 <h3 id="wasm-container-orchestration">WASM Container Orchestration</h3>
 
@@ -3610,8 +3619,6 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>While the integration with Kubernetes and other orchestration platforms is promising, it’s important to understand where WebAssembly containers excel and where traditional containers might still be the better choice.</p>
-
 <h3 id="use-cases-and-limitations">Use Cases and Limitations</h3>
 
 <p><strong>Ideal Use Cases:</strong></p>
@@ -3630,8 +3637,6 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
   <li><strong>System Calls</strong>: Limited compared to native containers</li>
   <li><strong>Debugging</strong>: More challenging than traditional containers</li>
 </ul>
-
-<p>Despite these limitations, many organizations are exploring WebAssembly for specific workloads. If you’re considering this transition, here’s a practical approach to migration.</p>
 
 <h3 id="migration-path">Migration Path</h3>
 
@@ -3665,8 +3670,6 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
             <span class="k">if</span> <span class="ow">not</span> <span class="nf">step</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">rollback</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
 </code></pre></div></div>
-
-<p>To make informed decisions about migration, it’s essential to understand the real-world performance characteristics of WebAssembly containers compared to traditional Docker containers.</p>
 
 <h3 id="performance-characteristics">Performance Characteristics</h3>
 
@@ -3728,7 +3731,7 @@ docker run <span class="nt">--runtime</span><span class="o">=</span>runsc hello-
   </tbody>
 </table>
 
-<p>Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services. As the technology matures, we can expect even more improvements. Let’s look at what’s on the horizon.</p>
+<p>Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services.</p>
 
 <h3 id="future-developments">Future Developments</h3>
 

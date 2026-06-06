@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3108,24 +3128,18 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="page__inner-wrap">
       <header>
         
+          <h1 id="page-title" class="page__title">Git: Authentication & Access Control</h1>
+        
       </header>
 
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Authentication &amp; Access Control</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">How Git proves who you are, who can write, and that a commit is genuinely yours — keys, tokens, signing, SSO, and leak defense</p>
-</div>
-
 <p>Git itself stores no credentials and enforces no permissions: it is a content-addressable store that any clone can read or rewrite. <strong>Authentication</strong> (proving <em>who is connecting</em>) and <strong>access control</strong> (deciding <em>what they may do</em>) live in the <strong>transport layer</strong> and the <strong>hosting platform</strong> — SSH, HTTPS, the credential helper, and the server-side policy of GitHub/GitLab/Bitbucket/Gitea. A separate, independent layer — <strong>commit and tag signing</strong> — proves <em>who authored a change</em> and that it has not been altered, regardless of how it was transported.</p>
 
 <p>This page covers all four: how you authenticate to a remote (SSH keys, deploy keys, personal-access tokens, credential helpers), how you cryptographically vouch for your own commits (GPG and SSH signing), how organizations centralize identity (SAML/OAuth SSO), and how to revoke, audit, and contain credentials when they leak.</p>
 
-<div class="tip-card">
-  <h4>Two orthogonal questions</h4>
-  <p><strong>Transport auth</strong> answers <em>"may this connection fetch or push?"</em> and is checked by the server at clone/fetch/push time. <strong>Signing</strong> answers <em>"who really wrote this commit?"</em> and is verified by anyone, any time, long after the push. A pushed commit can be authentic-by-transport but unsigned, or signed but pushed by a leaked token. You generally want both.</p>
-</div>
+<p><strong>Two orthogonal questions:</strong> <em>transport auth</em> answers “may this connection fetch or push?” and is checked by the server at clone/fetch/push time. <em>Signing</em> answers “who really wrote this commit?” and is verified by anyone, any time, long after the push. A pushed commit can be authentic-by-transport but unsigned, or signed but pushed by a leaked token. You generally want both.</p>
 
 <h2 id="the-transport-landscape">The Transport Landscape</h2>
 
@@ -3379,10 +3393,7 @@ git config <span class="nt">--global</span> credential.https://github.com.helper
 
 <p>The helper protocol is simple text on stdin/stdout (<code class="language-plaintext highlighter-rouge">protocol</code>, <code class="language-plaintext highlighter-rouge">host</code>, <code class="language-plaintext highlighter-rouge">username</code>, <code class="language-plaintext highlighter-rouge">password</code> key/value lines terminated by a blank line). Git calls <code class="language-plaintext highlighter-rouge">get</code> before a request and <code class="language-plaintext highlighter-rouge">store</code>/<code class="language-plaintext highlighter-rouge">erase</code> after, so any program implementing those three verbs can broker credentials — including ones that fetch a fresh short-lived token on demand. <strong>Git Credential Manager</strong> can run a full OAuth device-code flow, so you authenticate in a browser and GCM transparently caches and refreshes the OAuth token; you never handle a long-lived PAT at all, which is the most secure HTTPS option for interactive use.</p>
 
-<div class="tip-card">
-  <h4>SSH or HTTPS — which to choose?</h4>
-  <p><strong>SSH</strong> shines for interactive developer use (key + agent + passphrase, nothing to paste) and for fixed automation hosts (deploy keys). <strong>HTTPS</strong> is friendlier behind restrictive corporate proxies/firewalls (port 443) and pairs naturally with OAuth/SSO and short-lived App tokens in CI. Both are secure when configured per this page; pick per environment, and you can even mix them per host via <code>~/.ssh/config</code> and per-host credential helpers.</p>
-</div>
+<p><strong>SSH or HTTPS — which to choose?</strong> SSH shines for interactive developer use (key + agent + passphrase, nothing to paste) and for fixed automation hosts (deploy keys). HTTPS is friendlier behind restrictive corporate proxies/firewalls (port 443) and pairs naturally with OAuth/SSO and short-lived App tokens in CI. Both are secure when configured per this page; pick per environment, and you can even mix them per host via <code class="language-plaintext highlighter-rouge">~/.ssh/config</code> and per-host credential helpers.</p>
 
 <h2 id="commit-and-tag-signing">Commit and Tag Signing</h2>
 
@@ -3435,10 +3446,7 @@ you@example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... you@example.com
 
 <p>Hosts let you register the same SSH public key as a <strong>signing key</strong> (distinct from an authentication key, even if the bytes match).</p>
 
-<div class="tip-card">
-  <h4>Separate auth keys from signing keys</h4>
-  <p>An authentication key is exercised against many servers and may be forwarded by the agent; a signing key vouches for your identity in perpetuity. Keep them <strong>distinct</strong> so that compromise or rotation of one does not force the other, and so a forwarded auth key cannot be coaxed into signing. Hardware-backed keys (<code>-sk</code> / smartcard) are ideal for signing.</p>
-</div>
+<p><strong>Separate auth keys from signing keys:</strong> an authentication key is exercised against many servers and may be forwarded by the agent; a signing key vouches for your identity in perpetuity. Keep them <strong>distinct</strong> so that compromise or rotation of one does not force the other, and so a forwarded auth key cannot be coaxed into signing. Hardware-backed keys (<code class="language-plaintext highlighter-rouge">-sk</code> / smartcard) are ideal for signing.</p>
 
 <h3 id="verifying-signatures">Verifying Signatures</h3>
 
@@ -3641,39 +3649,18 @@ git push <span class="nt">--force-with-lease</span> <span class="nt">--tags</spa
   <li><strong>Audit usage.</strong> Check host and cloud audit logs for any use of the leaked credential during the exposure window.</li>
 </ol>
 
-<div class="tip-card">
-  <h4>Why revoke before you scrub</h4>
-  <p>History rewriting is slow, disruptive, and never perfectly complete (forks, mirrors, caches, backups, the attacker's local copy). Revocation is instant and total. Always invalidate the credential first; treat the history purge as cleanup, not as the fix.</p>
-</div>
+<p><strong>Why revoke before you scrub:</strong> history rewriting is slow, disruptive, and never perfectly complete (forks, mirrors, caches, backups, the attacker’s local copy). Revocation is instant and total. Always invalidate the credential first; treat the history purge as cleanup, not as the fix.</p>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Auth lives in the transport</h4>
-    <p>Git stores no credentials. SSH keys, tokens, and the credential helper authenticate the connection; the host enforces permissions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Signing is independent of transport</h4>
-    <p>GPG/SSH signing proves authorship and integrity of a commit, verifiable by anyone long after the push — separate from who pushed it.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Least privilege, narrowest scope</h4>
-    <p>Deploy keys per repo, fine-grained expiring tokens per consumer, OAuth scopes minimized — shrink the blast radius of every credential.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Prefer short-lived credentials</h4>
-    <p>App installation tokens and OAuth flows beat long-lived PATs; expiry makes rotation automatic and limits exposure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>SSO gates the credential too</h4>
-    <p>Under SAML SSO, a valid key or token must still be explicitly authorized for the org before Git operations succeed.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Revoke first, scrub second</h4>
-    <p>A leaked secret is compromised on push. Rotate/revoke it immediately; rewriting history is cleanup, not the fix.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Auth lives in the transport</strong> — Git stores no credentials. SSH keys, tokens, and the credential helper authenticate the connection; the host enforces permissions.</li>
+  <li><strong>Signing is independent of transport</strong> — GPG/SSH signing proves authorship and integrity of a commit, verifiable by anyone long after the push, separate from who pushed it.</li>
+  <li><strong>Least privilege, narrowest scope</strong> — deploy keys per repo, fine-grained expiring tokens per consumer, OAuth scopes minimized; shrink the blast radius of every credential.</li>
+  <li><strong>Prefer short-lived credentials</strong> — App installation tokens and OAuth flows beat long-lived PATs; expiry makes rotation automatic and limits exposure.</li>
+  <li><strong>SSO gates the credential too</strong> — under SAML SSO, a valid key or token must still be explicitly authorized for the org before Git operations succeed.</li>
+  <li><strong>Revoke first, scrub second</strong> — a leaked secret is compromised on push. Rotate/revoke it immediately; rewriting history is cleanup, not the fix.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 

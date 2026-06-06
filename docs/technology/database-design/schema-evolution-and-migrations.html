@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Schema Evolution &amp; Migrations</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks</p>
-</div>
+        <p><a href="./">&larr; Database Design</a></p>
 
-<p><a href="./">&larr; Database Design</a></p>
+<h1 id="schema-evolution--migrations">Schema Evolution &amp; Migrations</h1>
 
 <h2 id="why-schemas-change">Why Schemas Change</h2>
 
@@ -3482,45 +3499,24 @@ gh-ost <span class="se">\</span>
 
 <h2 id="best-practices-checklist">Best Practices Checklist</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Treat schema as versioned code</h4>
-    <p>Every change is an ordered, reviewed, immutable migration recorded in a history table. To fix a mistake, write a new migration — never edit a shipped one.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Expand before you contract</h4>
-    <p>Add new structure, dual-write, backfill, switch reads, then remove the old structure — across multiple deploys so old and new code always work.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Batch and throttle backfills</h4>
-    <p>Update in small, resumable, key-ranged batches with their own transactions and a sleep; watch replication lag and back off.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Build indexes concurrently</h4>
-    <p>Use <code>CREATE INDEX CONCURRENTLY</code> (Postgres) or gh-ost/pt-osc (MySQL) so index builds don't block writes; mark such migrations non-transactional.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Set a short lock timeout</h4>
-    <p>DDL must back off rather than stampede. <code>lock_timeout</code> stops an <code>ALTER</code> from queuing the whole table behind it.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Prefer rolling forward</h4>
-    <p>Production rollback is a corrective migration or, for data loss, a PITR restore. Down-scripts are for dev; back up before anything irreversible.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Treat schema as versioned code.</strong> Every change is an ordered, reviewed, immutable migration recorded in a history table. To fix a mistake, write a new migration — never edit a shipped one.</li>
+  <li><strong>Expand before you contract.</strong> Add new structure, dual-write, backfill, switch reads, then remove the old structure — across multiple deploys so old and new code always work.</li>
+  <li><strong>Batch and throttle backfills.</strong> Update in small, resumable, key-ranged batches with their own transactions and a sleep; watch replication lag and back off.</li>
+  <li><strong>Build indexes concurrently.</strong> Use <code class="language-plaintext highlighter-rouge">CREATE INDEX CONCURRENTLY</code> (Postgres) or gh-ost/pt-osc (MySQL) so index builds don’t block writes; mark such migrations non-transactional.</li>
+  <li><strong>Set a short lock timeout.</strong> DDL must back off rather than stampede. <code class="language-plaintext highlighter-rouge">lock_timeout</code> stops an <code class="language-plaintext highlighter-rouge">ALTER</code> from queuing the whole table behind it.</li>
+  <li><strong>Prefer rolling forward.</strong> Production rollback is a corrective migration or, for data loss, a PITR restore. Down-scripts are for dev; back up before anything irreversible.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema you are evolving and the integrity rules migrations must preserve.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — why <code>CREATE INDEX CONCURRENTLY</code> matters and how indexes are built.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking and MVCC, the machinery that makes online DDL and backfills safe.</li>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — WAL, backups, and point-in-time recovery for migration rollback.</li>
-    <li><a href="./">Database Design hub</a> — the rest of the deep-dive series.</li>
-  </ul>
-</div>
+<ul>
+  <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema you are evolving and the integrity rules migrations must preserve.</li>
+  <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — why <code class="language-plaintext highlighter-rouge">CREATE INDEX CONCURRENTLY</code> matters and how indexes are built.</li>
+  <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking and MVCC, the machinery that makes online DDL and backfills safe.</li>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — WAL, backups, and point-in-time recovery for migration rollback.</li>
+  <li><a href="./">Database Design hub</a> — the rest of the deep-dive series.</li>
+</ul>
 
       </section>
     </div>

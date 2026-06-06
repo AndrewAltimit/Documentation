@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">ORMs &amp; Data-Access Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL</p>
-</div>
+        <p><a href="./">&larr; Database Design</a></p>
 
-<p><a href="./">&larr; Database Design</a></p>
+<h1 id="orms--data-access-patterns">ORMs &amp; Data-Access Patterns</h1>
 
 <h2 id="why-an-orm-exists">Why an ORM Exists</h2>
 
@@ -3146,19 +3163,52 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The “impedance mismatch” is the structural friction between the object model and the relational model. The two were designed under different assumptions, and the ORM has to bridge each gap:</p>
 
-<div class="comparison-table">
-
-| Object world | Relational world | The friction |
-|---|---|---|
-| Object identity (`a is b`) | Primary-key equality | Two queries can return two distinct objects for the same row unless an identity map deduplicates them. |
-| References / pointers | Foreign keys + joins | Following `order.customer` may trigger a hidden query. |
-| Inheritance &amp; polymorphism | Flat tables, no subtype | Must be faked: single-table, joined-table, or concrete-table mapping. |
-| Collections (`list`, `set`) | Rows in a child table | Loading a collection is a separate `SELECT`; mutating it is a diff. |
-| Encapsulation / private state | Public columns | The schema leaks structure the object tried to hide. |
-| Methods / behavior | Data only | Behavior lives in the app; the database sees only state. |
-| Nested / graph structure | Normalized, decomposed | Saving one aggregate may touch many tables in one transaction. |
-
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Object world</th>
+      <th>Relational world</th>
+      <th>The friction</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Object identity (<code class="language-plaintext highlighter-rouge">a is b</code>)</td>
+      <td>Primary-key equality</td>
+      <td>Two queries can return two distinct objects for the same row unless an identity map deduplicates them.</td>
+    </tr>
+    <tr>
+      <td>References / pointers</td>
+      <td>Foreign keys + joins</td>
+      <td>Following <code class="language-plaintext highlighter-rouge">order.customer</code> may trigger a hidden query.</td>
+    </tr>
+    <tr>
+      <td>Inheritance &amp; polymorphism</td>
+      <td>Flat tables, no subtype</td>
+      <td>Must be faked: single-table, joined-table, or concrete-table mapping.</td>
+    </tr>
+    <tr>
+      <td>Collections (<code class="language-plaintext highlighter-rouge">list</code>, <code class="language-plaintext highlighter-rouge">set</code>)</td>
+      <td>Rows in a child table</td>
+      <td>Loading a collection is a separate <code class="language-plaintext highlighter-rouge">SELECT</code>; mutating it is a diff.</td>
+    </tr>
+    <tr>
+      <td>Encapsulation / private state</td>
+      <td>Public columns</td>
+      <td>The schema leaks structure the object tried to hide.</td>
+    </tr>
+    <tr>
+      <td>Methods / behavior</td>
+      <td>Data only</td>
+      <td>Behavior lives in the app; the database sees only state.</td>
+    </tr>
+    <tr>
+      <td>Nested / graph structure</td>
+      <td>Normalized, decomposed</td>
+      <td>Saving one aggregate may touch many tables in one transaction.</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="mapping-inheritance">Mapping inheritance</h3>
 
@@ -3194,17 +3244,48 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><strong>Data Mapper</strong> — a separate session/repository moves data between plain objects and the database. More ceremony, cleaner domain model.</li>
 </ul>
 
-<div class="comparison-table">
-
-| ORM | Language | Pattern | Notable trait |
-|---|---|---|---|
-| **SQLAlchemy** | Python | Data Mapper (Core + ORM) | Powerful query builder; you can drop to SQL expressions without leaving the API. |
-| **Django ORM** | Python | Active Record | Tightly integrated with Django; lazy `QuerySet`s; migrations built in. |
-| **Sequelize** | JavaScript/Node | Active Record | Promise-based; broad SQL-dialect support. |
-| **Prisma** | TypeScript/Node | Query builder + client | Schema-first; generates a fully typed client; no lazy loading (explicit `include`). |
-| **Hibernate / JPA** | Java | Data Mapper | The JPA reference implementation; persistence context, dirty checking, HQL/JPQL. |
-
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>ORM</th>
+      <th>Language</th>
+      <th>Pattern</th>
+      <th>Notable trait</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SQLAlchemy</strong></td>
+      <td>Python</td>
+      <td>Data Mapper (Core + ORM)</td>
+      <td>Powerful query builder; you can drop to SQL expressions without leaving the API.</td>
+    </tr>
+    <tr>
+      <td><strong>Django ORM</strong></td>
+      <td>Python</td>
+      <td>Active Record</td>
+      <td>Tightly integrated with Django; lazy <code class="language-plaintext highlighter-rouge">QuerySet</code>s; migrations built in.</td>
+    </tr>
+    <tr>
+      <td><strong>Sequelize</strong></td>
+      <td>JavaScript/Node</td>
+      <td>Active Record</td>
+      <td>Promise-based; broad SQL-dialect support.</td>
+    </tr>
+    <tr>
+      <td><strong>Prisma</strong></td>
+      <td>TypeScript/Node</td>
+      <td>Query builder + client</td>
+      <td>Schema-first; generates a fully typed client; no lazy loading (explicit <code class="language-plaintext highlighter-rouge">include</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>Hibernate / JPA</strong></td>
+      <td>Java</td>
+      <td>Data Mapper</td>
+      <td>The JPA reference implementation; persistence context, dirty checking, HQL/JPQL.</td>
+    </tr>
+  </tbody>
+</table>
 
 <p>The same query in four of them:</p>
 
@@ -3275,10 +3356,9 @@ document.addEventListener('DOMContentLoaded', function () {
 `</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="tip-card">
-  <h4>The cardinal rule</h4>
-  <p>Use the ORM/query builder for the 95% of queries that are routine CRUD and simple joins; reach for parameterized raw SQL for the 5% that are performance-critical or use features the ORM can't express. Never build SQL by string concatenation of user input — that is the classic SQL-injection bug.</p>
-</div>
+<blockquote>
+  <p><strong>The cardinal rule.</strong> Use the ORM/query builder for the 95% of queries that are routine CRUD and simple joins; reach for parameterized raw SQL for the 5% that are performance-critical or use features the ORM can’t express. Never build SQL by string concatenation of user input — that is the classic SQL-injection bug.</p>
+</blockquote>
 
 <h2 id="the-n1-query-problem">The N+1 Query Problem</h2>
 
@@ -3480,57 +3560,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="orm-anti-patterns-and-pitfalls">ORM Anti-Patterns and Pitfalls</h2>
 
-<div class="comparison-table">
-
-| Pitfall | Symptom | Fix |
-|---|---|---|
-| N+1 queries | Query count scales with row count | Eager-load (`selectinload`/`prefetch_related`/`include`) |
-| `joinedload` on collections | Result set has duplicated parents | Use second-query loading for to-many |
-| Loading whole objects to count | Slow `len(query.all())` | Use a `COUNT(*)` aggregate, not `len()` |
-| Row-by-row writes | Thousands of `UPDATE`s | One set-based statement / bulk insert |
-| Over-fetching columns | `SELECT *` everywhere | Project only needed columns |
-| Leaky lazy loads after session close | `DetachedInstanceError` / lazy load outside transaction | Eager-load before the session closes |
-| Fighting the ORM for a hard query | Convoluted method chains | Drop to raw SQL for that one query |
-
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Pitfall</th>
+      <th>Symptom</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>N+1 queries</td>
+      <td>Query count scales with row count</td>
+      <td>Eager-load (<code class="language-plaintext highlighter-rouge">selectinload</code>/<code class="language-plaintext highlighter-rouge">prefetch_related</code>/<code class="language-plaintext highlighter-rouge">include</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">joinedload</code> on collections</td>
+      <td>Result set has duplicated parents</td>
+      <td>Use second-query loading for to-many</td>
+    </tr>
+    <tr>
+      <td>Loading whole objects to count</td>
+      <td>Slow <code class="language-plaintext highlighter-rouge">len(query.all())</code></td>
+      <td>Use a <code class="language-plaintext highlighter-rouge">COUNT(*)</code> aggregate, not <code class="language-plaintext highlighter-rouge">len()</code></td>
+    </tr>
+    <tr>
+      <td>Row-by-row writes</td>
+      <td>Thousands of <code class="language-plaintext highlighter-rouge">UPDATE</code>s</td>
+      <td>One set-based statement / bulk insert</td>
+    </tr>
+    <tr>
+      <td>Over-fetching columns</td>
+      <td><code class="language-plaintext highlighter-rouge">SELECT *</code> everywhere</td>
+      <td>Project only needed columns</td>
+    </tr>
+    <tr>
+      <td>Leaky lazy loads after session close</td>
+      <td><code class="language-plaintext highlighter-rouge">DetachedInstanceError</code> / lazy load outside transaction</td>
+      <td>Eager-load before the session closes</td>
+    </tr>
+    <tr>
+      <td>Fighting the ORM for a hard query</td>
+      <td>Convoluted method chains</td>
+      <td>Drop to raw SQL for that one query</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>The mapping is leaky on purpose</h4>
-    <p>An ORM bridges objects and tables but cannot erase the impedance mismatch — inheritance, identity, and collections all need explicit mapping decisions.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Lazy loading causes N+1</h4>
-    <p>Touching a relationship inside a loop fires one query per row. Eager-load related data up front to collapse 1+N queries into a small constant.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>JOIN for to-one, second-query for to-many</h4>
-    <p><code>joinedload</code>/<code>select_related</code> suit single related rows; <code>selectinload</code>/<code>prefetch_related</code> avoid row explosion for collections.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>The session is the unit of work</h4>
-    <p>Dirty checking batches in-memory mutations into a minimal, correctly-ordered set of writes committed in one transaction.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Stay high on the ladder, drop down deliberately</h4>
-    <p>Use objects and the query builder for routine work; reach for parameterized raw SQL only for bulk, analytical, or vendor-specific queries — never concatenate user input.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>The mapping is leaky on purpose.</strong> An ORM bridges objects and tables but cannot erase the impedance mismatch — inheritance, identity, and collections all need explicit mapping decisions.</li>
+  <li><strong>Lazy loading causes N+1.</strong> Touching a relationship inside a loop fires one query per row. Eager-load related data up front to collapse 1+N queries into a small constant.</li>
+  <li><strong>JOIN for to-one, second-query for to-many.</strong> <code class="language-plaintext highlighter-rouge">joinedload</code>/<code class="language-plaintext highlighter-rouge">select_related</code> suit single related rows; <code class="language-plaintext highlighter-rouge">selectinload</code>/<code class="language-plaintext highlighter-rouge">prefetch_related</code> avoid row explosion for collections.</li>
+  <li><strong>The session is the unit of work.</strong> Dirty checking batches in-memory mutations into a minimal, correctly-ordered set of writes committed in one transaction.</li>
+  <li><strong>Stay high on the ladder, drop down deliberately.</strong> Use objects and the query builder for routine work; reach for parameterized raw SQL only for bulk, analytical, or vendor-specific queries — never concatenate user input.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
-<div class="see-also-card">
-  <h4>Continue in Database Design</h4>
-  <ul>
-    <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema the ORM maps onto, and the inheritance/normalization trade-offs.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code>EXPLAIN</code> output to tune the SQL your ORM generates, including the N+1 discussion.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking, MVCC, and isolation behind the ORM's <code>commit()</code> and optimistic locking.</li>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — what flush and commit actually do to pages and the write-ahead log.</li>
-    <li><a href="./">Database Design hub</a> — the full deep-dive series.</li>
-  </ul>
-</div>
+<ul>
+  <li><a href="modeling.html">Data Modeling &amp; Normalization</a> — the schema the ORM maps onto, and the inheritance/normalization trade-offs.</li>
+  <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code class="language-plaintext highlighter-rouge">EXPLAIN</code> output to tune the SQL your ORM generates, including the N+1 discussion.</li>
+  <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — locking, MVCC, and isolation behind the ORM’s <code class="language-plaintext highlighter-rouge">commit()</code> and optimistic locking.</li>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — what flush and commit actually do to pages and the write-ahead log.</li>
+  <li><a href="./">Database Design hub</a> — the full deep-dive series.</li>
+</ul>
 
       </section>
     </div>

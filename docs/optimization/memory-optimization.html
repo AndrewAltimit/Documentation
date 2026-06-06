@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,39 +3131,20 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Memory Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Profile allocations, pool and arena-allocate to avoid the heap, fight fragmentation, stream assets within a budget, and lay out data so the cache works for you.</p>
-</div>
+        <h1 id="memory-optimization">Memory Optimization</h1>
 
 <p><a href="./">Performance Optimization</a> » Memory Optimization</p>
 
-<div class="intro-card">
-  <p class="lead-text">On modern hardware, memory — not raw compute — is the dominant cost. A single L1-cache hit costs ~4 cycles; a miss to main memory costs ~200. That two-orders-of-magnitude cliff means how you <em>arrange</em> and <em>allocate</em> data often matters more than the arithmetic you run on it. Memory optimization is therefore two disciplines woven together: keeping the working set small and contiguous so the cache hierarchy serves it cheaply, and managing the lifetime of allocations so you avoid heap overhead, fragmentation, and the unpredictable stalls of <code>malloc</code>/<code>free</code> on a hot path. This page covers memory profiling, allocation strategies (pools, arenas, free-lists), fragmentation, asset streaming and compression, and cache locality — the techniques that turn a memory-bound program back into a compute-bound one.</p>
-</div>
+<p>On modern hardware, memory — not raw compute — is the dominant cost. A single L1-cache hit costs ~4 cycles; a miss to main memory costs ~200. That two-orders-of-magnitude cliff means how you <em>arrange</em> and <em>allocate</em> data often matters more than the arithmetic you run on it. Memory optimization is two disciplines woven together: keeping the working set small and contiguous so the cache hierarchy serves it cheaply, and managing allocation lifetimes to avoid heap overhead, fragmentation, and the unpredictable stalls of <code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">free</code> on a hot path. The core levers:</p>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-memory"></i>
-    <h4>A cache miss costs ~200 cycles</h4>
-    <p>The memory hierarchy spans two orders of magnitude. Contiguous, predictable access patterns are the single biggest lever you have.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-layer-group"></i>
-    <h4>The heap is a hot-path liability</h4>
-    <p>General-purpose <code>malloc</code> takes locks, walks free-lists, and fragments. Pools and arenas replace it with pointer bumps.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-puzzle-piece"></i>
-    <h4>Fragmentation kills long-running processes</h4>
-    <p>You can have gigabytes free and still fail a 1 MB allocation. Size-segregated and relocating allocators defend against it.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-stream"></i>
-    <h4>Stream within a budget</h4>
-    <p>You can't hold every asset in RAM. Prioritized, async streaming keeps the visible set resident and evicts the rest.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>A cache miss costs ~200 cycles.</strong> The memory hierarchy spans two orders of magnitude; contiguous, predictable access patterns are the single biggest lever.</li>
+  <li><strong>The heap is a hot-path liability.</strong> General-purpose <code class="language-plaintext highlighter-rouge">malloc</code> takes locks, walks free-lists, and fragments. Pools and arenas replace it with pointer bumps.</li>
+  <li><strong>Fragmentation kills long-running processes.</strong> You can have gigabytes free and still fail a 1 MB allocation; size-segregated and relocating allocators defend against it.</li>
+  <li><strong>Stream within a budget.</strong> You can’t hold every asset in RAM. Prioritized, async streaming keeps the visible set resident and evicts the rest.</li>
+</ul>
+
+<p>This page covers memory profiling, allocation strategies (pools, arenas, free-lists), fragmentation, asset streaming and compression, and cache locality.</p>
 
 <h2 id="memory-profiling">Memory Profiling</h2>
 
@@ -3606,14 +3607,14 @@ Budget Management:
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Profile before you allocate-tune</h4><p>Use snapshot diffing to find leaks and attribute allocations by subsystem; measure peak RSS in a release build, not reserved virtual size in debug.</p></div>
-  <div class="takeaway-card"><h4>Match the allocator to the lifetime</h4><p>Arenas for "free it all at once", pools for many same-size objects, stack allocators for nested scopes — each turns allocation into an O(1) pointer move.</p></div>
-  <div class="takeaway-card"><h4>Fragmentation is a real failure mode</h4><p>Track largest-free-block ratio; defend long-running processes with size-segregated or relocating (handle-based) allocators.</p></div>
-  <div class="takeaway-card"><h4>Lay out for the cache</h4><p>SoA over hot fields, contiguous arrays over pointer-chasing, cache-line padding against false sharing — a miss costs ~200 cycles.</p></div>
-  <div class="takeaway-card"><h4>Keep assets compressed in RAM</h4><p>BCn/ASTC textures and quantized vertex streams cut resident memory and bandwidth with hardware decode; wrap them in a fast disk codec for transport.</p></div>
-  <div class="takeaway-card"><h4>Stream within a budget</h4><p>Async, prioritized loading with per-category budgets and emergency eviction keeps the visible set resident without stalling the main thread.</p></div>
-</div>
+<ul>
+  <li><strong>Profile before you allocate-tune.</strong> Use snapshot diffing to find leaks and attribute allocations by subsystem; measure peak RSS in a release build, not reserved virtual size in debug.</li>
+  <li><strong>Match the allocator to the lifetime.</strong> Arenas for “free it all at once”, pools for many same-size objects, stack allocators for nested scopes — each turns allocation into an O(1) pointer move.</li>
+  <li><strong>Fragmentation is a real failure mode.</strong> Track largest-free-block ratio; defend long-running processes with size-segregated or relocating (handle-based) allocators.</li>
+  <li><strong>Lay out for the cache.</strong> SoA over hot fields, contiguous arrays over pointer-chasing, cache-line padding against false sharing — a miss costs ~200 cycles.</li>
+  <li><strong>Keep assets compressed in RAM.</strong> BCn/ASTC textures and quantized vertex streams cut resident memory and bandwidth with hardware decode; wrap them in a fast disk codec for transport.</li>
+  <li><strong>Stream within a budget.</strong> Async, prioritized loading with per-category budgets and emergency eviction keeps the visible set resident without stalling the main thread.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 

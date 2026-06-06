@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Indexing &amp; Query Execution</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Index types, query planning, and the optimizer, memory, and lock internals</p>
-</div>
+        <p><a href="./">&larr; Database Design</a></p>
 
-<p><a href="./">&larr; Database Design</a></p>
+<h1 id="indexing--query-execution">Indexing &amp; Query Execution</h1>
 
 <h2 id="indexing-making-queries-lightning-fast">Indexing: Making Queries Lightning Fast</h2>
 
@@ -3274,10 +3291,9 @@ add no ordering cost.</p>
 <span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_active_users</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">active</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="tip-card">
-  <h4>Dialect note: defining indexes</h4>
-  <p>The examples above use PostgreSQL's standalone <code>CREATE INDEX</code> form. MySQL additionally allows an inline <code>INDEX idx_name (cols)</code> clause inside <code>CREATE TABLE</code>; that inline syntax is MySQL-only and is invalid in PostgreSQL, where you always issue a separate <code>CREATE INDEX</code> statement.</p>
-</div>
+<blockquote>
+  <p><strong>Dialect note: defining indexes.</strong> The examples above use PostgreSQL’s standalone <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> form. MySQL additionally allows an inline <code class="language-plaintext highlighter-rouge">INDEX idx_name (cols)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code>; that inline syntax is MySQL-only and is invalid in PostgreSQL, where you always issue a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> statement.</p>
+</blockquote>
 
 <h2 id="when-indexes-hurt">When Indexes Hurt</h2>
 
@@ -3335,13 +3351,7 @@ planner will (correctly) ignore your index.
 *few* indexes (or BRIN) so writes stay cheap; add read indexes only on the columns
 you actually query.
 
-&lt;div class="tip-card"&gt;
-  &lt;h4&gt;Rule of thumb&lt;/h4&gt;
-  &lt;p&gt;Index based on read patterns, but don't index everything. Start from the
-  predicates and join keys in your hottest queries, confirm with &lt;code&gt;EXPLAIN&lt;/code&gt;
-  that each index is actually used, and drop indexes that never appear in a plan —
-  they cost you on every write for no read benefit.&lt;/p&gt;
-&lt;/div&gt;
+&gt; **Rule of thumb.** Index based on read patterns, but don't index everything. Start from the predicates and join keys in your hottest queries, confirm with `EXPLAIN` that each index is actually used, and drop indexes that never appear in a plan — they cost you on every write for no read benefit.
 
 **AI-Assisted Index Recommendations**:
 Modern databases now use machine learning to suggest indexes:
@@ -3530,16 +3540,9 @@ partitions or prepared-statement churn), that’s a different class of fix.</li>
 kill the 82k-row filter, and raise <code class="language-plaintext highlighter-rouge">work_mem</code> to keep the sort in memory — both of
 which you could <em>only</em> have known by reading the annotated output, not the SQL.</p>
 
-<div class="tip-card">
-  <h4>Output formats and engine differences</h4>
-  <p>Add <code>(FORMAT JSON)</code> for machine-readable output you can diff in CI, or
-  <code>(VERBOSE)</code> to see output column lists. MySQL's <code>EXPLAIN ANALYZE</code>
-  reports the same idea in a different shape — <code>actual time=first..last</code>
-  and <code>loops=N</code> per node — while SQL Server exposes the live plan through
-  <code>SET STATISTICS PROFILE ON</code> or the graphical "Include Actual Execution
-  Plan". The vocabulary differs; the reading discipline (estimate vs actual, watch
-  the loops, find the spill) is identical.</p>
-</div>
+<blockquote>
+  <p><strong>Output formats and engine differences.</strong> Add <code class="language-plaintext highlighter-rouge">(FORMAT JSON)</code> for machine-readable output you can diff in CI, or <code class="language-plaintext highlighter-rouge">(VERBOSE)</code> to see output column lists. MySQL’s <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> reports the same idea in a different shape — <code class="language-plaintext highlighter-rouge">actual time=first..last</code> and <code class="language-plaintext highlighter-rouge">loops=N</code> per node — while SQL Server exposes the live plan through <code class="language-plaintext highlighter-rouge">SET STATISTICS PROFILE ON</code> or the graphical “Include Actual Execution Plan”. The vocabulary differs; the reading discipline (estimate vs actual, watch the loops, find the spill) is identical.</p>
+</blockquote>
 
 <h3 id="the-magic-of-relational-algebra">The Magic of Relational Algebra</h3>
 
@@ -3837,15 +3840,12 @@ index and stays fast at any depth.</p>
 
 <h2 id="next-steps">Next Steps</h2>
 
-<div class="see-also-card">
-  <h4>Continue the deep dive</h4>
-  <ul>
-    <li><strong>Previous:</strong> <a href="modeling.html">Data Modeling &amp; Normalization</a></li>
-    <li><strong>Next:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — how locks and MVCC keep concurrent queries correct.</li>
-    <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-    <li>See also: <a href="storage-internals.html">Storage Engines &amp; Recovery</a> for the pages and buffer pool the optimizer reads from.</li>
-  </ul>
-</div>
+<ul>
+  <li><strong>Previous:</strong> <a href="modeling.html">Data Modeling &amp; Normalization</a></li>
+  <li><strong>Next:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — how locks and MVCC keep concurrent queries correct.</li>
+  <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
+  <li>See also: <a href="storage-internals.html">Storage Engines &amp; Recovery</a> for the pages and buffer pool the optimizer reads from.</li>
+</ul>
 
       </section>
     </div>

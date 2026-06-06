@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,23 +3131,18 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">UI/UX &amp; Menu Architecture</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Immediate vs retained mode, menu state machines, HUDs, responsive scaling, and accessible input navigation</p>
-</div>
+        <h1 id="uiux--menu-architecture">UI/UX &amp; Menu Architecture</h1>
 
 <p><a href="./">Game Development</a> » UI/UX &amp; Menu Architecture</p>
 
-<div class="hub-intro">
-  <p class="lead">A game's user interface is the membrane between the player and the simulation: it surfaces state (health, ammo, objectives), accepts intent (move, confirm, pause), and frames the entire experience through menus and overlays. Unlike application UI, game UI must redraw every frame inside a tight budget, work across mouse, controller, and touch simultaneously, scale from a phone to a 4K TV viewed from a couch, and remain legible and operable for players with a wide range of abilities. This page covers the two architectural paradigms (immediate vs retained mode), menu and screen state management, HUD design, responsive scaling and safe areas, focus-based input navigation, and accessibility.</p>
-</div>
+<p>A game’s user interface is the membrane between the player and the simulation: it surfaces state (health, ammo, objectives), accepts intent (move, confirm, pause), and frames the experience through menus and overlays. Unlike application UI, game UI must redraw every frame inside a tight budget, work across mouse, controller, and touch simultaneously, scale from a phone to a 4K TV viewed from a couch, and remain legible and operable for players with a wide range of abilities. This page covers the two architectural paradigms (immediate vs retained mode), menu and screen state management, HUD design, responsive scaling and safe areas, focus-based input navigation, and accessibility. Four ideas anchor good game UI:</p>
 
-<div class="key-insights">
-  <div class="insight-card"><i class="fas fa-sync"></i><h4>UI is per-frame, not event-driven</h4><p>Game UI lives inside the render loop. Even "static" menus are rebuilt or re-evaluated every frame, so the cost model is throughput, not idle event handling.</p></div>
-  <div class="insight-card"><i class="fas fa-layer-group"></i><h4>Screens are a state machine</h4><p>Menus, pause, inventory, and dialogs form a stack of screens with clear transitions. Modeling them as a stack-based state machine prevents tangled input and focus bugs.</p></div>
-  <div class="insight-card"><i class="fas fa-gamepad"></i><h4>Design for focus, not the cursor</h4><p>A controller has no pointer. Every interactive element needs a defined focus order and directional neighbors, or the UI is simply unusable on a gamepad.</p></div>
-  <div class="insight-card"><i class="fas fa-universal-access"></i><h4>Accessibility is core, not a toggle</h4><p>Safe areas, scalable text, remappable input, and colorblind-safe coding are baseline requirements that also make the UI better for everyone.</p></div>
-</div>
+<ul>
+  <li><strong>UI is per-frame, not event-driven.</strong> Game UI lives inside the render loop. Even “static” menus are rebuilt or re-evaluated every frame, so the cost model is throughput, not idle event handling.</li>
+  <li><strong>Screens are a state machine.</strong> Menus, pause, inventory, and dialogs form a stack of screens with clear transitions. Modeling them as a stack-based state machine prevents tangled input and focus bugs.</li>
+  <li><strong>Design for focus, not the cursor.</strong> A controller has no pointer. Every interactive element needs a defined focus order and directional neighbors, or the UI is simply unusable on a gamepad.</li>
+  <li><strong>Accessibility is core, not a toggle.</strong> Safe areas, scalable text, remappable input, and colorblind-safe coding are baseline requirements that also make the UI better for everyone.</li>
+</ul>
 
 <h2 id="immediate-mode-vs-retained-mode">Immediate Mode vs Retained Mode</h2>
 
@@ -3564,14 +3579,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card"><h4>Retained for the game, immediate for tools</h4><p>Ship player-facing UI in a retained-mode framework (UMG, uGUI, Godot Control) and use immediate mode (ImGui) for debug overlays. The choice is about who owns widget state.</p></div>
-  <div class="takeaway-card"><h4>Screens are a stack</h4><p>Model menus, pause, inventory, and dialogs as a screen stack with clear input routing and draw-below/update-below rules. It dissolves the hardest UI bugs.</p></div>
-  <div class="takeaway-card"><h4>HUDs observe, never drive</h4><p>Decouple the HUD from the simulation with events; keep it legible-when-ignored and classify elements as diegetic, spatial, meta, or non-diegetic by intent.</p></div>
-  <div class="takeaway-card"><h4>Anchor to safe areas</h4><p>Use anchors plus a reference resolution to scale across displays, and pin all critical UI inside the title-safe / device safe-area rectangle so notches and overscan never clip it.</p></div>
-  <div class="takeaway-card"><h4>Design for focus first</h4><p>Build a focus graph with directional navigation and route input through a semantic action layer so controller, keyboard, and touch all work — and remapping is possible.</p></div>
-  <div class="takeaway-card"><h4>Accessibility is architecture</h4><p>Scalable text, colorblind-safe coding, remappable input, captions, and screen-reader nodes belong in the core UI systems, not in a bolted-on options menu.</p></div>
-</div>
+<ul>
+  <li><strong>Retained for the game, immediate for tools.</strong> Ship player-facing UI in a retained-mode framework (UMG, uGUI, Godot Control) and use immediate mode (ImGui) for debug overlays. The choice is about who owns widget state.</li>
+  <li><strong>Screens are a stack.</strong> Model menus, pause, inventory, and dialogs as a screen stack with clear input routing and draw-below/update-below rules. It dissolves the hardest UI bugs.</li>
+  <li><strong>HUDs observe, never drive.</strong> Decouple the HUD from the simulation with events; keep it legible-when-ignored and classify elements as diegetic, spatial, meta, or non-diegetic by intent.</li>
+  <li><strong>Anchor to safe areas.</strong> Use anchors plus a reference resolution to scale across displays, and pin all critical UI inside the title-safe / device safe-area rectangle so notches and overscan never clip it.</li>
+  <li><strong>Design for focus first.</strong> Build a focus graph with directional navigation and route input through a semantic action layer so controller, keyboard, and touch all work — and remapping is possible.</li>
+  <li><strong>Accessibility is architecture.</strong> Scalable text, colorblind-safe coding, remappable input, captions, and screen-reader nodes belong in the core UI systems, not in a bolted-on options menu.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 <ul>

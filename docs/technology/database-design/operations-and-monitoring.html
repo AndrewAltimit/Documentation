@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,12 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Operations &amp; Monitoring</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Backups &amp; PITR, disaster recovery, VACUUM, pooling, observability, and incident response</p>
-</div>
+        <p><a href="./">&larr; Database Design</a></p>
 
-<p><a href="./">&larr; Database Design</a></p>
+<h1 id="operations--monitoring">Operations &amp; Monitoring</h1>
 
 <h2 id="running-a-database-in-production">Running a Database in Production</h2>
 
@@ -3138,23 +3155,13 @@ tooling is mature and open, but the <em>principles</em> — RPO/RTO, log shippin
 saturation metrics, pool sizing — apply to MySQL, SQL Server, and the managed
 cloud equivalents alike.</p>
 
-<div class="key-insights">
-  <div class="insight-card">
-    <i class="fas fa-shield-alt"></i>
-    <h4>Recoverability</h4>
-    <p>A backup you have never restored is a hypothesis, not a backup.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-broom"></i>
-    <h4>Maintenance</h4>
-    <p>MVCC produces garbage; autovacuum is what keeps tables from bloating.</p>
-  </div>
-  <div class="insight-card">
-    <i class="fas fa-chart-line"></i>
-    <h4>Observability</h4>
-    <p>You cannot tune what you cannot see — instrument before you optimize.</p>
-  </div>
-</div>
+<p>Three principles run through everything below:</p>
+
+<ul>
+  <li><strong>Recoverability</strong> — a backup you have never restored is a hypothesis, not a backup.</li>
+  <li><strong>Maintenance</strong> — MVCC produces garbage; autovacuum is what keeps tables from bloating.</li>
+  <li><strong>Observability</strong> — you cannot tune what you cannot see, so instrument before you optimize.</li>
+</ul>
 
 <h2 id="backup-and-restore">Backup and Restore</h2>
 
@@ -3720,20 +3727,12 @@ or seasonal growth needs an exponential or seasonal model.</li>
 <span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="example-section">
-  <h4>Worked example: disk runway</h4>
-  <p>A 400 GB database is growing 12 GB/week. The data volume is 1 TB, and you do
-  not want to exceed 80% (820 GB) before adding capacity. Remaining runway:</p>
+<p><strong>Worked example: disk runway.</strong> A 400 GB database is growing 12 GB/week. The data volume is 1 TB, and you do not want to exceed 80% (820 GB) before adding capacity. Remaining runway:</p>
 
-  $$
-  t_{\text{runway}} = \frac{820\,\text{GB} - 400\,\text{GB}}{12\,\text{GB/week}}
-  = 35\ \text{weeks}
-  $$
+\[t_{\text{runway}} = \frac{820\,\text{GB} - 400\,\text{GB}}{12\,\text{GB/week}}
+= 35\ \text{weeks}\]
 
-  <p>Roughly eight months of headroom — comfortable, but note that adding a WAL
-  archive, more indexes, or a busier write workload all steepen the slope, so
-  re-run the projection whenever the growth rate changes.</p>
-</div>
+<p>Roughly eight months of headroom — comfortable, but note that adding a WAL archive, more indexes, or a busier write workload all steepen the slope, so re-run the projection whenever the growth rate changes.</p>
 
 <div class="notice--info">
   <p>Plan for the resource that runs out <em>first</em>. A database can have ample
@@ -3797,45 +3796,24 @@ autovacuum setting changed, a runbook step added, a capacity threshold lowered.<
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
-<div class="takeaway-grid">
-  <div class="takeaway-card">
-    <h4>Test your restores</h4>
-    <p>An unrestored backup is a guess. Automate periodic test restores and a smoke check so you discover broken backups in a drill, not in a disaster.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>PITR gives you a time machine</h4>
-    <p>A base backup plus continuous WAL archiving lets you rewind to the instant before a bad change — your defense against human error, not just hardware failure.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Keep autovacuum healthy</h4>
-    <p>MVCC generates dead tuples; tune <code>autovacuum_*_scale_factor</code> down on large hot tables, and never let xid age drift toward wraparound.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Pool connections, modestly</h4>
-    <p>PgBouncer in transaction mode multiplexes thousands of clients onto a small backend pool. Smaller pools often mean lower latency.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Instrument before you tune</h4>
-    <p>The <code>pg_stat_*</code> views and <code>pg_stat_statements</code> show where time goes. Optimize by total time, alert on saturation.</p>
-  </div>
-  <div class="takeaway-card">
-    <h4>Have a calm incident loop</h4>
-    <p>Stabilize, mitigate, diagnose, recover, learn. Slowing down to confirm reversibility prevents the second mistake that turns an incident into an outage.</p>
-  </div>
-</div>
+<ul>
+  <li><strong>Test your restores.</strong> An unrestored backup is a guess. Automate periodic test restores and a smoke check so you discover broken backups in a drill, not in a disaster.</li>
+  <li><strong>PITR gives you a time machine.</strong> A base backup plus continuous WAL archiving lets you rewind to the instant before a bad change — your defense against human error, not just hardware failure.</li>
+  <li><strong>Keep autovacuum healthy.</strong> MVCC generates dead tuples; tune <code class="language-plaintext highlighter-rouge">autovacuum_*_scale_factor</code> down on large hot tables, and never let xid age drift toward wraparound.</li>
+  <li><strong>Pool connections, modestly.</strong> PgBouncer in transaction mode multiplexes thousands of clients onto a small backend pool. Smaller pools often mean lower latency.</li>
+  <li><strong>Instrument before you tune.</strong> The <code class="language-plaintext highlighter-rouge">pg_stat_*</code> views and <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> show where time goes. Optimize by total time, alert on saturation.</li>
+  <li><strong>Have a calm incident loop.</strong> Stabilize, mitigate, diagnose, recover, learn. Slowing down to confirm reversibility prevents the second mistake that turns an incident into an outage.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
-<div class="see-also-card">
-  <h4>Related pages</h4>
-  <ul>
-    <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the WAL, buffer pool, and checkpoints these operations rest on.</li>
-    <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code>EXPLAIN</code> to fix the slow queries you surface here.</li>
-    <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — why MVCC produces the dead tuples VACUUM reclaims.</li>
-    <li><a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — replication and failover at scale.</li>
-    <li><a href="./">Database Design hub</a> — the rest of the deep dive.</li>
-  </ul>
-</div>
+<ul>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the WAL, buffer pool, and checkpoints these operations rest on.</li>
+  <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code class="language-plaintext highlighter-rouge">EXPLAIN</code> to fix the slow queries you surface here.</li>
+  <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — why MVCC produces the dead tuples VACUUM reclaims.</li>
+  <li><a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — replication and failover at scale.</li>
+  <li><a href="./">Database Design hub</a> — the rest of the deep dive.</li>
+</ul>
 
       </section>
     </div>

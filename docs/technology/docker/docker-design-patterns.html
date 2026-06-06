@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,16 +3131,9 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Docker: Design Patterns</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Multi-container composition patterns, hardened images, and runtime security for production workloads.</p>
-</div>
+        <p><a href="./">Docker</a> » Design Patterns</p>
 
-<p><a href="./">Docker</a> » Design Patterns</p>
-
-<div class="intro-card">
-  <p class="lead-text">A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic <strong>multi-container design patterns</strong> — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to <strong>image and runtime security patterns</strong> (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.</p>
-</div>
+<p>A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic <strong>multi-container design patterns</strong> — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to <strong>image and runtime security patterns</strong> (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.</p>
 
 <h2 id="why-multi-container-patterns-exist">Why Multi-Container Patterns Exist</h2>
 
@@ -3150,31 +3163,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>The <strong>sidecar</strong> runs alongside the main container and augments it without the application being aware. The classic example is log forwarding: the application writes logs to a shared volume, and a sidecar tails that volume and ships the logs elsewhere. The application never learns where its logs go.</p>
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-sync-alt"></i> Sidecar Pattern</h4>
-      <p>Deploy helper containers alongside your main application container</p>
-      <pre><code class="language-yaml"># Logging sidecar example (compose.yaml)
-services:
-  app:
-    image: my-app:latest
-    volumes:
-      - logs:/var/log/app
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Logging sidecar example (compose.yaml)</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">app</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:latest</span>
+    <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">logs:/var/log/app</span>
 
-  log-forwarder:
-    image: fluent/fluent-bit:latest
-    volumes:
-      - logs:/var/log/app:ro
-      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
-    environment:
-      - ELASTICSEARCH_HOST=elasticsearch
+  <span class="na">log-forwarder</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:latest</span>
+    <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">logs:/var/log/app:ro</span>
+      <span class="pi">-</span> <span class="s">./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">ELASTICSEARCH_HOST=elasticsearch</span>
 
-volumes:
-  logs:</code></pre>
-    </div>
-  </div>
-</div>
+<span class="na">volumes</span><span class="pi">:</span>
+  <span class="na">logs</span><span class="pi">:</span>
+</code></pre></div></div>
 
 <p><strong>How it works.</strong> Both containers mount the named volume <code class="language-plaintext highlighter-rouge">logs</code>. The app mounts it read-write at <code class="language-plaintext highlighter-rouge">/var/log/app</code> and writes log files there. The <code class="language-plaintext highlighter-rouge">log-forwarder</code> mounts the same volume read-only (<code class="language-plaintext highlighter-rouge">:ro</code>), tails the files, and forwards each line to Elasticsearch. Because the volume is shared, no network round-trip or log API is needed between them.</p>
 
@@ -3193,26 +3199,19 @@ volumes:
 
 <p>An <strong>ambassador</strong> is a proxy container that brokers the main container’s <em>outbound</em> (or inbound) network communication. The application connects to <code class="language-plaintext highlighter-rouge">localhost</code> as if the dependency were local; the ambassador handles the real work — TLS, retries, service discovery, load balancing, circuit breaking — transparently.</p>
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-shield-alt"></i> Ambassador Pattern</h4>
-      <p>Proxy container that handles external communication</p>
-      <pre><code class="language-yaml"># Service mesh ambassador
-services:
-  app:
-    image: my-app:latest
-    network_mode: "service:envoy"
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Service mesh ambassador</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">app</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:latest</span>
+    <span class="na">network_mode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">service:envoy"</span>
 
-  envoy:
-    image: envoyproxy/envoy:v1.31-latest
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml</code></pre>
-    </div>
-  </div>
-</div>
+  <span class="na">envoy</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">envoyproxy/envoy:v1.31-latest</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">8080:8080"</span>
+    <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">./envoy.yaml:/etc/envoy/envoy.yaml</span>
+</code></pre></div></div>
 
 <p><strong>How it works.</strong> The key line is <code class="language-plaintext highlighter-rouge">network_mode: "service:envoy"</code>: it places the <code class="language-plaintext highlighter-rouge">app</code> container in the <em>same network namespace</em> as <code class="language-plaintext highlighter-rouge">envoy</code>. They now share one loopback interface and one set of ports. The app dials <code class="language-plaintext highlighter-rouge">localhost:9000</code> for its database; Envoy is listening there and forwards the connection to the real, possibly remote, database — adding mutual TLS, connection pooling, and retries along the way. The application’s code stays ignorant of all of it.</p>
 
@@ -3224,26 +3223,19 @@ services:
 
 <p>An <strong>adapter</strong> (sometimes called a <em>normalizer</em>) standardizes the output of a container so the outside world sees a uniform interface. Where the ambassador adapts the <em>connection</em>, the adapter adapts the <em>data or interface shape</em> — most often to expose a legacy or third-party app’s metrics, logs, or health in a format your platform expects.</p>
 
-<div class="advanced-patterns-section">
-  <div class="pattern-grid">
-    <div class="pattern-card">
-      <h4><i class="fas fa-code-branch"></i> Adapter Pattern</h4>
-      <p>Standardize output from different containers</p>
-      <pre><code class="language-yaml"># Metrics adapter example
-services:
-  legacy-app:
-    image: legacy-app:latest
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Metrics adapter example</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">legacy-app</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">legacy-app:latest</span>
 
-  metrics-adapter:
-    image: prom-exporter:latest
-    environment:
-      - LEGACY_APP_URL=http://legacy-app:8080
-      - METRICS_PATH=/legacy/stats
-    ports:
-      - "9090:9090"</code></pre>
-    </div>
-  </div>
-</div>
+  <span class="na">metrics-adapter</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">prom-exporter:latest</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">LEGACY_APP_URL=http://legacy-app:8080</span>
+      <span class="pi">-</span> <span class="s">METRICS_PATH=/legacy/stats</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">9090:9090"</span>
+</code></pre></div></div>
 
 <p><strong>How it works.</strong> The <code class="language-plaintext highlighter-rouge">legacy-app</code> exposes statistics in its own idiosyncratic format at <code class="language-plaintext highlighter-rouge">/legacy/stats</code>. Your monitoring stack speaks Prometheus, which expects metrics in the OpenMetrics text format on a <code class="language-plaintext highlighter-rouge">/metrics</code> endpoint. The <code class="language-plaintext highlighter-rouge">metrics-adapter</code> polls the legacy endpoint, translates each value into a Prometheus metric, and serves the result on port <code class="language-plaintext highlighter-rouge">9090</code>. Prometheus scrapes the adapter; neither the legacy app nor Prometheus needs to change.</p>
 
@@ -3360,20 +3352,18 @@ services:
 
 <p>A “distroless” image contains <em>only</em> your application and its runtime dependencies — no shell, no package manager, no <code class="language-plaintext highlighter-rouge">ls</code>, no <code class="language-plaintext highlighter-rouge">cat</code>. There is nothing for an attacker who lands a remote-code-execution bug to pivot with: no <code class="language-plaintext highlighter-rouge">sh</code> to spawn, no <code class="language-plaintext highlighter-rouge">curl</code> to exfiltrate, no <code class="language-plaintext highlighter-rouge">apt</code> to install tools. The image is also dramatically smaller, which means fewer CVEs to patch and faster pulls.</p>
 
-<div class="security-patterns">
-  <h4>Distroless Images</h4>
-  <pre><code class="language-dockerfile"># Multi-stage build with distroless
-FROM golang:1.23 AS builder
-WORKDIR /app
-COPY . .
-RUN CGO_ENABLED=0 go build -o myapp .
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Multi-stage build with distroless</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.23</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<span class="k">WORKDIR</span><span class="s"> /app</span>
+<span class="k">COPY</span><span class="s"> . .</span>
+<span class="k">RUN </span><span class="nv">CGO_ENABLED</span><span class="o">=</span>0 go build <span class="nt">-o</span> myapp .
 
-# Distroless image - no shell, package manager, or utilities
-FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /app/myapp /
-USER nonroot:nonroot
-ENTRYPOINT ["/myapp"]</code></pre>
-</div>
+<span class="c"># Distroless image - no shell, package manager, or utilities</span>
+<span class="k">FROM</span><span class="s"> gcr.io/distroless/static:nonroot</span>
+<span class="k">COPY</span><span class="s"> --from=builder /app/myapp /</span>
+<span class="k">USER</span><span class="s"> nonroot:nonroot</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["/myapp"]</span>
+</code></pre></div></div>
 
 <p><strong>How it works.</strong> A multi-stage build does all the messy compilation in a full <code class="language-plaintext highlighter-rouge">golang</code> image, then copies <em>only the resulting static binary</em> into <code class="language-plaintext highlighter-rouge">gcr.io/distroless/static</code>. <code class="language-plaintext highlighter-rouge">CGO_ENABLED=0</code> produces a statically linked binary with no libc dependency, so the runtime image needs nothing but the binary itself. The <code class="language-plaintext highlighter-rouge">:nonroot</code> tag and <code class="language-plaintext highlighter-rouge">USER nonroot:nonroot</code> ensure the process runs as an unprivileged user.</p>
 
@@ -3443,20 +3433,18 @@ ENTRYPOINT ["/myapp"]</code></pre>
 
 <p>Image hardening shrinks the attack surface; <strong>runtime detection</strong> catches the cases where an attacker gets in anyway. The pattern is to watch system calls and container behavior against a policy of what is expected, and alert (or block) on anything outside it.</p>
 
-<div class="security-patterns">
-  <h4>Runtime Security with Falco</h4>
-  <pre><code class="language-yaml"># falco-rules.yaml
-- rule: Unauthorized Process in Container
-  desc: Detect unauthorized process execution
-  condition: &gt;
-    container and
-    not proc.name in (allowed_processes) and
-    not container.image.repository in (trusted_images)
-  output: &gt;
-    Unauthorized process in container
-    (user=%user.name command=%proc.cmdline container=%container.name)
-  priority: WARNING</code></pre>
-</div>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># falco-rules.yaml</span>
+<span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s">Unauthorized Process in Container</span>
+  <span class="na">desc</span><span class="pi">:</span> <span class="s">Detect unauthorized process execution</span>
+  <span class="na">condition</span><span class="pi">:</span> <span class="pi">&gt;</span>
+    <span class="s">container and</span>
+    <span class="s">not proc.name in (allowed_processes) and</span>
+    <span class="s">not container.image.repository in (trusted_images)</span>
+  <span class="na">output</span><span class="pi">:</span> <span class="pi">&gt;</span>
+    <span class="s">Unauthorized process in container</span>
+    <span class="s">(user=%user.name command=%proc.cmdline container=%container.name)</span>
+  <span class="na">priority</span><span class="pi">:</span> <span class="s">WARNING</span>
+</code></pre></div></div>
 
 <p><strong>How it works.</strong> <a href="https://falco.org/">Falco</a> is a CNCF runtime-security engine that taps the kernel’s system-call stream (via eBPF) and evaluates each event against rules like the one above. The rule fires when a process starts inside a container whose name is <em>not</em> on an allowlist and whose image is <em>not</em> trusted — a strong signal that an attacker has spawned a shell or dropped a tool inside a container that should only ever run its one known process. Because distroless images have <em>no</em> extra processes, this rule pairs naturally with them: any unexpected process is, by construction, anomalous.</p>
 

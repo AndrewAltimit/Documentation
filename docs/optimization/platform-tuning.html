@@ -1432,12 +1432,12 @@ document.addEventListener('DOMContentLoaded', function () {
                   
                   
                   <li class="nav__item--collapsible">
-                    <details  data-nav-section="networking-security">
+                    <details  data-nav-section="networking">
                       <summary>
                         
                           <a href="/Documentation/docs/technology/networking/"
                              >
-                            Networking & Security
+                            Networking
                           </a>
                         
                       </summary>
@@ -1505,6 +1505,26 @@ document.addEventListener('DOMContentLoaded', function () {
                               Net: Modern & Future Networking
                             </a>
                           </li>
+                        
+                      </ul>
+                    </details>
+                  </li>
+                
+              
+                
+                  
+                  
+                  <li class="nav__item--collapsible">
+                    <details  data-nav-section="cybersecurity">
+                      <summary>
+                        
+                          <a href="/Documentation/docs/technology/cybersecurity/"
+                             >
+                            Cybersecurity
+                          </a>
+                        
+                      </summary>
+                      <ul class="nav__subitems">
                         
                           <li>
                             <a href="/Documentation/docs/technology/cybersecurity/"
@@ -3111,62 +3131,60 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Platform-Specific Tuning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Mobile thermals, console fixed-hardware tuning, PC scalability presets, and compiler PGO</p>
-</div>
+        <h1 id="platform-specific-tuning">Platform-Specific Tuning</h1>
 
 <p><a href="./">Performance Optimization</a> » Platform-Specific Tuning</p>
 
-<div class="code-example">
-  <p>A frame-time budget is not a single number — it is three different numbers on three different classes of hardware. A 16.67 ms/frame target that is comfortable on a desktop GPU is a thermal-throttle death sentence on a phone, a known-quantity engineering problem on a console, and a scalability matrix on PC. This page covers how to tune for each: managing <strong>power and thermal</strong> envelopes on mobile, exploiting <strong>fixed hardware</strong> on consoles, exposing <strong>scalable quality presets</strong> on PC, and squeezing the last few percent out of every platform with <strong>compiler optimizations and profile-guided optimization (PGO)</strong>.</p>
-</div>
+<p>A frame-time budget is not a single number — it is three different numbers on three different classes of hardware. A 16.67 ms/frame target that is comfortable on a desktop GPU is a thermal-throttle death sentence on a phone, a known-quantity engineering problem on a console, and a scalability matrix on PC. This page covers how to tune for each: managing <strong>power and thermal</strong> envelopes on mobile, exploiting <strong>fixed hardware</strong> on consoles, exposing <strong>scalable quality presets</strong> on PC, and squeezing the last few percent out of every platform with <strong>compiler optimizations and profile-guided optimization (PGO)</strong>.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
-  <li><a href="#why-platform-matters" id="markdown-toc-why-platform-matters">Why Platform Matters</a></li>
-  <li><a href="#mobile-optimization" id="markdown-toc-mobile-optimization">Mobile Optimization</a>    <ol>
-      <li><a href="#power-and-thermal" id="markdown-toc-power-and-thermal">Power and Thermal</a>        <ol>
-          <li><a href="#the-thermal-curve" id="markdown-toc-the-thermal-curve">The thermal curve</a></li>
-          <li><a href="#energy-is-power-x-time" id="markdown-toc-energy-is-power-x-time">Energy is power x time</a></li>
-          <li><a href="#frame-rate-vs-battery-quantified" id="markdown-toc-frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</a></li>
-          <li><a href="#tile-based-deferred-rendering-tbdr" id="markdown-toc-tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</a></li>
-          <li><a href="#reacting-to-thermal-state-in-code" id="markdown-toc-reacting-to-thermal-state-in-code">Reacting to thermal state in code</a></li>
+  <li><a href="#platform-specific-tuning" id="markdown-toc-platform-specific-tuning">Platform-Specific Tuning</a>    <ol>
+      <li><a href="#why-platform-matters" id="markdown-toc-why-platform-matters">Why Platform Matters</a></li>
+      <li><a href="#mobile-optimization" id="markdown-toc-mobile-optimization">Mobile Optimization</a>        <ol>
+          <li><a href="#power-and-thermal" id="markdown-toc-power-and-thermal">Power and Thermal</a>            <ol>
+              <li><a href="#the-thermal-curve" id="markdown-toc-the-thermal-curve">The thermal curve</a></li>
+              <li><a href="#energy-is-power-x-time" id="markdown-toc-energy-is-power-x-time">Energy is power x time</a></li>
+              <li><a href="#frame-rate-vs-battery-quantified" id="markdown-toc-frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</a></li>
+              <li><a href="#tile-based-deferred-rendering-tbdr" id="markdown-toc-tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</a></li>
+              <li><a href="#reacting-to-thermal-state-in-code" id="markdown-toc-reacting-to-thermal-state-in-code">Reacting to thermal state in code</a></li>
+            </ol>
+          </li>
+          <li><a href="#memory-constraints" id="markdown-toc-memory-constraints">Memory Constraints</a></li>
         </ol>
       </li>
-      <li><a href="#memory-constraints" id="markdown-toc-memory-constraints">Memory Constraints</a></li>
-    </ol>
-  </li>
-  <li><a href="#console-optimization" id="markdown-toc-console-optimization">Console Optimization</a>    <ol>
-      <li><a href="#fixed-hardware-benefits" id="markdown-toc-fixed-hardware-benefits">Fixed Hardware Benefits</a></li>
-      <li><a href="#techniques" id="markdown-toc-techniques">Techniques</a>        <ol>
-          <li><a href="#unified-memory-and-the-bandwidth-budget" id="markdown-toc-unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</a></li>
-          <li><a href="#fixed-spec-constants" id="markdown-toc-fixed-spec-constants">Fixed-spec constants</a></li>
+      <li><a href="#console-optimization" id="markdown-toc-console-optimization">Console Optimization</a>        <ol>
+          <li><a href="#fixed-hardware-benefits" id="markdown-toc-fixed-hardware-benefits">Fixed Hardware Benefits</a></li>
+          <li><a href="#techniques" id="markdown-toc-techniques">Techniques</a>            <ol>
+              <li><a href="#unified-memory-and-the-bandwidth-budget" id="markdown-toc-unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</a></li>
+              <li><a href="#fixed-spec-constants" id="markdown-toc-fixed-spec-constants">Fixed-spec constants</a></li>
+            </ol>
+          </li>
         </ol>
       </li>
-    </ol>
-  </li>
-  <li><a href="#pc-scalability" id="markdown-toc-pc-scalability">PC Scalability</a>    <ol>
-      <li><a href="#graphics-options" id="markdown-toc-graphics-options">Graphics Options</a>        <ol>
-          <li><a href="#designing-quality-presets" id="markdown-toc-designing-quality-presets">Designing quality presets</a></li>
+      <li><a href="#pc-scalability" id="markdown-toc-pc-scalability">PC Scalability</a>        <ol>
+          <li><a href="#graphics-options" id="markdown-toc-graphics-options">Graphics Options</a>            <ol>
+              <li><a href="#designing-quality-presets" id="markdown-toc-designing-quality-presets">Designing quality presets</a></li>
+            </ol>
+          </li>
+          <li><a href="#dynamic-resolution" id="markdown-toc-dynamic-resolution">Dynamic Resolution</a></li>
         </ol>
       </li>
-      <li><a href="#dynamic-resolution" id="markdown-toc-dynamic-resolution">Dynamic Resolution</a></li>
-    </ol>
-  </li>
-  <li><a href="#compiler-optimizations-and-pgo" id="markdown-toc-compiler-optimizations-and-pgo">Compiler Optimizations and PGO</a>    <ol>
-      <li><a href="#optimization-levels-and-flags" id="markdown-toc-optimization-levels-and-flags">Optimization levels and flags</a></li>
-      <li><a href="#profile-guided-optimization-pgo" id="markdown-toc-profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</a>        <ol>
-          <li><a href="#the-three-step-workflow" id="markdown-toc-the-three-step-workflow">The three-step workflow</a></li>
-          <li><a href="#what-pgo-actually-improves" id="markdown-toc-what-pgo-actually-improves">What PGO actually improves</a></li>
-          <li><a href="#the-representativeness-rule" id="markdown-toc-the-representativeness-rule">The representativeness rule</a></li>
+      <li><a href="#compiler-optimizations-and-pgo" id="markdown-toc-compiler-optimizations-and-pgo">Compiler Optimizations and PGO</a>        <ol>
+          <li><a href="#optimization-levels-and-flags" id="markdown-toc-optimization-levels-and-flags">Optimization levels and flags</a></li>
+          <li><a href="#profile-guided-optimization-pgo" id="markdown-toc-profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</a>            <ol>
+              <li><a href="#the-three-step-workflow" id="markdown-toc-the-three-step-workflow">The three-step workflow</a></li>
+              <li><a href="#what-pgo-actually-improves" id="markdown-toc-what-pgo-actually-improves">What PGO actually improves</a></li>
+              <li><a href="#the-representativeness-rule" id="markdown-toc-the-representativeness-rule">The representativeness rule</a></li>
+            </ol>
+          </li>
         </ol>
       </li>
+      <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
+      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
     </ol>
   </li>
-  <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
-  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
 </ol>
 
 <hr />
