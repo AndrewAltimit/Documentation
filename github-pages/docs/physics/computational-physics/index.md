@@ -40,23 +40,50 @@ hide_title: true
 
 ## Explore the Topics
 
+The pages below are arranged as a reading order, from foundational **methods** that apply everywhere, through **physical domains** where those methods are specialized, to the **HPC and machine-learning** techniques that scale simulations up and learn the physics from data. Tooling and best practices sit at the end as a cross-cutting reference.
+
+### Core Methods
+
 <div class="command-grid">
   <a href="monte-carlo-and-md.html" class="nav-card">
     <h4><i class="fas fa-dice"></i> Monte Carlo &amp; Molecular Dynamics</h4>
     <p>Random sampling, Markov chains, quantum Monte Carlo, and classical/advanced MD with thermostats and Ewald sums.</p>
   </a>
+  <a href="quantum-methods.html" class="nav-card">
+    <h4><i class="fas fa-wave-square"></i> Quantum Computational Methods</h4>
+    <p>Split-operator and Crank-Nicolson time evolution, quantum tunneling, and density functional theory (DFT).</p>
+  </a>
+</div>
+
+### Physical Domains
+
+<div class="command-grid">
   <a href="fem-and-cfd.html" class="nav-card">
     <h4><i class="fas fa-vector-square"></i> Finite Elements &amp; Fluid Dynamics</h4>
     <p>1D/2D finite element methods, the Navier-Stokes projection method, and the Lattice Boltzmann scheme.</p>
   </a>
-  <a href="quantum-methods.html" class="nav-card">
-    <h4><i class="fas fa-wave-square"></i> Quantum Computational Methods</h4>
-    <p>Split-operator and Crank-Nicolson time evolution, quantum tunneling, and density functional theory.</p>
+  <a href="electronic-structure-beyond-dft.html" class="nav-card">
+    <h4><i class="fas fa-atom"></i> Electronic Structure Beyond DFT</h4>
+    <p>The wavefunction hierarchy — Hartree-Fock, MP2, configuration interaction, coupled cluster — and excited states via TD-DFT.</p>
   </a>
+</div>
+
+### High-Performance Computing &amp; Machine Learning
+
+<div class="command-grid">
   <a href="hpc-and-ml.html" class="nav-card">
-    <h4><i class="fas fa-microchip"></i> Parallel Computing &amp; Machine Learning</h4>
-    <p>MPI domain decomposition, GPU kernels, sparse linear algebra, PINNs, neural potentials, and Fourier neural operators.</p>
+    <h4><i class="fas fa-microchip"></i> Parallel &amp; High-Performance Computing</h4>
+    <p>MPI domain decomposition, GPU kernels with CUDA/CuPy, and parallel sparse linear algebra for large-scale simulations.</p>
   </a>
+  <a href="ml-for-physics.html" class="nav-card">
+    <h4><i class="fas fa-brain"></i> Machine Learning for Physics</h4>
+    <p>Physics-informed neural networks, equivariant architectures, neural-network potentials, and Fourier neural operators.</p>
+  </a>
+</div>
+
+### Tools &amp; Practices
+
+<div class="command-grid">
   <a href="tools-and-practices.html" class="nav-card">
     <h4><i class="fas fa-toolbox"></i> Visualization, Libraries &amp; Best Practices</h4>
     <p>Scientific visualization, data analysis, the core Python physics stack, and validation best practices.</p>

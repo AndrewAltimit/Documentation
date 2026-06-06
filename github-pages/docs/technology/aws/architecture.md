@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Architecture Patterns & Case Studies"
+permalink: /docs/technology/aws/architecture.html
 hide_title: true
 toc: true
 toc_sticky: true

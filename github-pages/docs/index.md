@@ -19,6 +19,11 @@ toc: false  # Index pages typically don't need TOC
       <p>Infrastructure, DevOps, cloud, and game/real-time development</p>
     </div>
     <div class="insight-card">
+      <i class="fas fa-sitemap"></i>
+      <h4><a href="#architecture--operations">Architecture &amp; Operations</a></h4>
+      <p>Observability, APIs, testing, and event-driven systems</p>
+    </div>
+    <div class="insight-card">
       <i class="fas fa-brain"></i>
       <h4><a href="#aiml---generative-ai">AI / ML</a></h4>
       <p>Generative AI, model training, and workflows</p>
@@ -90,7 +95,48 @@ Infrastructure, DevOps, cloud, security, and game/real-time development.
 <div class="command-grid">
   <a href="technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> AI Fundamentals — Simplified</h4><p>A no-math introduction to how AI works.</p></a>
   <a href="technology/ai/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence</h4><p>Comprehensive technical overview.</p></a>
+  <a href="technology/ai/deep-learning-architectures.html" class="nav-card"><h4><i class="fas fa-network-wired"></i> Deep Learning Architectures</h4><p>CNNs, transformers, and modern network design.</p></a>
+  <a href="technology/ai/reinforcement-learning.html" class="nav-card"><h4><i class="fas fa-gamepad"></i> Reinforcement Learning</h4><p>Policies, value functions, and reward shaping.</p></a>
   <a href="technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> AI Deep Dive</h4><p>Advanced concepts and research directions.</p></a>
+</div>
+
+## Architecture & Operations
+
+How services talk to each other, prove they work, and stay observable in production. These cross-cutting areas pair with the [Distributed Systems Hub](distributed-systems/) and [Infrastructure & DevOps](#infrastructure--devops) above.
+
+### Observability
+
+<div class="command-grid">
+  <a href="observability/" class="nav-card"><h4><i class="fas fa-eye"></i> Observability Hub</h4><p>Metrics, logs, and traces — inferring internal state from telemetry.</p></a>
+  <a href="observability/metrics.html" class="nav-card"><h4><i class="fas fa-chart-line"></i> Metrics</h4><p>Time series, the RED/USE methods, and alerting.</p></a>
+  <a href="observability/logging.html" class="nav-card"><h4><i class="fas fa-file-alt"></i> Logging</h4><p>Structured, high-cardinality event records.</p></a>
+  <a href="observability/tracing.html" class="nav-card"><h4><i class="fas fa-route"></i> Distributed Tracing</h4><p>Following a request across service boundaries.</p></a>
+</div>
+
+### API Design & Communication
+
+<div class="command-grid">
+  <a href="api-design/" class="nav-card"><h4><i class="fas fa-file-signature"></i> API Design Hub</h4><p>Choosing and designing the contracts between services.</p></a>
+  <a href="api-design/rest.html" class="nav-card"><h4><i class="fas fa-exchange-alt"></i> REST</h4><p>Resource modeling, HTTP semantics, and versioning.</p></a>
+  <a href="api-design/graphql.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> GraphQL</h4><p>Schema design, resolvers, and the N+1 problem.</p></a>
+  <a href="api-design/grpc-and-protobuf.html" class="nav-card"><h4><i class="fas fa-bolt"></i> gRPC &amp; Protobuf</h4><p>Binary contracts and streaming RPC.</p></a>
+  <a href="api-design/async-and-events.html" class="nav-card"><h4><i class="fas fa-stream"></i> Async &amp; Events</h4><p>Asynchronous, message-based communication.</p></a>
+</div>
+
+### Software Testing & QA
+
+<div class="command-grid">
+  <a href="testing/" class="nav-card"><h4><i class="fas fa-vial"></i> Testing Hub</h4><p>The testing discipline from unit assertions to chaos.</p></a>
+  <a href="testing/unit-and-integration.html" class="nav-card"><h4><i class="fas fa-layer-group"></i> Unit &amp; Integration</h4><p>The base and middle of the test pyramid.</p></a>
+  <a href="testing/advanced-testing.html" class="nav-card"><h4><i class="fas fa-flask-vial"></i> Advanced Testing</h4><p>Property-based, fuzz, and chaos engineering.</p></a>
+</div>
+
+### Event-Driven Architecture
+
+<div class="command-grid">
+  <a href="event-driven/" class="nav-card"><h4><i class="fas fa-broadcast-tower"></i> Event-Driven Hub</h4><p>Systems that react to facts rather than commands.</p></a>
+  <a href="event-driven/message-brokers.html" class="nav-card"><h4><i class="fas fa-inbox"></i> Message Brokers</h4><p>Kafka, queues, and log-based delivery.</p></a>
+  <a href="event-driven/patterns.html" class="nav-card"><h4><i class="fas fa-sitemap"></i> Patterns</h4><p>Choreography, sagas, CQRS, and event sourcing.</p></a>
 </div>
 
 ## AI/ML - Generative AI
@@ -156,7 +202,9 @@ Curated landing pages that gather related material across the site and recommend
 <div class="command-grid">
   <a href="quantum-computing/" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing Hub</h4><p>Theory-to-hardware: qubits, algorithms, and cloud platforms.</p></a>
   <a href="distributed-systems/" class="nav-card"><h4><i class="fas fa-network-wired"></i> Distributed Systems Hub</h4><p>Consensus, consistency, and resilient architecture patterns.</p></a>
+  <a href="distributed-systems/resilience-patterns.html" class="nav-card"><h4><i class="fas fa-heart-pulse"></i> Resilience Patterns</h4><p>Retries, circuit breakers, bulkheads, and backpressure.</p></a>
   <a href="optimization/" class="nav-card"><h4><i class="fas fa-tachometer-alt"></i> Performance Optimization</h4><p>Profiling, bottleneck analysis, and scaling.</p></a>
+  <a href="optimization/gpu-optimization.html" class="nav-card"><h4><i class="fas fa-microchip"></i> GPU Optimization</h4><p>Kernels, memory hierarchy, and throughput tuning.</p></a>
   <a href="artificial-intelligence/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence Hub</h4><p>Comprehensive AI resources and orientation.</p></a>
 </div>
 

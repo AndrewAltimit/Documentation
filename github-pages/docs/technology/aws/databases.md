@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Database Services
+permalink: /docs/technology/aws/databases.html
 hide_title: true
 toc: true
 toc_sticky: true

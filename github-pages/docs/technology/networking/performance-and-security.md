@@ -18,6 +18,13 @@ hide_title: true
 
 What makes a network feel fast or slow comes down to queues filling at bottleneck links. This page builds the queueing models that explain latency, then turns to defending the network (firewalls, VPNs, ACLs), prioritizing traffic with quality of service, and the tools and metrics for troubleshooting and monitoring.
 
+> **How this page is organized.** It covers two intertwined but distinct concerns:
+>
+> - **Performance & QoS** — the queueing models that explain latency ([Understanding Network Performance](#understanding-network-performance)), how traffic is prioritized ([Quality of Service](#quality-of-service-managing-network-traffic)), and how you diagnose slow or broken paths ([Troubleshooting Networks](#troubleshooting-networks-tools-and-techniques)).
+> - **Network-defense primitives** — the building blocks that protect the data plane ([Securing Networks: Defense in Depth](#securing-networks-defense-in-depth)) and the visibility you need to operate and defend it ([Network Observability](#network-observability)).
+>
+> These are the *network-layer* primitives. Higher-level defense — threat models, zero trust, detection engineering, and incident response — lives in [Cybersecurity](../cybersecurity/). Observability data feeds directly into those workflows, and the [Network Observability](#network-observability) section below shows the hand-off into [Security Operations](../cybersecurity/security-operations.html).
+
 ## Understanding Network Performance
 
 When network engineers talk about performance, they're often dealing with queues—just like lines at a coffee shop.
@@ -169,7 +176,9 @@ class MultiHopNetwork:
 
 ## Securing Networks: Defense in Depth
 
-Every network connection is a potential security risk. Let's explore how networks are protected at multiple layers.
+*This section and [Network Observability](#network-observability) cover the network-defense primitives; the performance/QoS material is in the [other sections](#understanding-network-performance).*
+
+Every network connection is a potential security risk. Let's explore how networks are protected at multiple layers. These primitives — firewalls, VPNs, and ACLs — operate on the data plane itself; they are the enforcement points that the policies in [Cybersecurity](../cybersecurity/) ultimately push down to.
 
 ### Firewalls: The Network's Bouncer
 Firewalls examine traffic and block anything suspicious, like a bouncer checking IDs at a club.
@@ -283,31 +292,159 @@ dig @8.8.8.8 example.com
 4. Check for duplex mismatch
 5. Verify MTU settings
 
-## Network Monitoring
+## Network Observability
 
-### SNMP (Simple Network Management Protocol)
-Monitor and manage network devices.
+Observability is the difference between *knowing a link is slow* and *knowing why*. A well-instrumented network produces three complementary streams of data — **packets** (the raw ground truth), **flows** (who talked to whom, and how much), and **metrics/telemetry** (counters and gauges sampled over time) — plus the **logs** devices emit about their own state. Each operates at a different granularity and cost, and mature operations correlate all of them. This data serves performance work (capacity planning, latency hunting) *and* network defense (anomaly detection, forensics), which is why observability sits on the boundary between the two halves of this page.
 
-**Components**:
-- Manager: Monitoring system
-- Agent: Device software
-- MIB: Management Information Base
+| Data source | Granularity | Typical volume | Primary uses |
+|---|---|---|---|
+| Packet capture (pcap) | Every byte on the wire | Very high | Deep troubleshooting, forensics, intrusion analysis |
+| Flow records (NetFlow/IPFIX/sFlow) | Per-conversation summaries | Moderate | Traffic analysis, anomaly detection, capacity planning, billing |
+| Metrics/telemetry (SNMP, gNMI) | Per-interface counters/gauges | Low | Dashboards, alerting, trend analysis |
+| Logs (syslog, flow logs, audit) | Per-event records | Moderate–high | Audit trails, security investigation, change correlation |
 
-### NetFlow/sFlow
-Collect traffic flow data.
+### Packet Capture Workflows
 
-**Use Cases**:
-- Traffic analysis
-- Security monitoring
-- Capacity planning
-- Billing
+Packet capture is the ground truth — it records the actual bytes, so it answers questions that aggregated data cannot (which TLS handshake failed, why a retransmission storm started, what an attacker exfiltrated). Because the volume is enormous, the practical workflow is **capture narrowly, store briefly, analyze offline**.
 
-### Network Performance Metrics
-- **Bandwidth**: Maximum data rate
-- **Throughput**: Actual data rate
-- **Latency**: Delay in transmission
-- **Jitter**: Variation in latency
-- **Packet loss**: Dropped packets
+**Capture with a BPF filter so you keep only what matters:**
+```bash
+# Capture only HTTP/HTTPS to one host, rotate files at 100 MB, keep 10 files
+tcpdump -i eth0 -G 0 -C 100 -W 10 -w cap_%Y%m%d_%H%M%S.pcap \
+  'host 192.168.1.10 and (tcp port 80 or tcp port 443)'
+
+# Snap length 96 bytes: capture headers only, not payloads (privacy + size)
+tcpdump -i eth0 -s 96 -w headers.pcap
+```
+
+**Analyze the capture offline** (so the capture host stays light):
+```bash
+# Top talkers by bytes
+tshark -r cap.pcap -q -z conv,ip
+
+# Just the TCP retransmissions — a fast pointer at loss/congestion
+tshark -r cap.pcap -Y 'tcp.analysis.retransmission' \
+  -T fields -e frame.time -e ip.src -e ip.dst
+
+# Reconstruct the bytes of TCP stream 0
+tshark -r cap.pcap -q -z follow,tcp,raw,0
+```
+
+Operational notes:
+- **Tap vs. SPAN.** A passive optical/network **TAP** copies every frame without loss; a switch **SPAN/mirror port** is cheaper but drops frames under load and can reorder them. Use a TAP when the capture must be authoritative (security forensics, compliance).
+- **Privacy and scope.** Full payload capture often contains credentials and personal data. Use snap-length limits, capture only header fields where possible, and treat pcap as sensitive. See [Privacy Engineering](../cybersecurity/privacy-engineering.html).
+- **Continuous capture** appliances (e.g. ring-buffer "network recorders") keep a rolling N hours of full packets so that when an alert fires you can retrieve the packets *around the event* — packet capture is most valuable retrospectively.
+
+### Flow Telemetry: NetFlow, IPFIX & sFlow
+
+Capturing every packet everywhere is infeasible, so routers and switches export **flow records** — one summary row per conversation (5-tuple of src/dst IP, src/dst port, protocol) with byte/packet counts and timestamps. Flow data is the workhorse of network visibility: small enough to keep for months, detailed enough to spot a scan, a DDoS ramp, or a top talker.
+
+- **NetFlow / IPFIX** (Cisco's NetFlow v9 was standardized as **IPFIX**, RFC 7011) export *every* flow the device sees. Records are aggregated in the device's flow cache and exported when the flow ends or a timer expires.
+- **sFlow** instead **samples** 1-in-N packets and streams interface counters. Sampling makes it cheap and constant-cost at line rate, at the price of statistical (rather than exact) byte counts — fine for trends and anomaly detection, less so for billing.
+
+```
+                 +-------------------+
+   packets  -->  |  Router / Switch  |  flow cache (5-tuple + counters)
+                 +---------+---------+
+                           | export (UDP) NetFlow v9 / IPFIX / sFlow
+                           v
+                 +-------------------+      +---------------------+
+                 |  Flow Collector   | ---> |  Analysis / SIEM /  |
+                 | (nfcapd, etc.)    |      |  capacity dashboards|
+                 +-------------------+      +---------------------+
+```
+
+```bash
+# Collect NetFlow v5/v9/IPFIX with nfdump's collector on UDP/2055
+nfcapd -w -D -p 2055 -l /var/flows
+
+# Top 10 talkers by bytes from collected flows
+nfdump -R /var/flows -s ip/bytes -n 10
+
+# Flows to an unusual port — a quick exfiltration/scan check
+nfdump -R /var/flows 'dst port 4444 or dst port 6667'
+```
+
+**Use cases** (the same data, two audiences):
+- *Performance:* capacity planning, identifying top talkers, validating QoS classification, peering/transit cost analysis (billing on 95th-percentile).
+- *Security:* detecting port scans (many dst ports, few bytes each), beaconing (regular small flows to one host), DDoS (sudden fan-in), and data exfiltration (large egress to an unfamiliar destination).
+
+### Metrics & Streaming Telemetry
+
+Metrics are sampled numeric counters and gauges — interface octets, errors, discards, CPU, queue depth — that drive dashboards and alerts.
+
+- **SNMP (Simple Network Management Protocol)** is the long-standing pull model: a **Manager** polls **Agents** on each device, walking a **MIB** (Management Information Base) tree of OIDs. It is universally supported but poll-based (typically 60–300 s intervals), so it misses microbursts, and SNMP **v3** (authenticated + encrypted) should be used in place of the community-string-only v1/v2c.
+
+  **SNMP components:**
+  - Manager: the monitoring/polling system
+  - Agent: software on the managed device that answers queries
+  - MIB: the schema of OIDs the agent exposes
+
+  ```bash
+  # Poll an interface's inbound octet counter (SNMPv3, authPriv)
+  snmpget -v3 -l authPriv -u monitor -a SHA -A "$AUTHPASS" \
+    -x AES -X "$PRIVPASS" 192.168.1.1 IF-MIB::ifInOctets.2
+  ```
+
+- **Streaming telemetry (gNMI/gRPC, NETCONF/YANG)** is the modern push model: the device *streams* state changes and high-frequency samples (sub-second) to a collector, instead of waiting to be polled. This catches microbursts and scales to large fabrics far better than SNMP polling. Collectors such as **Telegraf** normalize SNMP, gNMI, and flow data into a time-series database (Prometheus, InfluxDB) visualized in Grafana.
+
+```
+   Devices  --(SNMP poll / gNMI stream)-->  Telegraf  -->  TSDB (Prometheus/Influx)  -->  Grafana
+```
+
+#### Core Network Performance Metrics
+These are the headline numbers every dashboard tracks and every alert thresholds on:
+
+- **Bandwidth**: maximum data rate a link can carry
+- **Throughput**: actual achieved data rate
+- **Utilization**: throughput as a fraction of bandwidth (the input to the queueing models above — recall delay explodes as utilization ρ approaches 1)
+- **Latency**: one-way or round-trip delay
+- **Jitter**: variation in latency (critical for voice/video)
+- **Packet loss**: fraction of packets dropped
+- **Interface errors/discards**: CRC errors, drops, and discards that point at physical or buffer problems
+
+### Logs, Retention & Cost
+
+Devices also emit **logs** — syslog from routers/firewalls, flow logs from cloud VPCs, audit logs from management planes. Logs answer *"what changed and when"*, which is essential for correlating a performance regression or a security event with a config push.
+
+Every observability stream forces a **retention vs. cost** decision, because volume and value diverge over time:
+
+| Stream | Typical hot retention | Typical cold/archive | Rationale |
+|---|---|---|---|
+| Full packet capture | Hours to a few days | Rarely archived (huge) | Only needed around an active incident |
+| Flow records | Weeks to months | Months–years (compressed) | Cheap enough to keep for trend + forensic lookback |
+| Metrics | Days at full resolution | Months–years, **downsampled** | Old data only needs trend resolution, not per-second |
+| Logs | Days–weeks hot/searchable | Months–years (compliance) | Audit/forensics + regulatory mandates |
+
+Practical patterns:
+- **Tiered storage:** keep recent data hot and searchable; roll older data to cheap object storage (e.g. S3) with lifecycle rules.
+- **Downsampling/roll-ups:** store metrics at 10 s for a week, 1 min for a month, 1 h for a year — preserving trends without the volume.
+- **Compliance-driven minimums:** many frameworks mandate retaining security-relevant logs for a fixed period (commonly 90 days hot, one year archived); see [Compliance & Governance](../cybersecurity/compliance-and-governance.html).
+- **Sampling and aggregation at the source** (sFlow sampling, flow-cache timeouts) is the cheapest way to control volume before it ever reaches storage.
+
+### Integration with Security Operations
+
+Network observability is not just for performance engineers — it is a primary sensor for the **security operations center (SOC)**. The hand-off looks like this:
+
+```
+   pcap / flows / metrics / logs
+              |
+              v
+   +----------------------+        +-------------------------+
+   |  Collectors / TSDB   |  --->  |  SIEM (correlation,     |
+   |  + flow analyzers    |        |  alerting, retention)   |
+   +----------------------+        +-----------+-------------+
+                                               |
+                            detections, threat hunting, IR
+                                               v
+                                   Security Operations workflows
+```
+
+- **Flow records** feed network-detection-and-response: a SIEM correlates a beaconing pattern in flows with a suspicious DNS log and a firewall deny to raise one high-fidelity alert instead of three weak ones.
+- **Packet capture** is the forensic backstop — when an alert fires, analysts pull the packets around the event to confirm scope and extract indicators.
+- **Metrics and logs** provide the timeline: a CPU spike, a config change, and an unusual egress flow line up to tell the story.
+
+This is exactly the data pipeline that detection engineering and incident response consume. For how this telemetry is turned into detections, triaged, and acted on, see [Security Operations](../cybersecurity/security-operations.html), [Operations & Response](../cybersecurity/operations-and-response.html), and [Incident Response](../cybersecurity/incident-response.html). For the threat models that decide *what* to look for, see [Attacks & Defense](../cybersecurity/attacks-and-defense.html).
 
 ## Best Practices
 
@@ -349,6 +486,8 @@ Collect traffic flow data.
   <ul>
     <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — congestion control, the response to queue buildup.</li>
     <li><a href="../cybersecurity/">Cybersecurity</a> — deeper coverage of network defense and zero trust.</li>
+    <li><a href="../cybersecurity/security-operations.html">Security Operations</a> — where flow, packet, and log telemetry becomes detections and alerts.</li>
+    <li><a href="../cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a> — the threat models that decide what your observability should watch for.</li>
     <li><a href="../aws/">AWS</a> — security groups, NACLs, and cloud monitoring with CloudWatch.</li>
   </ul>
 </div>

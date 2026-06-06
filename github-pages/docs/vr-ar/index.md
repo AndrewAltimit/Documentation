@@ -26,156 +26,54 @@ Welcome to the comprehensive guide for Extended Reality (XR) development. From s
   <div class="insight-card"><i class="fas fa-globe"></i><h4>AR must understand reality</h4><p>Plane detection, occlusion, and light estimation anchor virtual content believably in the physical world.</p></div>
 </div>
 
-## Getting Started
+## Explore This Hub
+
+Start with [Understanding XR Technologies](#understanding-xr-technologies) for the landscape, then dive into the strand that matches your work. Everything on this page is self-contained; the cards below are an orientation map, not a prerequisite chain.
+
+| Topic | What it covers |
+|-------|----------------|
+| [Understanding XR Technologies](#understanding-xr-technologies) | The reality-virtuality continuum and the current hardware landscape |
+| [VR Development Fundamentals](#vr-development-fundamentals) | Stereo rendering, motion-sickness prevention, and spatial interaction |
+| [AR Development](#ar-development) | Spatial understanding, ARKit vs ARCore, and WebXR |
+| [XR Development Platforms](#xr-development-platforms) | Unity XR, Unreal, and native SDKs |
+| [Performance Optimization for XR](#performance-optimization-for-xr) | Frame budgets, foveated rendering, and reprojection |
+| [UX Design for XR](#ux-design-for-xr) | Spatial UI, comfort guidelines, and accessibility |
+| [Mixed Reality Features](#mixed-reality-features) | Passthrough, spatial anchors, and hand/body tracking |
 
 ### Prerequisites
 
-Before diving into XR development, you should have:
-
-**Essential Skills:**
-- **3D programming fundamentals** - Understanding of 3D math, transforms, and coordinate systems
-- **Game engine experience** - Familiarity with Unity or Unreal Engine (see our [Game Development Hub](../gamedev/))
-- **Graphics programming** - Basic knowledge of rendering pipelines (see [3D Graphics & Rendering](../graphics/3d-rendering.html))
-- **Performance optimization** - Understanding of profiling and optimization techniques (see [Performance Optimization](../optimization/))
-
-**Recommended Knowledge:**
-- Object-oriented programming (C# for Unity, C++ for Unreal)
-- Mobile development for AR (Swift for iOS, Kotlin for Android)
-- Basic understanding of human perception and ergonomics
-
-### Recommended Starting Points
-
-**For VR Beginners:**
-1. Start with [Understanding XR Technologies](#understanding-xr-technologies) to learn the landscape
-2. Explore [VR Development Fundamentals](#vr-development-fundamentals) for core concepts
-3. Try a simple project using Unity XR Interaction Toolkit
-4. Test on actual hardware - emulators can't teach comfort
-
-**For AR Developers:**
-1. Review [AR Development](#ar-development) and spatial understanding
-2. Choose your platform: [ARKit vs ARCore](#arkit-vs-arcore)
-3. Build a plane detection and object placement demo
-4. Experiment with [WebXR](#webxr) for cross-platform experiences
-
-**For Enterprise Developers:**
-1. Focus on [Mixed Reality Features](#mixed-reality-features)
-2. Study [Performance Optimization for XR](#performance-optimization-for-xr)
-3. Learn [Spatial UI Design](#spatial-ui-design) for productivity applications
-4. Consider Microsoft HoloLens or Magic Leap development
+You will move fastest with **3D math and transforms**, hands-on **game-engine experience** (Unity C# or Unreal C++; see the [Game Development Hub](../gamedev/)), a working grasp of **rendering pipelines** ([3D Graphics & Rendering](../graphics/3d-rendering.html)), and **profiling/optimization** skills ([Performance Optimization](../optimization/)). For mobile AR, add native iOS (Swift) or Android (Kotlin). A feel for human perception and ergonomics pays off everywhere.
 
 ## Learning Paths
 
-### Path 1: VR Game Developer
+Pick the card closest to your goal. Each lists the on-page sections to read in order plus the best external companions.
 
-Perfect for creating immersive gaming experiences on Quest, PSVR2, or PC VR.
-
-```
-1. Foundation
-   ├─→ VR Development Fundamentals
-   ├─→ Rendering Requirements
-   └─→ Motion Sickness Prevention
-
-2. Interaction Design
-   ├─→ Hand Tracking and Controllers
-   ├─→ Locomotion Systems
-   └─→ Spatial UI Design
-
-3. Performance & Polish
-   ├─→ Performance Optimization for XR
-   ├─→ Foveated Rendering
-   └─→ Testing and Iteration
-
-4. Platform Development
-   ├─→ Unity XR Interaction Toolkit
-   ├─→ Unreal Engine VR (see Unreal Guide)
-   └─→ Meta Quest native SDK
-```
-
-**Key Resources:** [Game Development Hub](../gamedev/), [Unreal Engine Guide](../technology/unreal.html)
-
-### Path 2: Mobile AR Developer
-
-Focus on smartphone AR experiences using ARKit (iOS) or ARCore (Android).
-
-```
-1. AR Fundamentals
-   ├─→ Spatial Understanding
-   ├─→ Plane Detection
-   └─→ Image/Object Recognition
-
-2. Platform Expertise
-   ├─→ ARKit Development (iOS)
-   ├─→ ARCore Development (Android)
-   └─→ Cross-platform with Unity AR Foundation
-
-3. Advanced Features
-   ├─→ LiDAR scanning
-   ├─→ Cloud Anchors for multi-user
-   └─→ Geospatial API for outdoor AR
-
-4. Production
-   ├─→ Performance on mobile
-   ├─→ Battery optimization
-   └─→ App Store deployment
-```
-
-**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Performance Optimization](../optimization/)
-
-### Path 3: Enterprise XR Developer
-
-Build productivity and training applications for HoloLens, Magic Leap, or enterprise VR.
-
-```
-1. Enterprise Foundations
-   ├─→ Mixed Reality Features
-   ├─→ Passthrough and World Anchors
-   └─→ Scene Understanding
-
-2. Business Applications
-   ├─→ Spatial UI for productivity
-   ├─→ Hand tracking interfaces
-   └─→ Multi-user collaboration
-
-3. Integration
-   ├─→ Cloud services integration
-   ├─→ Enterprise security
-   └─→ Device management
-
-4. Deployment
-   ├─→ Enterprise app distribution
-   ├─→ Training and support
-   └─→ Maintenance and updates
-```
-
-**Key Resources:** [Unreal Engine Guide](../technology/unreal.html), [Performance Optimization](../optimization/)
-
-### Path 4: WebXR Developer
-
-Create browser-based XR experiences accessible on any device.
-
-```
-1. Web Foundations
-   ├─→ WebXR API
-   ├─→ Three.js or Babylon.js
-   └─→ WebGL and WebGPU
-
-2. Cross-Platform Development
-   ├─→ Progressive Web Apps for XR
-   ├─→ Device capability detection
-   └─→ Responsive XR design
-
-3. Advanced WebXR
-   ├─→ Hand tracking in browser
-   ├─→ WebXR Layers API
-   └─→ Hit testing and anchors
-
-4. Distribution
-   ├─→ No app store required
-   ├─→ Instant access via URL
-   └─→ Analytics and telemetry
-```
-
-**Key Resources:** [3D Graphics & Rendering](../graphics/3d-rendering.html), [Game Development Hub](../gamedev/)
+<div class="takeaway-grid">
+  <div class="nav-card">
+    <h4><i class="fas fa-gamepad"></i> VR Game Developer</h4>
+    <p>Immersive games for Quest, PSVR2, or PC VR.</p>
+    <p><strong>Read:</strong> <a href="#vr-development-fundamentals">VR Fundamentals</a> &rarr; <a href="#performance-optimization-for-xr">Performance for XR</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a> &rarr; <a href="#unity-xr">Unity XR</a>.</p>
+    <p><strong>Then:</strong> <a href="../gamedev/">Game Development Hub</a>, <a href="../technology/unreal.html">Unreal Engine Guide</a>.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-mobile-alt"></i> Mobile AR Developer</h4>
+    <p>Smartphone AR with ARKit (iOS) or ARCore (Android).</p>
+    <p><strong>Read:</strong> <a href="#spatial-understanding">Spatial Understanding</a> &rarr; <a href="#arkit-vs-arcore">ARKit vs ARCore</a> &rarr; <a href="#performance-optimization-for-xr">Performance for XR</a>.</p>
+    <p><strong>Then:</strong> <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>, <a href="../optimization/">Performance Optimization</a>.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-building"></i> Enterprise XR Developer</h4>
+    <p>Productivity and training apps for HoloLens, Magic Leap, or enterprise VR.</p>
+    <p><strong>Read:</strong> <a href="#mixed-reality-features">Mixed Reality Features</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a> &rarr; <a href="#hand-and-body-tracking">Hand &amp; Body Tracking</a>.</p>
+    <p><strong>Then:</strong> <a href="../technology/unreal.html">Unreal Engine Guide</a>, <a href="../optimization/">Performance Optimization</a>.</p>
+  </div>
+  <div class="nav-card">
+    <h4><i class="fas fa-globe"></i> WebXR Developer</h4>
+    <p>Zero-install, browser-based XR on any device.</p>
+    <p><strong>Read:</strong> <a href="#webxr">WebXR</a> &rarr; <a href="#understanding-xr-technologies">XR Technologies</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a>.</p>
+    <p><strong>Then:</strong> <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>, <a href="../gamedev/">Game Development Hub</a>.</p>
+  </div>
+</div>
 
 ## Understanding XR Technologies
 
@@ -683,9 +581,10 @@ XR-specific challenges:
   <div class="takeaway-card"><h4>Test on real hardware</h4><p>Emulators cannot teach comfort. On-device testing with diverse users is non-negotiable.</p></div>
 </div>
 
-## Related Documentation
+## See Also
 
-- [Game Development](../gamedev/) - Game development fundamentals
-- [3D Graphics & Rendering](../graphics/3d-rendering.html) - Rendering pipeline
-- [Unreal Engine](../technology/unreal.html) - UE5 VR development
-- [Performance Optimization](../optimization/) - Optimization techniques
+- [Performance Optimization](../optimization/) - Frame-budget and profiling techniques; XR's hard 11.1 ms-per-frame target makes the [GPU optimization](../optimization/gpu-optimization.html) and [CPU optimization](../optimization/cpu-optimization.html) pages essential reading for hitting 90+ Hz
+- [3D Graphics & Rendering](../graphics/3d-rendering.html) - The rendering pipeline behind stereo, single-pass, and foveated rendering
+- [Shaders](../graphics/shaders.html) - Variable-rate shading and the GPU programming that drives XR rendering cost
+- [Game Development](../gamedev/) - Game development fundamentals for interactive XR experiences
+- [Unreal Engine](../technology/unreal.html) - UE5 VR development with the forward renderer and stereo instancing

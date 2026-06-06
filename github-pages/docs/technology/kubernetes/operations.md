@@ -184,6 +184,222 @@ Before going to production, verify your setup against these categories:
 | Implement distributed tracing | Debugs latency across services |
 | Set up alerts | Catches issues before users notice |
 
+## Observability: Seeing Inside the Cluster
+
+Health probes tell Kubernetes whether to *restart* or *route to* a pod (covered in [Workloads &amp; Storage](workloads.html#observability-understanding-application-health)), but they answer a binary question. Operating a cluster means answering *why* — why is latency up, which release introduced the error, what was this pod logging the moment before it was evicted. That requires the **three pillars of observability**: metrics, logs, and traces.
+
+| Pillar | Answers | Cardinality | Typical retention |
+|--------|---------|-------------|-------------------|
+| **Metrics** | "What is happening, and how much?" (rates, percentiles, saturation) | Low — aggregated numbers | Weeks to months (cheap) |
+| **Logs** | "What exactly happened in this request/pod?" | High — one entry per event | Days to weeks (expensive) |
+| **Traces** | "Where did the time go across services?" | High — sampled | Days |
+
+The pillars are complementary, not redundant. A metric tells you the p99 latency spiked; a trace shows you which downstream call caused it; the logs from that span's service tell you the underlying error. Modern tooling (OpenTelemetry, exemplars, Grafana) is increasingly about *correlating* the three so you can pivot between them with one click.
+
+> **Where this fits:** Kubernetes is one source of telemetry, not the whole story. The platform-level concepts — metric types and PromQL, the ELK/Loki logging stacks, OpenTelemetry and sampling — are covered in depth in the [Observability hub](../../observability/). This section is the *Kubernetes-specific* wiring: what to deploy in-cluster and how the pieces connect.
+
+### The Metrics Pipeline
+
+Two distinct things both get called "metrics" in Kubernetes, and conflating them is a common source of confusion:
+
+```mermaid
+flowchart LR
+    subgraph cluster["In-cluster"]
+        K[kubelet / cAdvisor] -->|node & container<br/>CPU, mem| MS[metrics-server]
+        MS -->|resource metrics API| HPA[HPA / kubectl top]
+        Pods[App /metrics endpoints] -->|scrape| Prom[Prometheus]
+        KSM[kube-state-metrics] -->|object state:<br/>deploys, pods, jobs| Prom
+        NE[node-exporter] -->|host-level metrics| Prom
+    end
+    Prom -->|remote_write| LTS[(Long-term store<br/>Thanos / Mimir / Cortex)]
+    Prom --> Graf[Grafana]
+    Prom --> AM[Alertmanager]
+    AM --> Pager[PagerDuty / Slack]
+```
+
+| Component | Role | Used by |
+|-----------|------|---------|
+| **metrics-server** | Lightweight, *in-memory* current CPU/memory only | `kubectl top`, the Horizontal Pod Autoscaler |
+| **kube-state-metrics** | Exports the *state* of API objects (desired vs ready replicas, pod phase, job status) | Prometheus / alerting |
+| **node-exporter** | Host-level metrics (disk, filesystem, network, load) | Prometheus |
+| **Prometheus** | Scrapes and stores the time series; evaluates alert rules | Grafana, Alertmanager |
+
+`metrics-server` is **not** a monitoring system — it keeps no history and is only there to feed the autoscaler and `kubectl top`. Real monitoring is Prometheus (or a hosted equivalent). The conventional way to install the whole Prometheus + Grafana + Alertmanager bundle is the `kube-prometheus-stack` Helm chart:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace
+```
+
+That chart ships the **Prometheus Operator**, which lets you describe scrape targets declaratively with `ServiceMonitor`/`PodMonitor` custom resources instead of editing a central Prometheus config:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app-metrics
+  labels:
+    release: monitoring        # must match the Prometheus' serviceMonitorSelector
+spec:
+  selector:
+    matchLabels:
+      app: myapp               # selects Services labelled app=myapp
+  endpoints:
+  - port: metrics              # the named Service port exposing /metrics
+    interval: 30s
+```
+
+**What to measure.** Two complementary mental models cover most needs:
+
+- **RED** (for request-driven services): **R**ate, **E**rrors, **D**uration. Good for "is my API healthy?"
+- **USE** (for resources): **U**tilization, **S**aturation, **E**rrors. Good for "is this node/disk/queue a bottleneck?"
+
+Beware **cardinality**: every unique combination of label values is a separate time series. Putting a user ID, request ID, or full URL in a Prometheus label can explode memory and bring the server down. Keep labels bounded (status code, route template, method) and push high-cardinality detail into logs or traces instead.
+
+### Log Aggregation
+
+A pod's logs live on the node only while the pod exists. The moment a pod is deleted, rescheduled, or its node is replaced, `kubectl logs` returns nothing — exactly when you most need the post-mortem. **Centralized log aggregation** ships every container's stdout/stderr off-node into a queryable store before that happens.
+
+The architecture is consistent across stacks: a lightweight **collector** runs as a DaemonSet (one per node), tails `/var/log/containers/*.log`, enriches each line with Kubernetes metadata (namespace, pod, labels), and forwards it to a backend.
+
+```mermaid
+flowchart LR
+    subgraph node["Each node (DaemonSet)"]
+        Logs[/var/log/containers/*.log] --> Agent[Fluent Bit / Vector]
+    end
+    Agent -->|enrich + parse| Backend{Backend}
+    Backend --> Loki[(Loki)]
+    Backend --> ES[(Elasticsearch)]
+    Loki --> Graf[Grafana]
+    ES --> Kib[Kibana]
+```
+
+| Stack | Collector | Store | UI | Trade-off |
+|-------|-----------|-------|----|-----------|
+| **EFK / ELK** | Fluentd or Fluent Bit | Elasticsearch | Kibana | Full-text indexing, powerful queries, but storage- and memory-hungry |
+| **Loki** | Promtail / Fluent Bit | Loki | Grafana | Indexes only labels (not the log body) — far cheaper, "like Prometheus for logs" |
+| **Vector** | Vector (agent + aggregator) | any of the above | depends on sink | High-throughput, vendor-neutral routing/transform layer |
+
+**Fluent Bit** has largely displaced the heavier Fluentd as the node agent: it is written in C, uses a few MB of RAM, and is the default collector in most managed offerings. A minimal Fluent Bit pipeline that tails container logs, attaches Kubernetes metadata, and ships to Loki:
+
+```ini
+[INPUT]
+    Name              tail
+    Path              /var/log/containers/*.log
+    Parser            cri
+    Tag               kube.*
+
+[FILTER]
+    Name              kubernetes
+    Match             kube.*
+    Merge_Log         On
+    Keep_Log          Off
+
+[OUTPUT]
+    Name              loki
+    Match             *
+    Host              loki.monitoring.svc
+    Labels            job=fluentbit, $kubernetes['namespace_name']
+```
+
+**Operational practices that matter more than the stack choice:**
+
+- **Log structured JSON**, not free-form text. `{"level":"error","msg":"...","order_id":123}` is filterable; `ERROR something broke (order 123)` is not.
+- **Propagate a correlation/request ID** through every service so a single user request can be reassembled from logs across pods.
+- **Set retention and sampling.** Logs are the most expensive pillar. Keep verbose `debug` logs for hours, `error` logs for weeks, and drop or sample the highest-volume noise at the collector.
+- **Strip PII at the edge.** Use a collector filter to redact emails, tokens, and card numbers *before* they land in long-term storage.
+
+### Distributed Tracing
+
+Metrics say latency is high; logs say each service looks fine in isolation. A **distributed trace** stitches together the single user request as it fans out across services, so you can see *where* the time actually went.
+
+The vocabulary:
+
+- A **trace** is one end-to-end request, identified by a `trace_id`.
+- A **span** is one unit of work within it (an HTTP handler, a DB query), with a start time, duration, and parent span.
+- **Context propagation** carries the `trace_id`/`span_id` between services, conventionally in the W3C `traceparent` HTTP header, so the next hop knows it is part of the same trace.
+
+```mermaid
+flowchart LR
+    A[api-gateway<br/>span] --> B[orders-svc<br/>span]
+    B --> C[postgres<br/>span]
+    B --> D[payments-svc<br/>span]
+    D --> E[stripe call<br/>span]
+```
+
+**OpenTelemetry (OTel)** is the vendor-neutral standard that now underpins this space. Applications are instrumented once with the OTel SDK (or auto-instrumentation agents), emit spans over OTLP, and an **OpenTelemetry Collector** — typically a Deployment, plus an optional per-node DaemonSet — receives, batches, samples, and *exports* to whichever backend you choose. Because OTel decouples instrumentation from the backend, you can swap Jaeger for Tempo without touching application code.
+
+| Backend | Notes |
+|---------|-------|
+| **Jaeger** | The CNCF reference tracing backend; rich UI, mature |
+| **Grafana Tempo** | Cheap object-storage backend, integrates trace→log→metric pivots in Grafana |
+| **Zipkin** | Older, lightweight, still widely supported |
+
+A trimmed OTel Collector config showing the receive → process → export pipeline:
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc:                       # apps push spans here on :4317
+processors:
+  batch: {}
+  tail_sampling:                  # keep all errors + slow traces, sample the rest
+    policies:
+    - name: errors
+      type: status_code
+      status_code: { status_codes: [ERROR] }
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger-collector.monitoring.svc:4317
+service:
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [tail_sampling, batch]
+      exporters:  [otlp/jaeger]
+```
+
+**Sampling** is the key operational lever: tracing every request at scale is prohibitively expensive, so you sample. *Head sampling* decides at the start (simple, but may discard the rare failing request); *tail sampling* (above) buffers the whole trace and keeps it only if it errored or was slow — far more useful for debugging, at the cost of collector memory.
+
+### Dashboards and Alerting
+
+Collecting telemetry is worthless if no one looks at it. The last mile is **dashboards** (for humans investigating) and **alerts** (for machines waking humans up).
+
+**Grafana** is the de-facto dashboarding layer; it queries Prometheus (metrics), Loki (logs), and Tempo/Jaeger (traces) as data sources in one pane, enabling the trace→log→metric pivots described above. Define dashboards as code (JSON or the Grafana Operator's `GrafanaDashboard` CRD) so they live in version control alongside the app.
+
+**Alerting** in the Prometheus world is a two-stage split:
+
+1. **Prometheus** evaluates `PrometheusRule` expressions and *fires* an alert when a condition holds for a duration.
+2. **Alertmanager** *routes* firing alerts — deduplicating, grouping, silencing, and dispatching to PagerDuty, Slack, email, etc.
+
+{% raw %}
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-slo-rules
+  labels:
+    release: monitoring
+spec:
+  groups:
+  - name: availability
+    rules:
+    - alert: HighErrorRate
+      expr: |
+        sum(rate(http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(http_requests_total[5m])) > 0.05
+      for: 10m                    # must hold 10 min to avoid flapping
+      labels:
+        severity: page
+      annotations:
+        summary: "5xx error rate above 5% for {{ $labels.service }}"
+```
+{% endraw %}
+
+**Alert on symptoms, not causes.** Page on what users feel — error rate, latency SLO burn, request failures — not on every transient CPU spike. The most effective approach ties alerts to **SLOs**: define a target (e.g. 99.9% of requests succeed), then alert on the *error budget burn rate*, which fires fast for catastrophic outages and slowly for gradual degradation while suppressing the noise that causes alert fatigue. (SLO theory is developed further in the [Observability hub](../../observability/).)
+
 ## Helm: Kubernetes Package Manager
 
 Managing dozens of YAML files for a single application becomes unwieldy. Helm solves this by packaging related resources into **charts** that can be versioned, shared, and customized.
@@ -452,5 +668,6 @@ The key to Kubernetes mastery is practice. Start with simple deployments, gradua
 - [Fundamentals](fundamentals.html) - Pods, Deployments, Services, and cluster architecture
 - [Workloads &amp; Storage](workloads.html) - StatefulSets, persistent volumes, RBAC, and autoscaling
 - [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, GitOps, and certifications
+- [Observability](../../observability/) - The three pillars in depth: metrics &amp; PromQL, logging stacks, OpenTelemetry tracing, and SLOs
 - [Docker Essentials](../docker-essentials.html) - Quick container command reference
 - [CI/CD](../ci-cd/) - Automating deployments into your cluster

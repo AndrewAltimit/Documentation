@@ -1,22 +1,82 @@
 ---
 layout: docs
-title: "Computational Physics: Parallel Computing & Machine Learning"
+title: "Computational Physics: Parallel & High-Performance Computing"
 permalink: /docs/physics/computational-physics/hpc-and-ml.html
 toc: true
 toc_sticky: true
 hide_title: true
 ---
 
-<p><a href="./">Computational Physics</a> › Parallel Computing &amp; Machine Learning</p>
+<p><a href="./">Computational Physics</a> › Parallel &amp; High-Performance Computing</p>
 
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Parallel Computing &amp; Machine Learning</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Scaling simulations across cores and GPUs, and learning the physics directly from data.</p>
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Parallel &amp; High-Performance Computing</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Scaling scientific simulations across cores, nodes, and GPUs with MPI, CUDA, and sparse iterative solvers.</p>
 </div>
 
-## Parallel Computing for Physics
+Modern physics simulations routinely exceed what a single core can handle: a
+three-dimensional fluid solver on a $1024^3$ grid holds billions of unknowns, an
+exact-diagonalization study of a quantum spin chain confronts a Hilbert space that
+doubles in size with every added spin, and an $N$-body cosmology run tracks
+trillions of particles. **High-performance computing (HPC)** is the discipline of
+mapping these problems onto parallel hardware — many cores within a node, many
+nodes across a cluster interconnect, and the thousands of lightweight threads on a
+GPU — while keeping communication, memory traffic, and load imbalance from
+destroying the speedup.
 
-### MPI for Distributed Computing
+> **Looking for machine learning?** The physics-ML material (physics-informed
+> neural networks, Fourier neural operators, neural-network potentials,
+> equivariant models) now lives on its own page:
+> [Machine Learning for Physics](ml-for-physics.html). This page is dedicated to
+> classical parallel and high-performance scientific computing.
+
+## Why Parallelism Is Hard: Amdahl and Gustafson
+
+Before writing a line of MPI, it pays to know the ceiling. If a fraction $p$ of a
+program's runtime is parallelizable and the rest is inherently serial, then on $N$
+processors **Amdahl's law** caps the speedup at
+
+$$
+S(N) = \frac{1}{(1-p) + \dfrac{p}{N}} \xrightarrow{N \to \infty} \frac{1}{1-p}.
+$$
+
+A code that is 95% parallel can never run more than $20\times$ faster, no matter
+how many cores you throw at it — the serial 5% dominates. This is the pessimistic,
+*strong-scaling* view: fixed problem size, more processors.
+
+**Gustafson's law** reframes the goal. In practice scientists scale the *problem*
+with the machine — a bigger cluster runs a finer grid, not the same grid faster.
+For a fixed time budget the scaled speedup is
+
+$$
+S(N) = N - (1-p)(N - 1),
+$$
+
+which grows almost linearly in $N$. This *weak-scaling* perspective is why
+exascale machines remain useful despite Amdahl: the serial fraction stays roughly
+constant while the parallel work grows. Real codes are benchmarked against both
+curves — strong scaling at fixed size to expose communication overhead, weak
+scaling at fixed work-per-rank to expose network and memory bottlenecks.
+
+## MPI for Distributed Computing
+
+The **Message Passing Interface (MPI)** is the lingua franca of cluster computing.
+Each process (a *rank*) owns a private address space and exchanges data with peers
+only through explicit messages — there is no shared memory, so the model scales
+from a laptop to hundreds of thousands of nodes. The core primitives fall into two
+families:
+
+- **Point-to-point**: `Send`/`Recv` (and the combined `Sendrecv`) move data
+  between two named ranks. These dominate halo exchanges in stencil codes.
+- **Collectives**: `Bcast`, `Scatter`, `Gather`, `Reduce`, and `Allreduce`
+  involve every rank in a communicator. A reduction such as
+  $\sum_r x_r$ over $N$ ranks completes in $O(\log N)$ communication steps via a
+  binary tree, not $O(N)$.
+
+A natural first example is **embarrassingly parallel** Monte Carlo: each rank draws
+independent samples (with a distinct random seed to avoid correlated streams) and a
+single reduction combines the partial counts. The only communication is the final
+`reduce`, so the code scales nearly perfectly.
 
 ```python
 # Example: Parallel Monte Carlo simulation
@@ -118,7 +178,78 @@ class ParallelMonteCarlo:
         return local_array
 ```
 
-### GPU Computing with CUDA/CuPy
+### Domain Decomposition and Ghost Cells
+
+For PDE solvers the dominant parallel strategy is **domain decomposition**: the
+global grid is partitioned into contiguous subdomains, one per rank, and each rank
+updates its own interior. A finite-difference or finite-volume stencil, however,
+reads neighboring cells — at a subdomain boundary those neighbors live on another
+rank. The fix is a layer of **ghost cells** (also called *halo* cells): each
+subdomain is padded by one or more rows that mirror the boundary data of its
+neighbors. Every time step begins with a *halo exchange* (the `Sendrecv` calls
+above) that refreshes these ghost layers, after which the local update proceeds as
+if the data were contiguous.
+
+The performance of this pattern is governed by the **surface-to-volume ratio**. A
+cubic subdomain of side $n$ holds $n^3$ interior cells (computation) but exposes
+$6n^2$ boundary faces (communication), so the communication-to-computation ratio
+scales as
+
+$$
+\frac{T_{\text{comm}}}{T_{\text{comp}}} \sim \frac{6 n^2}{n^3} = \frac{6}{n}.
+$$
+
+Larger subdomains amortize communication better, which is exactly why **weak
+scaling** (fixed $n$ per rank) holds up far better than strong scaling (shrinking
+$n$ as ranks grow). The message cost itself follows the classic linear model
+
+$$
+T_{\text{msg}}(m) = \alpha + \beta\, m,
+$$
+
+where $\alpha$ is the per-message *latency* and $\beta$ the inverse *bandwidth* and
+$m$ the message size in bytes. Latency $\alpha$ punishes many small messages, so
+high-performance halo exchanges aggregate boundary data into a few large buffers and
+overlap communication with computation using non-blocking `Isend`/`Irecv`.
+
+### Choosing a Decomposition
+
+A 1D slab decomposition is trivial to code but its message size grows with the
+domain face; a 2D or 3D *blocked* decomposition (the $p_x \times p_y$ processor grid
+in the code) minimizes the per-rank surface area and is the standard choice at
+scale. The general rule: pick the decomposition that minimizes total surface area
+subject to the constraint that subdomains tile the grid evenly. Tools like
+`MPI_Cart_create` build a Cartesian communicator that automates neighbor-rank
+lookup and can let the MPI runtime map ranks onto the physical network topology for
+locality.
+
+## GPU Computing with CUDA/CuPy
+
+A modern GPU is a throughput machine: thousands of arithmetic units organized into
+*streaming multiprocessors*, fed by very high memory bandwidth (terabytes per
+second) but with comparatively high latency. Code is written as a **kernel** — a
+single function executed by a grid of threads, grouped into *blocks* of (typically)
+128–512 threads. The CUDA execution model is *Single Instruction, Multiple Threads*
+(SIMT): threads within a 32-lane *warp* execute in lockstep, so divergent branches
+within a warp serialize and hurt throughput.
+
+GPUs excel precisely on the data-parallel kernels that pervade physics: applying
+the same stencil to every grid point, computing pairwise forces between every pair
+of particles, or transforming a field by FFT. Two performance facts dominate kernel
+design:
+
+- **Coalesced memory access.** Consecutive threads should read consecutive
+  addresses so the hardware fuses them into one wide transaction; strided or random
+  access wastes bandwidth.
+- **Occupancy.** Enough resident warps must be in flight to hide the hundreds-of-cycle
+  latency of a global-memory load behind the arithmetic of other warps.
+
+The two kernels below illustrate the two canonical regimes. The direct $N$-body
+force loop is **compute-bound** — each thread reads $O(N)$ positions but does
+$O(N)$ floating-point operations, so arithmetic dominates. The spectral heat-equation
+solver is **bandwidth-bound** — the FFT moves the whole field through memory several
+times per step, so it lives or dies on memory throughput, which is exactly what the
+GPU's FFT library is tuned for.
 
 ```python
 import cupy as cp
@@ -230,7 +361,60 @@ class GPUPhysics:
         return cp.asnumpy(u)
 ```
 
-### Parallel Linear Algebra
+### The Roofline Model
+
+Whether a kernel is worth porting to the GPU — and whether it is running near peak —
+is answered by the **roofline model**. Plot achievable performance (FLOP/s) against
+*arithmetic intensity* $I$, the ratio of floating-point operations to bytes moved
+from memory:
+
+$$
+P = \min\left( P_{\text{peak}},\; B \cdot I \right),
+$$
+
+where $P_{\text{peak}}$ is the hardware's peak compute rate and $B$ its peak memory
+bandwidth. Kernels with low intensity (a stencil reads several neighbors and does a
+handful of flops, $I \lesssim 1$) sit on the *bandwidth-limited* sloped roof — the
+direct $N$-body kernel above, with $I = O(N)$, sits on the flat *compute-limited*
+roof. The model tells you the optimization that matters: improving cache reuse and
+data layout for bandwidth-bound code, or reducing instruction count and improving
+occupancy for compute-bound code. The data-transfer cost of moving fields across the
+PCIe/NVLink bus to and from the GPU is a separate, often dominant, overhead — the
+practical rule is to keep data resident on the device across many time steps, which
+is exactly why the loops above never copy back until the simulation finishes.
+
+## Sparse Linear Algebra and Iterative Solvers
+
+Discretizing a PDE or a quantum Hamiltonian produces an enormous matrix $A$ that is
+**sparse**: a 7-point Laplacian stencil on a $10^6$-cell grid yields a $10^6 \times
+10^6$ matrix with only $\sim 7 \times 10^6$ nonzeros — storing it densely would need
+$10^{12}$ entries, which is hopeless. Sparse formats (CSR, CSC, COO) store only the
+nonzeros, and the central operation becomes the **sparse matrix–vector product**
+(SpMV) $y = Ax$, which costs $O(\text{nnz})$ rather than $O(n^2)$. SpMV is the
+workhorse — and the bottleneck — of essentially every large-scale physics solver,
+and because it touches each matrix entry exactly once it is firmly bandwidth-bound.
+
+A direct factorization ($LU$, Cholesky) of such a matrix suffers **fill-in**: the
+factors are far denser than $A$, exhausting memory. The alternative is **iterative
+solvers**, which only ever need to *apply* $A$ to a vector and so preserve sparsity.
+
+### Stationary Iterations: Jacobi and Gauss-Seidel
+
+The simplest iterative scheme splits $A = D + L + U$ into its diagonal, strictly
+lower, and strictly upper parts. The **Jacobi iteration**,
+
+$$
+x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j \ne i} a_{ij}\, x_j^{(k)} \right),
+$$
+
+updates every unknown from the *previous* sweep's values, so all updates are
+independent — it is naturally parallel, which is why the implementation below shards
+rows across a process pool. It converges only when the spectral radius of the
+iteration matrix $-D^{-1}(L+U)$ is below one (guaranteed for diagonally dominant
+$A$), and even then slowly: the error decays by a factor set by that spectral radius
+each sweep. Gauss-Seidel and successive over-relaxation (SOR) converge faster by
+reusing updated values within a sweep, at the cost of a sequential dependence that
+must be broken with red-black colouring to parallelize.
 
 ```python
 from scipy.sparse import diags
@@ -343,323 +527,106 @@ class ParallelLinearAlgebra:
         return eigs, V[:, :j+2] @ eigvecs
 ```
 
----
+### Krylov Subspace Methods: Conjugate Gradient
 
-## Machine Learning Applications
+Stationary iterations are easy to parallelize but converge slowly. The
+state-of-the-art for large symmetric positive-definite systems is the **conjugate
+gradient (CG)** method, the canonical *Krylov subspace* solver. CG builds its
+approximate solution from the Krylov space
 
-### Recent Advances in Physics-ML Integration (2023-2024)
+$$
+\mathcal{K}_k(A, r_0) = \mathrm{span}\{ r_0,\, A r_0,\, A^2 r_0,\, \dots,\, A^{k-1} r_0 \},
+$$
 
-The intersection of machine learning and physics has seen explosive growth:
+choosing at each step the iterate that minimizes the $A$-norm of the error over that
+space. Each iteration costs one SpMV plus a few vector inner products, and the
+convergence rate is governed by the condition number $\kappa = \lambda_{\max} /
+\lambda_{\min}$:
 
-**Major Breakthroughs:**
-- **Neural Operators**: Learning solution operators for entire families of PDEs
-- **Equivariant Neural Networks**: Networks that respect physical symmetries
-- **Differentiable Physics Engines**: End-to-end learning through simulations
-- **Foundation Models for Science**: Large models trained on diverse physics data
+$$
+\frac{\lVert e_k \rVert_A}{\lVert e_0 \rVert_A} \le 2 \left( \frac{\sqrt{\kappa} - 1}{\sqrt{\kappa} + 1} \right)^{k}.
+$$
 
-### Physics-Informed Neural Networks (PINNs)
+The error therefore shrinks like $(\sqrt{\kappa})^{-1}$ per step — dramatically
+faster than Jacobi when $\kappa$ is moderate. For ill-conditioned systems (a fine
+grid gives $\kappa \sim h^{-2}$) the cure is a **preconditioner** $M \approx A$ that
+is cheap to invert; solving $M^{-1}Ax = M^{-1}b$ instead clusters the spectrum and
+collapses the iteration count. Incomplete-Cholesky and multigrid preconditioners are
+standard, and for nonsymmetric systems GMRES and BiCGSTAB play the analogous role.
+Production libraries (PETSc, Trilinos, hypre) provide these solvers in
+MPI-parallel form, where the only communication per iteration is the halo exchange
+inside SpMV and the global `Allreduce` inside each inner product.
 
-```python
-import torch
-import torch.nn as nn
-import torch.optim as optim
+### The Lanczos Algorithm for Eigenvalues
 
-class PhysicsInformedNN(nn.Module):
-    """Neural network for solving PDEs"""
-    
-    def __init__(self, layers):
-        super().__init__()
-        
-        # Build network
-        self.layers = nn.ModuleList()
-        for i in range(len(layers) - 1):
-            self.layers.append(nn.Linear(layers[i], layers[i+1]))
-        
-        # Activation
-        self.activation = nn.Tanh()
-    
-    def forward(self, x):
-        """Forward pass through network"""
-        for i, layer in enumerate(self.layers[:-1]):
-            x = self.activation(layer(x))
-        return self.layers[-1](x)
-    
-    def physics_loss(self, x, t):
-        """Physics-informed loss for heat equation"""
-        x.requires_grad = True
-        t.requires_grad = True
-        
-        # Network output
-        u = self(torch.cat([x, t], dim=1))
-        
-        # Compute derivatives
-        u_t = torch.autograd.grad(u, t, grad_outputs=torch.ones_like(u),
-                                 create_graph=True)[0]
-        u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u),
-                                 create_graph=True)[0]
-        u_xx = torch.autograd.grad(u_x, x, grad_outputs=torch.ones_like(u_x),
-                                  create_graph=True)[0]
-        
-        # Heat equation: u_t - α*u_xx = 0
-        alpha = 0.1
-        f = u_t - alpha * u_xx
-        
-        return torch.mean(f**2)
+Many physics problems need the *extremal* eigenpairs of a giant sparse Hermitian
+matrix rather than the solution of a linear system: the ground-state energy of a
+quantum Hamiltonian, the lowest vibrational modes of a structure, or the dominant
+PageRank-like modes of a network. The **Lanczos algorithm** is the symmetric
+Krylov method for this task. Starting from a random vector $v_1$, it builds an
+orthonormal basis of the Krylov space and, in that basis, *projects* $A$ onto a tiny
+tridiagonal matrix
 
-def train_pinn(model, n_epochs=5000):
-    """Train physics-informed neural network"""
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    
-    # Training points
-    n_points = 1000
-    x = torch.rand(n_points, 1) * 2 - 1  # x in [-1, 1]
-    t = torch.rand(n_points, 1)  # t in [0, 1]
-    
-    # Boundary conditions
-    n_bc = 100
-    x_bc = torch.ones(n_bc, 1) * -1
-    t_bc = torch.rand(n_bc, 1)
-    u_bc = torch.zeros(n_bc, 1)  # u(-1, t) = 0
-    
-    # Initial condition
-    x_ic = torch.rand(n_bc, 1) * 2 - 1
-    t_ic = torch.zeros(n_bc, 1)
-    u_ic = torch.sin(np.pi * x_ic)  # u(x, 0) = sin(πx)
-    
-    losses = []
-    
-    for epoch in range(n_epochs):
-        optimizer.zero_grad()
-        
-        # Physics loss
-        loss_physics = model.physics_loss(x, t)
-        
-        # Boundary condition loss
-        u_pred_bc = model(torch.cat([x_bc, t_bc], dim=1))
-        loss_bc = torch.mean((u_pred_bc - u_bc)**2)
-        
-        # Initial condition loss
-        u_pred_ic = model(torch.cat([x_ic, t_ic], dim=1))
-        loss_ic = torch.mean((u_pred_ic - u_ic)**2)
-        
-        # Total loss
-        loss = loss_physics + loss_bc + loss_ic
-        
-        loss.backward()
-        optimizer.step()
-        
-        if epoch % 100 == 0:
-            print(f"Epoch {epoch}: Loss = {loss.item():.6f}")
-            losses.append(loss.item())
-    
-    return losses
+$$
+T_k = \begin{pmatrix}
+\alpha_1 & \beta_1 & & \\
+\beta_1 & \alpha_2 & \beta_2 & \\
+& \beta_2 & \ddots & \ddots \\
+& & \ddots & \alpha_k
+\end{pmatrix},
+$$
 
-# Example usage
-model = PhysicsInformedNN([2, 50, 50, 50, 1])  # 2 inputs (x, t), 1 output (u)
-losses = train_pinn(model)
-```
+whose entries come from the three-term recurrence
 
-### Neural Network Potentials
+$$
+\beta_{j}\, v_{j+1} = A v_j - \alpha_j v_j - \beta_{j-1} v_{j-1},
+\qquad \alpha_j = v_j^{\top} A v_j .
+$$
 
-```python
-class NeuralPotential(nn.Module):
-    """Neural network for learning interatomic potentials"""
-    
-    def __init__(self, n_features=10, hidden_layers=[64, 64]):
-        super().__init__()
-        
-        layers = [n_features] + hidden_layers + [1]
-        self.network = self._build_network(layers)
-        
-        # Symmetry functions for atomic environments
-        self.symmetry_params = self._init_symmetry_functions()
-    
-    def _build_network(self, layers):
-        """Build the neural network"""
-        network = []
-        for i in range(len(layers) - 1):
-            network.append(nn.Linear(layers[i], layers[i+1]))
-            if i < len(layers) - 2:
-                network.append(nn.ReLU())
-        return nn.Sequential(*network)
-    
-    def _init_symmetry_functions(self):
-        """Initialize Behler-Parrinello symmetry functions"""
-        # Radial symmetry function parameters
-        eta_values = [0.05, 0.5, 1.0, 2.0]
-        Rs_values = [0.0, 1.0, 2.0, 3.0]
-        
-        # Angular symmetry function parameters
-        zeta_values = [1.0, 2.0, 4.0]
-        lambda_values = [-1.0, 1.0]
-        
-        return {
-            'eta': eta_values,
-            'Rs': Rs_values,
-            'zeta': zeta_values,
-            'lambda': lambda_values
-        }
-    
-    def compute_symmetry_functions(self, positions, types, cutoff=6.0):
-        """Compute symmetry functions for atomic environments"""
-        n_atoms = len(positions)
-        n_features = len(self.symmetry_params['eta']) * len(self.symmetry_params['Rs'])
-        features = torch.zeros(n_atoms, n_features)
-        
-        for i in range(n_atoms):
-            feature_idx = 0
-            
-            # Radial symmetry functions
-            for eta in self.symmetry_params['eta']:
-                for Rs in self.symmetry_params['Rs']:
-                    G_rad = 0
-                    
-                    for j in range(n_atoms):
-                        if i == j:
-                            continue
-                        
-                        r_ij = torch.norm(positions[j] - positions[i])
-                        
-                        if r_ij < cutoff:
-                            fc = 0.5 * (torch.cos(np.pi * r_ij / cutoff) + 1)
-                            G_rad += torch.exp(-eta * (r_ij - Rs)**2) * fc
-                    
-                    features[i, feature_idx] = G_rad
-                    feature_idx += 1
-        
-        return features
-    
-    def forward(self, features):
-        """Predict energy from symmetry functions"""
-        return self.network(features)
-    
-    def calculate_forces(self, positions, types):
-        """Calculate forces as negative gradient of energy"""
-        positions.requires_grad = True
-        
-        # Compute features
-        features = self.compute_symmetry_functions(positions, types)
-        
-        # Predict atomic energies
-        atomic_energies = self(features)
-        total_energy = torch.sum(atomic_energies)
-        
-        # Calculate forces
-        forces = -torch.autograd.grad(total_energy, positions,
-                                     create_graph=True)[0]
-        
-        return forces, total_energy
-```
+The extreme eigenvalues of $T_k$ (the *Ritz values*, found with a dense solver since
+$k \ll n$) converge to the extreme eigenvalues of $A$ after only $k \sim 10$–$100$
+iterations, even when $A$ has dimension $10^9$. Crucially, the algorithm never forms
+$A$ explicitly — it needs only the action $A v$, supplied as a function, which is why
+the `lanczos_eigenvalues` routine above accepts a `H_func` with a `matvec`. In finite
+precision the basis loses orthogonality once a Ritz value converges, producing
+spurious "ghost" eigenvalues; robust implementations restore orthogonality with
+selective or full reorthogonalization (this is the engine inside SciPy's `eigsh` and
+ARPACK). The same machinery, run on the action of a spin Hamiltonian, is the basis of
+exact-diagonalization studies of quantum lattice models.
 
-### Fourier Neural Operators (FNO)
+## Performance Optimization in Practice
 
-```python
-class SpectralConv2d(nn.Module):
-    """2D Fourier layer for Neural Operators"""
-    def __init__(self, in_channels, out_channels, modes1, modes2):
-        super().__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.modes1 = modes1  # Number of Fourier modes to keep
-        self.modes2 = modes2
-        
-        self.scale = 1 / (in_channels * out_channels)
-        self.weights1 = nn.Parameter(self.scale * torch.rand(
-            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(
-            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-    
-    def forward(self, x):
-        batch_size = x.shape[0]
-        # Compute Fourier coefficients
-        x_ft = torch.fft.rfft2(x)
-        
-        # Multiply relevant Fourier modes
-        out_ft = torch.zeros(batch_size, self.out_channels, x.size(-2), 
-                           x.size(-1)//2 + 1, dtype=torch.cfloat, device=x.device)
-        
-        out_ft[:, :, :self.modes1, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
-        out_ft[:, :, -self.modes1:, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
-        
-        # Return to physical space
-        x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
-        return x
-    
-    def compl_mul2d(self, input, weights):
-        # Complex multiplication
-        return torch.einsum("bixy,ioxy->boxy", input, weights)
+Hardware peak is rarely reached by accident. The optimizations that matter most, in
+rough order of impact:
 
-class FourierNeuralOperator2d(nn.Module):
-    """Fourier Neural Operator for learning solution operators of PDEs"""
-    def __init__(self, modes1, modes2, width=64, in_channels=3, out_channels=1):
-        super().__init__()
-        self.modes1 = modes1
-        self.modes2 = modes2
-        self.width = width
-        
-        # Input lifting
-        self.fc0 = nn.Linear(in_channels, self.width)
-        
-        # Fourier layers
-        self.conv0 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv1 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv2 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv3 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        
-        # Regular convolutions for local features
-        self.w0 = nn.Conv2d(self.width, self.width, 1)
-        self.w1 = nn.Conv2d(self.width, self.width, 1)
-        self.w2 = nn.Conv2d(self.width, self.width, 1)
-        self.w3 = nn.Conv2d(self.width, self.width, 1)
-        
-        # Output projection
-        self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, out_channels)
-        
-        self.activation = nn.GELU()
-    
-    def forward(self, x):
-        # x: (batch, x, y, channels)
-        x = self.fc0(x)
-        x = x.permute(0, 3, 1, 2)  # (batch, channels, x, y)
-        
-        # Fourier layers with residual connections
-        x1 = self.conv0(x)
-        x2 = self.w0(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv1(x)
-        x2 = self.w1(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv2(x)
-        x2 = self.w2(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv3(x)
-        x2 = self.w3(x)
-        x = x1 + x2
-        
-        x = x.permute(0, 2, 3, 1)  # (batch, x, y, channels)
-        x = self.fc1(x)
-        x = self.activation(x)
-        x = self.fc2(x)
-        return x
+- **Choose the right algorithm first.** A Barnes-Hut tree code turns the $O(N^2)$
+  direct $N$-body sum into $O(N \log N)$; a multigrid solver turns an $O(n^2)$
+  iterative solve into $O(n)$. No amount of low-level tuning beats a better
+  asymptotic complexity.
+- **Respect the memory hierarchy.** Registers and L1 cache are orders of magnitude
+  faster than DRAM. *Cache blocking* (tiling loops so each tile fits in cache) and
+  *structure-of-arrays* layouts (so vector lanes load contiguous data) turn
+  bandwidth-bound kernels into compute-bound ones.
+- **Vectorize.** Modern CPUs execute SIMD instructions (AVX-512 processes 16
+  single-precision lanes at once); aligned, unit-stride, branch-free inner loops let
+  the compiler auto-vectorize.
+- **Overlap communication and computation.** Non-blocking MPI (`Isend`/`Irecv`)
+  lets a rank update its subdomain interior while halo messages are in flight,
+  hiding the network behind useful work.
+- **Exploit hybrid parallelism.** The standard pattern at scale is **MPI + X**: MPI
+  across nodes, OpenMP threads within a node's shared memory, and CUDA on the GPUs —
+  matching each level of parallelism to the corresponding level of the hardware
+  hierarchy.
+- **Measure, don't guess.** Profilers (VTune, Nsight, `perf`, TAU) and the roofline
+  model reveal whether a kernel is bound by compute, bandwidth, latency, or load
+  imbalance — and therefore which of the above to apply. Premature micro-optimization
+  of a kernel that is only 2% of runtime is wasted effort.
 
-# Example: Learning the solution operator for 2D Navier-Stokes
-def train_fno_navier_stokes():
-    """Train FNO to learn the solution operator for 2D turbulence"""
-    model = FourierNeuralOperator2d(modes1=12, modes2=12, width=32)
-    
-    # Training would involve:
-    # 1. Generate training data: initial conditions → solutions at time T
-    # 2. Train model to map: u(x,y,0) → u(x,y,T)
-    # 3. Model learns the solution operator, can generalize to new initial conditions
-    
-    print("FNO architecture created for learning Navier-Stokes solution operator")
-```
+A useful mental model is to classify every hot kernel by its limiting resource and
+attack that resource specifically: bandwidth-bound code wants better locality,
+compute-bound code wants fewer or cheaper instructions and higher occupancy,
+latency-bound code wants more concurrency in flight, and communication-bound code
+wants larger, fewer, overlapped messages.
 
 ---
 
@@ -667,6 +634,8 @@ def train_fno_navier_stokes():
 
 ## See Also
 
-- [Finite Elements &amp; Fluid Dynamics](fem-and-cfd.html) — the Navier-Stokes solvers that FNOs learn to emulate.
-- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html) — embarrassingly parallel sampling and neural-network potentials.
+- [Machine Learning for Physics](ml-for-physics.html) — physics-informed neural networks, neural operators, and learned potentials (the ML material formerly on this page).
+- [Finite Elements &amp; Fluid Dynamics](fem-and-cfd.html) — the sparse linear systems and stencil solvers that these methods accelerate.
+- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html) — embarrassingly parallel sampling, the natural first target for MPI.
+- [Visualization, Libraries &amp; Best Practices](tools-and-practices.html) — profiling tools and the libraries (PETSc, CuPy, mpi4py) used here.
 - [Classical Mechanics](../classical-mechanics/) — the $N$-body dynamics behind GPU gravitational simulations.

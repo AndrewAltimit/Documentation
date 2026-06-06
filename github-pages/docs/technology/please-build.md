@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Please Build
+permalink: /docs/technology/please-build.html
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

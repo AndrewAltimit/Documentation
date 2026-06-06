@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Diffusion Model Outputs - From Text to 3D
+permalink: /docs/ai-ml/output-formats.html
 parent: AI/ML Documentation
 nav_order: 6
 toc: true
@@ -50,19 +51,7 @@ flowchart LR
     Dec --> Out["Output format<br/>(your asset)"]
 ```
 
-Diffusion models now span generative AI well beyond images. The sections below work through each modality's outputs and the export decisions that matter, starting with images (the most mature) and ending with text (the least).
-
-## Text Diffusion (Experimental)
-
-Unlike autoregressive models that emit one token at a time, **text diffusion** models denoise an entire sequence in parallel, refining a noisy draft toward coherent text over a few steps. The appeal is speed (parallel generation) and global coherence; the catch is that the technique is still research-stage and far less mature than image diffusion.
-
-| Model | Status | Notable for |
-|-------|--------|-------------|
-| LLaDA | Open research model | Large diffusion language model, openly available |
-| Mercury (Inception Labs) | Commercial preview | Diffusion LLM marketed for low-latency generation |
-| Gemini Diffusion | Google research preview | Experimental, separate from the mainstream autoregressive Gemini |
-
-Output handling is the same as any LLM: the model emits tokens, and you format them as Markdown, JSON, code, or plain text downstream. There is nothing format-specific about diffusion here beyond the generation method, so for practical text work the autoregressive models remain the default. The genuinely format-rich modalities are images, video, audio, and 3D, covered next.
+Diffusion models now span generative AI well beyond images. The sections below work through each modality's outputs and the export decisions that matter **in order of maturity** — starting with images (by far the most mature and format-rich), then video, audio, and 3D, and ending with text, which is still experimental.
 
 ## Image Diffusion Outputs: The Visual Foundation
 
@@ -305,6 +294,18 @@ flowchart LR
     Clean --> Exp["Export<br/>glTF / FBX / USDZ"]
     Exp --> Eng["Game engine / web / AR"]
 ```
+
+## Text Diffusion (Experimental)
+
+The least mature modality, included here for completeness. Unlike autoregressive models that emit one token at a time, **text diffusion** models denoise an entire sequence in parallel, refining a noisy draft toward coherent text over a few steps. The appeal is speed (parallel generation) and global coherence; the catch is that the technique is still research-stage and far less mature than image diffusion.
+
+| Model | Status | Notable for |
+|-------|--------|-------------|
+| LLaDA | Open research model | Large diffusion language model, openly available |
+| Mercury (Inception Labs) | Commercial preview | Diffusion LLM marketed for low-latency generation |
+| Gemini Diffusion | Google research preview | Experimental, separate from the mainstream autoregressive Gemini |
+
+Output handling is the same as any LLM: the model emits tokens, and you format them as Markdown, JSON, code, or plain text downstream. There is nothing format-specific about diffusion here beyond the generation method, so for practical text work the autoregressive models remain the default. For genuinely format-rich work, the image, video, audio, and 3D modalities above are where the export decisions actually matter.
 
 ## Choosing a Format: Decision Matrix
 

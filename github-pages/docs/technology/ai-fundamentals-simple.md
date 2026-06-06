@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Artificial Intelligence Fundamentals
+permalink: /docs/technology/ai-fundamentals-simple.html
 section: technology
 hide_title: true
 toc: true

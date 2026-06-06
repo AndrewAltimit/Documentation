@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Networking & Content Delivery
+permalink: /docs/technology/aws/networking.html
 hide_title: true
 toc: true
 toc_sticky: true

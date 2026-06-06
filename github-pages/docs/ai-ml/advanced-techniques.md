@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Advanced Techniques & Workflows
+permalink: /docs/ai-ml/advanced-techniques.html
 parent: AI/ML Documentation
 nav_order: 8
 toc: true
@@ -142,6 +143,49 @@ with $\rho \approx 7$, which concentrates steps in the perceptually important mi
 
 If you need strong prompt adherence (high CFG) but get oversaturated results, enable **CFG rescale** (sometimes "CFG rescale φ", ~0.7) rather than just lowering CFG. It keeps the prompt-following strength while pulling the output's statistics back toward natural contrast.
 
+## Picking and Tuning Samplers
+
+Two ideas explain most sampler behavior:
+
+- **Ancestral samplers** (the `_a` family, e.g. `euler_a`) inject fresh noise each step, so they keep exploring and never fully converge — great for creative variety, worse for reproducibility. Non-ancestral samplers (`euler`, `dpmpp_2m`) converge to a stable image as steps increase.
+- **Best-of-N selection** is the simplest quality boost: generate several seeds and keep the best. Automated pickers score candidates with an aesthetic or CLIP model, but for most work, eyeballing a batch of 4-8 is enough and avoids baking a scorer's bias into your output.
+
+## Few-Step Generation: How the Speedups Work
+
+Standard diffusion needs 20-50 steps because each step makes a small, careful move along a curved path from noise to image. The techniques below all attack that step count — and you mostly *consume* them (as an LCM-LoRA, a Turbo/Lightning checkpoint, or a FLUX-schnell model) rather than implement them. Knowing what each does explains their trade-offs:
+
+| Method | Idea | Steps | Trade-off |
+|--------|------|-------|-----------|
+| Consistency distillation (LCM, TCD) | Train a student to jump directly toward the clean image from any point on the path | 4-8 | Slight softness; LCM ships as a portable LoRA |
+| Adversarial distillation (ADD → SDXL-Turbo) | Add a GAN-style discriminator so few-step outputs look real, not blurry | 1-4 | Less diversity; can over-sharpen |
+| Latent Adversarial (LADD → SD3-Turbo) | ADD applied in latent space for higher-res efficiency | 1-4 | Same family of trade-offs |
+| Rectified flow (FLUX, SD3) | Train near-straight paths that an ODE solver can traverse in few steps | 20-28 (1-4 distilled) | Architectural, not bolt-on |
+
+**Consistency models** ask the network to map *any* noisy point on a trajectory to the same endpoint, so a handful of big steps replace many small ones. **Adversarial distillation** instead pits the few-step generator against a discriminator, which is why SDXL-Turbo produces a usable image in a single step. Both are *distillations* of a slow teacher model — you trade a little diversity and fidelity for a large speedup.
+
+### Flow Matching
+
+The alternative to traditional diffusion used in FLUX and SD3. Instead of predicting noise, the model learns a **velocity field** that transports a sample along a straight path from noise $\mathbf{x}_0$ to data $\mathbf{x}_1$. The interpolant and its target velocity are simply:
+
+$$\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \qquad \mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$$
+
+The model is trained to match that velocity, $\mathcal{L} = \mathbb{E}\big[\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0)\rVert^2\big]$. Because the target paths are nearly straight, sampling needs far fewer ODE steps than classic diffusion:
+
+```python
+def flow_matching_loss(model, x0, x1, t):
+    """Rectified flow training"""
+    # Interpolate between noise and data
+    xt = t * x1 + (1 - t) * x0
+    
+    # Target velocity
+    target_v = x1 - x0
+    
+    # Predicted velocity vs. target; the loss is a simple MSE
+    return F.mse_loss(model(xt, t), target_v)
+```
+
+Sampling then just integrates that velocity field as an ODE — start at noise and step forward with $\mathbf{x}_{t+\Delta t} = \mathbf{x}_t + \mathbf{v}_\theta(\mathbf{x}_t, t)\,\Delta t$. Because the learned paths are nearly straight, a coarse step size still lands on a good image.
+
 ## Multi-Stage Workflows
 
 The strongest images rarely come from one pass. Multi-stage pipelines generate a solid base, then add resolution and detail in controlled increments — each pass at a lower denoise so it refines rather than redraws.
@@ -210,55 +254,12 @@ At the expert level, prompting becomes less about stacking adjectives and more a
 - **Push concepts into regions or weights** when a flat prompt won't separate two subjects — use the regional prompting and composable-diffusion techniques above instead of longer prose.
 - **Let a VLM draft the prompt.** A vision-language model can caption a reference image into a detailed starting prompt you then refine — a practical substitute for hand-tuning from scratch.
 
-## Picking and Tuning Samplers
-
-Two ideas explain most sampler behavior:
-
-- **Ancestral samplers** (the `_a` family, e.g. `euler_a`) inject fresh noise each step, so they keep exploring and never fully converge — great for creative variety, worse for reproducibility. Non-ancestral samplers (`euler`, `dpmpp_2m`) converge to a stable image as steps increase.
-- **Best-of-N selection** is the simplest quality boost: generate several seeds and keep the best. Automated pickers score candidates with an aesthetic or CLIP model, but for most work, eyeballing a batch of 4-8 is enough and avoids baking a scorer's bias into your output.
-
 ## Advanced ControlNet Techniques
 
 Two patterns extend basic ControlNet (covered fully in the [ControlNet guide](controlnet.html)):
 
 - **Control windowing.** Apply structure strongly early (when composition is set) and release it before the final steps via `end_percent`, so late steps add detail the control map never specified. This is the practical form of "multi-scale" control and prevents the traced look.
 - **Temporal control for video.** Extracting a control map per frame causes flicker because each map is computed independently. Blending each frame's map slightly toward the previous frame's smooths the conditioning over time, reducing jitter — a cheap consistency win before reaching for dedicated video models.
-
-## Few-Step Generation: How the Speedups Work
-
-Standard diffusion needs 20-50 steps because each step makes a small, careful move along a curved path from noise to image. The techniques below all attack that step count — and you mostly *consume* them (as an LCM-LoRA, a Turbo/Lightning checkpoint, or a FLUX-schnell model) rather than implement them. Knowing what each does explains their trade-offs:
-
-| Method | Idea | Steps | Trade-off |
-|--------|------|-------|-----------|
-| Consistency distillation (LCM, TCD) | Train a student to jump directly toward the clean image from any point on the path | 4-8 | Slight softness; LCM ships as a portable LoRA |
-| Adversarial distillation (ADD → SDXL-Turbo) | Add a GAN-style discriminator so few-step outputs look real, not blurry | 1-4 | Less diversity; can over-sharpen |
-| Latent Adversarial (LADD → SD3-Turbo) | ADD applied in latent space for higher-res efficiency | 1-4 | Same family of trade-offs |
-| Rectified flow (FLUX, SD3) | Train near-straight paths that an ODE solver can traverse in few steps | 20-28 (1-4 distilled) | Architectural, not bolt-on |
-
-**Consistency models** ask the network to map *any* noisy point on a trajectory to the same endpoint, so a handful of big steps replace many small ones. **Adversarial distillation** instead pits the few-step generator against a discriminator, which is why SDXL-Turbo produces a usable image in a single step. Both are *distillations* of a slow teacher model — you trade a little diversity and fidelity for a large speedup.
-
-### Flow Matching
-
-The alternative to traditional diffusion used in FLUX and SD3. Instead of predicting noise, the model learns a **velocity field** that transports a sample along a straight path from noise $\mathbf{x}_0$ to data $\mathbf{x}_1$. The interpolant and its target velocity are simply:
-
-$$\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \qquad \mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$$
-
-The model is trained to match that velocity, $\mathcal{L} = \mathbb{E}\big[\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0)\rVert^2\big]$. Because the target paths are nearly straight, sampling needs far fewer ODE steps than classic diffusion:
-
-```python
-def flow_matching_loss(model, x0, x1, t):
-    """Rectified flow training"""
-    # Interpolate between noise and data
-    xt = t * x1 + (1 - t) * x0
-    
-    # Target velocity
-    target_v = x1 - x0
-    
-    # Predicted velocity vs. target; the loss is a simple MSE
-    return F.mse_loss(model(xt, t), target_v)
-```
-
-Sampling then just integrates that velocity field as an ODE — start at noise and step forward with $\mathbf{x}_{t+\Delta t} = \mathbf{x}_t + \mathbf{v}_\theta(\mathbf{x}_t, t)\,\Delta t$. Because the learned paths are nearly straight, a coarse step size still lands on a good image.
 
 ## Automating and Scaling Workflows
 

@@ -44,14 +44,21 @@ flowchart TD
 ```
 
 ## Table of Contents
+
+The page follows the natural arc of the field: first the **model of computation**, then the **landmark algorithms** that exploit it, then the **complexity theory** that bounds what they can achieve, then the **error correction** that makes them physically realizable, and finally the **near-term and frontier** directions that dominate current research.
+
 - [Quantum Computation Model](#quantum-computation-model)
-- [Fundamental Quantum Algorithms](#fundamental-quantum-algorithms)
-- [Quantum Complexity Theory](#quantum-complexity-theory)
-- [Quantum Error Correction](#quantum-error-correction)
+- [Fundamental Quantum Algorithms](#fundamental-quantum-algorithms) — Shor, Grover, QFT, HHL
+- [Quantum Complexity Theory](#quantum-complexity-theory) — BQP and quantum advantage
+- [Quantum Error Correction](#quantum-error-correction) — stabilizer & surface codes, fault tolerance
+- [Current Research Frontiers](#current-research-frontiers) — NISQ, simulation, error mitigation
 - [Quantum Machine Learning](#quantum-machine-learning)
 - [Topological Quantum Computing](#topological-quantum-computing)
+- [Further Frontier Topics](#further-frontier-topics) — optimization, post-quantum crypto, Shannon theory
 
 ## Quantum Computation Model
+
+Before any algorithm, we need the rules of the game. A classical computer manipulates bits with logic gates; a quantum computer manipulates *amplitudes* — complex numbers attached to each possible bit-string — with unitary gates, and reads out a single bit-string at the end via measurement. The entire art is to choreograph those amplitudes so the measurement is likely to reveal the answer we want. This section fixes the three primitives every later algorithm is built from: the state space, the gates, and measurement. (For runnable circuits illustrating these primitives in Qiskit and Cirq, see the [Quantum Computing Hub](../../quantum-computing/).)
 
 ### Mathematical Foundations
 
@@ -94,7 +101,11 @@ $$U_f\left(\frac{1}{\sqrt{2^n}}\sum_x |x\rangle\right)|0\rangle = \frac{1}{\sqrt
 
 ## Fundamental Quantum Algorithms
 
+With the model in hand, we turn to the algorithms that made the field famous. Two of them anchor the whole landscape: **Shor's algorithm** wrings an *exponential* speedup out of hidden periodic structure, while **Grover's algorithm** wrings only a *quadratic* one out of structureless search — and that contrast (structure buys exponential gains, its absence caps you at quadratic) is the single most important intuition in quantum algorithm design. Underneath Shor sits the **quantum Fourier transform**, the reusable engine for detecting periodicity, and **HHL** shows how the same phase-estimation machinery attacks linear algebra. We present them in that dependency order.
+
 ### Shor's Algorithm
+
+> **Intuition.** Factoring $N$ is hard, but it reduces to a problem a quantum computer loves: finding the *period* of the function $f(x) = a^x \bmod N$. Classically you cannot see this period without exponentially many evaluations; quantumly you evaluate $f$ on a superposition of all inputs at once, then use the QFT to make every amplitude *except those at multiples of the period* interfere destructively. The surviving peaks reveal the period, and elementary number theory turns the period into a factor.
 
 **Problem**: Factor $N = pq$ where $p, q$ are prime.
 
@@ -113,6 +124,10 @@ $$U_f\left(\frac{1}{\sqrt{2^n}}\sum_x |x\rangle\right)|0\rangle = \frac{1}{\sqrt
 5. Measure, then use continued fractions to recover $r$
 
 **Complexity**: $O((\log N)^3)$ versus the best classical $O\!\left(\exp((\log N)^{1/3})\right)$.
+
+<div class="advanced-note" markdown="1">
+**Why this matters for cryptography.** The same exponential speedup that factors $N$ also computes discrete logarithms, so a large fault-tolerant quantum computer running Shor's algorithm breaks RSA, Diffie–Hellman, and elliptic-curve cryptography outright — the public-key primitives securing essentially all internet traffic. This is the entire reason the field is migrating to lattice-, code-, hash-, and isogeny-based replacements. See [Cryptography: Foundations & Post-Quantum](../cryptography/) for how those replacements are constructed and why Grover only forces a doubling of symmetric key lengths rather than a wholesale redesign.
+</div>
 
 **Period Finding Analysis**:
 
@@ -166,6 +181,8 @@ This is a crucial reality check: the dramatic exponential speedups (Shor) requir
 
 ### Quantum Fourier Transform
 
+The QFT is the periodicity-detector that powered Shor's period-finding step above, and it reappears inside phase estimation and HHL below. Its magic is efficiency: the classical FFT on $2^n$ amplitudes costs $O(n 2^n)$ operations, but the quantum version factorizes into a tensor product of single-qubit phase rotations and runs in $O(n^2)$ gates. It never *outputs* the Fourier coefficients (a measurement would collapse them) — instead it leaves periodic structure encoded as constructive interference at the right basis states.
+
 **Definition**: Maps computational basis to Fourier basis:
 
 $$\mathrm{QFT}: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\rangle$$
@@ -179,6 +196,8 @@ which is exactly why it needs only $O(n^2)$ gates.
 **Complexity**: $O(n^2)$ gates versus $O(n 2^n)$ for the classical FFT.
 
 ### HHL Algorithm (Quantum Linear Systems)
+
+> **Intuition.** HHL reuses Shor's phase-estimation machinery in a new setting. To "solve" $Ax = b$, decompose $|b\rangle$ in the eigenbasis of $A$, use phase estimation to write each eigenvalue $\lambda_i$ into a register, then apply a rotation proportional to $1/\lambda_i$ — effectively multiplying by $A^{-1}$ eigenvalue-by-eigenvalue. The catch (and the reason HHL is not a blanket speedup) is that the answer lives in the *quantum state* $|x\rangle$, not as a readable vector: you can only extract summary statistics like $\langle x|M|x\rangle$, and the cost scales with the condition number $\kappa$.
 
 **Problem**: Solve $Ax = b$ for $x$, given a Hermitian matrix $A$.
 
@@ -199,6 +218,8 @@ which is exactly why it needs only $O(n^2)$ gates.
 **Complexity**: $O(\log N \cdot \kappa^2/\epsilon)$ where $\kappa$ is the condition number.
 
 ## Quantum Complexity Theory
+
+Having seen what specific algorithms achieve, the natural question is what quantum computers can achieve *in principle*. Complexity theory answers it by placing the class of efficiently-quantum-solvable problems, **BQP**, on the map relative to classical classes. The punchline is a measured one: BQP is believed to strictly contain classical randomized computation (BPP) — so quantum is genuinely more powerful — yet it sits inside PSPACE, so quantum computers are not omnipotent and almost certainly cannot solve NP-complete problems in polynomial time. (For the underlying classical hierarchy P/NP/PSPACE, see [Complexity Theory](../complexity-theory/).)
 
 ### Complexity Classes
 
@@ -243,6 +264,8 @@ $$\mathrm{BPP} \subseteq \mathrm{BQP} \subseteq \mathrm{PP} \subseteq \mathrm{PS
 - Quantum: $O(\log n)$ with prior entanglement
 
 ## Quantum Error Correction
+
+Every algorithm above assumes perfect unitaries, but real qubits decohere within microseconds and every gate is slightly wrong. Quantum error correction is what bridges the gap between the idealized circuits and physical hardware — and it is far subtler than classical error correction because the no-cloning theorem forbids simple copying, and *measuring* a qubit to check it would destroy the very superposition you are protecting. The resolution is to spread one logical qubit across many physical ones and measure only *parities* (stabilizers), which reveal errors without revealing — and thus without collapsing — the encoded data. The **threshold theorem** then promises that once physical error rates dip below a constant, arbitrarily long computations become reliable.
 
 ### Quantum Error Model
 
@@ -300,7 +323,51 @@ In short: if physical error rate $p < p_{\text{th}}$, arbitrarily long quantum c
 2. Fault-tolerant gates prevent error spread
 3. Recursive construction maintains low error rate
 
+## Current Research Frontiers
+
+Fault tolerance is years away, so most working quantum hardware today is **NISQ** — Noisy, Intermediate-Scale Quantum: tens to hundreds of qubits with no error correction. The dominant strategy is *hybrid*: let a shallow, noise-tolerant quantum circuit do the part it is good at and hand the rest to a classical optimizer. This section collects the near-term toolbox — variational algorithms, Hamiltonian simulation, and the error-*mitigation* techniques that squeeze signal out of noisy runs without the overhead of full error correction.
+
+### NISQ Algorithms
+
+**Variational Quantum Eigensolver (VQE)**:
+- Find ground state of H
+- Ansatz |ψ(θ)⟩ with classical optimization
+- Challenges: Barren plateaus, noise resilience
+
+**Breakthrough Techniques (2023-2024)**:
+- **Symmetry-Preserving Ansätze**: Reduce search space
+- **Adaptive VQE**: Dynamically grow circuit depth
+- **Error-Mitigated VQE**: Zero-noise extrapolation
+- **Quantum Embedding**: Solve larger problems on small devices
+
+### Quantum Simulation
+
+**Digital Quantum Simulation**: Trotter decomposition,
+$$e^{-iHt} \approx \left(\prod_j e^{-iH_j t/n}\right)^n,$$
+
+with error $O(t^2/n)$ for the first-order Trotter formula.
+
+### Quantum Error Mitigation
+
+Error *mitigation* is the NISQ-era cousin of error *correction*: instead of encoding logical qubits (which costs more qubits than current devices have), it accepts noisy outputs and statistically post-processes them toward the noise-free answer.
+
+**Zero Noise Extrapolation**:
+- Run the circuit at noise levels $\lambda, 2\lambda, 3\lambda, \ldots$
+- Extrapolate to $\lambda = 0$
+
+**Probabilistic Error Cancellation**:
+- Decompose noise as sum of Pauli operations
+- Cancel via post-processing
+
+**Advanced Mitigation (2023-2024)**:
+- **Clifford Data Regression**: Learn noise from classical shadows
+- **Virtual Distillation**: Exponential error suppression
+- **Symmetry Verification**: Detect and correct logical errors
+- **Machine Learning Mitigation**: Neural networks predict noise-free results
+
 ## Quantum Machine Learning
+
+A natural NISQ application is machine learning: parameterized quantum circuits act as trainable models, and the hope is that quantum feature spaces capture correlations no efficient classical model can. The promise is real but guarded — quantum kernels give provable advantage only on specially structured data, and the **barren-plateau** phenomenon (exponentially vanishing gradients) is the central obstacle to training large quantum models.
 
 ### Quantum Kernel Methods
 
@@ -308,7 +375,7 @@ In short: if physical error rate $p < p_{\text{th}}$, arbitrarily long quantum c
 
 **Quantum Kernel**: $K(x,x') = |\langle\phi(x)|\phi(x')\rangle|^2$
 
-**Quantum Advantage**: arises when classically computing $K(x,x')$ is $\#\mathrm{P}$-hard yet the quantum circuit evaluates it efficiently.
+**Quantum Advantage**: arises when classically computing $K(x,x')$ is $\#\mathrm{P}$-hard yet the quantum circuit evaluates it efficiently. (For the classical kernel and feature-map theory this builds on, see [AI Mathematics](../ai-mathematics/).)
 
 ### Variational Quantum Algorithms
 
@@ -339,6 +406,8 @@ $$L(\theta) = \langle\psi(\theta)|H|\psi(\theta)\rangle$$
 $$\text{Var}[\partial_i L] \sim O(2^{-n})$$
 
 ## Topological Quantum Computing
+
+A radically different route to fault tolerance encodes information not in fragile local states but in *global, topological* properties of an exotic phase of matter — properties that local noise physically cannot disturb. If realized, anyonic braiding would make error protection a feature of the hardware rather than an expensive software layer, which is why it remains one of the most ambitious long-term bets in the field.
 
 ### Anyonic Computing
 
@@ -372,7 +441,9 @@ $$H = -\mu\sum_i c_i^\dagger c_i - t\sum_i(c_i^\dagger c_{i+1} + h.c.) + \Delta\
 
 $$\gamma_1 = \sum_i \left(\frac{-\mu}{2t}\right)^i (c_i + c_i^\dagger)$$
 
-## Advanced Topics
+## Further Frontier Topics
+
+Three more directions round out the research landscape: encoding optimization problems into Hamiltonians for adiabatic solution, the post-quantum cryptography that Shor's threat makes urgent, and the information-theoretic limits of quantum channels.
 
 ### Quantum Algorithms for Optimization
 
@@ -400,43 +471,7 @@ $$C = \max_{\{p_i, \rho_i\}} S\left(\sum_i p_i \rho_i\right) - \sum_i p_i S(\rho
 **Quantum Capacity**: uses the coherent information,
 $$Q = \max_\rho I(A\rangle B)_{\rho}.$$
 
-## Current Research Frontiers
-
-### NISQ Algorithms
-
-**Variational Quantum Eigensolver (VQE)**:
-- Find ground state of H
-- Ansatz |ψ(θ)⟩ with classical optimization
-- Challenges: Barren plateaus, noise resilience
-
-**Breakthrough Techniques (2023-2024)**:
-- **Symmetry-Preserving Ansätze**: Reduce search space
-- **Adaptive VQE**: Dynamically grow circuit depth
-- **Error-Mitigated VQE**: Zero-noise extrapolation
-- **Quantum Embedding**: Solve larger problems on small devices
-
-### Quantum Simulation
-
-**Digital Quantum Simulation**: Trotter decomposition,
-$$e^{-iHt} \approx \left(\prod_j e^{-iH_j t/n}\right)^n,$$
-
-with error $O(t^2/n)$ for the first-order Trotter formula.
-
-### Quantum Error Mitigation
-
-**Zero Noise Extrapolation**:
-- Run the circuit at noise levels $\lambda, 2\lambda, 3\lambda, \ldots$
-- Extrapolate to $\lambda = 0$
-
-**Probabilistic Error Cancellation**:
-- Decompose noise as sum of Pauli operations
-- Cancel via post-processing
-
-**Advanced Mitigation (2023-2024)**:
-- **Clifford Data Regression**: Learn noise from classical shadows
-- **Virtual Distillation**: Exponential error suppression
-- **Symmetry Verification**: Detect and correct logical errors
-- **Machine Learning Mitigation**: Neural networks predict noise-free results
+The post-quantum cryptography sketched above is treated in full — including the LWE/lattice constructions, NIST standardization, and the SIKE break — in [Cryptography: Foundations & Post-Quantum](../cryptography/).
 
 ## Emerging Applications
 

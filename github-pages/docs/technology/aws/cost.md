@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Cost Optimization"
+permalink: /docs/technology/aws/cost.html
 hide_title: true
 toc: true
 toc_sticky: true

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Stable Diffusion Fundamentals
+permalink: /docs/ai-ml/stable-diffusion-fundamentals.html
 parent: AI/ML Documentation
 nav_order: 1
 toc: true

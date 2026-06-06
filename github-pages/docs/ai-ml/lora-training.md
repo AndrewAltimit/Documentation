@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: LoRA Training Guide
+permalink: /docs/ai-ml/lora-training.html
 parent: AI/ML Documentation
 nav_order: 3
 toc: true

@@ -30,23 +30,51 @@ Without Kubernetes, you would need custom scripts, manual intervention, and cons
 
 ## Learning Path
 
-The four guides build on each other. Start at Fundamentals if you are new; jump ahead if you already run clusters.
+The guides build on each other. Start with the Fundamentals track if you are new; jump ahead if you already run clusters.
+
+### Fundamentals
+
+Three focused pages covering everything you need to run real workloads.
 
 <div class="command-grid">
   <div class="nav-card">
-    <h4><a href="fundamentals.html">1. Fundamentals</a></h4>
-    <p>Start here. Cluster architecture, the apply control flow, Pods, Deployments, Services, Ingress, labels, and namespaces.</p>
+    <h4><a href="fundamentals.html">Part I: Core Concepts</a></h4>
+    <p>Start here. Cluster architecture, the apply control flow, Pods, Deployments, labels, and namespaces.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="workloads.html">2. Workloads &amp; Storage</a></h4>
-    <p>StatefulSets, DaemonSets, Jobs/CronJobs, persistent volumes, autoscaling, ConfigMaps/Secrets, RBAC, and Pod Security.</p>
+    <h4><a href="fundamentals-networking.html">Networking &amp; Configuration</a></h4>
+    <p>Services and kube-proxy, Ingress, NetworkPolicies, ConfigMaps and Secrets, and RBAC.</p>
   </div>
   <div class="nav-card">
-    <h4><a href="operations.html">3. Operations</a></h4>
+    <h4><a href="fundamentals-resources.html">Health &amp; Resource Management</a></h4>
+    <p>Liveness/readiness probes, requests and limits, QoS classes, scheduling, and horizontal autoscaling.</p>
+  </div>
+</div>
+
+### Stateful Workloads & Operations
+
+Going beyond stateless apps: storage, controllers, and day-two operations.
+
+<div class="command-grid">
+  <div class="nav-card">
+    <h4><a href="workloads.html">Workloads</a></h4>
+    <p>StatefulSets, DaemonSets, Jobs/CronJobs, autoscaling, and Pod Security for managing diverse application types.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="persistence.html">Stateful Workloads &amp; Persistence</a></h4>
+    <p>Persistent volumes, dynamic provisioning, StatefulSet ordering, backup and disaster recovery, and database patterns.</p>
+  </div>
+  <div class="nav-card">
+    <h4><a href="operations.html">Operations</a></h4>
     <p>kubectl power use, Helm, sidecar/init-container patterns, a systematic troubleshooting guide, and a production checklist.</p>
   </div>
+</div>
+
+### Going Further
+
+<div class="command-grid">
   <div class="nav-card">
-    <h4><a href="advanced.html">4. Advanced Topics</a></h4>
+    <h4><a href="advanced.html">Advanced Topics</a></h4>
     <p>CRDs and Operators, service mesh, GitOps, performance tuning, certifications (CKA/CKAD/CKS), and the ecosystem.</p>
   </div>
 </div>

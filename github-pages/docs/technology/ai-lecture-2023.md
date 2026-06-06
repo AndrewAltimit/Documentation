@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Artificial Intelligence Deep Dive
+permalink: /docs/technology/ai-lecture-2023.html
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
@@ -18,7 +19,7 @@ hide_title: true
 <div class="intro-card">
   <p class="lead-text"><strong>Unraveling the AI revolution: the rise of advanced language models.</strong> This is the <em>deep dive</em> — a research-level tour of neural network foundations, the transformer architecture, the major LLM families (BERT, GPT, Llama, and friends), real-world usage, and the security and ethics that come with them. It assumes you are comfortable with the basics; if not, start with the gentler pages below.</p>
 
-  <p class="lead-text"><em>Note: this page is a historical snapshot from 2023, preserved as-is. Model names, capabilities, and product details reflect the state of the field at that time.</em></p>
+  <p class="lead-text"><em>Note: this is a dated current-state reference, last reviewed June 2026. The architectural foundations (neural networks, transformers, attention) are stable; the model names, capabilities, and product details below are timestamped so you can see how current each claim is and when it was last verified.</em></p>
 </div>
 
 <div class="tip-card">
@@ -287,14 +288,18 @@ GPT-3 contains 175 billion parameters and demonstrates strong performance on a w
 
 **GPT-4 (2023)**
 
-GPT-4 is a multimodal model (text and images) with significantly enhanced capabilities over GPT-3.5. While the exact parameter count remains undisclosed, it demonstrates improved reasoning, reduced hallucinations, and better instruction following. GPT-4 Turbo (November 2023) added a 128K context window, function calling, and improved performance.
+GPT-4 is a multimodal model (text and images) with significantly enhanced capabilities over GPT-3.5. While the exact parameter count remains undisclosed, it demonstrates improved reasoning, reduced hallucinations, and better instruction following. GPT-4 Turbo (November 2023) added a 128K context window, function calling, and improved performance. GPT-4o (May 2024) unified text, vision, and audio in a single model with much lower latency.
 
-**Recent Developments**
+**Recent Developments (as of June 2026)**
 
-- **Claude 3 (Anthropic)**: Family of models (Haiku, Sonnet, Opus) with strong performance across benchmarks
-- **Gemini (Google)**: Multimodal models processing text, images, audio, and video natively
-- **Llama 3 (Meta)**: Open-source models with 8B and 70B parameters, trained on 15T tokens
-- **Mistral & Mixtral**: Efficient open-source models using mixture of experts architecture
+The frontier moved quickly past the original GPT-4 generation. The families below are the major lineages in active use; treat specific version numbers as a snapshot of mid-2026:
+
+- **GPT-4o / o-series (OpenAI)**: GPT-4o for fast multimodal chat, plus the o1/o3 "reasoning" line that spends extra inference-time compute on chained reasoning
+- **Claude 3 / 3.5 / Opus 4 (Anthropic)**: Family spanning fast (Haiku) to high-capability (Opus) models, with 200K+ token context and strong coding and reasoning performance
+- **Gemini (Google)**: Multimodal models processing text, images, audio, and video natively, with context windows reaching 1M+ tokens
+- **Llama 3 / 4 (Meta)**: Open-weight models that anchor most self-hosted deployments; Llama 3 shipped 8B and 70B variants trained on 15T tokens
+- **Mistral & Mixtral**: Efficient open-weight models, several using mixture-of-experts architectures
+- **DeepSeek**: Open-weight models including the R1 reasoning line that brought test-time compute to the open ecosystem
 
 #### Training
 
@@ -518,9 +523,9 @@ Advanced LLMs can be used for malicious purposes, such as generating deepfake co
 
 ## Looking Ahead
 
-**Current State**
+**Current State (as of June 2026)**
 
-The AI landscape has evolved dramatically:
+The AI landscape has continued to evolve rapidly since the transformer breakthrough:
 - **Multimodal Models**: GPT-4V, Gemini, and Claude 3 can process images, with video capabilities emerging
 - **Longer Context Windows**: Models now handle 100K-1M tokens (Claude 3: 200K, Gemini 1.5: 1M)
 - **Better Reasoning**: A new class of "reasoning" models (OpenAI's o1/o3, DeepSeek-R1) spend extra inference-time compute on chained reasoning, sharply improving math and logic

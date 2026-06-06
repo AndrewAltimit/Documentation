@@ -95,6 +95,189 @@ security-scan:
      - echo "Deployed by $CI_USER at $CI_TIMESTAMP" >> audit.log
    ```
 
+## Software Supply-Chain Security
+
+The classic threat model assumes attackers come through the front door — the running application. Supply-chain attacks come through the *build*: a compromised dependency (SolarWinds, `event-stream`, the `xz` backdoor), a poisoned base image, a stolen signing key, or a tampered build step that injects malware into an otherwise-legitimate artifact. Because the resulting binary is signed and shipped through normal channels, downstream consumers trust it implicitly. Supply-chain security closes this gap by making the **provenance** of every artifact verifiable: *what* source produced it, *which* builder ran, and *what* it depends on — all cryptographically attested and checked before deployment.
+
+The pieces fit together as a chain of evidence:
+
+```
+source ──build──▶ artifact ──sign──▶ signature
+   │                  │                   │
+   └─ dependency      └─ SBOM             └─ provenance attestation
+      scanning           (bill of            (SLSA: who/how/from-what)
+                          materials)
+                              │
+                       admission/verify gate ──▶ deploy
+```
+
+### SLSA: Levels of Build Integrity
+
+**SLSA** (Supply-chain Levels for Software Artifacts, pronounced "salsa") is a framework that grades how trustworthy an artifact's build process is. It is *not* a tool — it is a set of requirements you satisfy by hardening your pipeline. The current v1.0 track focuses on **build provenance**:
+
+| Level | Requirement | What it stops |
+|-------|-------------|---------------|
+| **L0** | No guarantees | Nothing |
+| **L1** | Provenance exists — build emits a signed record of how the artifact was produced | Mistakes; "where did this binary come from?" |
+| **L2** | Provenance is **signed** by a hosted build platform; source and build are version-controlled | Tampering with provenance after the fact |
+| **L3** | Build runs on a **hardened, isolated** platform; provenance is **non-forgeable** (signed by the platform, not the build script) | A malicious build step forging its own provenance; cross-build contamination |
+
+The key idea at L3 is **isolation**: the build environment cannot reach the signing key, so even a fully compromised build *script* cannot forge a valid provenance attestation. GitHub-hosted runners with the `slsa-framework/slsa-github-generator` reusable workflow reach L3 because the signing happens in a separate, trusted reusable workflow your job cannot tamper with.
+
+{% raw %}
+```yaml
+# SLSA L3 provenance via the official GitHub generator
+jobs:
+  build:
+    outputs:
+      digest: ${{ steps.hash.outputs.digest }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make release   # produces ./dist/app
+      - id: hash
+        run: echo "digest=$(sha256sum dist/app | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read       # read the workflow run
+      id-token: write     # OIDC token for keyless signing
+      contents: write     # attach provenance to the release
+    # The reusable workflow runs isolated from your build job — this is what
+    # makes the provenance non-forgeable and earns L3.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.digest }}
+```
+{% endraw %}
+
+### Artifact Signing with Cosign and Sigstore
+
+Signing answers "is this the exact artifact the build produced, and did *we* publish it?" Traditionally this meant long-lived GPG/PGP keys that teams had to store, rotate, and inevitably leak. **Sigstore** replaces long-lived keys with **keyless signing**: an ephemeral key pair is minted per-signature, certified against an OIDC identity (your GitHub Actions workload identity, a Google account, etc.) by the **Fulcio** CA, and the signing event is recorded in **Rekor**, a public tamper-evident transparency log. The private key is discarded seconds later — there is nothing long-lived to steal.
+
+**cosign** is the CLI that drives this for container images and arbitrary blobs:
+
+```yaml
+sign-image:
+  permissions:
+    id-token: write     # Sigstore OIDC keyless signing
+    packages: write     # push the signature to the registry
+  steps:
+    - uses: sigstore/cosign-installer@v3
+
+    # Keyless: identity comes from the GitHub Actions OIDC token,
+    # certificate from Fulcio, signature logged in Rekor.
+    - name: Sign the image
+      run: cosign sign --yes ghcr.io/myorg/app@${IMAGE_DIGEST}
+
+    # Verify before deploy — pin the expected identity and issuer so a
+    # signature from any other workflow is rejected.
+    - name: Verify
+      run: |
+        cosign verify ghcr.io/myorg/app@${IMAGE_DIGEST} \
+          --certificate-identity-regexp '^https://github.com/myorg/' \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+> **Always sign and verify by digest (`@sha256:...`), never by tag.** Tags are mutable — `:latest` can be repointed at a malicious image after you sign the tag. The digest is the content hash, so a signature over a digest is a signature over exactly those bytes. See [Docker Registry & Distribution](../docker/registry.html#image-signing) for how digests, tags, and content trust work at the registry level.
+
+### SBOM Generation and Attestation
+
+A **Software Bill of Materials** is a complete, machine-readable inventory of every component in an artifact — direct and transitive dependencies, versions, licenses, and hashes. When the next `Log4Shell`-class CVE drops, the question "are we affected, and where?" becomes a query against stored SBOMs instead of a frantic codebase audit. The two dominant formats are **SPDX** (ISO standard, license-focused) and **CycloneDX** (OWASP, security-focused); most tools emit both.
+
+```yaml
+sbom:
+  steps:
+    # Generate an SBOM from the built image (syft works on images, dirs, archives)
+    - run: |
+        syft ghcr.io/myorg/app@${IMAGE_DIGEST} \
+          -o spdx-json=sbom.spdx.json \
+          -o cyclonedx-json=sbom.cdx.json
+
+    # Attach the SBOM to the image as a signed attestation, not a loose file.
+    # An *attestation* binds the SBOM to the image digest and signs the pair,
+    # so consumers can verify "this SBOM really describes this image."
+    - run: |
+        cosign attest --yes \
+          --predicate sbom.spdx.json \
+          --type spdxjson \
+          ghcr.io/myorg/app@${IMAGE_DIGEST}
+
+    # Scan the SBOM for known vulnerabilities (decoupled from generation —
+    # you can re-scan old SBOMs as new CVEs are published, without rebuilding)
+    - run: grype sbom:sbom.cdx.json --fail-on high
+```
+
+The distinction between a *file* and an *attestation* matters: a `sbom.json` sitting in build artifacts is unsigned and unbound — anyone can swap it. `cosign attest` signs the SBOM-plus-digest as a unit and stores it alongside the image in the registry (and in Rekor), so `cosign verify-attestation` can later prove the SBOM is authentic and describes that exact image.
+
+### Dependency and Secret Scanning in Pipelines
+
+Provenance proves *who built it*; scanning proves *it isn't already known to be bad*. Both run as **gates** — failing the build rather than merely warning — so a vulnerable dependency or a leaked credential never reaches a registry.
+
+```yaml
+supply-chain-gate:
+  stage: security
+  parallel:
+    - dependency-vulns:
+        script:
+          # SCA against your lockfiles + the image's OS packages
+          - osv-scanner --recursive .
+          - trivy image --severity HIGH,CRITICAL --exit-code 1 ${IMAGE}
+
+    - secret-scanning:
+        script:
+          # Scan full git history, not just the working tree — a secret
+          # committed and "removed" still lives in earlier commits.
+          - gitleaks detect --source=. --redact
+          - trufflehog git file://. --since-commit HEAD~50 --only-verified
+
+    - license-policy:
+        script:
+          # Block copyleft/forbidden licenses pulled in transitively
+          - trivy image --scanners license --severity HIGH ${IMAGE}
+```
+
+Push-time scanning is necessary but reactive; complement it with **pre-receive enforcement** (pre-commit `gitleaks` hooks so secrets are caught before they ever land in history) and **continuous re-scanning** of already-published images, since new CVEs are disclosed against artifacts that scanned clean yesterday. Registry-side scanning (Trivy/Grype integrated into the registry, or native scanners like Harbor's) provides this last line of defense — see [Docker Registry & Distribution](../docker/registry.html#vulnerability-scanning) for registry-integrated scanning and admission policy.
+
+### Secret Rotation
+
+Even well-managed secrets must be assumed to leak eventually; rotation bounds the blast radius by limiting how long a leaked credential is useful. The progression of maturity is:
+
+1. **Static long-lived secrets, manually rotated** — the floor. Track each secret's age and fail the pipeline past a policy threshold (the 90-day check shown earlier).
+2. **Automated rotation via a secrets manager** — Vault, AWS Secrets Manager, or GCP Secret Manager rotates the credential on a schedule and re-issues it to consumers, so no human handles the value.
+3. **Short-lived dynamic secrets** — the secrets manager mints a credential *on demand* with a TTL of minutes (e.g. Vault's database secrets engine creates a per-job DB user that auto-expires). There is no standing secret to rotate.
+4. **No secrets at all — workload identity / OIDC federation** — the pipeline presents a short-lived OIDC token proving its identity, and the cloud provider exchanges it for scoped, temporary credentials. This is strictly better than rotation: nothing long-lived exists to leak.
+
+```yaml
+# Keyless cloud auth via OIDC — no stored AWS keys to rotate or leak.
+deploy:
+  permissions:
+    id-token: write     # mint the OIDC token
+    contents: read
+  steps:
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::123456789012:role/deploy-role
+        aws-region: us-east-1
+        # No aws-access-key-id / aws-secret-access-key — STS issues
+        # temporary credentials in exchange for the OIDC token.
+```
+
+```yaml
+# Short-lived dynamic DB credential from Vault (TTL=1h, auto-revoked)
+- run: |
+    export VAULT_TOKEN=$(vault write -field=token \
+      auth/jwt/login role=ci jwt="$CI_JOB_JWT")
+    creds=$(vault read -format=json database/creds/app-readonly)
+    export DB_USER=$(echo "$creds" | jq -r .data.username)
+    export DB_PASS=$(echo "$creds" | jq -r .data.password)
+    ./run-migrations.sh
+    # Lease expires automatically; nothing persists past the job.
+```
+
+When a *static* secret must remain, rotate without downtime by overlapping validity: provision the new credential, deploy consumers configured to accept **both** old and new, then revoke the old one once every consumer has rolled. The same dual-key window applies to signing keys — though Sigstore's keyless model (above) sidesteps signing-key rotation entirely by never holding a long-lived key.
+
 ## Monitoring and Observability
 
 ### Pipeline Metrics
@@ -610,5 +793,6 @@ Adopting CI/CD is incremental work: start simple, measure everything, and refine
     <li><a href="deployment.html">Deployment Strategies</a> — blue-green, canary, and rolling rollouts</li>
     <li><a href="../terraform/">Terraform</a> — infrastructure as code for the IaC pipelines above</li>
     <li><a href="../cybersecurity/">Cybersecurity</a> — securing the pipeline and its secrets</li>
+    <li><a href="../docker/registry.html">Docker Registry &amp; Distribution</a> — image signing, SBOMs, and provenance at the registry level</li>
   </ul>
 </div>

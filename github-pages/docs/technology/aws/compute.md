@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Compute Services
+permalink: /docs/technology/aws/compute.html
 hide_title: true
 toc: true
 toc_sticky: true

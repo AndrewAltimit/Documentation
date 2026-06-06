@@ -74,6 +74,14 @@ Version control solves fundamental problems in software development:
     <h4><i class="fas fa-code-branch"></i> Algorithms &amp; Advanced Operations</h4>
     <p>The three-way merge algorithm, merge strategies, the rebase and bisect algorithms, and advanced day-to-day operations (stash, reset/revert, hooks, recovery).</p>
   </a>
+  <a href="conflict-and-recovery.html" class="nav-card">
+    <h4><i class="fas fa-life-ring"></i> Conflict Resolution &amp; Recovery</h4>
+    <p>Resolving merge and rebase conflicts methodically, undoing rewritten history safely, and recovering lost commits, branches, and corrupted repositories with the reflog and fsck.</p>
+  </a>
+  <a href="auth-and-access-control.html" class="nav-card">
+    <h4><i class="fas fa-key"></i> Authentication &amp; Access Control</h4>
+    <p>How Git proves who you are and who can write: SSH keys, deploy keys, access tokens, credential helpers, GPG/SSH commit signing, SSO, and containing leaked credentials.</p>
+  </a>
 </div>
 
 ### What You'll Find
@@ -83,6 +91,8 @@ Version control solves fundamental problems in software development:
 | [Object Model &amp; Storage](object-model.html) | The four object types, content-addressable storage, the storage layout, the three trees, Merkle/DAG foundations, the index format, and reference management |
 | [Protocols, Packs &amp; Performance](protocols-and-performance.html) | The wire protocol, distributed synchronization, pack and index file formats, delta compression, and performance optimization |
 | [Algorithms &amp; Advanced Operations](algorithms-and-operations.html) | Three-way merge, merge strategies, rebase and bisect algorithms, stash, reset/revert, hooks, and recovery |
+| [Conflict Resolution &amp; Recovery](conflict-and-recovery.html) | Resolving merge/rebase conflicts, undoing history rewrites, and recovering lost commits and branches via reflog and fsck |
+| [Authentication &amp; Access Control](auth-and-access-control.html) | SSH keys, deploy keys, access tokens, credential helpers, GPG/SSH commit signing, SSO, and leaked-credential defense |
 
 <div class="tip-card">
   <h4>Level and prerequisites</h4>

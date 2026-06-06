@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: "Classical Mechanics: Chaos, Modern Topics & Computation"
+title: "Classical Mechanics: Chaos & Nonlinear Dynamics"
 permalink: /docs/physics/classical-mechanics/chaos-and-computational.html
 toc: true
 toc_sticky: true
@@ -10,334 +10,175 @@ hide_title: true
 <!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Chaos, Modern Topics &amp; Computation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Nonlinear dynamics, KAM theory, symplectic geometry, numerical integrators, and the frontiers of classical mechanics.</p>
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Chaos &amp; Nonlinear Dynamics</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Sensitive dependence, Lyapunov exponents, Poincaré sections, bifurcations, KAM theory, strange attractors, and the routes to chaos.</p>
 </div>
 
-[Classical Mechanics](./)
+[Classical Mechanics](./) &raquo; Chaos &amp; Nonlinear Dynamics
 
-## When Predictability Breaks Down: Chaos and Nonlinear Dynamics
+<div class="tip-card">
+  <h4>This page is part of a three-way split</h4>
+  <p>The chapter formerly titled "Chaos, Modern Topics &amp; Computation" has been divided. This page covers <strong>chaos and nonlinear dynamics</strong>. The geometric machinery (symplectic manifolds, phase-space flow, fiber bundles, geometric phases) now lives in <a href="geometric-mechanics.html">Geometric Formalism</a>, and the numerical machinery (symplectic and variational integrators, molecular dynamics, N-body methods) now lives in <a href="computational-classical-mechanics.html">Computational Methods</a>.</p>
+</div>
+
+## When Predictability Breaks Down
 
 ### The End of the Clockwork Universe
 
-For centuries after Newton, physicists believed the universe was deterministic—if you knew initial conditions perfectly, you could predict the future forever. Then came a shocking discovery: even simple classical systems can be unpredictable. Chaos theory studies exactly these systems—fully deterministic, yet so sensitive to initial conditions that long-term prediction becomes impossible.
+For centuries after Newton, physicists believed the universe was a clockwork: fix the initial positions and momenta exactly, and the entire future and past follow from the equations of motion. Laplace gave this its sharpest expression — a sufficiently powerful intellect, knowing every particle's state, "would embrace in the same formula the movements of the greatest bodies of the universe and those of the tiniest atom."
 
-### Lyapunov Exponents
+The discovery that demolished this picture came not from new forces but from old ones examined carefully. Poincaré, attacking the gravitational three-body problem in the 1890s, found that even this simple deterministic system could behave in a way "so complicated that I cannot even attempt to draw it." The system is perfectly deterministic — there is no randomness in the equations — yet its trajectories are so sensitive to initial conditions that any uncertainty, however small, is amplified until prediction becomes worthless. This is **deterministic chaos**: lawful but unpredictable.
 
-Measure of sensitivity to initial conditions:
+The crucial enabler is **nonlinearity**. A linear system's response is proportional to its input, so small errors stay small. A nonlinear system can feed its output back on itself, stretching and folding nearby trajectories until they diverge exponentially. Chaos is impossible in a linear autonomous system; it requires either nonlinearity or, in driven systems, at least three effective dimensions of phase space (the Poincaré–Bendixson theorem forbids chaos in a continuous autonomous flow on the plane).
+
+### Sensitive Dependence on Initial Conditions
+
+The defining signature of chaos is **sensitive dependence on initial conditions** — popularly, the *butterfly effect*. Two trajectories that start a distance $\delta_0$ apart separate, on average, exponentially:
+
 $$
-\lambda = \lim_{t \to \infty} \frac{1}{t} \ln\left(\frac{|\delta Z(t)|}{|\delta Z_0|}\right)
-$$
-
-**Chaotic system:** At least one positive Lyapunov exponent.
-
-### Poincaré Sections
-
-Reduce continuous dynamics to discrete map:
-- Choose surface of section Σ
-- Record intersections of trajectory with Σ
-- Study resulting discrete map
-
-### KAM Theory: Order in Chaos
-
-Just when chaos seems to destroy all hope of understanding, KAM theory provides comfort. Even in chaotic systems, islands of regularity persist.
-
-**Kolmogorov-Arnold-Moser theorem:** Small perturbations can't destroy everything
-- Most quasi-periodic orbits survive (slightly deformed)
-- Chaos is confined to specific regions
-- Regular and chaotic motion coexist
-
-**The surprising result:** The solar system is mostly stable despite being chaotic! KAM theory explains why planets haven't collided after billions of years.
-
-**Mathematical Statement:**
-For an integrable Hamiltonian H₀(I) perturbed by εH₁(I,θ), if:
-1. The frequency map ω(I) = ∂H₀/∂I is non-degenerate: det(∂²H₀/∂I²) ≠ 0
-2. The perturbation ε is sufficiently small
-3. The frequencies satisfy a Diophantine condition: |ω·k| ≥ γ/|k|^τ for all k ∈ ℤⁿ\{0}
-
-Then most invariant tori with irrational frequency ratios persist.
-
-**Applications:**
-- **Asteroid Belt Stability**: Kirkwood gaps where resonances destroy orbits
-- **Particle Accelerators**: Beam stability in storage rings
-- **Plasma Confinement**: Magnetic surfaces in fusion reactors
-
-### Strange Attractors
-
-**Lorenz system:**
-$$
-\dot{x} = \sigma(y - x), \quad \dot{y} = x(\rho - z) - y, \quad \dot{z} = xy - \beta z
+|\delta(t)| \approx |\delta_0|\, e^{\lambda t},
 $$
 
-**Properties:**
-- Fractal dimension
-- Sensitive dependence on initial conditions
-- Bounded but non-periodic
+with $\lambda > 0$. Because the divergence is exponential, the time over which prediction remains useful grows only **logarithmically** with the precision of your initial data. Improving your measurement of the initial state by a factor of ten buys you only a fixed additional increment $\tau \sim \lambda^{-1}\ln 10$ of predictability — never a proportional one. This is why long-range weather forecasting hits a hard horizon (roughly two weeks) no matter how good the instruments become.
 
-## Modern Perspectives: Geometry Rules
+Sensitive dependence is not mere instability: a freely expanding gas is unstable but not chaotic. Chaos requires the stretching to be combined with **folding** that keeps the motion bounded — trajectories diverge locally yet remain confined to a finite region of phase space, repeatedly brought back near one another. The combination of stretching and folding is what manufactures the fractal geometry of strange attractors discussed below.
 
-### Why Geometry?
+## Quantifying Chaos: Lyapunov Exponents
 
-As we've climbed from Newton to Lagrange to Hamilton, we've increasingly seen that mechanics is really about geometry. Forces are vectors, energy is a scalar, but phase space has rich geometric structure. Modern physics embraces this geometric viewpoint.
+The **Lyapunov exponent** makes "exponential divergence" precise. For a trajectory $Z(t)$ and an infinitesimal perturbation $\delta Z(t)$, the largest (maximal) Lyapunov exponent is
 
-### Symplectic Geometry: The Natural Language
-
-**Symplectic manifold:** (M, ω) where ω is a closed, non-degenerate 2-form.
-
-**Canonical coordinates:** ω = Σᵢ dpᵢ ∧ dqᵢ
-
-**Darboux's theorem:** All symplectic manifolds locally look the same.
-
-### Fiber Bundles and Gauge Theory
-
-**Configuration space:** Q (base manifold)
-**Phase space:** T*Q (cotangent bundle)
-**Lagrangian mechanics:** On TQ (tangent bundle)
-
-**Connection 1-form:** Describes parallel transport
-**Curvature 2-form:** F = dA + A ∧ A
-
-### Geometric Phases
-
-**Berry phase:** For cyclic evolution:
 $$
-\gamma = i\oint \langle\psi|\nabla_R|\psi\rangle \cdot dR
+\lambda = \lim_{t \to \infty} \lim_{|\delta Z_0| \to 0} \frac{1}{t} \ln\!\left(\frac{|\delta Z(t)|}{|\delta Z_0|}\right).
 $$
 
-**Hannay angle:** Classical analog of Berry phase
-**Foucault pendulum:** Example of geometric phase
+- **$\lambda > 0$** — neighboring trajectories diverge exponentially: the system is **chaotic**.
+- **$\lambda = 0$** — marginal separation, characteristic of regular (quasi-periodic) motion and the boundaries between behaviors.
+- **$\lambda < 0$** — perturbations decay: the trajectory is attracted to a fixed point or limit cycle.
 
-## From Theory to Practice: Modern Applications
+An $n$-dimensional system has a full **Lyapunov spectrum** $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$, one exponent for each independent direction in which a small ball of initial conditions is stretched or compressed. The volume of that ball evolves as $e^{(\sum_i \lambda_i) t}$, so:
 
-The abstract frameworks developed in the earlier sections aren't just mathematical elegance—they're essential for modern technology and science:
+- For a **Hamiltonian (conservative) system**, Liouville's theorem forces phase-space volume to be conserved, hence $\sum_i \lambda_i = 0$. The exponents come in pairs $\pm\lambda$ (symplectic symmetry): every stretching direction is matched by an equal compression.
+- For a **dissipative system**, $\sum_i \lambda_i < 0$ — volumes contract onto an attractor — yet one $\lambda_i$ can still be positive, producing a *strange attractor* (contraction overall, but stretching in at least one direction).
 
-### Molecular Dynamics
+The reciprocal $1/\lambda_1$ is the **Lyapunov time**, the characteristic timescale on which prediction degrades. For the inner Solar System it is roughly 5 million years; for a typical turbulent flow, a fraction of a second.
 
-```python
-def verlet_integration(positions, velocities, forces, dt, mass):
-    """Velocity Verlet algorithm for MD simulation"""
-    # Update positions
-    positions += velocities * dt + 0.5 * forces/mass * dt**2
-    
-    # Calculate new forces
-    forces_new = calculate_forces(positions)
-    
-    # Update velocities
-    velocities += 0.5 * (forces + forces_new)/mass * dt
-    
-    return positions, velocities, forces_new
-```
+<div class="tip-card">
+  <h4>Computing the maximal exponent in practice</h4>
+  <p>Integrate two trajectories started a tiny distance $\delta_0$ apart, let them evolve for a short time, measure the new separation $\delta_1$, accumulate $\ln(\delta_1/\delta_0)$, then <em>renormalize</em> — pull the second trajectory back to distance $\delta_0$ along the separation direction — and repeat. Averaging the logarithms over many such steps gives $\lambda_1$ without the perturbation saturating at the attractor's size. The double-pendulum script below uses the simpler (un-renormalized) version, valid only in the early exponential-growth window before saturation.</p>
+</div>
 
-### Celestial Mechanics
+## Poincaré Sections
 
-**N-body problem:** No general analytical solution for N ≥ 3
+A continuous flow in $n$-dimensional phase space is hard to visualize. The **Poincaré section** (or first-return map) reduces it to a discrete map in one fewer dimension by recording only where the trajectory pierces a chosen surface:
 
-**Restricted three-body problem:**
-- Lagrange points (L1-L5)
-- Stable (L4, L5) and unstable (L1-L3) equilibria
-- Applications: space mission design
+1. Choose a **surface of section** $\Sigma$ transverse to the flow (for a driven oscillator, often "stroboscopic" sampling once per drive period; for an autonomous system, a hyperplane such as $q_2 = 0$ with $\dot q_2 > 0$).
+2. Record each successive intersection $x_0, x_1, x_2, \dots$ of the trajectory with $\Sigma$.
+3. Study the resulting **return map** $x_{k+1} = P(x_k)$.
 
-### Plasma Physics
+The return map $P$ inherits the key dynamical properties of the flow but is far easier to analyze and plot. The structure that appears on the section diagnoses the motion at a glance:
 
-**Vlasov equation:**
+| What you see on $\Sigma$ | What the motion is |
+|--------------------------|--------------------|
+| A single point | Periodic orbit (period = section spacing) |
+| A finite set of points | Periodic orbit of higher period / subharmonic |
+| A closed curve | Quasi-periodic motion on an invariant torus (KAM) |
+| A scattered "cloud" filling an area | Chaotic motion (a chaotic sea) |
+
+For a Hamiltonian system the Poincaré map is **area-preserving** (a consequence of the symplectic structure), which strongly constrains what can appear: islands of regular curves embedded in a chaotic sea, with no attractors. This is the canvas on which KAM theory is read.
+
+## KAM Theory: Order Inside Chaos
+
+Just when chaos seems to dissolve all hope of understanding, the **Kolmogorov–Arnold–Moser (KAM) theorem** restores a remarkable amount of order. It addresses a sharp question: when you perturb an *integrable* system (one with as many conserved quantities as degrees of freedom, whose motion winds around invariant tori), does the regular motion survive, or does it shatter into chaos?
+
+An integrable Hamiltonian written in **action–angle variables** $H_0(I)$ has motion confined to nested tori, each labeled by its actions $I$ and traversed with frequencies $\omega(I) = \partial H_0/\partial I$. KAM concerns the perturbed system
+
 $$
-\frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla_x f + \frac{q}{m}(\mathbf{E} + \mathbf{v} \times \mathbf{B}) \cdot \nabla_v f = 0
-$$
-
-**Kinetic theory:** Bridge between particle and fluid descriptions
-
-## Computational Methods: Respecting the Physics
-
-### The Numerical Challenge
-
-Computers can't solve differential equations exactly—they take small steps. But naive methods gradually violate conservation laws, leading to unphysical results. The solution? Use the geometric structure!
-
-### Symplectic Integrators: Preserving What Matters
-
-Preserve phase space structure:
-
-```python
-def symplectic_euler(q, p, H, dt):
-    """First-order symplectic integrator"""
-    p_new = p - dt * grad_q(H, q, p)
-    q_new = q + dt * grad_p(H, q, p_new)
-    return q_new, p_new
-
-def stormer_verlet(q, p, H, dt):
-    """Second-order symplectic integrator"""
-    p_half = p - 0.5*dt * grad_q(H, q, p)
-    q_new = q + dt * grad_p(H, q, p_half)
-    p_new = p_half - 0.5*dt * grad_q(H, q_new, p_half)
-    return q_new, p_new
-```
-
-### Variational Integrators: Discrete Mechanics Done Right
-
-Remember how Lagrangian mechanics came from minimizing action? Variational integrators apply this principle directly to discrete time steps. Instead of discretizing differential equations (which can introduce errors), we discretize the action principle itself.
-
-The result: excellent long-term conservation of discrete momentum and energy, even for very long simulations. This is how we can accurately simulate the solar system for millions of years!
-$$
-S_d = \sum_k L_d(q_k, q_{k+1}, h)
+H(I, \theta) = H_0(I) + \varepsilon H_1(I, \theta).
 $$
 
-**Discrete Euler-Lagrange equations:**
+**KAM theorem (informal).** If
+
+1. the frequency map is **non-degenerate**, $\det\!\left(\partial^2 H_0 / \partial I^2\right) \neq 0$ (frequencies genuinely vary with the actions);
+2. the perturbation $\varepsilon$ is **sufficiently small**; and
+3. the frequencies are **sufficiently irrational**, satisfying a **Diophantine condition** $|\omega \cdot k| \geq \gamma\, |k|^{-\tau}$ for all integer vectors $k \neq 0$,
+
+then **most** invariant tori survive — they are merely deformed slightly, not destroyed. The motion on them remains quasi-periodic.
+
+The reason rational-frequency tori are the fragile ones is **resonance**. When the frequencies are commensurate ($\omega \cdot k = 0$ for some integer $k$), the perturbation drives the system in step with its own motion, and the resulting **small denominators** $1/(\omega \cdot k)$ in the perturbation series blow up. KAM's deep technical achievement (a super-convergent Newton-type iteration) is to show that the Diophantine "very irrational" tori are protected from these resonances and persist. Between the surviving tori, near each resonance, lies a thin chaotic layer; as $\varepsilon$ grows these layers widen and merge, and the last KAM tori break down — the **transition to global chaos** (governed quantitatively by Chirikov's resonance-overlap criterion and, for the most robust "golden-ratio" torus, Greene's residue method).
+
+<div class="tip-card">
+  <h4>The surprising payoff: why the Solar System survives</h4>
+  <p>The Solar System is mildly chaotic — the planets' positions have a Lyapunov time of only a few million years. Yet it has not flown apart in 4.6 billion years. KAM theory explains why: most of the planetary tori are protected, so the chaos is confined to thin resonant layers rather than spreading globally. Regular and chaotic motion coexist, and the regular majority keeps the system bounded.</p>
+</div>
+
+**Applications of KAM and resonance theory:**
+
+- **Asteroid belt structure** — the **Kirkwood gaps** are emptied at mean-motion resonances with Jupiter (e.g. the 3:1 gap), exactly where KAM tori are destroyed and chaotic transport flings asteroids onto planet-crossing orbits.
+- **Particle accelerators and storage rings** — long-term beam stability is the survival of KAM tori in the transverse phase space; the *dynamic aperture* is set by where they break.
+- **Magnetic confinement fusion** — nested magnetic flux surfaces in a tokamak/stellarator are KAM tori of the field-line "flow"; their destruction at resonant surfaces causes the field lines (and heat) to wander out.
+
+## Strange Attractors
+
+In a **dissipative** system, phase-space volumes contract, so long-term motion collapses onto an **attractor**. The familiar attractors are simple — a fixed point (a damped pendulum coming to rest) or a limit cycle (a clock's steady tick). But when the dynamics is chaotic, the attractor becomes a **strange attractor**: a bounded set on which motion is aperiodic, exhibits sensitive dependence ($\lambda_1 > 0$), and has a **fractal** (non-integer) dimension.
+
+The strangeness reconciles two apparently contradictory facts. Dissipation contracts volumes, so the attractor has zero volume; yet sensitive dependence stretches trajectories apart, so it cannot be a smooth low-dimensional surface. The resolution is the **stretch-and-fold** mechanism: the flow repeatedly stretches the attracting set in the unstable direction and folds it back to stay bounded, building an infinitely layered, self-similar (fractal) structure — like dough kneaded forever.
+
+The canonical example is the **Lorenz system**, distilled by Edward Lorenz in 1963 from a model of atmospheric convection:
+
 $$
-D_2 L_d(q_{k-1}, q_k) + D_1 L_d(q_k, q_{k+1}) = 0
+\dot{x} = \sigma(y - x), \qquad \dot{y} = x(\rho - z) - y, \qquad \dot{z} = xy - \beta z,
 $$
 
-## The Living Edge of Classical Mechanics
+with classic parameters $\sigma = 10$, $\beta = 8/3$, $\rho = 28$. Its trajectory traces the famous two-lobed "butterfly," orbiting one wing an unpredictable number of times before crossing to the other.
 
-You might think classical mechanics is a "finished" subject, but research continues at the frontiers:
+**Hallmarks of a strange attractor:**
 
-### Quantum-Classical Correspondence
+- **Bounded but non-periodic** — the trajectory never repeats and never escapes to infinity.
+- **Sensitive dependence** — a positive maximal Lyapunov exponent (for the Lorenz attractor, $\lambda_1 \approx 0.9\,\text{bit/time}$).
+- **Fractal dimension** — the Lorenz attractor's correlation/Kaplan–Yorke dimension is $\approx 2.06$, neither a 2D surface nor a 3D volume. The Kaplan–Yorke formula $D_{KY} = k + (\sum_{i=1}^{k}\lambda_i)/|\lambda_{k+1}|$ ties this dimension directly to the Lyapunov spectrum.
+- **Self-similarity** — magnifying a cross-section reveals the same layered Cantor-set structure at every scale.
 
-**Ehrenfest theorem:** ⟨x⟩ satisfies classical equations (exactly only for potentials at most quadratic; approximately otherwise)
-**WKB approximation:** Semi-classical limit
-**Coherent states:** Minimal uncertainty wave packets
+Other touchstones include the **Rössler attractor** (a single fold, simpler than Lorenz) and the **Hénon map**, a 2D dissipative map whose attractor displays the fractal layering with crystal clarity.
 
-### Integrability and Solitons
+## Bifurcations and the Routes to Chaos
 
-**Lax pairs:** L̇ = [L, M]
-**Inverse scattering:** Solve nonlinear PDEs
-**Toda lattice:** Exactly solvable many-body system
+Chaos rarely appears all at once. As a control parameter is tuned, a system passes through a sequence of **bifurcations** — qualitative changes in the structure of its attractors — and there are only a few universal **routes** by which regular motion gives way to chaos.
 
-### Topological Mechanics
+### Bifurcations
 
-**Topological invariants:** Chern numbers, winding numbers
-**Edge states:** Protected by topology
-**Applications:** Mechanical metamaterials
+A **bifurcation** occurs where the number or stability of fixed points or periodic orbits changes as a parameter $\mu$ crosses a critical value. The elementary local bifurcations are:
 
-### Machine Learning Meets Mechanics
+| Bifurcation | What changes |
+|-------------|--------------|
+| **Saddle-node (fold)** | A stable and an unstable fixed point collide and annihilate (motion suddenly has nowhere to settle). |
+| **Transcritical** | Two fixed points cross and exchange stability. |
+| **Pitchfork** | One fixed point loses stability and gives birth to two new stable ones (symmetry breaking). |
+| **Hopf** | A fixed point loses stability and spawns a limit cycle — onset of sustained oscillation. |
+| **Period-doubling (flip)** | A periodic orbit of period $T$ becomes unstable and is replaced by one of period $2T$. |
 
-The newest frontier: using AI to discover physical laws from data. But there's a catch—naive neural networks don't respect physics. The solution? Build physical principles into the architecture:
+The **logistic map** $x_{n+1} = r\,x_n(1 - x_n)$ is the canonical laboratory. As $r$ increases past $3$, the stable fixed point period-doubles to a 2-cycle, then a 4-cycle, 8-cycle, $\dots$, with successive doublings crowding together and accumulating at $r_\infty \approx 3.5699$, beyond which the orbit is chaotic (interrupted by periodic windows).
 
-**Neural ODEs:** Learn dynamics from data while guaranteeing smooth evolution
-**Hamiltonian neural networks:** Neural nets that automatically conserve energy
-**Physics-informed neural networks:** Incorporate PDEs as constraints
+### Universality: the Feigenbaum constants
 
-These approaches let us discover governing equations from observations—essentially automating what took humans centuries to develop!
+The period-doubling cascade is **universal**. The ratio of successive parameter intervals between doublings converges to a number independent of the specific map:
 
-**Recent Breakthroughs (2023-2024):**
-- **Lagrangian Neural Networks**: Directly learn Lagrangian L(q,q̇) from data, guaranteeing energy conservation
-- **Geometric Deep Learning**: Neural networks on manifolds preserving symplectic structure
-- **AI Feynman 2.0**: Symbolic regression discovering analytical physics equations
-- **Graph Neural Networks**: Learning many-body interactions from particle trajectories
+$$
+\delta = \lim_{n \to \infty} \frac{r_{n} - r_{n-1}}{r_{n+1} - r_{n}} = 4.669201\ldots,
+$$
 
-**Example: Learning Unknown Forces**
-```python
-import torch
-import torch.nn as nn
+the **Feigenbaum constant**, accompanied by a spatial scaling constant $\alpha = 2.502907\ldots$. These same numbers govern the period-doubling route in fluid convection, nonlinear circuits, and driven oscillators — physically unrelated systems share the *same* quantitative approach to chaos, a triumph of the renormalization-group idea applied to dynamics.
 
-class LagrangianNN(nn.Module):
-    """Neural network that learns the Lagrangian from data"""
-    def __init__(self, q_dim):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(2*q_dim, 128),
-            nn.Softplus(),
-            nn.Linear(128, 128),
-            nn.Softplus(),
-            nn.Linear(128, 1)
-        )
-    
-    def forward(self, q, q_dot):
-        """Returns learned Lagrangian L(q, q̇)"""
-        return self.net(torch.cat([q, q_dot], dim=-1))
-    
-    def get_accelerations(self, q, q_dot):
-        """Derive accelerations using Euler-Lagrange equations"""
-        L = self.forward(q, q_dot)
-        
-        # Compute ∂L/∂q and ∂L/∂q̇
-        dL_dq = torch.autograd.grad(L.sum(), q, create_graph=True)[0]
-        dL_dq_dot = torch.autograd.grad(L.sum(), q_dot, create_graph=True)[0]
-        
-        # Time derivative of ∂L/∂q̇
-        d_dt_dL_dq_dot = torch.autograd.grad(
-            (dL_dq_dot * q_dot).sum(), q, create_graph=True
-        )[0]
-        
-        # Euler-Lagrange: q̈ = (∂L/∂q - d/dt(∂L/∂q̇)) / (∂²L/∂q̇²)
-        return dL_dq - d_dt_dL_dq_dot
-```
+### The principal routes to chaos
 
-## Advanced Mathematical Tools
+1. **Period-doubling (Feigenbaum) cascade** — an infinite sequence of period-doublings accumulating at a finite parameter value; the most thoroughly understood route.
+2. **Quasi-periodicity (Ruelle–Takens–Newhouse)** — successive Hopf bifurcations add incommensurate frequencies; after typically two or three, the motion on the torus breaks into a strange attractor. This displaced the older Landau picture of turbulence as infinitely many superposed frequencies.
+3. **Intermittency (Pomeau–Manneville)** — long stretches of nearly regular ("laminar") motion are interrupted by irregular bursts at unpredictable times; the bursts become more frequent as the parameter is pushed past a saddle-node bifurcation of the periodic orbit.
 
-### Differential Geometry
+In Hamiltonian systems the analogue is the **KAM route** described above: as the perturbation grows, the last invariant tori break, chaotic layers merge, and the regular sea is overtaken by a chaotic one.
 
-**Tangent bundle:** TM = ∪ₓ TₓM
-**Cotangent bundle:** T*M = ∪ₓ T*ₓM
-**Lie derivatives:** ℒ_X Y = [X, Y]
+## Worked Example: the Double Pendulum
 
-### Lie Groups and Algebras
-
-**Momentum map:** J: M → g*
-**Coadjoint orbits:** Symplectic manifolds
-**Reduction:** Quotient by symmetry group
-
-### Category Theory
-
-**Classical mechanics as functor:**
-- Objects: Configuration spaces
-- Morphisms: Canonical transformations
-- Composition: Sequential transformations
-
-## References and Further Reading
-
-### Graduate Textbooks
-1. **Goldstein, Poole & Safko** - *Classical Mechanics* (3rd Edition)
-2. **Arnold** - *Mathematical Methods of Classical Mechanics*
-3. **Landau & Lifshitz** - *Mechanics* (Course of Theoretical Physics Vol. 1)
-4. **José & Saletan** - *Classical Dynamics: A Contemporary Approach*
-
-### Research Monographs
-1. **Marsden & Ratiu** - *Introduction to Mechanics and Symmetry*
-2. **Abraham & Marsden** - *Foundations of Mechanics*
-3. **Ott** - *Chaos in Dynamical Systems*
-4. **Tabor** - *Chaos and Integrability in Nonlinear Dynamics*
-
-### Recent Research Directions
-1. **Geometric Mechanics:** Port-Hamiltonian systems, discrete mechanics
-2. **Quantum-Classical Hybrid Systems:** Decoherence, measurement
-3. **Machine Learning:** Data-driven discovery of conservation laws
-4. **Topological Mechanics:** Mechanical metamaterials, protected states
-5. **Stochastic Mechanics:** Noise-induced phenomena, large deviations
-
-## Applications
-
-### Engineering Applications
-- **Bridge Design:** Using statics to calculate load distributions
-- **Vehicle Dynamics:** Analyzing forces during acceleration and turning
-- **Machinery:** Designing gears, pulleys, and mechanical systems
-
-### Everyday Examples
-- **Sports:** Trajectory of a basketball, golf ball, or baseball
-- **Transportation:** Car acceleration, braking distances
-- **Amusement Parks:** Forces experienced on roller coasters
-
-### Astronomical Applications
-- **Satellite Orbits:** Calculating orbital parameters
-- **Planetary Motion:** Predicting positions of planets
-- **Space Missions:** Trajectory planning for spacecraft
-
-## When Classical Mechanics Fails
-
-### The Boundaries of the Classical World
-
-As powerful as classical mechanics is, nature has surprises that require new physics:
-
-Classical mechanics breaks down in several regimes:
-
-1. **High Speeds:** When velocities approach the speed of light, time dilates and momentum grows without bound (the energy diverges as $v \to c$)—enter special relativity
-2. **Small Scales:** At atomic scales, particles exhibit wave-like behavior—enter quantum mechanics
-3. **Strong Gravitational Fields:** Near black holes, space and time curve—enter general relativity
-4. **Many Particles:** With 10²³ particles, statistical mechanics becomes necessary
-
-But here's the beautiful part: the mathematical structures developed in the earlier sections—Lagrangians, Hamiltonians, symmetries—carry over to these new theories. Classical mechanics isn't wrong; it's the limiting case of deeper theories.
-
-## Advanced Code Examples
-
-### Double Pendulum Chaos Visualization
+The double pendulum is the cleanest mechanical system that is chaotic at the kitchen table. Each rod alone is a regular pendulum; coupled, the four-dimensional phase space supports a positive Lyapunov exponent at moderate energy. The script below integrates two copies started $0.001$ rad apart and exhibits, in one figure, every diagnostic on this page: the phase-space portrait, a Poincaré section, the exponential divergence that measures the Lyapunov exponent, and an energy-conservation check confirming the dynamics is genuinely Hamiltonian (chaotic, not merely sloppy numerics).
 
 ```python
 import numpy as np
@@ -469,299 +310,41 @@ print(f"Estimated Lyapunov exponent: {slope:.4f} s^-1")
 print(f"R-squared: {r_value**2:.4f}")
 ```
 
-### Symplectic Integration Comparison
-
-```python
-def hamiltonian_pendulum(q, p, m=1, l=1, g=9.81):
-    """Hamiltonian for simple pendulum"""
-    return p**2/(2*m*l**2) + m*g*l*(1 - np.cos(q))
-
-def euler_step(q, p, H, dt):
-    """Standard Euler method (not symplectic)"""
-    dH_dq = (H(q + 1e-8, p) - H(q, p))/1e-8
-    dH_dp = (H(q, p + 1e-8) - H(q, p))/1e-8
-    
-    q_new = q + dt * dH_dp
-    p_new = p - dt * dH_dq
-    return q_new, p_new
-
-def symplectic_euler_step(q, p, H, dt):
-    """Symplectic Euler method"""
-    dH_dq = (H(q + 1e-8, p) - H(q, p))/1e-8
-    p_new = p - dt * dH_dq
-    
-    dH_dp = (H(q, p_new + 1e-8) - H(q, p_new))/1e-8
-    q_new = q + dt * dH_dp
-    return q_new, p_new
-
-def leapfrog_step(q, p, H, dt):
-    """Leapfrog/Störmer-Verlet method"""
-    dH_dq = (H(q + 1e-8, p) - H(q, p))/1e-8
-    p_half = p - 0.5*dt * dH_dq
-    
-    dH_dp = (H(q, p_half + 1e-8) - H(q, p_half))/1e-8
-    q_new = q + dt * dH_dp
-    
-    dH_dq_new = (H(q_new + 1e-8, p_half) - H(q_new, p_half))/1e-8
-    p_new = p_half - 0.5*dt * dH_dq_new
-    return q_new, p_new
-
-# Compare integrators
-q0, p0 = 3.0, 0.0  # Large amplitude
-dt = 0.1
-n_steps = 10000
-
-# Storage for trajectories
-trajectories = {
-    'Euler': {'q': [q0], 'p': [p0], 'E': []},
-    'Symplectic Euler': {'q': [q0], 'p': [p0], 'E': []},
-    'Leapfrog': {'q': [q0], 'p': [p0], 'E': []}
-}
-
-# Run simulations
-for method, integrator in [('Euler', euler_step), 
-                           ('Symplectic Euler', symplectic_euler_step),
-                           ('Leapfrog', leapfrog_step)]:
-    q, p = q0, p0
-    for _ in range(n_steps):
-        q, p = integrator(q, p, hamiltonian_pendulum, dt)
-        trajectories[method]['q'].append(q)
-        trajectories[method]['p'].append(p)
-        trajectories[method]['E'].append(hamiltonian_pendulum(q, p))
-
-# Plot results
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-# Phase space
-ax = axes[0]
-for method, style in [('Euler', 'r-'), ('Symplectic Euler', 'g-'), 
-                     ('Leapfrog', 'b-')]:
-    traj = trajectories[method]
-    ax.plot(traj['q'], traj['p'], style, alpha=0.7, label=method)
-ax.set_xlabel(r'$\theta$')
-ax.set_ylabel(r'$p_\theta$')
-ax.set_title('Phase Space Trajectories')
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-# Energy conservation
-ax = axes[1]
-t = np.arange(n_steps + 1) * dt
-E0 = hamiltonian_pendulum(q0, p0)
-for method, style in [('Euler', 'r-'), ('Symplectic Euler', 'g-'), 
-                     ('Leapfrog', 'b-')]:
-    E = np.array([E0] + trajectories[method]['E'])
-    ax.semilogy(t, np.abs(E - E0) + 1e-16, style, label=method)
-ax.set_xlabel('Time')
-ax.set_ylabel('Energy Error')
-ax.set_title('Energy Conservation')
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-# Phase space area preservation
-ax = axes[2]
-for method, color in [('Euler', 'red'), ('Symplectic Euler', 'green'), 
-                     ('Leapfrog', 'blue')]:
-    traj = trajectories[method]
-    # Sample points in phase space
-    q_vals = np.array(traj['q'][::100])
-    p_vals = np.array(traj['p'][::100])
-    ax.scatter(q_vals[:50], p_vals[:50], c=color, alpha=0.6, 
-              label=f'{method} (early)', s=30)
-    ax.scatter(q_vals[-50:], p_vals[-50:], c=color, alpha=0.6, 
-              marker='x', label=f'{method} (late)', s=30)
-ax.set_xlabel(r'$\theta$')
-ax.set_ylabel(r'$p_\theta$')
-ax.set_title('Phase Space Volume Preservation')
-ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-ax.grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-```
-
-### Simulating Projectile Motion with Python
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-
-def projectile_motion(v0, angle, g=9.81, dt=0.01):
-    """Simulate projectile motion"""
-    # Convert angle to radians
-    theta = np.radians(angle)
-    
-    # Initial conditions
-    vx = v0 * np.cos(theta)
-    vy = v0 * np.sin(theta)
-    
-    # Lists to store trajectory
-    x_vals = [0]
-    y_vals = [0]
-    t_vals = [0]
-    
-    # Simulate until projectile hits ground
-    x, y, t = 0, 0, 0
-    while True:
-        t += dt
-        x += vx * dt
-        y += vy * dt
-        vy -= g * dt
-        
-        if y < 0:
-            break
-            
-        x_vals.append(x)
-        y_vals.append(y)
-        t_vals.append(t)
-    
-    return np.array(x_vals), np.array(y_vals), np.array(t_vals)
-
-# Create visualization
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-
-# Plot trajectory for different angles
-angles = [30, 45, 60, 75]
-v0 = 20  # Initial velocity (m/s)
-
-for angle in angles:
-    x, y, t = projectile_motion(v0, angle)
-    ax1.plot(x, y, label=f'{angle}°')
-    
-    # Calculate range and max height
-    range_val = x[-1]
-    max_height = np.max(y)
-    print(f"Angle: {angle}°, Range: {range_val:.2f}m, Max Height: {max_height:.2f}m")
-
-ax1.set_xlabel('Distance (m)')
-ax1.set_ylabel('Height (m)')
-ax1.set_title('Projectile Motion for Different Launch Angles')
-ax1.legend()
-ax1.grid(True, alpha=0.3)
-
-# Energy conservation demonstration
-x, y, t = projectile_motion(v0, 45)
-vx = v0 * np.cos(np.radians(45))
-vy_initial = v0 * np.sin(np.radians(45))
-vy = vy_initial - 9.81 * t
-
-# Calculate energies
-mass = 1  # kg
-KE = 0.5 * mass * (vx**2 + vy**2)
-PE = mass * 9.81 * y
-TE = KE + PE
-
-ax2.plot(t, KE, label='Kinetic Energy')
-ax2.plot(t, PE, label='Potential Energy')
-ax2.plot(t, TE, label='Total Energy', linestyle='--')
-ax2.set_xlabel('Time (s)')
-ax2.set_ylabel('Energy (J)')
-ax2.set_title('Energy Conservation in Projectile Motion')
-ax2.legend()
-ax2.grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-```
-
 <details>
 <summary><b>Expected Output</b></summary>
 <br>
-The code produces two plots:
+The figure has four panels:
 <ol>
-<li>Left plot shows parabolic trajectories for different launch angles (30°, 45°, 60°, 75°)</li>
-<li>Right plot demonstrates energy conservation with constant total energy throughout the motion</li>
+<li><b>Phase space</b> — the original (blue) and perturbed (red) trajectories overlap at first, then visibly diverge as the chaos amplifies the tiny initial difference.</li>
+<li><b>Poincaré section</b> — the scattered cloud of crossing points (rather than a clean curve) signals chaotic, non-quasi-periodic motion.</li>
+<li><b>Sensitive dependence (log scale)</b> — the phase-space distance between the two runs grows roughly exponentially before saturating at the attractor's size; the slope of the early region is the maximal Lyapunov exponent.</li>
+<li><b>Energy conservation</b> — total energy stays flat, confirming the divergence is genuine chaos, not integration error.</li>
 </ol>
-Console output shows range and maximum height for each angle.
+The printed Lyapunov exponent is positive (its precise value depends on the fitting window), the quantitative signature of chaos.
 </details>
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/jakevdp/PythonDataScienceHandbook/blob/master/notebooks/04.08-Multiple-Subplots.ipynb"> Tutorial: <b><i>Advanced Matplotlib Plotting Techniques</i></b></a></p>
+## Applications
 
-## Problem-Solving Strategies
+Chaos and nonlinear dynamics are not a curiosity confined to textbook pendulums; the same mechanisms shape systems across science and engineering. A brief, non-exhaustive tour:
 
-<details>
-<summary><b>Interactive Problem-Solving Flowchart</b></summary>
-<br>
+- **Celestial mechanics** — the three-body problem, the chaotic tumbling of Saturn's moon Hyperion, the long-term (in)stability of planetary orbits, and the Lyapunov time of the Solar System.
+- **Weather and climate** — Lorenz's convection model is the origin of the field; the finite predictability horizon of weather is a direct consequence of a positive Lyapunov exponent.
+- **Fluid dynamics** — the onset of turbulence via the quasi-periodic and period-doubling routes; mixing as the macroscopic face of stretch-and-fold.
+- **Engineering** — buckling and vibration of nonlinear structures, chaos in driven electronic (Chua) circuits, and the deliberate exploitation of chaos for secure communication and for **chaos control** (stabilizing an unstable periodic orbit embedded in a strange attractor via tiny feedback, the OGY method).
+- **Biology and medicine** — cardiac arrhythmias and neuronal firing as nonlinear oscillators; population dynamics described by the very logistic map whose bifurcation cascade defines a route to chaos.
 
-```mermaid
-flowchart TD
-    A[Start: Physics Problem] --> B{Identify System}
-    B --> C[List Known Variables]
-    C --> D[List Unknown Variables]
-    D --> E{Choose Method}
-    
-    E -->|Forces| F[Draw Free Body Diagram]
-    E -->|Energy| G[Identify Energy Types]
-    E -->|Momentum| H[Check if Isolated System]
-    
-    F --> I[Apply Newton's Laws]
-    G --> J[Apply Conservation of Energy]
-    H --> K[Apply Conservation of Momentum]
-    
-    I --> L[Solve Equations]
-    J --> L
-    K --> L
-    
-    L --> M{Check Units}
-    M -->|Wrong| N[Fix Unit Errors]
-    N --> L
-    M -->|Correct| O{Is Answer Reasonable?}
-    
-    O -->|No| P[Review Assumptions]
-    P --> B
-    O -->|Yes| Q[Solution Complete!]
-    
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style Q fill:#9f9,stroke:#333,stroke-width:2px
-```
+For the *numerical* tools needed to simulate these systems faithfully over long times — symplectic and variational integrators, and the analysis of energy drift — see the [Computational Methods](computational-classical-mechanics.html) page. For the *geometric* structures (symplectic forms, phase-space flow, Liouville's theorem) underlying area-preserving maps and KAM tori, see [Geometric Formalism](geometric-mechanics.html).
 
-</details>
-
-1. **Identify the System:** Clearly define what objects are involved
-2. **Draw Diagrams:** Free body diagrams for forces, motion diagrams for kinematics
-3. **Choose Coordinate System:** Select axes that simplify the problem
-4. **List Known/Unknown:** Organize given information and what needs to be found
-5. **Select Appropriate Equations:** Use conservation laws when applicable
-6. **Check Units:** Ensure dimensional consistency
-7. **Verify Reasonableness:** Does the answer make physical sense?
-
-## Historical Context
-
-Classical mechanics was developed over centuries:
-- **Galileo Galilei (1564-1642):** Studied motion and inertia
-- **Isaac Newton (1643-1727):** Formulated the laws of motion and gravitation
-- **Leonhard Euler (1707-1783):** Developed analytical mechanics
-- **Joseph-Louis Lagrange (1736-1813):** Created Lagrangian mechanics
-- **William Rowan Hamilton (1805-1865):** Developed Hamiltonian mechanics
-
-These developments laid the foundation for modern physics and engineering.
-
-## Essential Resources
-
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_toc.html"> Book: <b><i>The Feynman Lectures on Physics, Volume I</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://ocw.mit.edu/courses/physics/8-01sc-classical-mechanics-fall-2016/"> Course: <b><i>MIT 8.01 Classical Mechanics</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/playlist?list=PLyQSN7X0ro203puVhQsmCj9qhlFQ-As8e"> Video Series: <b><i>Classical Mechanics - Walter Lewin</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/sympy/sympy"> Library: <b><i>SymPy - Symbolic Mathematics in Python</i></b></a></p>
-
----
-
-## Continue
-
-| Previous | Next |
-|----------|------|
-| [← Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) | [Classical Mechanics Hub](./) |
-
-### See Also
+## See Also
 
 <div class="see-also-card">
   <h4>Where to go next</h4>
   <ul>
-    <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — where classical mechanics meets the microscopic world and emerges as the $\hbar \to 0$ limit.</li>
-    <li><a href="../relativity/">Relativity</a> — what replaces Newtonian mechanics when speeds approach $c$ or gravity gets strong.</li>
-    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — bridging Newton's laws for many particles to thermodynamics.</li>
-    <li><a href="../thermodynamics.html">Thermodynamics</a> — energy, work, and heat in mechanical systems.</li>
-    <li><a href="../computational-physics/">Computational Physics</a> — symplectic integrators and numerical methods for complex mechanical systems.</li>
-    <li><a href="../">Classical Mechanics Hub</a> — back to the overview.</li>
+    <li><a href="geometric-mechanics.html">Geometric Formalism</a> — symplectic geometry, phase-space flow, and Liouville's theorem that make Hamiltonian Poincaré maps area-preserving and underpin KAM tori.</li>
+    <li><a href="computational-classical-mechanics.html">Computational Methods</a> — symplectic and variational integrators for simulating chaotic and Hamiltonian systems without spurious energy drift.</li>
+    <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — action-angle variables and phase space, the setting in which KAM theory and Poincaré sections are formulated.</li>
+    <li><a href="newtonian.html">Newtonian Mechanics</a> — the equations of motion (e.g. the double pendulum) that become chaotic once they are nonlinear.</li>
+    <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.</li>
+    <li><a href="./">Classical Mechanics Hub</a> — back to the overview.</li>
   </ul>
 </div>

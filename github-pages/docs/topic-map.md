@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Topic Map
+permalink: /docs/topic-map.html
 toc: false
 hide_title: true
 ---
@@ -154,6 +155,96 @@ flowchart LR
 - **Follow the dotted lines later.** The companion topics deepen each step once the basics click.
 - **Build as you go.** Apply each topic to a tiny real project before moving on.
 - **Revisit.** The advanced pages reward a second read after you've used the basics in anger.
+</div>
+
+## Learning Paths by Role
+
+<p>Already know what you do day to day? These role-focused cards collect the pages that matter most for each discipline &mdash; a curated reading list you can work straight down.</p>
+
+<div class="quick-start-grid">
+  <div class="quick-start-card">
+    <h3>Full-Stack / Cloud Developer</h3>
+    <p>Ship a service end to end, from repo to cloud:</p>
+    <ul>
+      <li><a href="technology/git-reference.html">Git Reference</a></li>
+      <li><a href="technology/docker/">Docker Deep Dive</a></li>
+      <li><a href="technology/database-design/">Database Design</a></li>
+      <li><a href="api-design/rest.html">REST API Design</a></li>
+      <li><a href="technology/aws/">AWS Cloud Services</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>AI / ML Engineer</h3>
+    <p>From neural-network basics to production models:</p>
+    <ul>
+      <li><a href="technology/ai-fundamentals-simple.html">AI for Beginners</a></li>
+      <li><a href="technology/ai/">AI &amp; Neural Networks</a></li>
+      <li><a href="ai-ml/">Generative AI &amp; Diffusion</a></li>
+      <li><a href="ai-ml/mlops-production.html">MLOps in Production</a></li>
+      <li><a href="advanced/ai-mathematics/">AI Mathematics</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>DevOps Engineer</h3>
+    <p>Build, ship, and run software reliably:</p>
+    <ul>
+      <li><a href="technology/branching.html">Git Branching Strategies</a></li>
+      <li><a href="technology/docker/">Docker</a></li>
+      <li><a href="technology/ci-cd/">CI/CD Pipelines</a></li>
+      <li><a href="technology/kubernetes/">Kubernetes</a></li>
+      <li><a href="observability/">Observability</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>Game Developer</h3>
+    <p>From engine fundamentals to shipping a game:</p>
+    <ul>
+      <li><a href="gamedev/">Game Development Overview</a></li>
+      <li><a href="graphics/3d-rendering.html">3D Rendering</a></li>
+      <li><a href="graphics/shaders.html">Shaders</a></li>
+      <li><a href="gamedev/multiplayer-networking.html">Multiplayer Networking</a></li>
+      <li><a href="gamedev/procedural-generation.html">Procedural Generation</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>Data Engineer</h3>
+    <p>Move, model, and serve data at scale:</p>
+    <ul>
+      <li><a href="technology/database-design/">Database Design</a></li>
+      <li><a href="technology/database-design/distributed-and-nosql.html">Distributed &amp; NoSQL Stores</a></li>
+      <li><a href="event-driven/">Event-Driven Architecture</a></li>
+      <li><a href="api-design/grpc-and-protobuf.html">gRPC &amp; Protobuf</a></li>
+      <li><a href="distributed-systems/">Distributed Systems</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>Security Engineer</h3>
+    <p>Defend systems across the stack:</p>
+    <ul>
+      <li><a href="technology/cybersecurity/">Cybersecurity Overview</a></li>
+      <li><a href="technology/cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a></li>
+      <li><a href="technology/cybersecurity/cryptography.html">Applied Cryptography</a></li>
+      <li><a href="technology/cybersecurity/cloud-and-container-security.html">Cloud &amp; Container Security</a></li>
+      <li><a href="technology/networking/performance-and-security.html">Network Security</a></li>
+    </ul>
+  </div>
+
+  <div class="quick-start-card">
+    <h3>SRE / Platform Engineer</h3>
+    <p>Keep distributed systems healthy and observable:</p>
+    <ul>
+      <li><a href="technology/kubernetes/">Kubernetes</a></li>
+      <li><a href="technology/terraform/">Terraform (IaC)</a></li>
+      <li><a href="observability/">Observability</a></li>
+      <li><a href="distributed-systems/resilience-patterns.html">Resilience Patterns</a></li>
+      <li><a href="testing/">Software Testing</a></li>
+    </ul>
+  </div>
 </div>
 
 ---

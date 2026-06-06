@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Database Crash Course
+permalink: /docs/technology/database-crash-course.html
 section: technology
 toc: true
 toc_sticky: true
@@ -193,30 +194,45 @@ Index the columns you frequently filter or join on; don't index everything. See 
 
 ## Transactions: all-or-nothing
 
-A **transaction** groups operations so they either all succeed or all fail — critical for things like transferring money between accounts.
+A **transaction** groups operations so they either all succeed or all fail. The textbook example is moving money between two bank accounts: the debit and the credit are two separate `UPDATE`s, but the bank must never end up in a state where one ran and the other didn't.
 
 ```sql
+-- Transfer $100 from Alice (id 1) to Bob (id 2)
 BEGIN;
   UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+  -- Imagine the server crashes RIGHT HERE.
   UPDATE accounts SET balance = balance + 100 WHERE id = 2;
 COMMIT;     -- or ROLLBACK; to undo everything
 ```
 
-Transactions give you the **ACID** guarantees:
+Without a transaction, a crash after the first `UPDATE` would vaporize $100: Alice is debited, Bob is never credited, and the missing money simply ceases to exist. Wrapped in `BEGIN ... COMMIT`, the two updates are one indivisible unit. If anything fails before `COMMIT` — a crash, a constraint violation, a deadlock — the database performs a `ROLLBACK` and the accounts look exactly as they did before `BEGIN`.
 
-| Property | Promise |
-|----------|---------|
-| **A**tomicity | All steps complete, or none do |
-| **C**onsistency | The database moves between valid states only |
-| **I**solation | Concurrent transactions don't corrupt each other |
-| **D**urability | Once committed, data survives a crash |
+That money transfer also illustrates each **ACID** guarantee concretely:
+
+| Property | Promise | In the transfer |
+|----------|---------|-----------------|
+| **A**tomicity | All steps complete, or none do | Both the debit and credit apply, or neither does — never just one |
+| **C**onsistency | The database moves between valid states only | The total balance across all accounts is unchanged; a `CHECK (balance >= 0)` constraint stops an overdraft and aborts the whole transfer |
+| **I**solation | Concurrent transactions don't corrupt each other | A second transfer reading Alice's balance at the same time sees either the pre-transfer or post-transfer amount, never the in-between state where $100 has vanished |
+| **D**urability | Once committed, data survives a crash | After `COMMIT` returns, the transfer is on disk; pulling the power cord one millisecond later does not undo it |
+
+> Isolation is the subtle one. Run two transfers against the same account simultaneously and a naive read-then-write can lose an update. Databases offer **isolation levels** (`READ COMMITTED`, `REPEATABLE READ`, `SERIALIZABLE`) that trade concurrency for stronger guarantees. See [Database Design → Transactions & Concurrency](database-design/transactions-and-concurrency.html) for the anomalies each level prevents.
 
 ## A glimpse of NoSQL
 
-When the relational model doesn't fit, the data is shaped differently:
+NoSQL is not "SQL with different syntax" — it's a different bet about what matters. Relational databases optimize for **flexible, ad-hoc queries** over normalized data: you can join any tables and ask questions you never anticipated, and the database enforces consistency for you. NoSQL stores trade some of that flexibility away in exchange for **scale and a particular access pattern**. You reach for one when you can answer "yes" to a concrete question about how the data is actually read and written, not just because it sounds modern.
+
+The motivation almost always comes down to **access patterns and scale**:
+
+- **You read the data the same way every time.** If 99% of requests are "give me this user's whole profile and recent orders by user ID," a document store lets you fetch that entire object in one lookup, with no joins. The relational version would join three or four tables on every page load.
+- **You need to scale writes horizontally.** A single relational primary node has a ceiling. Wide-column stores like Cassandra spread writes across many nodes by a partition key, accepting eventual consistency so that a node failure or a traffic spike doesn't stall the whole system.
+- **The data is hierarchical or schema-variable.** Catalog items where every category has different attributes, or event payloads that change shape over time, fight against a fixed table schema but fit naturally into documents.
+- **The lookup must be sub-millisecond.** An in-memory key-value store answers "what's in this session/cart/rate-limit counter" far faster than any disk-backed table.
 
 ```javascript
-// Document store (MongoDB): the order is embedded in the customer
+// Document store (MongoDB): the customer and their orders are stored
+// together because the app ALWAYS reads them together — one lookup by
+// _id returns the whole object, no JOIN required.
 {
   "_id": "...",
   "name": "Ada Lovelace",
@@ -228,10 +244,13 @@ When the relational model doesn't fit, the data is shaped differently:
 ```
 
 ```bash
-# Key-value store (Redis): direct, ultra-fast lookups by key
+# Key-value store (Redis): direct, in-memory, sub-millisecond lookups by
+# key — ideal for sessions, caches, and counters, not ad-hoc queries.
 SET   user:1000:name  "Ada Lovelace"
 HSET  user:1000:prefs theme "dark" lang "en"
 ```
+
+The cost of embedding orders inside the customer document is the flip side of the benefit: there is no cheap way to ask "which customers bought a widget?" without scanning every document. That query is trivial in SQL and awkward in a document store — which is exactly why the rule of thumb is to model NoSQL around your known access patterns, and to default to relational when your queries are still evolving. See [Database Design → NoSQL Data Models](database-design/nosql-data-models.html) for document, key-value, wide-column, and graph stores in depth.
 
 ## Getting hands-on
 

@@ -81,7 +81,19 @@ Each arrow in that diagram unpacks into a whole subject. The DNS lookup and TLS 
   </a>
   <a href="modern-architecture.html" class="nav-card">
     <h4><i class="fas fa-network-wired"></i> Modern &amp; Future Networking</h4>
-    <p>SDN, NFV, and P4; cloud networking; and research frontiers from ICN to quantum and 6G.</p>
+    <p>The hub for how networks are evolving — overview and research frontiers from ICN to quantum and 6G, linking the three deep dives below.</p>
+  </a>
+  <a href="programmable-networks.html" class="nav-card">
+    <h4><i class="fas fa-code"></i> Programmable Networks</h4>
+    <p>Turning fixed silicon into software: SDN, NFV, P4, and the MPLS / segment-routing fabrics that carry traffic at scale.</p>
+  </a>
+  <a href="cloud-networking.html" class="nav-card">
+    <h4><i class="fas fa-cloud"></i> Cloud Networking</h4>
+    <p>VPCs, subnets, route tables, load balancers, CDNs, NAT, and the shared-responsibility model that make networks rentable.</p>
+  </a>
+  <a href="wireless-and-mobile.html" class="nav-card">
+    <h4><i class="fas fa-wifi"></i> Wireless &amp; Mobile</h4>
+    <p>Wi-Fi and cellular (4G/5G), the 5G core, spectrum and modulation, and the mobility that keeps devices connected on the move.</p>
   </a>
 </div>
 
@@ -93,11 +105,14 @@ Each arrow in that diagram unpacks into a whole subject. The DNS lookup and TLS 
 | [Transport & Application Protocols](transport-and-protocols.html) | TCP congestion control, TCP vs UDP, HTTP/DNS/DHCP/SSH, well-known ports |
 | [Routing & Switching](routing.html) | Shortest-path and max-flow algorithms, BGP, OSPF, static/dynamic routing, NAT, VLANs |
 | [Performance, QoS & Security](performance-and-security.html) | Queueing models, firewalls, VPNs, ACLs, QoS, troubleshooting, SNMP/NetFlow |
-| [Modern & Future Networking](modern-architecture.html) | SDN/NFV/P4, MPLS, cloud (VPC/LB/CDN), and research frontiers |
+| [Modern & Future Networking](modern-architecture.html) | Hub: how networks evolve, plus research frontiers (ICN, quantum, 6G) |
+| [Programmable Networks](programmable-networks.html) | SDN, NFV, P4, MPLS, and segment routing (SR/SRv6) |
+| [Cloud Networking](cloud-networking.html) | VPCs, subnets, route tables, load balancers, CDNs, NAT, shared responsibility |
+| [Wireless & Mobile](wireless-and-mobile.html) | Wi-Fi (802.11), 4G/5G, the 5G core, spectrum, modulation, mobility |
 
 <div class="tip-card">
   <h4>Suggested reading order</h4>
-  <p>Read <a href="fundamentals.html">Layers &amp; Addressing</a> first to fix the vocabulary, then <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> and <a href="routing.html">Routing &amp; Switching</a> for how data actually moves. <a href="performance-and-security.html">Performance, QoS &amp; Security</a> and <a href="modern-architecture.html">Modern &amp; Future Networking</a> build on those foundations and can be read in either order.</p>
+  <p>Read <a href="fundamentals.html">Layers &amp; Addressing</a> first to fix the vocabulary, then <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> and <a href="routing.html">Routing &amp; Switching</a> for how data actually moves, followed by <a href="performance-and-security.html">Performance, QoS &amp; Security</a>. With those foundations, start the <a href="modern-architecture.html">Modern &amp; Future Networking</a> hub, then dive into its three deep dives — <a href="programmable-networks.html">Programmable Networks</a>, <a href="cloud-networking.html">Cloud Networking</a>, and <a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — in any order.</p>
 </div>
 
 ## Key Takeaways

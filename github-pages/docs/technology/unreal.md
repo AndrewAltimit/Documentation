@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Unreal Engine
+permalink: /docs/technology/unreal.html
 toc: true
 toc_sticky: true
 toc_label: "On This Page"
@@ -35,6 +36,12 @@ hide_title: true
     <h4>Blueprints</h4>
     <p>Visual scripting alongside C++</p>
   </div>
+</div>
+
+<div class="notice--info" markdown="1">
+**Scope of this page.** This is an Unreal-specific reference. The engine-agnostic
+foundations of game development — the [game loop and state-machine architecture, ECS-vs-OOP, and core design principles](../gamedev/) — live in the
+[Game Development hub](../gamedev/), interactive [Audio Design](../gamedev/audio-design.html) is covered there, and [AI in Games](../ai-ml/game-ai.html) covers pathfinding, behavior trees, and decision-making independent of engine. Here we focus on how Unreal Engine 5 *implements* and accelerates those ideas: Nanite, Lumen, the editor and gameplay framework, Blueprints, and MetaSounds.
 </div>
 
 ## Advantages of Unreal Engine 5 over Unreal Engine 4
@@ -326,14 +333,24 @@ Visual effects — fire, smoke, sparks, magic — are built in **Niagara**, UE5'
 
 Two features make Niagara flexible: it can run particle simulation on the **GPU** for huge counts (millions of particles), and emitters can read data from the world or from each other, so effects can react to gameplay (sparks that bounce off real geometry, smoke that follows wind). Reusable behavior is packaged into **Niagara Modules** so an effects team builds a library once and reuses it across systems.
 
-## Audio
+## Audio: MetaSounds
 
-Unreal's audio pipeline starts from imported **Sound Waves** (the raw audio files) and layers behavior on top:
+The general theory of game audio — mixing buses, distance attenuation, occlusion, the listener model, and adaptive/interactive scoring — is engine-agnostic and covered in [Audio Design](../gamedev/audio-design.html). This section focuses on what is **specific to Unreal**, where that theory is implemented through imported **Sound Waves**, attenuation/spatialization settings, and the **Sound Cue** and **MetaSound** graphs that drive them. MetaSounds are UE5's headline audio feature and the reason to reach for Unreal over a hand-rolled pipeline.
 
-- **Sound Cues** — node graphs that combine waves with randomization, attenuation, mixing, and looping. A footstep cue might randomly pick among five samples so repetition is less noticeable.
-- **Audio Components** — attach a sound to an actor in the world, giving it 3D position so volume and panning follow the listener.
-- **Attenuation & Spatialization** — distance falloff and (optionally) binaural/3D positioning so sounds feel located in space.
-- **MetaSounds** — UE5's node-based **procedural audio** system. Rather than playing back a fixed file, MetaSounds synthesize and modulate audio at runtime (engine pitch that tracks RPM, generative ambience), driven by gameplay parameters. It is the modern replacement for much of what Sound Cues did and gives sound designers a synthesis graph comparable to Niagara for VFX.
+### MetaSounds
+
+**MetaSounds** are UE5's node-based **procedural audio** system — a programmable digital signal processing graph that runs per-voice at audio rate. Rather than playing back a fixed `.wav`, a MetaSound *synthesizes and modulates* audio at runtime, so it can react continuously to gameplay:
+
+- **Sample-accurate, audio-rate graphs**: Oscillators, filters, envelopes, and samplers wired together, evaluated on the audio thread with no buffer-boundary glitches — the same conceptual leap Niagara brought to VFX.
+- **Gameplay-driven inputs**: Expose parameters (engine RPM, wind speed, health) as graph inputs and set them from Blueprint or C++. The classic example is an engine sound whose pitch and timbre track RPM rather than crossfading between recorded loops.
+- **Generative content**: Procedural ambience, footstep variation, and weapon layers can be built from a handful of samples plus synthesis, shrinking the audio memory budget versus shipping many pre-rendered files.
+- **Presets and inheritance**: A MetaSound Source can be subclassed into presets that only override exposed parameters, mirroring the Material Instance pattern.
+
+MetaSounds are the modern successor to most of what **Sound Cues** did. Sound Cues still exist and remain fine for simple randomize-and-attenuate playback, but new procedural and adaptive audio work in UE5 belongs in MetaSounds.
+
+### Spatialization and attenuation in Unreal
+
+Attach a **Sound Wave**, **Sound Cue**, or **MetaSound** to an actor via an **Audio Component** to give it a world position, then drive 3D falloff with an **Attenuation** asset (distance curve, spread, optional binaural/HRTF spatialization plugin). These are Unreal's concrete handles on the general spatial-audio concepts described in the [Audio Design](../gamedev/audio-design.html) page.
 
 ## Blueprints in UE5
 
@@ -629,9 +646,10 @@ Unreal Engine continues to push the boundaries of what's possible in real-time r
 <div class="see-also-card">
   <h4>Related pages</h4>
   <ul>
-    <li><a href="../gamedev/">Game Development</a> — game design principles and patterns</li>
-    <li><a href="../graphics/3d-rendering.html">3D Graphics</a> — the rendering pipeline and techniques</li>
-    <li><a href="../ai-ml/game-ai.html">AI in Games</a> — AI systems for games</li>
+    <li><a href="../gamedev/">Game Development hub</a> — engine-agnostic foundations: game loop, ECS-vs-OOP, state machines, and design principles that underpin any engine, including Unreal</li>
+    <li><a href="../gamedev/audio-design.html">Audio Design</a> — the general theory behind MetaSounds: mixing, attenuation, occlusion, and adaptive scoring</li>
+    <li><a href="../ai-ml/game-ai.html">AI in Games</a> — pathfinding, behavior trees, and decision-making that Unreal's State Tree and Smart Objects build on</li>
+    <li><a href="../graphics/3d-rendering.html">3D Graphics</a> — the rendering pipeline behind Nanite and Lumen</li>
     <li><a href="../vr-ar/">Virtual Reality</a> — VR development with Unreal</li>
     <li><a href="../optimization/">Performance Optimization</a> — profiling and optimization techniques</li>
   </ul>

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Quantum Computing
+permalink: /docs/technology/quantumcomputing.html
 toc: true
 toc_sticky: true
 toc_label: "On This Page"

@@ -69,7 +69,49 @@ $$\hat{A}|\psi_n\rangle = a_n|\psi_n\rangle$$
 The probability of measuring eigenvalue $a_n$ is:
 $$P(a_n) = |\langle\psi_n|\psi\rangle|^2$$
 
-## Measurement and Decoherence
+## Decoherence
+
+Decoherence is a concrete, calculable physical process — not an interpretation. It follows directly from the standard linear, unitary dynamics applied to a system *together with* its environment, and it explains why macroscopic superpositions are never observed in practice. Crucially, decoherence makes definite experimental predictions (timescales, loss of interference fringe visibility) that have been measured in the laboratory. Keep it firmly separated from the *interpretational* questions discussed in the next section: decoherence tells you why interference disappears, but on its own it does **not** answer why a single definite outcome is observed.
+
+### How Decoherence Arises
+
+**Decoherence** explains why we don't see quantum superpositions in everyday life:
+
+1. **Environment interaction**: System entangles with environment
+2. **Information leakage**: Quantum information spreads to environment
+3. **Apparent collapse**: System appears classical to local observers
+
+A system prepared in a superposition $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$ does not stay isolated. Each branch becomes correlated with a distinct environmental state, $|0\rangle|E_0\rangle + |1\rangle|E_1\rangle$. Once $\langle E_0|E_1\rangle \to 0$, the off-diagonal (coherence) terms of the system's reduced density matrix vanish and the system behaves, *locally*, like a classical statistical mixture. No interference between $|0\rangle$ and $|1\rangle$ can be recovered without re-collecting the information that leaked into the environment — which is, for a macroscopic environment, practically impossible.
+
+**Decoherence timescales:**
+- Electron in vacuum: ~10¹⁰ years
+- Dust particle in air: ~10⁻³¹ seconds
+- Schrödinger's cat: ~10⁻²³ seconds
+
+The enormous range is the whole point: it is what makes a dust grain or a cat effectively classical while leaving an isolated electron coherent for cosmological times. This explains why cats are never observed alive-and-dead but electrons readily display interference.
+
+### Mathematical Framework
+
+The system-environment interaction Hamiltonian:
+$$\hat{H}_{\text{int}} = \sum_\alpha g_\alpha\, \hat{S}_\alpha \otimes \hat{E}_\alpha$$
+Where $\hat{S}_\alpha$ are system operators and $\hat{E}_\alpha$ are environment operators.
+
+Tracing out the environment yields the reduced density matrix $\rho_S$, whose evolution follows a master equation:
+$$\frac{\partial \rho_S}{\partial t} = -\frac{i}{\hbar}[\hat{H}_S, \rho_S] - \sum_\alpha \gamma_\alpha\,[\hat{S}_\alpha, [\hat{S}_\alpha, \rho_S]]$$
+Where $\gamma_\alpha$ are decoherence rates determined by environmental coupling strengths and correlation times. The first (commutator) term is ordinary unitary evolution; the second (double-commutator) term suppresses the off-diagonal elements in the pointer basis selected by $\hat{S}_\alpha$, driving $\rho_S$ toward a diagonal, classical-looking mixture at rate $\gamma_\alpha$.
+
+### Quantum Zeno Effect
+
+Frequent measurements can "freeze" quantum evolution:
+- Continuous observation prevents transitions
+- Used in quantum error correction
+- Demonstrated with trapped ions
+
+**Example**: Watched pot never boils... quantum mechanically!
+
+## The Measurement Problem & Interpretations
+
+The previous section is settled physics; this one is not. Decoherence explains why interference disappears, but it leaves the *measurement problem* untouched: even after the reduced density matrix has become diagonal, the full system-plus-environment state is still a superposition, and unitary evolution alone never picks out the single outcome we actually observe. The questions below are about what the formalism *means* — they are genuinely open, and different answers correspond to different **interpretations** rather than different experimental predictions.
 
 ### The Measurement Problem
 
@@ -84,38 +126,7 @@ One of the most profound mysteries in quantum mechanics is measurement. When we 
 - Why do we see definite outcomes, not superpositions?
 - Is collapse real or apparent?
 
-### Decoherence: Nature's Solution
-
-**Decoherence** explains why we don't see quantum superpositions in everyday life:
-
-1. **Environment interaction**: System entangles with environment
-2. **Information leakage**: Quantum information spreads to environment
-3. **Apparent collapse**: System appears classical to local observers
-
-**Decoherence timescales:**
-- Electron in vacuum: ~10¹⁰ years
-- Dust particle in air: ~10⁻³¹ seconds
-- Schrödinger's cat: ~10⁻²³ seconds
-
-This explains why cats are never alive-and-dead but electrons can be!
-
-**Mathematical Framework:**
-The system-environment interaction Hamiltonian:
-$$\hat{H}_{\text{int}} = \sum_\alpha g_\alpha\, \hat{S}_\alpha \otimes \hat{E}_\alpha$$
-Where $\hat{S}_\alpha$ are system operators and $\hat{E}_\alpha$ are environment operators.
-
-The reduced density matrix evolution follows:
-$$\frac{\partial \rho_S}{\partial t} = -\frac{i}{\hbar}[\hat{H}_S, \rho_S] - \sum_\alpha \gamma_\alpha\,[\hat{S}_\alpha, [\hat{S}_\alpha, \rho_S]]$$
-Where $\gamma_\alpha$ are decoherence rates determined by environmental coupling strengths and correlation times.
-
-### Quantum Zeno Effect
-
-Frequent measurements can "freeze" quantum evolution:
-- Continuous observation prevents transitions
-- Used in quantum error correction
-- Demonstrated with trapped ions
-
-**Example**: Watched pot never boils... quantum mechanically!
+The linear, unitary Schrödinger evolution that governs every other process *never* produces step 2 on its own. Reconciling this with our experience of single, definite outcomes is precisely the measurement problem, and it is what the interpretations below attempt to address.
 
 ### Interpretations of Quantum Mechanics
 
@@ -137,6 +148,11 @@ The mathematics of quantum mechanics is not in dispute — every interpretation 
 - **Many-Worlds:** All possible outcomes occur in parallel branches; no collapse; deterministic evolution.
 - **Pilot Wave (de Broglie–Bohm):** Particles have definite positions guided by a pilot wave; non-local hidden variables; deterministic but non-local.
 - **QBism (Quantum Bayesianism):** Wave functions represent an agent's subjective beliefs; measurement updates those beliefs; observer-centric.
+
+<div class="tip-card">
+  <h4>Decoherence is not a substitute for an interpretation</h4>
+  <p>A common confusion is to treat decoherence as "solving" the measurement problem. It does not: it explains the <em>disappearance of interference</em> and the emergence of a preferred (pointer) basis, but the global state remains a superposition and the question of why <em>one</em> outcome is realized still requires an interpretation. Decoherence is therefore an ingredient that every interpretation uses, not a replacement for them.</p>
+</div>
 
 ## Angular Momentum
 

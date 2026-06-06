@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Git Command Reference"
+permalink: /docs/technology/git-reference.html
 hide_title: true
 ---
 

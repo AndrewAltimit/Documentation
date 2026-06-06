@@ -43,19 +43,26 @@ Effective security is layered — no single control is trusted to stop everythin
 flowchart TD
     A["Attacker"] --> E["Edge: firewall / WAF / DDoS protection"]
     E --> N["Network: segmentation, VPN, IDS/IPS"]
-    N --> H["Host: patching, EDR, least privilege"]
-    H --> APP["Application: input validation, authn/authz"]
+    N --> C["Cloud & Host: IAM, posture, EDR, least privilege"]
+    C --> APP["Application: input validation, authn/authz"]
     APP --> D["Data: encryption at rest & in transit"]
+    SOC["Security Operations: monitoring, detection, response"] -.watches.-> E
+    SOC -.watches.-> N
+    SOC -.watches.-> C
+    SOC -.watches.-> APP
     style A fill:#ffebee,stroke:#c62828
     style D fill:#e8f5e9,stroke:#2e7d32
+    style SOC fill:#e3f2fd,stroke:#1565c0
 ```
 
 | Layer | Where it's covered |
 |-------|--------------------|
 | Edge & Network | [Attacks & Network Defense](attacks-and-defense.html) |
-| Host & Operations | [Operations, Response & Compliance](operations-and-response.html) |
-| Application & Cloud | [Web, Cloud & Container Security](application-and-cloud-security.html) |
+| Host & Cloud | [Cloud & Container Security](cloud-and-container-security.html) |
+| Application | [Application Security](application-and-cloud-security.html) |
 | Data (encryption) | [Cryptography](cryptography.html) |
+| Detection & Response | [Security Operations](operations-and-response.html) |
+| People & Privacy | [Privacy Engineering](privacy-engineering.html) |
 
 ---
 
@@ -67,16 +74,36 @@ flowchart TD
     <p>Symmetric and public-key encryption, ECC, post-quantum algorithms, zero-knowledge and homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing.</p>
   </a>
   <a class="nav-card" href="application-and-cloud-security.html">
-    <h3>Web, Cloud &amp; Container Security</h3>
-    <p>SQL injection, XSS, JWTs, the cloud shared-responsibility model, IAM, and container hardening.</p>
+    <h3>Application Security</h3>
+    <p>SQL injection, XSS, CSRF, authentication and session handling, JWTs, the OWASP Top 10, and secure-by-design web development.</p>
+  </a>
+  <a class="nav-card" href="cloud-and-container-security.html">
+    <h3>Cloud &amp; Container Security</h3>
+    <p>The shared-responsibility model, IAM and identity, cloud posture management, container hardening, and Kubernetes workload security.</p>
   </a>
   <a class="nav-card" href="attacks-and-defense.html">
     <h3>Attacks &amp; Network Defense</h3>
-    <p>Firewalls, VPNs, and IDS; social engineering, supply chain and ransomware; side-channel and ML attacks.</p>
+    <p>Firewalls, VPNs, and IDS/IPS; social engineering, supply chain and ransomware; side-channel and ML attacks.</p>
   </a>
   <a class="nav-card" href="operations-and-response.html">
-    <h3>Operations, Response &amp; Compliance</h3>
-    <p>Formal security proofs, incident response, SIEM and threat hunting, GDPR/PCI compliance, and the future of the field.</p>
+    <h3>Security Operations &amp; Response</h3>
+    <p>The hub for running security day to day — the SOC, incident response, and compliance. Branches into the three guides below.</p>
+  </a>
+  <a class="nav-card" href="incident-response.html">
+    <h3>Incident Response &amp; Forensics</h3>
+    <p>What to do when prevention fails: detect, contain, eradicate, recover, and run a blameless post-mortem.</p>
+  </a>
+  <a class="nav-card" href="security-operations.html">
+    <h3>Security Operations</h3>
+    <p>The SOC, SIEM pipelines, detection engineering, threat hunting, and offensive testing (pentests, red/blue/purple teams).</p>
+  </a>
+  <a class="nav-card" href="compliance-and-governance.html">
+    <h3>Compliance &amp; Governance</h3>
+    <p>Turning security into a program — frameworks, risk management, GDPR/PCI, people, and metrics.</p>
+  </a>
+  <a class="nav-card" href="privacy-engineering.html">
+    <h3>Privacy Engineering</h3>
+    <p>Protecting people, not just data — privacy by design, data minimization, differential privacy, and legal obligations.</p>
   </a>
 </div>
 
@@ -267,9 +294,14 @@ Remember: Perfect security doesn't exist, but good security is achievable. Start
 ## See Also
 
 - [Cryptography](cryptography.html) — encryption, post-quantum, and the math behind it
-- [Web, Cloud & Container Security](application-and-cloud-security.html) — where most breaches happen
+- [Application Security](application-and-cloud-security.html) — injection, XSS, auth, and the OWASP Top 10
+- [Cloud & Container Security](cloud-and-container-security.html) — IAM, posture, and container hardening
 - [Attacks & Network Defense](attacks-and-defense.html) — firewalls, VPNs, and how attackers think
-- [Operations, Response & Compliance](operations-and-response.html) — SIEM, incident response, GDPR/PCI
+- [Security Operations & Response](operations-and-response.html) — the SOC, incident response, and compliance hub
+- [Incident Response & Forensics](incident-response.html) — detect, contain, eradicate, recover
+- [Security Operations](security-operations.html) — SIEM, detection engineering, and threat hunting
+- [Compliance & Governance](compliance-and-governance.html) — frameworks, risk, GDPR/PCI
+- [Privacy Engineering](privacy-engineering.html) — privacy by design and data minimization
 - [Networking](../networking/) — the protocols and routing security defends
 - [AWS](../aws/) — cloud security controls and the shared-responsibility model
 - [Docker](../docker/) — container isolation and image security

@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: "Cybersecurity: Operations, Response & Compliance"
+title: "Cybersecurity: Foundations, Operations & Research"
 permalink: /docs/technology/cybersecurity/operations-and-response.html
 toc: true
 toc_sticky: true
@@ -8,23 +8,42 @@ hide_title: true
 ---
 
 <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Operations, Response &amp; Compliance</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Running security day to day, responding when prevention fails, and meeting legal obligations</p>
+  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Foundations, Operations &amp; Research</h1>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Proving systems safe, running them day to day, and where the field is heading</p>
 </div>
 
-<p class="breadcrumb"><a href="./">Cybersecurity</a> › Operations, Response &amp; Compliance</p>
+<p class="breadcrumb"><a href="./">Cybersecurity</a> › Foundations, Operations &amp; Research</p>
 
 <div class="intro-card">
-  <p class="lead-text">Prevention is only part of security. This page covers how we prove systems are safe (formal security), what to do when a breach happens (incident response and forensics), the day-to-day work of security operations (SIEM, threat hunting, pentesting), the compliance frameworks that give security legal teeth, how to build a security program, and where the field is heading.</p>
+  <p class="lead-text">Security has a rigorous side and a practical side. This page covers the <strong>formal foundations</strong> — how cryptographers prove a scheme is secure and how those proofs compose into larger systems — and the <strong>research frontiers</strong> reshaping both attack and defense, from secure multi-party computation and differential privacy to the quantum threat and AI on both sides of the fight. It also serves as the <strong>hub</strong> for the operational disciplines that grew out of this material: incident response, security operations, and compliance and governance now each have their own dedicated page, linked below.</p>
+</div>
+
+## The Operations Disciplines
+
+The day-to-day practice of running security used to live on this page. It has been split into three focused guides, each covering one discipline end to end. Start here when you need the practical playbooks.
+
+<div class="command-grid">
+  <a class="nav-card" href="incident-response.html">
+    <h3>Incident Response &amp; Forensics</h3>
+    <p>The IR lifecycle (NIST SP 800-61 / SANS PICERL), the first critical minutes after detection, digital forensics, chain of custody, blameless post-mortems, and MTTD/MTTR metrics.</p>
+  </a>
+  <a class="nav-card" href="security-operations.html">
+    <h3>Security Operations</h3>
+    <p>Building and running a SOC: SIEM log pipelines, detection engineering with MITRE ATT&amp;CK, continuous monitoring, threat hunting, and offensive validation via pentests and red/blue/purple teaming.</p>
+  </a>
+  <a class="nav-card" href="compliance-and-governance.html">
+    <h3>Compliance &amp; Governance</h3>
+    <p>Turning security into a program: GDPR and PCI DSS, SOC 2 and ISO 27001 attestation, risk assessment, the human firewall, and the KPIs and maturity models that prove it works.</p>
+  </a>
 </div>
 
 ## Formal Security: Proving Systems Safe
 
-How do we know our security measures actually work? This is where formal security models come in—mathematical frameworks that prove security properties.
+How do we know our security measures actually work? This is where formal security models come in—mathematical frameworks that prove security properties. Rather than testing a scheme against the attacks we happen to think of, a security proof establishes a guarantee against *every* attacker in a defined class, reducing the security of the scheme to a problem we believe is hard (like factoring or computing discrete logarithms). The two cornerstones are the **security game**, which defines what "secure" means for a single primitive, and the **composability** frameworks, which let us reason about whole systems built from many primitives.
 
-### Security Games: Proving Encryption Security
+### Security Games: Defining What "Secure" Means
 
-Cryptographers use "games" to prove that encryption schemes are secure:
+A security definition is an *experiment* (a "game") played between a **challenger** and an **adversary** $\mathcal{A}$. The challenger sets up the scheme and answers the adversary's queries; the adversary tries to break some property. The scheme is secure if no efficient adversary can win the game with probability meaningfully better than guessing. The canonical example is **IND-CPA** (indistinguishability under chosen-plaintext attack): an encryption scheme is IND-CPA secure if an adversary, given the encryption of one of two messages *it chose itself*, cannot tell which message was encrypted.
 
 ```python
 # IND-CPA Game (Indistinguishability under Chosen Plaintext Attack)
@@ -52,9 +71,41 @@ def ind_cpa_game(encryption_scheme, adversary):
 # If adversary can win significantly more than 50%, encryption is broken!
 ```
 
+The security goal is captured by the adversary's **advantage** — how much better than a coin flip it does:
+
+$$
+\mathrm{Adv}^{\mathrm{IND\text{-}CPA}}_{\mathcal{A}} = \left\lvert \Pr[\text{guess} = b] - \tfrac{1}{2} \right\rvert
+$$
+
+A scheme is IND-CPA secure if this advantage is **negligible** for every probabilistic polynomial-time adversary — that is, it shrinks faster than the inverse of any polynomial in the security parameter $\lambda$ (the key length). Formally, a function $\nu(\lambda)$ is negligible if for every constant $c$ there is an $N$ such that $\nu(\lambda) < \lambda^{-c}$ for all $\lambda > N$:
+
+$$
+\forall c > 0 \ \ \exists N \ \ \forall \lambda > N: \ \nu(\lambda) < \lambda^{-c}
+$$
+
+This "negligible advantage against any efficient adversary" template generalizes far beyond encryption. The same structure defines:
+
+- **IND-CCA** — like IND-CPA but the adversary also gets a *decryption oracle* (it may decrypt any ciphertext except the challenge), modeling attackers who can probe a system's responses. This is the right notion for real protocols like TLS.
+- **EUF-CMA** (existential unforgeability under chosen-message attack) — for signatures and MACs: the adversary, after requesting signatures on messages of its choice, cannot produce a valid signature on any *new* message.
+- **Pseudorandomness** — a PRF is secure if no adversary can distinguish its outputs from those of a truly random function, given oracle access to one or the other.
+
+Most proofs proceed by **reduction**: assume an adversary $\mathcal{A}$ breaks the scheme with non-negligible advantage, then build an algorithm $\mathcal{B}$ that uses $\mathcal{A}$ as a subroutine to solve a problem assumed hard (factoring, discrete log, LWE). Because the hard problem is believed intractable, no such $\mathcal{A}$ can exist. A closely related technique, the **hybrid argument**, proves indistinguishability between two distributions by interpolating a sequence of intermediate "hybrid" games, each negligibly close to the next, so the endpoints are negligibly close overall.
+
 ### Universal Composability: Building Secure Systems
 
-Real systems combine many protocols. UC framework ensures they remain secure when combined:
+A scheme proven secure in isolation can still fail when combined with others — its proof only guarantees security in the specific stand-alone game it was analyzed in. Real systems run many protocols *concurrently*, sharing state and feeding each other's outputs as inputs. The **Universal Composability (UC)** framework, introduced by Ran Canetti, gives security definitions that survive arbitrary composition.
+
+The core idea is the **real/ideal paradigm**. We define an *ideal functionality* $\mathcal{F}$ — an incorruptible trusted party that simply does the right thing (e.g., "receive both inputs, return only the agreed output"). A protocol $\pi$ **UC-realizes** $\mathcal{F}$ if no environment $\mathcal{Z}$ — an adversarial program that chooses inputs, sees outputs, and interacts with everything — can distinguish between two worlds:
+
+- the **real world**, where parties run $\pi$ against a real adversary, and
+- the **ideal world**, where parties just hand inputs to $\mathcal{F}$ and a **simulator** $\mathcal{S}$ tries to fake the adversary's view.
+
+$$
+\forall \mathcal{A}\ \exists \mathcal{S}\ \forall \mathcal{Z}: \quad
+\mathrm{REAL}_{\pi,\mathcal{A},\mathcal{Z}} \ \approx_c\ \mathrm{IDEAL}_{\mathcal{F},\mathcal{S},\mathcal{Z}}
+$$
+
+If the environment cannot tell the two apart ($\approx_c$ denotes computational indistinguishability), then $\pi$ leaks nothing the ideal functionality wouldn't — *whatever else is running alongside it*. That last clause is the payoff: the **UC composition theorem** guarantees that if $\pi$ securely realizes $\mathcal{F}$, you may replace any call to $\mathcal{F}$ inside a larger protocol with $\pi$ and the larger protocol stays secure.
 
 ```python
 # Example: Secure voting system combining multiple protocols
@@ -63,365 +114,119 @@ Real systems combine many protocols. UC framework ensures they remain secure whe
 # - Zero-knowledge proofs (to verify vote validity)
 # - Commitment schemes (to prevent vote changing)
 
-# UC Framework proves: If each component is secure,
-# the combined system is also secure
+# UC Framework proves: If each component UC-realizes its ideal
+# functionality, the combined system also UC-realizes the ideal
+# "secure voting" functionality — no fresh whole-system proof needed.
 ```
 
-## When Things Go Wrong: Incident Response
+This modularity is what makes large secure systems tractable to reason about: prove each building block once against its ideal functionality, then compose freely. The cost is that UC is a demanding standard — many natural protocols are *not* UC-secure without extra setup assumptions such as a common reference string or trusted hardware, a limitation made precise by impossibility results for UC commitments and zero-knowledge in the plain model.
 
-Despite best efforts, breaches happen. How you respond determines whether it's a minor incident or a catastrophe.
+## Research Frontiers
 
-### The Golden Hour: First Steps Matter
+Beyond the established foundations, several research areas are actively reshaping what security can deliver. Each tackles a problem that classical cryptography couldn't: computing on data you're not allowed to see, learning from data without exposing individuals, distributing trust without a central authority, or surviving the arrival of quantum computers.
 
-When you discover a breach, every minute counts:
+### Secure Multi-Party Computation
+
+Imagine multiple hospitals wanting to collaborate on cancer research without sharing patient data. **Secure multi-party computation (MPC)** lets a set of parties jointly compute a function over their private inputs while revealing *only* the output — no party learns anything about another's input beyond what the result itself implies.
 
 ```python
-# Incident Response Checklist
-def initial_response():
-    # 1. Don't panic, don't turn anything off yet!
-    log("Incident detected at", datetime.now())
+# Each hospital has private patient data
+hospital_a_data = [patient_records_a]
+hospital_b_data = [patient_records_b]
+hospital_c_data = [patient_records_c]
 
-    # 2. Preserve evidence
-    capture_memory_dump()  # RAM contains encryption keys, passwords
-    capture_network_connections()  # See what's communicating
+# Using MPC, they can compute statistics without sharing data
+result = secure_multiparty_computation(
+    function="calculate_treatment_effectiveness",
+    inputs=[hospital_a_data, hospital_b_data, hospital_c_data]
+)
 
-    # 3. Contain the threat
-    isolate_affected_systems()  # Prevent lateral movement
-
-    # 4. Start documentation
-    create_incident_timeline()
-
-    # 5. Notify response team
-    alert_security_team()
+# Each hospital learns only the final result
+# No individual patient data is ever shared!
 ```
 
-### Digital Forensics: CSI for Computers
+The classic illustration is **Yao's Millionaires' Problem**: two millionaires want to learn who is richer without revealing their actual wealth. The two foundational techniques are **Yao's garbled circuits** (one party encrypts a boolean circuit so the other can evaluate it without learning intermediate wire values) and **secret-sharing-based protocols** in the GMW / BGW line, where each input is split into shares such that any unauthorized subset of parties learns nothing. A common building block is **Shamir secret sharing**, which splits a secret $s$ into $n$ shares using a random degree-$(t-1)$ polynomial $f$ with $f(0) = s$; any $t$ shares reconstruct $s$ by Lagrange interpolation, while any $t-1$ reveal nothing:
 
-Forensics is about finding out what happened without destroying evidence:
+$$
+f(x) = s + a_1 x + a_2 x^2 + \cdots + a_{t-1} x^{t-1} \pmod{p}
+$$
+
+Security models distinguish **semi-honest** adversaries (who follow the protocol but try to infer extra information) from **malicious** adversaries (who deviate arbitrarily); the latter requires more expensive protocols with consistency checks. MPC is no longer purely theoretical — it underpins privacy-preserving analytics, private set intersection (used in contact discovery and ad measurement), and threshold signing for cryptocurrency custody.
+
+### Differential Privacy
+
+How can we publish useful statistics about a dataset while provably protecting every individual in it? **Differential privacy (DP)** answers this with a precise mathematical guarantee: the output of a computation should be *almost the same* whether or not any single person's data is included. An adversary seeing the result therefore cannot confidently tell if you participated at all.
 
 ```python
-# Memory forensics example: Finding malware in RAM
-def analyze_memory_dump(dump_file):
-    # Look for suspicious processes
-    processes = extract_process_list(dump_file)
-    for proc in processes:
-        if proc.parent == "svchost.exe" and proc.name == "cmd.exe":
-            # svchost shouldn't spawn command prompts!
-            flag_suspicious(proc)
+def differentially_private_average(data, epsilon=1.0):
+    # Add carefully calibrated noise
+    true_average = sum(data) / len(data)
 
-    # Extract network connections
-    connections = extract_network_connections(dump_file)
-    for conn in connections:
-        if conn.destination_port == 4444:  # Common backdoor port
-            flag_suspicious(conn)
+    # Laplace noise scaled to sensitivity/epsilon
+    sensitivity = max_value - min_value
+    noise = numpy.random.laplace(0, sensitivity/epsilon)
 
-    # Look for injection techniques
-    for proc in processes:
-        if has_injected_code(proc):
-            extract_injected_code(proc)
+    private_average = true_average + noise
+
+    # Result is useful for analysis but doesn't reveal
+    # information about any individual
+    return private_average
 ```
 
-### Learning from Incidents
+Formally, a randomized mechanism $\mathcal{M}$ is **$\varepsilon$-differentially private** if for every pair of *neighboring* datasets $D$ and $D'$ (differing in one individual's record) and every set of outputs $S$:
 
-Every incident is a learning opportunity:
+$$
+\Pr[\mathcal{M}(D) \in S] \le e^{\varepsilon}\,\Pr[\mathcal{M}(D') \in S]
+$$
 
-1. **What was the initial entry point?** (Patch that vulnerability)
-2. **How did they move laterally?** (Improve segmentation)
-3. **What data was accessed?** (Enhance monitoring)
-4. **How long were they in?** (Improve detection)
+The parameter $\varepsilon$ (the **privacy budget**) tunes the trade-off: smaller $\varepsilon$ means stronger privacy and noisier, less useful answers. The amount of noise needed depends on the query's **sensitivity** $\Delta f$ — the most its output can change when one record is added or removed. The **Laplace mechanism** achieves $\varepsilon$-DP by adding noise drawn from $\mathrm{Laplace}(0, \Delta f / \varepsilon)$:
 
-## Security Operations: The Daily Battle
+$$
+\mathcal{M}(D) = f(D) + \mathrm{Lap}\!\left(\frac{\Delta f}{\varepsilon}\right)
+$$
 
-### SIEM: Your Security Nerve Center
+Two properties make DP composable and practical. **Composition**: running an $\varepsilon_1$- and an $\varepsilon_2$-private query yields at most $(\varepsilon_1 + \varepsilon_2)$-privacy, so a fixed budget can be spent across many queries. **Post-processing**: any function applied to a DP output stays DP, so released results can be freely analyzed without eroding the guarantee. DP is deployed at scale — the U.S. Census Bureau used it for the 2020 census, and Apple and Google use *local* DP (noise added on-device before data ever leaves) for telemetry.
 
-A Security Information and Event Management system is like having thousands of security cameras with an AI watching them all.
+### Blockchain Security
 
-**Next-Gen SIEM**:
-- **XDR (Extended Detection and Response)**: Unified security across endpoints, network, cloud
-- **SOAR Integration**: Automated response to incidents
-- **ML-Powered Analytics**: Behavioral baselines, anomaly detection
-- **Cloud-Native SIEM**: Elastic, Splunk Cloud, Microsoft Sentinel
+Beyond cryptocurrency, blockchains enable security models that don't depend on a single trusted authority. The core primitive is an **append-only, tamper-evident ledger**: each block commits to the previous block's hash, so altering any historical record would change every subsequent hash and be immediately detectable.
 
 ```python
-# Example: Detecting brute force attacks
-# SIEM query to find multiple failed logins
-query = """
-index=auth action=failed
-| stats count by src_ip, username
-| where count > 5
-| eval risk_score = count * 10
-| sort -risk_score
-"""
-
-# But smart attackers know about SIEMs...
-# They might try 4 attempts, wait, then try 4 more
-# So we need smarter detection:
-
-advanced_query = """
-index=auth action=failed
-| bucket _time span=1h
-| stats count by src_ip, username, _time
-| streamstats sum(count) as total_count by src_ip, username time_window=24h
-| where total_count > 10
-"""
-```
-
-### Threat Hunting: Finding the Hidden
-
-Not all attackers trigger alerts. Threat hunting is proactively searching for hidden threats:
-
-```python
-# Hunting for data exfiltration
-def hunt_data_exfiltration(network_logs):
-    # Look for unusual data transfers
-    for connection in network_logs:
-        # Large upload to uncommon destination?
-        if (connection.bytes_sent > 100_000_000 and  # 100MB+
-            connection.destination not in known_services):
-            investigate(connection)
-
-        # DNS tunneling? (hiding data in DNS queries)
-        if (connection.protocol == 'DNS' and
-            len(connection.query) > 100):  # Unusually long domain
-            flag_suspicious(connection)
-
-        # Beaconing? (malware calling home)
-        if is_periodic(connection.timestamps, tolerance=60):  # Every ~60 seconds
-            investigate(connection)
-```
-
-### Penetration Testing: Thinking Like an Attacker
-
-The best way to find vulnerabilities is to try exploiting them (ethically):
-
-```bash
-# Reconnaissance phase
-nmap -sS -sV -O target.com  # Stealthy scan
-
-# Found port 8080 running outdated Tomcat?
-# Check for known vulnerabilities
-searchsploit tomcat 7.0.52
-
-# Found SQL injection in login form?
-# Carefully test (with permission!)
-sqlmap -u "https://target.com/login" --data="user=test&pass=test" --level=3
-
-# Document everything for the client
-# The goal isn't to break in—it's to help them fix vulnerabilities
-```
-
-## Compliance: Security With Legal Teeth
-
-Compliance isn't just bureaucracy—it's security with consequences. Understanding major frameworks helps you build better security:
-
-### GDPR: Privacy as a Human Right
-
-The EU's General Data Protection Regulation changed how we think about data.
-
-**Global Privacy Landscape**:
-- **EU**: GDPR fines exceeded €2 billion total
-- **US**: State laws proliferating (California CPRA, Virginia VCDPA)
-- **India**: DPDP Act 2023 implementation
-- **China**: PIPL enforcement increasing
-- **AI-Specific**: EU AI Act (2024) adds requirements for AI systems
-
-```python
-# GDPR requires "privacy by design"
-class UserDataHandler:
-    def __init__(self):
-        self.purpose_limitation = True  # Only use data for stated purpose
-        self.data_minimization = True   # Collect minimum necessary
-        self.retention_limit = 90       # Delete after 90 days
-
-    def collect_user_data(self, user):
-        # Must have explicit consent
-        if not user.has_consented():
-            raise GDPRViolation("No consent for data collection")
-
-        # Right to be forgotten
-        if user.requests_deletion():
-            self.delete_all_user_data(user)
-            self.log_deletion(user)  # Prove compliance
-
-    def data_breach_notification(self):
-        # Must notify within 72 hours!
-        notify_authorities()
-        if high_risk_to_individuals():
-            notify_affected_users()
-```
-
-### PCI DSS: Protecting Payment Cards
-
-If you handle credit cards, PCI DSS isn't optional:
-
-```python
-# PCI DSS Requirement 3: Protect stored cardholder data
-# NEVER store:
-# - Full magnetic stripe data
-# - CVV/CVC (the 3-digit code)
-# - PIN
-
-# If you must store card numbers:
-def store_card_number(card_number):
-    # Requirement 3.4: Render PAN unreadable
-    # Show only first 6 and last 4 digits
-    masked = card_number[:6] + "*" * (len(card_number) - 10) + card_number[-4:]
-
-    # Encrypt the full number
-    encrypted = strong_encryption(card_number)
-
-    # Store with restricted access
-    store_with_access_control(encrypted, access_level="PCI_AUTHORIZED_ONLY")
-```
-
-## Practical Security Implementation
-
-### Building a Security Program
-
-Knowing the theory is one thing—implementing it is another. Here's how to build security into your organization:
-
-#### Start with Risk Assessment
-
-```python
-def assess_security_risks():
-    risks = []
-
-    # What are your crown jewels?
-    critical_assets = identify_critical_assets()
-    # Customer data? Source code? Trade secrets?
-
-    for asset in critical_assets:
-        # What threatens this asset?
-        threats = identify_threats(asset)
-        # Hackers? Insiders? Natural disasters?
-
-        # How vulnerable are you?
-        vulnerabilities = assess_vulnerabilities(asset)
-        # Unpatched systems? Weak passwords? No backups?
-
-        # What's the impact if compromised?
-        impact = calculate_impact(asset)
-        # Financial loss? Reputation damage? Legal liability?
-
-        risk_score = threats * vulnerabilities * impact
-        risks.append((asset, risk_score))
-
-    # Focus on highest risks first
-    return sorted(risks, key=lambda x: x[1], reverse=True)
-```
-
-#### Security Awareness: Your Human Firewall
-
-The best security tech can't protect against a user who clicks every link:
-
-```python
-class SecurityAwarenessProgram:
-    def __init__(self):
-        self.training_modules = [
-            "Recognizing Phishing",
-            "Password Security",
-            "Physical Security",
-            "Social Engineering",
-            "Incident Reporting"
-        ]
-
-    def conduct_phishing_test(self):
-        # Send harmless phishing email to employees
-        results = send_test_phishing_campaign()
-
-        for employee in results.clicked_link:
-            # Don't punish—educate!
-            provide_immediate_training(employee)
-
-        # Track improvement over time
-        self.metrics.record(results)
-
-    def gamify_security(self):
-        # Make security fun
-        return {
-            "Security Champion badges",
-            "Spot the Phish contests",
-            "Capture the Flag events",
-            "Security escape rooms"
-        }
-```
-
-### Secure Development Lifecycle
-
-Security can't be bolted on at the end—it must be built in from the start:
-
-```python
-class SecureDevelopmentLifecycle:
-    def design_phase(self):
-        # Threat modeling BEFORE coding
-        threats = perform_threat_modeling()
-        security_requirements = derive_security_requirements(threats)
-
-    def coding_phase(self):
-        # Security-focused code reviews
-        enforce_secure_coding_standards()
-        use_static_analysis_tools()  # Find bugs before they ship
-
-    def testing_phase(self):
-        # Security testing is not optional
-        run_static_analysis()        # SAST
-        run_dynamic_analysis()       # DAST
-        perform_penetration_test()   # Manual testing
-        check_dependencies()         # Software composition analysis
-
-    def deployment_phase(self):
-        # Secure configuration
-        harden_infrastructure()
-        implement_monitoring()
-        prepare_incident_response()
-
-    def maintenance_phase(self):
-        # Security doesn't end at deployment
-        monitor_for_vulnerabilities()
-        apply_patches_promptly()
-        conduct_regular_assessments()
-```
-
-### The Human Element
-
-Technology alone can't secure your systems. The human element is critical:
-
-```python
-# Security culture indicators
-class SecurityCulture:
-    def measure_culture_health(self):
-        return {
-            "password_manager_adoption": "85%",
-            "phishing_report_rate": "high",
-            "security_champion_volunteers": "growing",
-            "shadow_it_usage": "declining",
-            "incident_reporting_time": "< 1 hour average"
+# Transparent Certificate Authority
+class BlockchainCA:
+    def issue_certificate(self, domain, public_key):
+        cert = {
+            "domain": domain,
+            "public_key": public_key,
+            "timestamp": time.now(),
+            "issuer": self.identity
         }
 
-    def build_security_culture(self):
-        # Make security everyone's responsibility
-        initiatives = [
-            "Executive support and visible commitment",
-            "Regular security awareness training",
-            "Reward security-conscious behavior",
-            "Blameless post-mortems for incidents",
-            "Security champions in each team",
-            "Make the secure path the easy path"
-        ]
-        return initiatives
+        # Add to public blockchain
+        # Anyone can verify certificates
+        # Impossible to issue fake certs without detection
+        blockchain.add_block(cert)
 ```
 
-## The Future of Cybersecurity
+The hard problem a blockchain solves is **distributed consensus under adversarial conditions** — getting mutually distrusting nodes to agree on a single history despite faulty or malicious participants. This is the **Byzantine fault tolerance** problem: a protocol stays correct as long as fewer than a threshold of nodes misbehave (classically, fewer than one-third). Two consensus families dominate:
 
-The field never stands still. Two forces in particular are reshaping both attack and defense.
+- **Proof of Work** (Bitcoin) — nodes compete to solve a hash puzzle; rewriting history requires redoing all the work, so an attacker needs a majority of total hash power (the "51% attack" threshold).
+- **Proof of Stake** (Ethereum post-Merge) — validators are chosen in proportion to staked capital and lose their stake ("slashing") for misbehaving, making attacks economically self-defeating.
 
-### Quantum Computing: The Cryptography Killer?
+The security ideas generalize well beyond currency. **Certificate Transparency** is essentially an append-only log of issued TLS certificates that makes mis-issuance publicly detectable — the same auditability the snippet above sketches. The major caveat is that on-chain integrity does *not* extend to off-chain code: **smart contracts** are programs, and bugs in them (reentrancy, integer overflow, oracle manipulation) have caused nine-figure losses. The ledger faithfully records the theft.
 
-Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus by trial division needs billions of years; a sufficiently large quantum computer running Shor's algorithm could do it in hours or days. The response — post-quantum cryptography (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in [Cryptography → The Quantum Threat](cryptography.html#the-quantum-threat-why-we-need-new-cryptography). Operationally, the task ahead is *crypto-agility*: inventorying where your systems use RSA/ECC and being ready to swap in NIST's standardized algorithms (Kyber, Dilithium, FALCON, SPHINCS+).
+### The Quantum Threat
+
+Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus by trial division needs billions of years; a sufficiently large quantum computer running **Shor's algorithm** could do it in hours or days, because Shor's algorithm factors integers and computes discrete logarithms in polynomial time. That single result undermines RSA, Diffie–Hellman, and elliptic-curve cryptography simultaneously — essentially all of today's public-key infrastructure. Symmetric ciphers fare better: **Grover's algorithm** only gives a quadratic speedup on brute-force search, so doubling the key length (e.g., AES-256) restores the security margin.
+
+The response — **post-quantum cryptography** (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in [Cryptography → The Quantum Threat](cryptography.html#the-quantum-threat-why-we-need-new-cryptography). Operationally, two concerns drive action *today*, before large quantum computers exist:
+
+- **"Harvest now, decrypt later."** An adversary can record encrypted traffic now and decrypt it once a quantum computer is available. Any data that must stay confidential for a decade or more is already at risk.
+- **Crypto-agility.** The practical task is inventorying where your systems use RSA/ECC and being ready to swap in NIST's standardized algorithms — **ML-KEM (Kyber)** for key encapsulation, **ML-DSA (Dilithium)** and **FALCON** for signatures, and the hash-based **SPHINCS+** as a conservative backup — without re-architecting everything.
 
 ### AI: Both Sword and Shield
 
-AI is revolutionizing both attack and defense:
+AI is revolutionizing both attack and defense, and the two are locked in an escalating loop. On defense, machine learning excels at the volume-and-anomaly problems that overwhelm human analysts — establishing behavioral baselines and flagging deviations across billions of events:
 
 ```python
 # AI-powered defense
@@ -462,72 +267,9 @@ class AIAttacker:
         return malware
 ```
 
-The shift toward Zero Trust architectures is part of the same trajectory — assuming compromise and verifying continuously rather than trusting the perimeter. Its full treatment lives in [Attacks & Network Defense → Zero Trust](attacks-and-defense.html#zero-trust-never-trust-always-verify).
+The attacker's side is just as active: AI lowers the cost of *scaling* attacks — hyper-personalized phishing, deepfake voice and video for social engineering, and automated vulnerability discovery via fuzzing guided by ML. There is also a security problem *of* AI itself, distinct from AI *for* security. ML models can be subverted through **adversarial examples** (inputs perturbed to force misclassification), **data-poisoning** (corrupting the training set), **model extraction** (stealing a model through its API), and, for large language models, **prompt injection** (smuggling instructions through untrusted input). These ML-specific attacks are treated in [Attacks & Network Defense → Machine Learning Under Attack](attacks-and-defense.html#machine-learning-under-attack).
 
-## Advanced Research Topics
-
-For those wanting to dive deeper into cybersecurity research, here are cutting-edge areas:
-
-### Secure Multi-Party Computation
-
-Imagine multiple hospitals wanting to collaborate on cancer research without sharing patient data:
-
-```python
-# Each hospital has private patient data
-hospital_a_data = [patient_records_a]
-hospital_b_data = [patient_records_b]
-hospital_c_data = [patient_records_c]
-
-# Using MPC, they can compute statistics without sharing data
-result = secure_multiparty_computation(
-    function="calculate_treatment_effectiveness",
-    inputs=[hospital_a_data, hospital_b_data, hospital_c_data]
-)
-
-# Each hospital learns only the final result
-# No individual patient data is ever shared!
-```
-
-### Differential Privacy
-
-How can we use data for research while protecting individual privacy?
-
-```python
-def differentially_private_average(data, epsilon=1.0):
-    # Add carefully calibrated noise
-    true_average = sum(data) / len(data)
-
-    # Laplace noise scaled to sensitivity/epsilon
-    sensitivity = max_value - min_value
-    noise = numpy.random.laplace(0, sensitivity/epsilon)
-
-    private_average = true_average + noise
-
-    # Result is useful for analysis but doesn't reveal
-    # information about any individual
-    return private_average
-```
-
-### Blockchain Security
-
-Beyond cryptocurrency, blockchain enables new security models:
-
-```python
-# Transparent Certificate Authority
-class BlockchainCA:
-    def issue_certificate(self, domain, public_key):
-        cert = {
-            "domain": domain,
-            "public_key": public_key,
-            "timestamp": time.now(),
-            "issuer": self.identity
-        }
-
-        # Add to public blockchain
-        # Anyone can verify certificates
-        # Impossible to issue fake certs without detection
-        blockchain.add_block(cert)
-```
+The defensive trajectory bends toward **Zero Trust** — assuming compromise and verifying continuously rather than trusting the perimeter — which pairs naturally with continuous ML-driven monitoring. Its full treatment lives in [Attacks & Network Defense → Zero Trust](attacks-and-defense.html#zero-trust-never-trust-always-verify).
 
 ---
 
@@ -538,6 +280,11 @@ class BlockchainCA:
 
 ## See Also
 
-- [Attacks & Network Defense](attacks-and-defense.html) — the attacks this operations work responds to
+- [Incident Response & Forensics](incident-response.html) — the playbook for when prevention fails
+- [Security Operations](security-operations.html) — SOC, SIEM, detection engineering, threat hunting, and pentesting
+- [Compliance & Governance](compliance-and-governance.html) — GDPR/PCI, SOC 2/ISO 27001, risk, and security programs
 - [Cryptography](cryptography.html) — post-quantum migration and the math behind formal proofs
+- [Attacks & Network Defense](attacks-and-defense.html) — adversarial ML, Zero Trust, and the attacks these defenses answer
 - [Web, Cloud & Container Security](application-and-cloud-security.html) — securing the systems you operate
+</content>
+</invoke>

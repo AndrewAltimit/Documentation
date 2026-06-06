@@ -51,7 +51,34 @@ hide_title: true
   </a>
   <a class="nav-card" href="computing-and-advanced.html">
     <h3>Computing, Information &amp; Advanced Formalism</h3>
-    <p>Qubits, gates, and algorithms; error correction; and the graduate machinery — Hilbert spaces, density matrices, path integrals, many-body theory, and research frontiers.</p>
+    <p>The overview hub for quantum information and the graduate machinery — qubits, density matrices, path integrals, many-body theory, and research frontiers.</p>
+  </a>
+  <a class="nav-card" href="bell-inequalities-and-tests.html">
+    <h3>Bell's Theorem &amp; Experimental Tests</h3>
+    <p>EPR, the CHSH inequality and Tsirelson's bound, the loophole-free experiments, and what they prove about the structure of reality.</p>
+  </a>
+</div>
+
+### Deep-Dive Pages
+
+The computing-and-advanced sub-hub expands into focused reference pages:
+
+<div class="command-grid">
+  <a class="nav-card" href="qm-computing.html">
+    <h3>Quantum Computing</h3>
+    <p>Qubits and the Bloch sphere, unitary gates, entanglement as a resource, the physics behind Shor, Grover, and VQE, and error correction.</p>
+  </a>
+  <a class="nav-card" href="qm-advanced-formalism.html">
+    <h3>Advanced Formalism</h3>
+    <p>Rigged Hilbert spaces, density matrices and mixed states, the path integral, coherent and squeezed states, and open quantum systems.</p>
+  </a>
+  <a class="nav-card" href="qm-computational-methods.html">
+    <h3>Computational Methods</h3>
+    <p>Exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, and time-propagation methods — with working code.</p>
+  </a>
+  <a class="nav-card" href="qm-research-frontiers.html">
+    <h3>Research Frontiers</h3>
+    <p>Many-body theory, geometric phases, topological matter, measurement-induced phenomena, and the open questions driving current research.</p>
   </a>
 </div>
 
@@ -62,7 +89,12 @@ hide_title: true
 | Fundamental Concepts (below) | The five postulates, duality, uncertainty, wave functions |
 | [States, Operators & Dynamics](formalism.html) | Schrödinger equation, observables, measurement, angular momentum, time evolution, perturbation theory |
 | [Systems & Phenomena](systems-and-phenomena.html) | The box, oscillator, and hydrogen atom; tunneling, entanglement, superposition; experiments |
-| [Computing, Information & Advanced Formalism](computing-and-advanced.html) | Quantum computing, Hilbert spaces, density matrices, path integrals, many-body theory, research frontiers |
+| [Computing, Information & Advanced Formalism](computing-and-advanced.html) | Overview hub for quantum information and the graduate machinery |
+| [Quantum Computing](qm-computing.html) | Qubits, gates, entanglement as a resource, Shor/Grover/VQE, error correction |
+| [Advanced Formalism](qm-advanced-formalism.html) | Rigged Hilbert spaces, density matrices, path integrals, coherent states, open systems |
+| [Computational Methods](qm-computational-methods.html) | Exact diagonalization, tensor networks/DMRG, quantum Monte Carlo, time propagation |
+| [Research Frontiers](qm-research-frontiers.html) | Many-body theory, geometric phases, topological matter, open questions |
+| [Bell's Theorem & Experimental Tests](bell-inequalities-and-tests.html) | EPR, CHSH inequality, Tsirelson's bound, loophole-free experiments |
 
 ## How to Think Quantum
 
@@ -165,7 +197,9 @@ The probability of finding the particle in a region is $P(a < x < b) = \int_a^b 
 
 ## Common Misconceptions
 
-Quantum mechanics is unusually prone to plausible-sounding errors. The most common are conceptual, not mathematical.
+Quantum mechanics is unusually prone to plausible-sounding errors. They come in two flavors: **conceptual pitfalls** — wrong mental pictures — and **technical notes** — bookkeeping that quietly produces wrong answers even when the physics is understood.
+
+### Conceptual Pitfalls
 
 - **"Observation requires consciousness."** No. Any interaction that distinguishes quantum states causes apparent collapse; decoherence, not a conscious observer, explains why we see definite outcomes.
 - **"The uncertainty principle is measurement disturbance."** No. It is a fundamental property of wave-like systems — position and momentum do not have simultaneous definite values, they are not merely unknown.
@@ -175,7 +209,15 @@ Quantum mechanics is unusually prone to plausible-sounding errors. The most comm
 - **"The electron orbits the nucleus."** No. The electron occupies an orbital — a probability distribution, a cloud, not a trajectory.
 - **"Many-worlds means anything can happen."** No. Only outcomes consistent with the wave function occur.
 - **"Virtual particles are real particles popping in and out."** No. They are calculational tools in perturbation theory, not physical objects.
-- **Mathematically, watch normalization** ($\int|\psi|^2\,dx = 1$), **representation mixing** (position $\psi(x)$ vs. momentum $\tilde\psi(p)$ are related by a Fourier transform), **operator ordering** ($[\hat x,\hat p]=i\hbar$, so $\hat x\hat p \neq \hat p\hat x$), and **phases** (a global phase is unphysical, but relative phase is: $|0\rangle + |1\rangle \neq |0\rangle - |1\rangle$).
+
+### Technical Notes
+
+These are the bookkeeping traps that produce wrong numbers even when the concepts are clear:
+
+- **Normalization.** Every physical state must satisfy $\int|\psi|^2\,dx = 1$; forgetting to renormalize after a projection or a basis change is the most common arithmetic error.
+- **Representation mixing.** Position $\psi(x)$ and momentum $\tilde\psi(p)$ are the *same* state in two bases, related by a Fourier transform — never combine them as if they lived in one space.
+- **Operator ordering.** Because $[\hat x,\hat p]=i\hbar$, the operators do not commute: $\hat x\hat p \neq \hat p\hat x$. Order matters whenever you build or factor a Hamiltonian.
+- **Global vs. relative phase.** A global phase $e^{i\theta}\lvert\psi\rangle$ is unphysical, but *relative* phase is real and measurable: $\lvert 0\rangle + \lvert 1\rangle \neq \lvert 0\rangle - \lvert 1\rangle$.
 
 ## Key Takeaways
 

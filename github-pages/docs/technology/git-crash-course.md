@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Git Crash Course
+permalink: /docs/technology/git-crash-course.html
 section: technology
 toc: true
 toc_sticky: true
